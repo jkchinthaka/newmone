@@ -1,5 +1,6 @@
-import { ActionCenterPage } from "@/components/action-center/action-center-page";
+import { RoleLandingRedirect } from "@/components/layout/role-landing-redirect";
 
-export default function ActionCenterRoutePage() {
-  return <ActionCenterPage />;
+/** Retired. Old bookmarks leave this route for the signed-in role landing. */
+export default function RetiredActionCenterPage() {
+  return <RoleLandingRedirect />;
 }

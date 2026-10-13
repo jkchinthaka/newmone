@@ -23,7 +23,7 @@ export function QueueTabBar({ label, primary, more, selectedKey, moreOpen, onMor
   const selectedMore = more.find((item) => item.key === selectedKey);
   return (
     <div>
-      <div className="flex items-center gap-1 border-b border-slate-200 px-2 py-2">
+      <div className="flex min-w-0 items-center gap-1 border-b border-slate-200 px-2 py-2">
         <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto" role="tablist" aria-label={label}>
           {primary.map((item) => {
             const selected = item.key === selectedKey;
@@ -40,7 +40,7 @@ export function QueueTabBar({ label, primary, more, selectedKey, moreOpen, onMor
               >
                 {item.label}
                 {item.count != null ? (
-                  <span className={`ml-1.5 rounded-full px-1.5 text-xs ${selected ? "bg-white/20" : "bg-slate-200"}`}>
+                  <span className={`ml-1.5 rounded-full px-1.5 text-xs ${selected ? "bg-white text-brand-900" : "bg-slate-200 text-slate-800"}`}>
                     {item.count}
                   </span>
                 ) : null}

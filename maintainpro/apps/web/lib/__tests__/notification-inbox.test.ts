@@ -5,6 +5,7 @@ import {
   inboxSearchParams,
   inboxStateFromSearch,
   notificationContextHref,
+  notificationContextIsLinked,
   notificationNextAction,
   notificationStateLabel,
   passwordChangeError,
@@ -37,6 +38,15 @@ test("open context uses the exact work order, gate, and plan routes", () => {
     "/fleet/gate?vehicle=veh-1"
   );
   assert.equal(notificationContextHref({ deepLink: "/work-orders?highlight=wo-9" }), "/work-orders?wo=wo-9");
+  assert.equal(notificationContextIsLinked("/work-orders?wo=wo-1"), true);
+  assert.equal(notificationContextIsLinked("/notifications"), false);
+  assert.equal(notificationContextIsLinked("/notifications?status=UNREAD"), false);
+  assert.equal(notificationContextIsLinked(notificationContextHref({ title: "Digest" })), false);
+  assert.equal(notificationContextHref({ deepLink: "https://evil.example/phish" }), "/notifications");
+  assert.equal(notificationContextHref({ deepLink: "//evil.example/phish" }), "/notifications");
+  assert.equal(notificationContextHref({ deepLink: "javascript:alert(1)" }), "/notifications");
+  assert.equal(notificationContextIsLinked("https://evil.example"), false);
+  assert.equal(notificationContextIsLinked("/vehicles/veh-1"), true);
   assert.equal(notificationNextAction({ type: "LOW_STOCK" }), "Open parts");
   assert.equal(notificationNextAction({ type: "MAINTENANCE_DUE" }), "Open PM plan");
 });

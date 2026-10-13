@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { pmPlanDraftError, pmPlanListParams, pmPlanStateFromSearch } from "../pm-plan-list";
+import { pmPlanDraftError, pmPlanListParams, pmPlanStateFromSearch, pmSummaryHint } from "../pm-plan-list";
 
 test("create PM draft rejects a blank name, a zero interval, and activation without an asset", () => {
   assert.match(pmPlanDraftError({
@@ -66,4 +66,11 @@ test("clearing filters returns the first unfiltered page", () => {
   assert.equal(params.dueWindow, undefined);
   assert.equal(params.page, 1);
   assert.equal(params.search, undefined);
+});
+
+test("PM summary hints match the list filters", () => {
+  assert.match(pmSummaryHint("soon"), /7 days/);
+  assert.match(pmSummaryHint("overdue"), /passed/);
+  assert.match(pmSummaryHint("attention"), /trigger/);
+  assert.match(pmSummaryHint("active"), /Active/);
 });

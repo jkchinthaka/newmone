@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/page-state";
 import { toSortAriaSort } from "@/lib/accessibility";
-import { getVisibleMobileColumns } from "@/lib/data-table-mobile";
+import { getVisibleMobileColumns, dataTableRowIsKeyboardTarget } from "@/lib/data-table-mobile";
 import { getPaginationMeta, type SortDirection } from "@/lib/client-table";
 
 export type { SortDirection };
@@ -212,7 +212,7 @@ export function DataTable<T>({
               ) : (
                 rows.map((row) => {
                   const rowLabel = onRowClick && getRowLabel ? getRowLabel(row) : undefined;
-                  const rowIsKeyboardTarget = Boolean(onRowClick) && !hasActions;
+                  const rowIsKeyboardTarget = dataTableRowIsKeyboardTarget(Boolean(onRowClick), hasActions);
 
                   return (
                   <tr
@@ -264,13 +264,26 @@ export function DataTable<T>({
           <ul className="divide-y divide-slate-200">
             {rows.map((row) => {
               const rowLabel = onRowClick && getRowLabel ? getRowLabel(row) : undefined;
+              const rowIsKeyboardTarget = dataTableRowIsKeyboardTarget(Boolean(onRowClick), hasActions);
 
               return (
               <li key={getRowId(row)} className="overflow-visible">
                 <div
                   aria-label={rowLabel}
+                  role={rowIsKeyboardTarget ? "button" : undefined}
+                  tabIndex={rowIsKeyboardTarget ? 0 : undefined}
                   className={`space-y-3 overflow-visible p-4 ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) ?? ""}`.trim()}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onKeyDown={
+                    rowIsKeyboardTarget
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onRowClick?.(row);
+                          }
+                        }
+                      : undefined
+                  }
                 >
                   {renderLeadingCell ? (
                     <div className="flex min-h-11 items-center" onClick={(event) => event.stopPropagation()}>

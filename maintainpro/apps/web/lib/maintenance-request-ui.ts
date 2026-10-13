@@ -74,6 +74,11 @@ export function requestStatusLabel(status: string | null | undefined) {
   return STATUS_LABELS[status] ?? titleCase(status);
 }
 
+/** Matches the API triage queue: New, Under Review, Needs Information. Accepted stays on All requests. */
+export function requestTriageExplanation() {
+  return "New, Under Review, and Needs Information. Accepted requests stay on All requests until a work order is created.";
+}
+
 export function requestHistoryActionLabel(action: string | null | undefined) {
   if (!action) return "Update";
   return HISTORY_ACTION_LABELS[action] ?? titleCase(action);

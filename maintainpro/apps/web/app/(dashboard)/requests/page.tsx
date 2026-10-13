@@ -8,6 +8,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, MoreHorizontal, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { requestMenuPosition } from "@/lib/request-row-menu";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState } from "@/components/ui/page-state";
 import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
@@ -30,6 +31,7 @@ import {
   requestResultCountLabel,
   requestStageCards,
   requestStatusLabel,
+  requestTriageExplanation,
   requestValueLabel,
   resolveRequestMenuActivation
 } from "@/lib/maintenance-request-ui";
@@ -126,12 +128,7 @@ function ActionMenu({
     if (!open || !buttonRef.current) return;
     const place = () => {
       const rect = buttonRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const width = 240;
-      setPosition({
-        top: rect.bottom + 4,
-        left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))
-      });
+      setPosition(requestMenuPosition(rect, window.innerWidth));
     };
     place();
     window.addEventListener("resize", place);
@@ -511,6 +508,7 @@ export default function RequestsPage() {
         ))}
       </div>
       ) : null}
+      {view === "triage" ? <p className="text-sm text-slate-600">{requestTriageExplanation()}</p> : null}
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-3" aria-label="Filters">
         <div className="grid gap-2 lg:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,0.7fr))_auto]">

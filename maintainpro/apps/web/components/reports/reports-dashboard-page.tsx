@@ -15,12 +15,18 @@ import { OperationalPageHeader } from "@/components/operational/operational-page
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
 import {
-  OPERATIONS_COMPLETION_RATE_DEFINITION,
   REPORT_EMPTY,
+  REPORT_PAGE_DESCRIPTION,
+  REPORT_PIN_LIMIT,
+  pinReport,
+  readReportPins,
+  reportModuleFromSearch,
   reportRowHref,
-  visibleWorkspaceModules,
-  workspaceModuleFromSearch,
-  type WorkspaceModule
+  unpinReport,
+  visiblePinnedReports,
+  visibleReportModules,
+  writeReportPins,
+  type RetainedReportSlug
 } from "@/lib/report-workspace";
 import { useCurrentUser } from "@/lib/use-current-user";
 
@@ -35,9 +41,10 @@ export function ReportsDashboardPage() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const modules = visibleWorkspaceModules(user.role, user.permissions);
-  const requestedModule = workspaceModuleFromSearch(params.get("module"));
-  const moduleSlug = modules.some((item) => item.slug === requestedModule) ? requestedModule : "operations";
+  const modules = visibleReportModules(user.role, user.permissions);
+  const moduleSlug = reportModuleFromSearch(params.get("module"), user.role, user.permissions);
+  const [pins, setPins] = useState<RetainedReportSlug[]>([]);
+  const [pinMessage, setPinMessage] = useState<string | null>(null);
   const [filters, setFilters] = useState<ReportFilters>(() => ({
     ...defaultReportFilters(),
     pageSize: 25,
@@ -60,10 +67,34 @@ export function ReportsDashboardPage() {
     queryKey: ["reports", "templates"],
     queryFn: async () => {
       const { apiClient } = await import("@/lib/api-client");
-      const response = await apiClient.get<{ data?: Array<{ id: string; name: string; reportType: WorkspaceModule; defaultStatus: string; exportFormat: "csv" | "xlsx" }> }>("/reports/templates");
+      const response = await apiClient.get<{ data?: Array<{ id: string; name: string; reportType: RetainedReportSlug; defaultStatus: string; exportFormat: "csv" | "xlsx" }> }>("/reports/templates");
       return response.data.data ?? [];
     }
   });
+
+  useEffect(() => {
+    setPins(visiblePinnedReports(readReportPins(user.id, user.tenantId, window.localStorage), user.role, user.permissions));
+  }, [user.id, user.tenantId, user.role, user.permissions]);
+
+  function togglePin(slug: RetainedReportSlug) {
+    const stored = readReportPins(user.id, user.tenantId, window.localStorage);
+    if (pins.includes(slug)) {
+      const saved = unpinReport(stored, slug);
+      writeReportPins(user.id, user.tenantId, saved, window.localStorage);
+      setPins(visiblePinnedReports(saved, user.role, user.permissions));
+      setPinMessage(null);
+    } else {
+      const next = pinReport(stored, slug, user.role, user.permissions);
+      if (!next.ok) {
+        setPinMessage(`You can pin up to ${REPORT_PIN_LIMIT} reports. Unpin one before adding another.`);
+        return;
+      }
+      writeReportPins(user.id, user.tenantId, next.pins, window.localStorage);
+      setPins(next.pins);
+      setPinMessage(null);
+    }
+    window.dispatchEvent(new CustomEvent("maintainpro-report-pins-changed"));
+  }
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -148,44 +179,55 @@ export function ReportsDashboardPage() {
       <OperationalPageHeader
         eyebrow="Reports"
         title="Reports"
-        description="Live work-order reporting. Numbers use the same server query as the export."
+        description={REPORT_PAGE_DESCRIPTION}
         actions={
           <>
-            <button type="button" className="h-10 rounded-lg border border-slate-300 px-3 text-sm font-medium" onClick={() => query.refetch()}>
+            <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium" onClick={() => query.refetch()}>
               Generate report
             </button>
-            <button type="button" className="h-10 rounded-lg border border-slate-300 px-3 text-sm font-medium" disabled={exporting} onClick={() => exportReport("csv")}>
-              CSV
+            <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium" disabled={exporting} aria-busy={exporting} onClick={() => exportReport("csv")}>
+              {exporting ? "Preparing export…" : "CSV"}
             </button>
-            <button type="button" className="h-10 rounded-lg border border-slate-300 px-3 text-sm font-medium" disabled={exporting} onClick={() => exportReport("xlsx")}>
-              Excel
+            <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium" disabled={exporting} aria-busy={exporting} onClick={() => exportReport("xlsx")}>
+              {exporting ? "Preparing export…" : "Excel"}
             </button>
           </>
         }
       />
-      <p className="text-xs text-slate-500">{OPERATIONS_COMPLETION_RATE_DEFINITION}</p>
+      {query.dataUpdatedAt ? <p className="text-xs text-slate-500">Loaded {new Date(query.dataUpdatedAt).toLocaleString()}.</p> : null}
 
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Report category">
-        {modules.map((item) => (
-          <button
-            key={item.slug}
-            type="button"
-            role="tab"
-            aria-selected={moduleSlug === item.slug}
-            className={`h-9 rounded-md px-3 text-sm ${moduleSlug === item.slug ? "bg-slate-900 text-white" : "border border-slate-300 bg-white"}`}
-            onClick={() => {
-              const next = new URLSearchParams(params.toString());
-              next.set("module", item.slug);
-              router.replace(`${pathname}?${next.toString()}` as Route);
-              setFilters((current) => ({ ...current, page: 1 }));
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Report category">
+          {modules.map((item) => (
+            <div key={item.slug} className="flex items-center gap-1">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={moduleSlug === item.slug}
+              className={`min-h-11 rounded-md px-3 text-sm ${moduleSlug === item.slug ? "bg-slate-900 text-white" : "border border-slate-300 bg-white"}`}
+              onClick={() => {
+                const next = new URLSearchParams(params.toString());
+                next.set("module", item.slug);
+                router.replace(`${pathname}?${next.toString()}` as Route);
+                setFilters((current) => ({ ...current, page: 1 }));
+              }}
+            >
+              {item.label}
+            </button>
+            <button
+              type="button"
+              className="min-h-11 rounded-md border border-slate-300 bg-white px-2 text-sm"
+              aria-pressed={pins.includes(item.slug)}
+              onClick={() => togglePin(item.slug)}
+            >
+              {pins.includes(item.slug) ? "Unpin" : "Pin to sidebar"}
+            </button>
+            </div>
+          ))}
+        </div>
         <select
           aria-label="Saved report"
-          className="h-9 rounded-md border border-slate-300 px-2 text-sm"
+          className="min-h-11 rounded-md border border-slate-300 px-2 text-sm"
           defaultValue=""
           onChange={(event) => {
             const template = (templates.data ?? []).find((item) => item.id === event.target.value);
@@ -197,14 +239,16 @@ export function ReportsDashboardPage() {
           }}
         >
           <option value="">Saved reports</option>
-          {(templates.data ?? []).map((template) => (
+          {(templates.data ?? []).filter((template) => modules.some((item) => item.slug === template.reportType)).map((template) => (
             <option key={template.id} value={template.id}>{template.name}</option>
           ))}
         </select>
-        <Link href={"/reports/operations" as Route} className="inline-flex h-9 items-center px-2 text-sm text-brand-700">
-          All report modules
-        </Link>
       </div>
+      {pinMessage ? (
+        <p className="text-sm text-amber-900" role="status">
+          {pinMessage}
+        </p>
+      ) : null}
 
       <section className="rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 p-2">

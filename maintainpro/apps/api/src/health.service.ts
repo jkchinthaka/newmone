@@ -89,9 +89,11 @@ export class HealthService {
       build: { version: string; commit: string };
     };
   }> {
-    const database = await this.checkDatabase();
-    const objectStorage = await this.checkObjectStorage();
-    const queueChecks = await this.checkQueues();
+    const [database, objectStorage, queueChecks] = await Promise.all([
+      this.checkDatabase(),
+      this.checkObjectStorage(),
+      this.checkQueues()
+    ]);
 
     const requiredDown =
       database.status !== "operational" ||
@@ -424,7 +426,30 @@ export class HealthService {
   }
 
   private async checkQueues(): Promise<DependencyCheck[]> {
-    return this.buildQueueChecks(await this.getQueueHealthDetails());
+    const dependencyTimeoutMs = this.configService.get<number>("HEALTHCHECK_DEPENDENCY_TIMEOUT_MS", 5000);
+    const queueHealthDetails = await this.withTimeout(
+      this.getQueueHealthDetails(),
+      dependencyTimeoutMs,
+      "Queue health check timed out"
+    ).catch((error) => {
+      this.logger.warn(`Queue health check failed: ${this.safeErrorMessage(error)}`);
+      return null;
+    });
+
+    if (!queueHealthDetails) {
+      return [
+        {
+          key: "redis",
+          label: "Redis queues",
+          status: "degraded",
+          required: this.configService.get<boolean>("REDIS_REQUIRED_FOR_READINESS", false),
+          message: "Queue health could not be verified within the readiness timeout.",
+          action: "Check REDIS_URL and queue worker connectivity, or increase HEALTHCHECK_DEPENDENCY_TIMEOUT_MS."
+        }
+      ];
+    }
+
+    return this.buildQueueChecks(queueHealthDetails);
   }
 
   private async checkObjectStorage(): Promise<DependencyCheck> {

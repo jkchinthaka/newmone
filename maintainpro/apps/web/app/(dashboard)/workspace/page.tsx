@@ -1,9 +1,6 @@
-import { redirect } from "next/navigation";
+import { RoleLandingRedirect } from "@/components/layout/role-landing-redirect";
 
-/**
- * Phase 1: Workspace consolidated into role-aware Home (`/action-center`).
- * Underlying Action Center widgets remain the Home implementation.
- */
+/** Legacy /workspace bookmark. Lands on the role module, not Action Center. */
 export default function WorkspaceRedirectPage() {
-  redirect("/action-center");
+  return <RoleLandingRedirect />;
 }

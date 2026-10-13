@@ -5,7 +5,7 @@ import { resolveBreadcrumbItems } from "../breadcrumbs";
 
 describe("dashboard breadcrumbs", () => {
   it("names the canonical home and module routes", () => {
-    assert.deepEqual(resolveBreadcrumbItems("/action-center"), [{ label: "Home" }]);
+    assert.deepEqual(resolveBreadcrumbItems("/action-center"), []);
     assert.deepEqual(resolveBreadcrumbItems("/requests"), [{ label: "Requests" }]);
     assert.equal(resolveBreadcrumbItems("/assets")[0]?.label, "Assets");
   });

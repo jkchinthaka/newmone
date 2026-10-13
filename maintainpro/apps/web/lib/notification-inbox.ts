@@ -59,7 +59,8 @@ export function notificationContextHref(input: {
   if (supplied && supplied !== "/notifications") {
     const highlight = supplied.match(/[?&]highlight=([^&]+)/);
     if (highlight) return `/work-orders?wo=${decodeURIComponent(highlight[1])}`;
-    return supplied;
+    const safe = safeNotificationPath(supplied);
+    if (safe) return safe;
   }
 
   const id = input.referenceId?.trim();
@@ -78,6 +79,25 @@ export function notificationContextHref(input: {
   if (type === "LOW_STOCK" && id) return `/inventory?q=${encodeURIComponent(id)}`;
   if (input.referenceType === "FacilityIssue" && id) return `/cleaning/issues?issueId=${id}`;
   return "/notifications";
+}
+
+/** In-app paths only. Absolute, protocol-relative, and script URLs are not notification targets. */
+export function safeNotificationPath(value: string): string | null {
+  if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return null;
+  if (value.includes("://") || /[\s\\]/.test(value)) return null;
+  if (value === "/notifications" || value.startsWith("/notifications?")) return null;
+  return value;
+}
+
+/** True when Open context leaves the inbox for a business record. */
+export function notificationContextIsLinked(href: string | null | undefined): boolean {
+  if (!href?.trim()) return false;
+  if (!safeNotificationPath(href)) return false;
+  try {
+    return new URL(href, "http://maintainpro.local").pathname !== "/notifications";
+  } catch {
+    return false;
+  }
 }
 
 export function notificationNextAction(input: {

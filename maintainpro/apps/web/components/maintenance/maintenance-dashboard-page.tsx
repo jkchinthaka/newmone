@@ -173,7 +173,7 @@ export function MaintenanceDashboardPage() {
 
   return (
     <div className="ops-page">
-      <PageBreadcrumbs items={[{ label: "Home", href: "/action-center" }, { label: "Maintenance" }]} />
+      <PageBreadcrumbs items={[{ label: "Maintenance" }]} />
       <div>
         <h1 className="page-title">Maintenance Dashboard</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-600">

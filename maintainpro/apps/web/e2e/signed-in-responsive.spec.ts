@@ -11,7 +11,7 @@ function seedPassword() {
 }
 
 const pages = [
-  "/action-center",
+  "/admin",
   "/maintenance/jobs",
   "/assets",
   "/fleet",

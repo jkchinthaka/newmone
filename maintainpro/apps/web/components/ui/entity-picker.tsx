@@ -157,7 +157,9 @@ export function EntityPicker<T extends Record<string, unknown>>(props: EntityPic
         event.preventDefault();
         onCreateNew(query.trim());
       }
-    } else if (event.key === "Escape") {
+    } else if (event.key === "Escape" && open) {
+      event.preventDefault();
+      event.stopPropagation();
       setOpen(false);
     }
   };

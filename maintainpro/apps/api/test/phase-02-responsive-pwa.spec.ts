@@ -98,7 +98,7 @@ describe("Phase 2 responsive / PWA foundations", () => {
   });
 
   it("keeps PWA installability metadata coherent", () => {
-    expect(PWA_START_URL).toBe("/splash");
+    expect(PWA_START_URL).toBe("/");
     expect(PWA_SCOPE).toBe("/");
     expect(PWA_DISPLAY).toBe("standalone");
   });

@@ -758,7 +758,7 @@ export default function VehiclesPage() {
                 key={status}
                 type="button"
                 onClick={() => toggleStatus(status)}
-                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                className={`inline-flex min-h-11 items-center rounded-full border px-3 text-sm font-medium transition ${
                   active
                     ? "border-brand-300 bg-brand-50 text-brand-700"
                     : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -771,7 +771,7 @@ export default function VehiclesPage() {
           <button
             type="button"
             onClick={resetFilters}
-            className="ml-auto rounded-full border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            className="ml-auto inline-flex min-h-11 items-center rounded-full border border-slate-200 px-3 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
             Clear Filters
           </button>

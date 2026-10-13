@@ -16,7 +16,7 @@ export type BreadcrumbsProps = {
 };
 
 export function Breadcrumbs({ items, className = "" }: BreadcrumbsProps) {
-  if (items.length === 0) {
+  if (items.length < 2) {
     return null;
   }
 

@@ -176,7 +176,6 @@ export default function MaintenanceHistoryPage() {
     <div className="min-w-0 space-y-3 p-4 md:p-6">
       <PageBreadcrumbs
         items={[
-          { label: "Home", href: "/action-center" },
           { label: "Maintenance", href: "/maintenance" },
           { label: "History" }
         ]}

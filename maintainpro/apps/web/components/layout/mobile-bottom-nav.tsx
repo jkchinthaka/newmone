@@ -5,12 +5,17 @@ import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import {
   AlertTriangle,
+  BarChart3,
+  Bell,
   BellRing,
   Boxes,
   ClipboardList,
   FileCheck2,
   Home,
+  Layers,
   Search,
+  ShieldCheck,
+  Truck,
   UserCircle2,
   type LucideIcon
 } from "lucide-react";
@@ -21,13 +26,18 @@ import { useCurrentUser } from "@/lib/use-current-user";
 
 const MOBILE_ICON_MAP: Record<string, LucideIcon> = {
   Home,
+  Bell,
   BellRing,
   ClipboardList,
   FileCheck2,
   Search,
   UserCircle2,
   AlertTriangle,
-  Boxes
+  Boxes,
+  Truck,
+  Layers,
+  BarChart3,
+  ShieldCheck
 };
 
 type Props = {
@@ -75,6 +85,7 @@ export function MobileBottomNav({ onOpenSearch }: Props) {
                 className={`flex min-h-12 w-full flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-medium ${
                   active ? "bg-brand-50 text-brand-800" : "text-slate-600"
                 }`}
+                aria-current={active ? "page" : undefined}
               >
                 <Icon size={18} aria-hidden />
                 <span>{item.label}</span>

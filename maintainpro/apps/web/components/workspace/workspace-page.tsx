@@ -80,8 +80,8 @@ export default function WorkspacePage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-slate-900">Today&apos;s actions</h2>
-          <Link href="/action-center" className="text-sm font-medium text-brand-700 hover:underline">
-            Open Action Center
+          <Link href="/notifications" className="text-sm font-medium text-brand-700 hover:underline">
+            Open notifications
           </Link>
         </div>
 

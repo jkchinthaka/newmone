@@ -18,7 +18,7 @@ export function TenantSwitcher({ id = "tenant-switcher", className = "" }: Tenan
   const [pending, setPending] = useState(false);
   const selectedTenantId = tenantId ?? "";
 
-  if (memberships.length === 0) {
+  if (memberships.length < 2) {
     return null;
   }
 

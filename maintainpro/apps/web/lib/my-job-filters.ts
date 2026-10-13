@@ -38,3 +38,27 @@ export function myJobFilterHref(filter: MyJobFilter = "active"): string {
   if (filter === "active") return "/work-orders/my";
   return `/work-orders/my?filter=${filter}`;
 }
+
+/** Display copy for the selected My Jobs tab. The API still decides membership. */
+export function myJobPurpose(filter: MyJobFilter): string {
+  switch (filter) {
+    case "active":
+      return "Jobs assigned to you that are not completed, closed, or cancelled.";
+    case "due-today":
+      return "Assigned jobs whose due date falls on today.";
+    case "overdue":
+      return "Assigned jobs that are past due, or marked overdue, and are not finished.";
+    case "waiting-parts":
+      return "Assigned jobs that are not finished and still have a parts request, issue, or return.";
+    case "evidence-needed":
+      return "Assigned jobs that are not finished and are missing required evidence, or have rejected evidence.";
+    case "rework-required":
+      return "Assigned jobs sent back for rework.";
+    case "in-progress":
+      return "Assigned jobs that are in progress.";
+    case "completed":
+      return "Assigned jobs that are completed or closed.";
+    default:
+      return "";
+  }
+}

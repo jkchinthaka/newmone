@@ -244,8 +244,9 @@ test.describe("authentication", () => {
     await page.locator('input[name="password"]').fill(e2ePassword);
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await page.waitForURL("**/action-center", { waitUntil: "commit" });
+    await page.waitForURL("**/admin", { waitUntil: "commit" });
     await expect(page).not.toHaveURL(/\/home$/);
+    await expect(page).not.toHaveURL(/\/action-center/);
     await assertNoLegacyTokenStorage(page);
 
     const cookies = await page.context().cookies();
@@ -259,7 +260,7 @@ test.describe("authentication", () => {
     expect(csrf?.httpOnly).toBe(false);
   });
 
-  test("logs in as technician and lands on action center", async ({ page }) => {
+  test("logs in as technician and lands on work orders", async ({ page }) => {
     const technicianUser = {
       ...adminUser,
       id: "user-e2e-tech",
@@ -349,8 +350,9 @@ test.describe("authentication", () => {
     await page.locator('input[name="password"]').fill(e2ePassword);
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await page.waitForURL("**/action-center", { waitUntil: "commit" });
+    await page.waitForURL("**/work-orders", { waitUntil: "commit" });
     await expect(page).not.toHaveURL(/\/home$/);
+    await expect(page).not.toHaveURL(/\/action-center/);
     await assertNoLegacyTokenStorage(page);
   });
 
@@ -362,7 +364,8 @@ test.describe("authentication", () => {
 
     await page.goto("/action-center", { waitUntil: "domcontentloaded" });
 
-    await expect(page).toHaveURL(/\/login\?reason=session_expired&returnTo=%2Faction-center/);
+    await expect(page).toHaveURL(/\/login\?reason=session_expired/);
+    await expect(page).not.toHaveURL(/action-center/);
     expect(apiCalls).toEqual([]);
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/login\?reason=session_expired/);
@@ -471,7 +474,7 @@ test.describe("authentication", () => {
     await assertNoLegacyTokenStorage(page);
   });
 
-  test("action center loads without crashing for admin role", async ({ page }) => {
+  test("retired action center bookmark redirects admin to the admin console", async ({ page }) => {
     await mockAuthenticatedShell(page);
     await page.route("**/api/backend/action-center**", async (route) => {
       await route.fulfill({
@@ -496,7 +499,8 @@ test.describe("authentication", () => {
 
     await page.goto("/action-center");
 
-    await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
+    await page.waitForURL("**/admin");
+    await expect(page).not.toHaveURL(/\/action-center/);
     await assertNoLegacyTokenStorage(page);
   });
 

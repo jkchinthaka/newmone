@@ -38,7 +38,7 @@ describe("mobile and PWA polish helpers", () => {
     expect(PWA_NAME).toBe("MaintainPro");
     expect(PWA_SHORT_NAME).toBe("MaintainPro");
     expect(PWA_DESCRIPTION).toBe("Enterprise Maintenance & Facility Operations Platform");
-    expect(PWA_START_URL).toBe("/splash");
+    expect(PWA_START_URL).toBe("/");
     expect(PWA_THEME_COLOR).toBe("#0f172a");
     expect(PWA_ICON_PATHS.icon192).toBe("/pwa-192x192.svg");
     expect(PWA_ICON_PATHS.icon512).toBe("/pwa-512x512.svg");

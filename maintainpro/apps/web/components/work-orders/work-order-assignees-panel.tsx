@@ -8,13 +8,14 @@ import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessageForRoute } from "@/lib/api-client";
 import {
-  ASSIGNABLE_WORKFORCE_DESIGNATIONS,
   canManageWorkforceEmployees,
   canOverrideLeaveConflict,
   canViewWorkforceEmployees,
   canViewWorkOrderAssignees,
   dateTimeLocalToIso,
+  designationChoices,
   DESIGNATION_FALLBACK_NOTE,
+  employeesMatchingDesignation,
   formatEmployeeOptionLabel,
   toDateTimeLocalValue
 } from "@/lib/workforce-designations";
@@ -96,9 +97,11 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
 
   const assignedIds = useMemo(() => new Set(assignees.map((a) => a.employeeId)), [assignees]);
 
+  const designationOptions = useMemo(() => designationChoices(employees), [employees]);
+
   const selectableEmployees = useMemo(
-    () => employees.filter((employee) => !assignedIds.has(employee.id)),
-    [assignedIds, employees]
+    () => employeesMatchingDesignation(employees, designationFilter).filter((employee) => !assignedIds.has(employee.id)),
+    [assignedIds, designationFilter, employees]
   );
 
   const parsedEstimatedHours = useMemo(() => {
@@ -157,9 +160,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
     setLoadingEmployees(true);
     setEmployeesError(null);
     try {
-      const employeeRes = await apiClient.get<{ data: WorkforceEmployee[] }>("/workforce/employees", {
-        params: designationFilter.trim() ? { designation: designationFilter.trim() } : undefined
-      });
+      const employeeRes = await apiClient.get<{ data: WorkforceEmployee[] }>("/workforce/employees");
       const rows = employeeRes.data.data;
       setEmployees(Array.isArray(rows) ? rows : []);
     } catch (err) {
@@ -169,7 +170,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
     } finally {
       setLoadingEmployees(false);
     }
-  }, [designationFilter, canSeeEmployees]);
+  }, [canSeeEmployees]);
 
   useEffect(() => {
     void loadAssignees();
@@ -403,8 +404,20 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
       >
         <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
           <span className="font-medium">Filter by designation</span>
+          {loadingEmployees ? (
+            <p className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500" role="status">
+              <Loader2 size={14} className="animate-spin" /> Loading designations...
+            </p>
+          ) : employeesError ? (
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{employeesError}</p>
+          ) : designationOptions.length === 0 ? (
+            <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+              No designations are available for this tenant.
+            </p>
+          ) : (
           <select
-            value={designationFilter}
+            aria-label="Filter by designation"
+            value={designationOptions.includes(designationFilter) ? designationFilter : ""}
             onChange={(event) => {
               setDesignationFilter(event.target.value);
               setEmployeeId("");
@@ -412,12 +425,13 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
             <option value="">All designations</option>
-            {ASSIGNABLE_WORKFORCE_DESIGNATIONS.map((designation) => (
+            {designationOptions.map((designation) => (
               <option key={designation} value={designation}>
                 {designation.replaceAll("_", " ")}
               </option>
             ))}
           </select>
+          )}
         </label>
 
         <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">

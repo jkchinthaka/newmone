@@ -5,7 +5,7 @@ import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { AlertTriangle, ChevronDown, Loader2 } from "lucide-react";
+import { AlertTriangle, ChevronDown } from "lucide-react";
 
 import { ActiveFilterChips } from "@/components/operational/active-filter-chips";
 import { JobsPagination } from "@/components/operational/jobs-pagination";
@@ -18,8 +18,15 @@ import { JOB_DOMAINS, JOB_DOMAIN_LABELS } from "@/lib/job-domain";
 import {
   activeQueueFilterChips,
   queueFiltersAfterChipRemove,
-  splitQueueTabs,
-  writeQueueFiltersToSearch
+  commitSearchDraft,
+  createSearchSync,
+  defaultWorkOrderQueueForRole,
+  noteSearchDraft,
+  queuePurpose,
+  queueSearchReplaceTarget,
+  queuesVisibleToRole,
+  reduceWorkOrderSearchUrl,
+  splitQueueTabs
 } from "@/lib/work-order-queue-nav";
 import { withTenantScope } from "@/lib/tenant-query";
 import { extractRoleName } from "@/lib/role-redirect";
@@ -66,6 +73,44 @@ function shouldRetryQueueRequest(failureCount: number, error: unknown) {
 const fieldClass =
   "h-10 min-w-0 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500";
 
+let historyMarkerInstalled = false;
+let pendingHistorySearch: string | null = null;
+
+function ensureHistoryMarker() {
+  if (historyMarkerInstalled || typeof window === "undefined") return;
+  historyMarkerInstalled = true;
+  const navigation = (
+    window as Window & {
+      navigation?: {
+        addEventListener: (
+          type: string,
+          listener: (event: { navigationType?: string; destination?: { url?: string } }) => void
+        ) => void;
+      };
+    }
+  ).navigation;
+  if (navigation) {
+    navigation.addEventListener("navigate", (event) => {
+      if (event.navigationType === "traverse" && event.destination?.url) {
+        pendingHistorySearch = new URL(event.destination.url).search;
+      }
+    });
+  }
+  window.addEventListener(
+    "popstate",
+    () => {
+      pendingHistorySearch = window.location.search;
+    },
+    true
+  );
+}
+
+function takeHistoryNavigation(): boolean {
+  if (!pendingHistorySearch) return false;
+  pendingHistorySearch = null;
+  return true;
+}
+
 export function WorkOrderQueuePanel({
   onOpenWorkOrder,
   onRefreshLegacy,
@@ -110,9 +155,16 @@ export function WorkOrderQueuePanel({
       }),
     [urlQueue, urlSmartView, urlStatus, urlPriority, urlUnassigned, urlFilter, urlQuery, searchParams]
   );
-  const [filters, setFilters] = useState<WorkOrderQueueFilters>(DEFAULT_QUEUE_FILTERS);
+  const roleName = extractRoleName(currentUser);
+  const roleDefault = defaultWorkOrderQueueForRole(roleName);
+  const [filters, setFilters] = useState<WorkOrderQueueFilters>({
+    ...DEFAULT_QUEUE_FILTERS,
+    ...linkedFilters,
+    queue: linkedFilters.queue ?? roleDefault,
+    query: urlQuery ?? "",
+    jobDomain: jobDomain || linkedFilters.jobDomain
+  });
   const [searchInput, setSearchInput] = useState(urlQuery ?? "");
-  const [initialized, setInitialized] = useState(false);
   const [moreQueuesOpen, setMoreQueuesOpen] = useState(false);
 
   const canBulkSelect = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "SUPERVISOR"].includes(
@@ -120,10 +172,25 @@ export function WorkOrderQueuePanel({
   );
 
   const appliedSearch = useRef(searchInput);
+  const searchSyncRef = useRef(createSearchSync(urlQuery ?? ""));
+  const filtersRef = useRef(filters);
+  const historyNavRef = useRef(false);
+  const skipReplaceRef = useRef(false);
+  filtersRef.current = filters;
+  const urlRevision = searchParams.get("qRev");
+  ensureHistoryMarker();
+  useEffect(() => {
+    const markHistoryNavigation = () => {
+      historyNavRef.current = true;
+    };
+    window.addEventListener("popstate", markHistoryNavigation, true);
+    return () => window.removeEventListener("popstate", markHistoryNavigation, true);
+  }, []);
   useEffect(() => {
     const timer = window.setTimeout(() => {
       if (appliedSearch.current === searchInput) return;
       appliedSearch.current = searchInput;
+      searchSyncRef.current = commitSearchDraft(noteSearchDraft(searchSyncRef.current, searchInput));
       onSelectedIdsChange?.([]);
       setFilters((current) =>
         current.query === searchInput ? current : { ...current, query: searchInput, page: 1 }
@@ -150,93 +217,57 @@ export function WorkOrderQueuePanel({
   const summaryUnavailable = summaryQuery.isError && !summaryQuery.data;
 
   useEffect(() => {
-    if ((summaryQuery.data || summaryUnavailable) && !initialized) {
-      setInitialized(true);
-      setFilters((current) => ({
-        ...current,
-        ...linkedFilters,
-        queue:
-          linkedFilters.queue ??
-          summaryQuery.data?.defaultQueue ??
-          FALLBACK_QUEUE_SUMMARY.defaultQueue,
-        query: urlQuery ?? current.query,
-        jobDomain: jobDomain || undefined
-      }));
-      if (urlQuery) {
-        setSearchInput(urlQuery);
-      }
+    const fromHistory = historyNavRef.current || takeHistoryNavigation();
+    historyNavRef.current = false;
+    if (fromHistory) skipReplaceRef.current = true;
+    const publicationId = urlRevision && /^\d+$/.test(urlRevision) ? Number(urlRevision) : null;
+    const reduced = reduceWorkOrderSearchUrl({
+      sync: searchSyncRef.current,
+      current: filtersRef.current,
+      linked: linkedFilters,
+      role: roleName,
+      jobDomain,
+      publicationId,
+      fromHistory
+    });
+    searchSyncRef.current = reduced.sync;
+    if (reduced.draft !== null) {
+      setSearchInput(reduced.draft);
+      appliedSearch.current = reduced.draft;
     }
-  }, [summaryQuery.data, summaryUnavailable, initialized, linkedFilters, urlQuery]);
+    if (reduced.filters) {
+      setFilters(reduced.filters);
+    }
+  }, [linkedFilters, jobDomain, roleName, urlRevision]);
 
   useEffect(() => {
-    if (!initialized || !linkedFilters.queue) {
+    if (skipReplaceRef.current) {
+      skipReplaceRef.current = false;
       return;
     }
-    setSearchInput(linkedFilters.query ?? "");
-    setFilters((current) => {
-      const next = {
-        ...current,
-        ...linkedFilters,
-        queue: linkedFilters.queue ?? current.queue,
-        status: linkedFilters.status ?? "ALL",
-        priority: linkedFilters.priority ?? "ALL",
-        unassigned: Boolean(linkedFilters.unassigned),
-        query: linkedFilters.query ?? "",
-        overdueOnly: Boolean(linkedFilters.overdueOnly),
-        highRiskOnly: Boolean(linkedFilters.highRiskOnly),
-        triageOnly: Boolean(linkedFilters.triageOnly),
-        dateFrom: linkedFilters.dateFrom ?? "",
-        dateTo: linkedFilters.dateTo ?? "",
-        categoryId: linkedFilters.categoryId ?? "",
-        technicianId: linkedFilters.technicianId ?? "",
-        evidenceStatus: linkedFilters.evidenceStatus ?? "",
-        partsStatus: linkedFilters.partsStatus ?? "",
-        smartView: linkedFilters.smartView,
-        jobDomain: jobDomain || linkedFilters.jobDomain || undefined,
-        page: linkedFilters.page ?? 1,
-        pageSize: linkedFilters.pageSize ?? current.pageSize
-      };
-      const same =
-        current.queue === next.queue &&
-        current.status === next.status &&
-        current.priority === next.priority &&
-        current.query === next.query &&
-        current.page === next.page &&
-        current.pageSize === next.pageSize &&
-        current.smartView === next.smartView &&
-        Boolean(current.unassigned) === Boolean(next.unassigned) &&
-        current.overdueOnly === next.overdueOnly &&
-        current.highRiskOnly === next.highRiskOnly &&
-        current.triageOnly === next.triageOnly &&
-        current.dateFrom === next.dateFrom &&
-        current.dateTo === next.dateTo &&
-        current.categoryId === next.categoryId &&
-        (current.technicianId ?? "") === (next.technicianId ?? "") &&
-        (current.evidenceStatus ?? "") === (next.evidenceStatus ?? "") &&
-        (current.partsStatus ?? "") === (next.partsStatus ?? "") &&
-        (current.jobDomain ?? "") === (next.jobDomain ?? "");
-      return same ? current : next;
-    });
-  }, [initialized, linkedFilters, jobDomain]);
+    const next = queueSearchReplaceTarget(
+      new URLSearchParams(searchParams.toString()),
+      { ...filters, jobDomain: jobDomain || filters.jobDomain },
+      roleDefault
+    );
+    if (next === null) return;
+    const params = new URLSearchParams(next);
+    const issuedId = searchSyncRef.current.issuedId;
+    if (issuedId > 0) params.set("qRev", String(issuedId));
+    else params.delete("qRev");
+    const stamped = params.toString();
+    if (stamped === searchParams.toString()) return;
+    router.replace((stamped ? `${pathname}?${stamped}` : pathname) as Route, { scroll: false });
+  }, [filters, jobDomain, pathname, roleDefault, router, searchParams]);
 
-  useEffect(() => {
-    if (!initialized) return;
-    const params = new URLSearchParams(searchParams.toString());
-    writeQueueFiltersToSearch(params, { ...filters, jobDomain: jobDomain || filters.jobDomain });
-    const next = params.toString();
-    if (next !== searchParams.toString()) {
-      router.replace((next ? `${pathname}?${next}` : pathname) as Route, { scroll: false });
-    }
-  }, [filters, initialized, jobDomain, pathname, router, searchParams]);
 
-  const roleName = extractRoleName(currentUser);
   const isTechnician = roleName === "TECHNICIAN" || roleName === "MECHANIC";
   const listFilters = isTechnician && filters.queue === "all" ? { ...filters, queue: "my-tasks" as const } : filters;
 
   const queueQuery = useQuery({
     queryKey: withTenantScope(["work-orders", "queue", workOrderQueueRequestKey(listFilters)]),
     queryFn: () => fetchWorkOrderQueue(listFilters),
-    enabled: initialized,
+    enabled: true,
     retry: shouldRetryQueueRequest,
     refetchOnWindowFocus: true,
     refetchInterval: (query) => (query.state.error ? false : 30_000)
@@ -244,12 +275,10 @@ export function WorkOrderQueuePanel({
 
   const visibleQueues = useMemo(() => {
     const role = currentUser?.role ?? "";
-    const isTechnician = role === "TECHNICIAN" || role === "MECHANIC";
-    return (summaryData.queues ?? []).filter((queue) => {
-      if (isTechnician && queue.key === "all") return false;
-      return true;
-    });
-  }, [summaryData.queues, currentUser?.role]);
+    return queuesVisibleToRole(summaryData.queues ?? [], role).map((queue) =>
+      summaryQuery.data ? queue : { ...queue, count: undefined }
+    );
+  }, [summaryData.queues, currentUser?.role, summaryQuery.data]);
 
   // Smart views are query-string shortcuts into the same queues the tabs above already
   // navigate to. A smart view is a true duplicate of a tab only when its own key names
@@ -276,6 +305,8 @@ export function WorkOrderQueuePanel({
 
   const updateFilters = (patch: Partial<WorkOrderQueueFilters>) => {
     if (patch.query !== undefined) {
+      searchSyncRef.current = commitSearchDraft(noteSearchDraft(searchSyncRef.current, patch.query));
+      appliedSearch.current = patch.query;
       setSearchInput(patch.query);
     }
     if (Object.keys(patch).some((key) => key !== "page")) {
@@ -330,19 +361,11 @@ export function WorkOrderQueuePanel({
     summaryData.summary?.waitingParts ? "Parts" : "",
     summaryData.summary?.highRisk ? "Risk" : ""
   ].filter(Boolean);
-  if (summaryQuery.isLoading && !summaryQuery.data && !summaryUnavailable) {
-    return (
-      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-        <Loader2 size={16} className="animate-spin" /> Loading work order queues...
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       {summaryUnavailable ? (
         <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          Unable to load work order queues. Please refresh or contact IT. You can still browse queues below; counts may show as zero until the service recovers.
+          Unable to load work order queues. Please refresh or contact IT. You can still browse the queues your role can open. Counts stay hidden until a summary response arrives.
         </div>
       ) : null}
       {actionRequiredCount > 0 ? (
@@ -369,13 +392,19 @@ export function WorkOrderQueuePanel({
           onMoreOpenChange={setMoreQueuesOpen}
           onSelect={(key) => updateFilters({ queue: key as WorkOrderQueueKey, smartView: undefined, page: 1 })}
         />
+        {queuePurpose(filters.queue) ? (
+          <p className="border-b border-slate-100 px-3 py-2 text-sm text-slate-600">{queuePurpose(filters.queue)}</p>
+        ) : null}
 
-        <div className="flex flex-col gap-2 border-b border-slate-200 px-3 py-2 lg:flex-row lg:items-center">
+        <div className="flex min-w-0 flex-col gap-2 border-b border-slate-200 px-3 py-2 lg:flex-row lg:flex-wrap lg:items-center">
           <label className="min-w-0 flex-1">
             <span className="sr-only">Search work orders</span>
             <input
               value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
+              onChange={(event) => {
+                searchSyncRef.current = noteSearchDraft(searchSyncRef.current, event.target.value);
+                setSearchInput(event.target.value);
+              }}
               placeholder="Search work orders..."
               className={`${fieldClass} w-full`}
             />

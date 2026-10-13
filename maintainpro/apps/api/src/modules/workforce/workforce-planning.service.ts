@@ -9,7 +9,7 @@ import {
 } from "@prisma/client";
 
 import { calculateSlaRisk } from "../../common/utils/work-order-validation";
-import { matchesWorkforceDesignation } from "../../common/utils/workforce-designation";
+import { matchesWorkforceDesignation, resolveEffectiveDesignation } from "../../common/utils/workforce-designation";
 import { PrismaService } from "../../database/prisma.service";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
@@ -171,7 +171,10 @@ export class WorkforcePlanningService {
 
     const enriched = await Promise.all(
       rows.map(async (row) => {
-        const effectiveDesignation = row.designation;
+        const effectiveDesignation = resolveEffectiveDesignation({
+          designation: row.designation,
+          roleName: row.linkedUser?.role.name
+        });
         const todayAllocatedHours = await this.getAllocatedHoursForDay({
           tenantId,
           employeeId: row.id,
@@ -208,7 +211,10 @@ export class WorkforcePlanningService {
     );
 
     return enriched.filter((row) =>
-      matchesWorkforceDesignation({ designation: row.designation }, designation)
+      matchesWorkforceDesignation(
+        { designation: row.designation, roleName: row.roleName },
+        designation
+      )
     );
   }
 

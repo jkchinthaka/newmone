@@ -27,7 +27,6 @@ function mapQueueSummaryToBadges(summary: Awaited<ReturnType<typeof fetchWorkOrd
   const s = summary.summary;
 
   return {
-    "action-center": s?.actionRequired ?? byKey.get("action-required") ?? 0,
     "my-tasks": s?.myTasks ?? byKey.get("my-tasks") ?? 0,
     "waiting-parts": s?.waitingParts ?? byKey.get("waiting-parts") ?? 0,
     "waiting-evidence": s?.waitingEvidence ?? byKey.get("waiting-evidence") ?? 0,

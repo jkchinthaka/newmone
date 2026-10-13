@@ -13,14 +13,13 @@ import {
   isNavItemActive,
   NAVIGATION_ITEMS
 } from "../../web/lib/navigation";
-import { MAINTENANCE_FORECAST_EMPTY_MESSAGE } from "../../web/lib/maintenance-forecast-copy";
 import { getPostLoginRedirect } from "../../web/lib/role-redirect";
 
 describe("navigation config (Phase 1 CMMS scope)", () => {
   it("exposes CMMS primary navigation for admin roles", () => {
     const hrefs = getVisibleNavigationItems("ADMIN").map((item) => item.href);
 
-    expect(hrefs).toContain("/action-center");
+    expect(hrefs).not.toContain("/action-center");
     expect(hrefs).toContain("/maintenance/jobs");
     expect(hrefs).toContain("/maintenance/plans");
     expect(hrefs).toContain("/assets");
@@ -43,17 +42,19 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
 
     expect(facilityManagerItems.map((item) => item.href)).toContain("/assets");
     expect(buildingSupervisorItems.map((item) => item.href)).toContain("/assets");
-    expect(cleanerItems.map((item) => item.href)).toContain("/action-center");
+    expect(cleanerItems.map((item) => item.href)).toContain("/notifications");
+    expect(cleanerItems.map((item) => item.href)).not.toContain("/action-center");
     expect(cleanerItems.map((item) => item.href)).not.toContain("/facilities");
   });
 
-  it("maps technician roles to Action Center and jobs without admin modules", () => {
+  it("maps technician roles to jobs without admin modules", () => {
     const technicianItems = getVisibleNavigationItems("TECHNICIAN");
     const ids = technicianItems.map((item) => item.id);
 
     expect(ids).toEqual(
-      expect.arrayContaining(["home", "all-jobs", "assets", "preventive-maintenance"])
+      expect.arrayContaining(["all-jobs", "assets", "preventive-maintenance"])
     );
+    expect(ids).not.toContain("home");
     expect(ids).not.toContain("admin");
     expect(ids).not.toContain("billing");
     expect(ids).not.toContain("dashboard");
@@ -63,7 +64,8 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     const inventoryItems = getVisibleNavigationItems("INVENTORY_KEEPER");
     const ids = inventoryItems.map((item) => item.id);
 
-    expect(ids).toEqual(expect.arrayContaining(["spare-parts", "home"]));
+    expect(ids).toEqual(expect.arrayContaining(["spare-parts"]));
+    expect(ids).not.toContain("home");
     expect(ids).not.toContain("admin");
   });
 
@@ -75,7 +77,7 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     const ids = supervisorItems.map((item) => item.id);
 
     expect(ids).toEqual(
-      expect.arrayContaining(["home", "requests", "all-jobs", "preventive-maintenance"])
+      expect.arrayContaining(["requests", "all-jobs", "preventive-maintenance"])
     );
     expect(ids).not.toContain("billing");
     expect(ids).not.toContain("spare-parts");
@@ -93,7 +95,8 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     const managerItems = getVisibleNavigationItems("MANAGER");
     const ids = managerItems.map((item) => item.id);
 
-    expect(ids).toEqual(expect.arrayContaining(["home", "reports", "all-jobs"]));
+    expect(ids).toEqual(expect.arrayContaining(["reports", "all-jobs"]));
+    expect(ids).not.toContain("home");
     expect(ids).not.toContain("admin");
   });
 
@@ -101,7 +104,8 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     const financeItems = getVisibleNavigationItems("FINANCE_APPROVER");
     const ids = financeItems.map((item) => item.id);
 
-    expect(ids).toEqual(expect.arrayContaining(["home", "reports"]));
+    expect(ids).toEqual(expect.arrayContaining(["reports"]));
+    expect(ids).not.toContain("home");
     expect(ids).not.toContain("work-orders");
     expect(ids).not.toContain("billing");
   });
@@ -110,7 +114,8 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     const securityItems = getVisibleNavigationItems("SECURITY_OFFICER");
     const ids = securityItems.map((item) => item.id);
 
-    expect(ids).toEqual(expect.arrayContaining(["fleet", "home"]));
+    expect(ids).toEqual(expect.arrayContaining(["fleet"]));
+    expect(ids).not.toContain("home");
     expect(ids).not.toContain("admin");
   });
 
@@ -118,36 +123,39 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     const cleanerItems = getVisibleNavigationItems("CLEANER");
     const hrefs = cleanerItems.map((item) => item.href);
 
-    expect(hrefs).toContain("/action-center");
+    expect(hrefs).toContain("/notifications");
+    expect(hrefs).not.toContain("/action-center");
     expect(hrefs).not.toContain("/cleaning");
     expect(hrefs).not.toContain("/cleaning/issues");
     expect(hrefs).not.toContain("/work-orders");
   });
 
-  it("returns Home fallback for unknown or missing roles", () => {
+  it("returns notifications for unknown or missing roles", () => {
     expect(getVisibleNavigationItems(null).map((item) => item.id)).toEqual(
-      expect.arrayContaining(["home"])
+      expect.arrayContaining(["notifications", "settings"])
     );
     expect(getVisibleNavigationItems("UNKNOWN_ROLE")).toEqual([
-      expect.objectContaining({ href: "/action-center" })
+      expect.objectContaining({ href: "/notifications" })
     ]);
   });
 
-  it("prioritizes action center as post-login landing for operational roles", () => {
-    expect(getPostLoginRedirect("TECHNICIAN")).toBe("/action-center");
-    expect(getPostLoginRedirect("INVENTORY_KEEPER")).toBe("/action-center");
-    expect(getPostLoginRedirect("MANAGER")).toBe("/action-center");
+  it("lands operational roles on their module instead of Action Center", () => {
+    expect(getPostLoginRedirect("TECHNICIAN")).toBe("/work-orders/my");
+    expect(getPostLoginRedirect("INVENTORY_KEEPER")).toBe("/inventory");
+    expect(getPostLoginRedirect("MANAGER")).toBe("/maintenance");
+    expect(getPostLoginRedirect("ADMIN")).toBe("/admin");
+    expect(getPostLoginRedirect("FINANCE_APPROVER")).toBe("/reports");
+    expect(getPostLoginRedirect("CLEANER")).toBe("/notifications");
+    expect(getVisibleNavigationItems("ADMIN").map((item) => item.href)).not.toContain("/action-center");
   });
 
-  it("uses Action Center label on /action-center and does not expose legacy /home as primary Home", () => {
+  it("does not expose Action Center or legacy /home in primary navigation", () => {
     const allVisibleForAdmin = getVisibleNavigationItems("ADMIN", { fullNavigation: true });
-    const homeItem = allVisibleForAdmin.find((item) => item.id === "home");
 
-    expect(homeItem?.label).toBe("Action Center");
-    expect(homeItem?.href).toBe("/action-center");
+    expect(allVisibleForAdmin.some((item) => item.id === "home")).toBe(false);
     expect(hasPrimaryHomeNavItem(allVisibleForAdmin)).toBe(false);
     expect(allVisibleForAdmin.some((item) => item.href === "/home")).toBe(false);
-    expect(NAVIGATION_ITEMS.some((item) => item.href === "/home")).toBe(false);
+    expect(NAVIGATION_ITEMS.some((item) => item.href === "/home" || item.href === "/action-center")).toBe(false);
   });
 
   it("highlights nested routes with startsWith matching", () => {
@@ -159,19 +167,12 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(isNavItemActive(workOrders!.href, workOrders!)).toBe(true);
   });
 
-  it("keeps maintenance forecast out of the primary maintenance menu", () => {
+  it("keeps the standalone forecast page out of navigation", () => {
     const groups = getNavigationGroups("MANAGER");
-    const maintenance = groups.find((group) => group.category === "operations");
-    const planning = groups.find((group) => group.category === "advanced");
-
-    expect(maintenance?.items.some((item) => item.id === "planning")).toBe(false);
-    expect(planning?.label).toBe("Advanced Maintenance");
-    expect(planning?.items.map((item) => item.href)).toContain("/maintenance/planning");
-    expect(canAccessNavigationPath("/maintenance/forecast", "MANAGER", [])).toBe(true);
-    expect(canAccessNavigationPath("/maintenance/planning", "MANAGER", [])).toBe(true);
-    expect(MAINTENANCE_FORECAST_EMPTY_MESSAGE).toContain("meter");
-    expect(MAINTENANCE_FORECAST_EMPTY_MESSAGE).toContain("usage");
-    expect(MAINTENANCE_FORECAST_EMPTY_MESSAGE).toContain("preventive maintenance history");
+    const labels = groups.flatMap((group) => group.items.map((item) => item.label));
+    expect(labels).not.toContain("Maintenance Forecast");
+    expect(groups.flatMap((group) => group.items).some((item) => item.href === "/maintenance/plans")).toBe(true);
+    expect(NAVIGATION_ITEMS.some((item) => item.id === "planning")).toBe(false);
   });
 
   it("keeps inspections out of the primary maintenance menu", () => {
@@ -284,17 +285,18 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
 
   it("provides role default favorites", () => {
     expect(getDefaultFavoriteNavIds("TECHNICIAN")).toEqual(
-      expect.arrayContaining(["home", "all-jobs"])
+      expect.arrayContaining(["all-jobs"])
     );
+    expect(getDefaultFavoriteNavIds("TECHNICIAN")).not.toContain("home");
     expect(getDefaultFavoriteNavIds("INVENTORY_KEEPER")).toEqual(
-      expect.arrayContaining(["home", "spare-parts"])
+      expect.arrayContaining(["spare-parts"])
     );
     expect(getDefaultFavoriteNavIds("ADMIN")).toEqual(
-      expect.arrayContaining(["home", "admin"])
+      expect.arrayContaining(["admin"])
     );
     expect(getDefaultFavoriteNavIds("ADMIN")).not.toContain("system-health");
     expect(getDefaultFavoriteNavIds("SUPER_ADMIN")).toEqual(
-      expect.arrayContaining(["home", "admin", "system-health"])
+      expect.arrayContaining(["admin", "system-health"])
     );
     expect(getVisibleNavigationItems("SUPER_ADMIN").map((item) => item.href)).toContain("/system-health");
     expect(canAccessNavigationPath("/system-health", "ADMIN", [])).toBe(false);
@@ -303,7 +305,7 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
 
   it("builds mobile bottom navigation items", () => {
     const technicianMobile = getMobileBottomNavItems("TECHNICIAN");
-    expect(technicianMobile.some((item) => item.id === "home")).toBe(true);
+    expect(technicianMobile.some((item) => item.id === "home")).toBe(false);
     expect(technicianMobile.some((item) => item.action === "search")).toBe(true);
     expect(technicianMobile.some((item) => item.id === "work-orders")).toBe(true);
   });

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { myJobFilterHref, resolveMyJobFilter } from "../my-job-filters";
+import { myJobFilterHref, resolveMyJobFilter, myJobPurpose } from "../my-job-filters";
 
 test("home card filters map onto My Jobs", () => {
   assert.equal(myJobFilterHref("active"), "/work-orders/my");
@@ -18,4 +18,15 @@ test("resolveMyJobFilter prefers filter over the older view query", () => {
   assert.equal(resolveMyJobFilter({ filter: "not-a-filter", view: "completed" }), "completed");
   assert.equal(resolveMyJobFilter({}), "active");
   assert.equal(resolveMyJobFilter({ filter: "  overdue  " }), "overdue");
+});
+
+test("my job purpose matches the assigned-job view rules", () => {
+  assert.match(myJobPurpose("active"), /not completed, closed, or cancelled/);
+  assert.match(myJobPurpose("due-today"), /today/);
+  assert.match(myJobPurpose("overdue"), /past due/);
+  assert.match(myJobPurpose("waiting-parts"), /parts/);
+  assert.match(myJobPurpose("evidence-needed"), /evidence/);
+  assert.match(myJobPurpose("rework-required"), /rework/);
+  assert.match(myJobPurpose("in-progress"), /in progress/);
+  assert.match(myJobPurpose("completed"), /completed or closed/);
 });

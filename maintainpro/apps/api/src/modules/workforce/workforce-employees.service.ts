@@ -144,7 +144,10 @@ export class WorkforceEmployeesService {
 
     if (filters.designation?.trim()) {
       return rows.filter((row) =>
-        matchesWorkforceDesignation({ designation: row.designation }, filters.designation)
+        matchesWorkforceDesignation(
+          { designation: row.designation, roleName: row.linkedUser?.role?.name },
+          filters.designation
+        )
       );
     }
 

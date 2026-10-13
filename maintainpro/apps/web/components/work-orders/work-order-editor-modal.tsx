@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Loader2, MoreHorizontal, X, AlertTriangle } from "lucide-react";
 
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { visibleWorkOrderTab, workOrderTabLoads } from "@/lib/operational-deep-link";
+import { dialogTabTrapDecision, workOrderDrawerEscapeDecision } from "@/lib/overlay-dismiss";
 import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
+import { isWorkOrderStarted } from "@/lib/work-order-governance";
+import { overviewDraftDirty, overviewSaveDecision, type OverviewDraft } from "@/lib/work-order-overview-edit";
 import type { WorkOrderActivityTimelineResponse } from "@/lib/work-order-activity";
 import { workOrderActivityUnavailableMessage } from "@/lib/work-order-activity";
 import type {
@@ -86,6 +89,8 @@ export function WorkOrderEditorModal({
   onEdit
 }: WorkOrderEditorModalProps) {
   const isCreateMode = mode === "create";
+  const reduceMotion = useReducedMotion();
+  const drawerMotion = reduceMotion ? { duration: 0 } : { duration: 0.18 };
 
   const initialState = useMemo(
     () => ({
@@ -107,10 +112,13 @@ export function WorkOrderEditorModal({
   const currentUser = useCurrentUser();
   const showAuditTab = canViewAuditHistoryForUser(currentUser);
   const [formState, setFormState] = useState(initialState);
+  const [editingOverview, setEditingOverview] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const sectionCache = useRef({ id: "", requirements: false, evidence: false, activity: false });
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<WorkOrderDetailTab>(() => visibleWorkOrderTab(initialTab, showAuditTab));
   const panelRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
   const [activityTimeline, setActivityTimeline] = useState<WorkOrderActivityTimelineResponse | null>(null);
@@ -126,9 +134,76 @@ export function WorkOrderEditorModal({
     }
 
     setFormState(initialState);
+    setEditingOverview(false);
     setFormError(null);
     setActiveTab(visibleWorkOrderTab(initialTab, showAuditTab));
   }, [initialState, initialTab, open, showAuditTab]);
+
+  useEffect(() => {
+    if (!open) return;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => {
+      const previous = returnFocusRef.current;
+      if (previous && document.contains(previous)) previous.focus();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const nestedOverlayOpen = Array.from(document.querySelectorAll("[role='dialog'], [role='alertdialog']")).some(
+        (node) => node !== panelRef.current && !panelRef.current?.contains(node)
+      );
+      if (event.key === "Tab" && !nestedOverlayOpen && panelRef.current) {
+        const focusable = Array.from(
+          panelRef.current.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((node) => !node.hasAttribute("disabled") && node.getClientRects().length > 0);
+        const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const decision = dialogTabTrapDecision({
+          key: event.key,
+          shiftKey: event.shiftKey,
+          activeInside: Boolean(active && panelRef.current.contains(active)),
+          activeIsFirst: active === focusable[0],
+          activeIsLast: active === focusable[focusable.length - 1],
+          focusableCount: focusable.length
+        });
+        if (decision === "focus-first") {
+          event.preventDefault();
+          focusable[0]?.focus();
+          return;
+        }
+        if (decision === "focus-last") {
+          event.preventDefault();
+          focusable[focusable.length - 1]?.focus();
+          return;
+        }
+      }
+      const decision = workOrderDrawerEscapeDecision({
+        key: event.key,
+        defaultPrevented: event.defaultPrevented,
+        submitting,
+        menuOpen,
+        nestedOverlayOpen
+      });
+      if (decision === "ignore") return;
+      event.preventDefault();
+      if (decision === "close-menu") {
+        setMenuOpen(false);
+        return;
+      }
+      if (editingOverview) {
+        setEditingOverview(false);
+        setFormState(initialState);
+        setFormError(null);
+        return;
+      }
+      onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [editingOverview, initialState, menuOpen, onClose, open, submitting]);
 
   useEffect(() => {
     if (!open) return;
@@ -138,6 +213,7 @@ export function WorkOrderEditorModal({
 
   useEffect(() => {
     if (!open || isCreateMode || !workOrder?.id) {
+      sectionCache.current = { id: "", requirements: false, evidence: false, activity: false };
       setActivityTimeline(null);
       setActivityError(null);
       setActivityLoading(false);
@@ -167,6 +243,7 @@ export function WorkOrderEditorModal({
             | { requirements?: WorkOrderEvidenceRequirements }
             | undefined;
           setEvidenceRequirements(evidenceData?.requirements ?? null);
+          sectionCache.current.requirements = true;
         }
       } catch {
         if (!cancelled) setEvidenceRequirements(null);
@@ -187,6 +264,8 @@ export function WorkOrderEditorModal({
               | { items?: WorkOrderEvidenceItem[]; requirements?: WorkOrderEvidenceRequirements }
               | undefined
           );
+          sectionCache.current.evidence = true;
+          sectionCache.current.requirements = true;
         }
       } catch {
         if (!cancelled) {
@@ -210,6 +289,7 @@ export function WorkOrderEditorModal({
 
         if (!cancelled) {
           setActivityTimeline(payload ?? null);
+          sectionCache.current.activity = true;
         }
       } catch (error) {
         if (!cancelled) {
@@ -223,10 +303,13 @@ export function WorkOrderEditorModal({
       }
     };
 
+    if (sectionCache.current.id !== workOrder.id) {
+      sectionCache.current = { id: workOrder.id, requirements: false, evidence: false, activity: false };
+    }
     const loads = workOrderTabLoads(activeTab);
-    if (loads.activity) void loadActivity();
-    if (loads.evidence) void loadEvidence();
-    else if (loads.requirements) void loadRequirements();
+    if (loads.activity && !sectionCache.current.activity) void loadActivity();
+    if (loads.evidence && !sectionCache.current.evidence) void loadEvidence();
+    else if (loads.requirements && !sectionCache.current.requirements) void loadRequirements();
 
     return () => {
       cancelled = true;
@@ -234,6 +317,50 @@ export function WorkOrderEditorModal({
   }, [open, isCreateMode, workOrder?.id, activeTab]);
 
   const assetRequired = isCreateMode && requiresAssetOrVehicle(formState.type);
+  const overviewEditable = isCreateMode || editingOverview;
+  const scheduleLocked = !isCreateMode && Boolean(workOrder && isWorkOrderStarted(workOrder.status));
+  const overviewBaseline: OverviewDraft = {
+    title: initialState.title,
+    description: initialState.description,
+    dueDate: initialState.dueDate ?? "",
+    expectedCompletionDate: initialState.expectedCompletionDate ?? "",
+    estimatedCost: initialState.estimatedCost ?? "",
+    estimatedHours: initialState.estimatedHours ?? ""
+  };
+  const overviewDirty = overviewDraftDirty(
+    {
+      title: formState.title,
+      description: formState.description,
+      dueDate: formState.dueDate ?? "",
+      expectedCompletionDate: formState.expectedCompletionDate ?? "",
+      estimatedCost: formState.estimatedCost ?? "",
+      estimatedHours: formState.estimatedHours ?? ""
+    },
+    overviewBaseline
+  );
+  const saveDecision = overviewSaveDecision({
+    mode: isCreateMode ? "create" : editingOverview ? "edit" : "view",
+    tab: activeTab,
+    dirty: overviewDirty,
+    title: formState.title,
+    description: formState.description,
+    submitting
+  });
+
+  function cancelOverviewEdit() {
+    setEditingOverview(false);
+    setFormState(initialState);
+    setFormError(null);
+  }
+
+  function requestClose() {
+    if (editingOverview && overviewDirty) {
+      setActiveTab("overview");
+      setFormError("Save or cancel the overview changes before closing.");
+      return;
+    }
+    onClose();
+  }
 
   return (
     <AnimatePresence>
@@ -242,6 +369,7 @@ export function WorkOrderEditorModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={drawerMotion}
           className="fixed inset-0 z-50 flex justify-end bg-[#104D2B]/45"
         >
           <motion.div
@@ -253,7 +381,7 @@ export function WorkOrderEditorModal({
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 24 }}
-            transition={{ duration: 0.18 }}
+            transition={drawerMotion}
             className="flex h-[100dvh] w-full max-w-4xl flex-col bg-white shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
           >
             <header className="flex shrink-0 items-start justify-between gap-3 border-b border-brand-100 px-4 py-3">
@@ -332,7 +460,7 @@ export function WorkOrderEditorModal({
                 ) : null}
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={requestClose}
                   className="btn-quiet h-10 px-2"
                   aria-label="Close"
                 >
@@ -384,9 +512,11 @@ export function WorkOrderEditorModal({
               onSubmit={(event) => {
                 event.preventDefault();
 
-                if (!formState.title.trim() || !formState.description.trim()) {
+                if (!formState.title.trim() || !formState.description.trim() || !editingOverview) {
                   return;
                 }
+
+                const scheduleLocked = Boolean(workOrder && isWorkOrderStarted(workOrder.status));
 
                 if (isCreateMode) {
                   return;
@@ -419,10 +549,14 @@ export function WorkOrderEditorModal({
                 onEdit({
                   title: formState.title.trim(),
                   description: formState.description.trim(),
-                  dueDate: formState.dueDate ? new Date(`${formState.dueDate}T00:00:00.000Z`).toISOString() : undefined,
-                  expectedCompletionDate: formState.expectedCompletionDate
-                    ? new Date(`${formState.expectedCompletionDate}T00:00:00.000Z`).toISOString()
-                    : undefined,
+                  dueDate:
+                    scheduleLocked || !formState.dueDate
+                      ? undefined
+                      : new Date(`${formState.dueDate}T00:00:00.000Z`).toISOString(),
+                  expectedCompletionDate:
+                    scheduleLocked || !formState.expectedCompletionDate
+                      ? undefined
+                      : new Date(`${formState.expectedCompletionDate}T00:00:00.000Z`).toISOString(),
                   estimatedCost:
                     formState.estimatedCost.trim() === ""
                       ? undefined
@@ -442,12 +576,20 @@ export function WorkOrderEditorModal({
               ) : null}
               {!isCreateMode && activeTab !== "overview" ? null : (
               <section className="space-y-3 rounded-xl border border-brand-100 bg-white p-3">
+                <div className="flex items-center justify-between gap-2">
                 <h4 className="text-sm font-semibold text-ink">Details</h4>
+                {!isCreateMode && activeTab === "overview" && !editingOverview ? (
+                  <button type="button" className="btn-quiet" onClick={() => setEditingOverview(true)}>
+                    Edit details
+                  </button>
+                ) : null}
+                </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
                   <span className="font-medium">Title</span>
                   <input
                     required
+                    readOnly={!overviewEditable}
                     value={formState.title}
                     onChange={(event) => setFormState((current) => ({ ...current, title: event.target.value }))}
                     className="field w-full"
@@ -458,6 +600,7 @@ export function WorkOrderEditorModal({
                   <span className="font-medium">Description</span>
                   <textarea
                     required
+                    readOnly={!overviewEditable}
                     value={formState.description}
                     onChange={(event) => setFormState((current) => ({ ...current, description: event.target.value }))}
                     rows={3}
@@ -516,6 +659,7 @@ export function WorkOrderEditorModal({
                         min="0"
                         step="0.01"
                         value={formState.estimatedCost}
+                        readOnly={!overviewEditable}
                         onChange={(event) =>
                           setFormState((current) => ({ ...current, estimatedCost: event.target.value }))
                         }
@@ -530,6 +674,7 @@ export function WorkOrderEditorModal({
                         min="0"
                         step="0.1"
                         value={formState.estimatedHours}
+                        readOnly={!overviewEditable}
                         onChange={(event) =>
                           setFormState((current) => ({ ...current, estimatedHours: event.target.value }))
                         }
@@ -544,6 +689,8 @@ export function WorkOrderEditorModal({
                   <input
                     type="date"
                     value={formState.dueDate}
+                    readOnly={!overviewEditable || scheduleLocked}
+                    aria-describedby={scheduleLocked ? "overview-date-lock" : undefined}
                     onChange={(event) => setFormState((current) => ({ ...current, dueDate: event.target.value }))}
                     className="field w-full"
                   />
@@ -554,12 +701,19 @@ export function WorkOrderEditorModal({
                   <input
                     type="date"
                     value={formState.expectedCompletionDate}
+                    readOnly={!overviewEditable || scheduleLocked}
+                    aria-describedby={scheduleLocked ? "overview-date-lock" : undefined}
                     onChange={(event) =>
                       setFormState((current) => ({ ...current, expectedCompletionDate: event.target.value }))
                     }
                     className="field w-full"
                   />
                 </label>
+                {scheduleLocked ? (
+                  <p id="overview-date-lock" className="text-sm text-slate-600 sm:col-span-2">
+                    Due date and expected completion stay locked after work starts. Title, description, estimated cost, and estimated hours can still be edited.
+                  </p>
+                ) : null}
 
                 {isCreateMode ? (
                   <>
@@ -711,22 +865,30 @@ export function WorkOrderEditorModal({
                 <WorkOrderAuditPanel workOrderId={workOrder.id} />
               ) : null}
 
-              <div className="sticky bottom-0 z-10 -mx-4 flex items-center justify-end gap-2 border-t border-brand-100 bg-white px-4 py-3">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="btn-quiet"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting || (!isCreateMode && activeTab !== "overview")}
-                  className="btn-primary disabled:opacity-70"
-                >
-                  {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
-                  {isCreateMode ? "Create" : "Save Overview"}
-                </button>
+              <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-end gap-2 border-t border-brand-100 bg-white px-4 py-3">
+                {saveDecision.reason ? (
+                  <p id="overview-save-reason" className="mr-auto text-sm text-slate-600" role="status">{saveDecision.reason}</p>
+                ) : null}
+                {editingOverview ? (
+                  <button type="button" onClick={cancelOverviewEdit} className="btn-quiet">
+                    Cancel
+                  </button>
+                ) : (
+                  <button type="button" onClick={requestClose} className="btn-quiet">
+                    Close
+                  </button>
+                )}
+                {saveDecision.showSave ? (
+                  <button
+                    type="submit"
+                    disabled={!saveDecision.enabled}
+                    className="btn-primary disabled:opacity-70"
+                    aria-describedby={saveDecision.reason ? "overview-save-reason" : undefined}
+                  >
+                    {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {saveDecision.label}
+                  </button>
+                ) : null}
               </div>
             </form>
             )}

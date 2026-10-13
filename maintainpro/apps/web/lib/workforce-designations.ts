@@ -73,6 +73,29 @@ export function dateTimeLocalToIso(value: string): string | undefined {
   return parsed.toISOString();
 }
 
+export function designationChoices(
+  employees: readonly { designation?: string | null; effectiveDesignation?: string | null }[]
+): string[] {
+  const values = new Set<string>();
+  for (const employee of employees) {
+    const value = (employee.effectiveDesignation || employee.designation || "").trim();
+    if (value) values.add(value.toUpperCase());
+  }
+  return [...values].sort((left, right) => left.localeCompare(right));
+}
+
+export function employeesMatchingDesignation<T extends { designation?: string | null; effectiveDesignation?: string | null }>(
+  employees: readonly T[],
+  designation: string
+): T[] {
+  const wanted = designation.trim().toUpperCase();
+  if (!wanted) return [...employees];
+  return employees.filter((employee) => {
+    const value = (employee.effectiveDesignation || employee.designation || "").trim().toUpperCase();
+    return value === wanted;
+  });
+}
+
 export function formatEmployeeOptionLabel(input: {
   fullName: string;
   effectiveDesignation?: string | null;

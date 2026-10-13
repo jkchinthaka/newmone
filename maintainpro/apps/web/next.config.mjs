@@ -40,6 +40,7 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   ...(isCpanelDeployment ? { output: "standalone" } : {}),
   experimental: {
     typedRoutes: true,

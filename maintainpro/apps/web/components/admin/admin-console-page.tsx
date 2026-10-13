@@ -98,14 +98,27 @@ function AdminConsoleAuthorized({ user, roleName }: { user: CurrentUser; roleNam
       ) : null}
       <div className="flex flex-wrap gap-2">
         {ADMIN_QUICK_ACTIONS.map((action) => (
-          <Link key={action.id} href={action.href as never} className="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white">
+          <Link key={action.id} href={action.href as never} className="inline-flex min-h-11 items-center rounded-md bg-slate-900 px-3 text-sm text-white">
             {action.label}
           </Link>
         ))}
       </div>
-      <p className="text-sm text-slate-700" aria-label="Administration summary">
-        Users {overview?.users.active ?? "–"} | Tenants {overview?.tenants?.active ?? "–"} | Open critical {overview?.jobs?.openCritical ?? "–"} | Overdue jobs {overview?.jobs?.overdue ?? "–"} | Data issues {overview?.dataQuality.totalIssues ?? "–"}
-      </p>
+      <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:grid-cols-5" aria-label="Administration summary">
+        {(
+          [
+            ["Users", overview?.users.active],
+            ["Tenants", overview?.tenants?.active],
+            ["Open critical", overview?.jobs?.openCritical],
+            ["Overdue jobs", overview?.jobs?.overdue],
+            ["Data issues", overview?.dataQuality.totalIssues]
+          ] as Array<[string, number | undefined]>
+        ).map(([label, value]) => (
+          <div key={label} className="rounded-md border border-slate-200 bg-white px-3 py-2">
+            <dt className="text-xs text-slate-500">{label}</dt>
+            <dd className="font-semibold tabular-nums text-slate-900">{value ?? "–"}</dd>
+          </div>
+        ))}
+      </dl>
       <p className="text-xs text-slate-500">Signed in as {user.email ?? "Unknown user"} · {roleName ?? "Unknown role"}</p>
       <h2 className="text-sm font-semibold text-slate-900">Administration modules</h2>
       {daily.map((group) => (
@@ -113,7 +126,7 @@ function AdminConsoleAuthorized({ user, roleName }: { user: CurrentUser; roleNam
           <h2 id={`admin-${group.id}`} className="text-sm font-semibold text-slate-900">{group.title}</h2>
           <div className="mt-1 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
             {group.sections.map((section) => (
-              <Link key={section.id} href={(section.href ?? "/admin") as never} className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-slate-50">
+              <Link key={section.id} href={(section.href ?? "/admin") as never} className="flex min-h-11 items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-slate-50">
                 <span>
                   <span className="font-medium text-slate-900">{section.title}</span>
                   <span className="block text-xs text-slate-500">{section.description}</span>
@@ -134,7 +147,7 @@ function AdminConsoleAuthorized({ user, roleName }: { user: CurrentUser; roleNam
                 <h2 className="text-sm font-medium text-slate-700">{group.title}</h2>
                 <div className="mt-1 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
                   {group.sections.map((section) => (
-                    <Link key={section.id} href={(section.href ?? "/admin") as never} className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-slate-50">
+                    <Link key={section.id} href={(section.href ?? "/admin") as never} className="flex min-h-11 items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-slate-50">
                       <span>
                         <span className="font-medium">{section.title}</span>
                         <span className="block text-xs text-slate-500">{section.description}</span>

@@ -5,7 +5,8 @@ export type WorkOrderVerificationStatus = "NOT_REQUIRED" | "PENDING" | "VERIFIED
 export const GOVERNANCE_MESSAGES = {
   supervisorRequired: "Supervisor verification required before closing.",
   reasonRequired: "Reason required for this action.",
-  lockedAfterStart: "This work order is locked because work has already started.",
+  lockedAfterStart:
+    "Due date and expected completion are locked because work has already started. Title, description, estimated cost, and estimated hours can still be edited.",
   partsReturnRequired: "Parts issued cannot be removed without return approval."
 } as const;
 

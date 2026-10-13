@@ -9,6 +9,7 @@ import {
   gateListStatus,
   gateMeterError,
   gatePresenceLabel,
+  gateReadinessLabel,
   gateReasonHref,
   splitGateReasons
 } from "../gate-operations";
@@ -28,6 +29,11 @@ test("only Available can gate out and only In Use can gate in", () => {
   assert.equal(gateActionForStatus("OUT_OF_SERVICE"), null);
   assert.equal(gatePresenceLabel("AVAILABLE"), "Inside");
   assert.equal(gatePresenceLabel("IN_USE"), "Outside");
+  assert.equal(gateReadinessLabel({ action: null, reasons: null, reasonsError: null }), "Unavailable");
+  assert.equal(gateReadinessLabel({ action: "in", reasons: null, reasonsError: null }), "Gate in does not use the block check");
+  assert.equal(gateReadinessLabel({ action: "out", reasons: null, reasonsError: null }), "Checking…");
+  assert.equal(gateReadinessLabel({ action: "out", reasons: { blocked: true }, reasonsError: null }), "Blocked");
+  assert.equal(gateReadinessLabel({ action: "out", reasons: { blocked: false }, reasonsError: null }), "Ready");
 });
 
 test("meter rules match the server: blank, junk, negative, and rollback fail; equal and higher pass", () => {
