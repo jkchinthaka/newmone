@@ -1827,9 +1827,10 @@ export default function AssetsManagementPage() {
                 Showing {meta.total === 0 ? 0 : (meta.page - 1) * meta.limit + 1}-{Math.min(meta.page * meta.limit, meta.total)} of {meta.total} assets
               </span>
               <select
+                aria-label="Rows per page"
                 value={filters.pageSize}
                 onChange={(event) => setPageSize(Number(event.target.value))}
-                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
+                className="min-h-11 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
               >
                 {PAGE_SIZE_OPTIONS.map((size) => (
                   <option key={size} value={size}>
@@ -1841,17 +1842,22 @@ export default function AssetsManagementPage() {
 
             <div className="flex items-center gap-1">
               <button
+                type="button"
                 onClick={() => setPage(Math.max(1, meta.page - 1))}
                 disabled={meta.page <= 1}
+                aria-label="Previous page"
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-700 disabled:opacity-40"
               >
-                <ChevronLeft size={15} />
+                <ChevronLeft size={15} aria-hidden />
               </button>
 
               {pageNumbers.map((page) => (
                 <button
                   key={page}
+                  type="button"
                   onClick={() => setPage(page)}
+                  aria-label={`Page ${page}`}
+                  aria-current={page === meta.page ? "page" : undefined}
                   className={`h-8 min-w-8 rounded-full border px-2 text-sm ${
                     page === meta.page
                       ? "border-slate-900 bg-slate-900 text-white"
@@ -1863,11 +1869,13 @@ export default function AssetsManagementPage() {
               ))}
 
               <button
+                type="button"
                 onClick={() => setPage(Math.min(meta.totalPages, meta.page + 1))}
                 disabled={meta.page >= meta.totalPages}
+                aria-label="Next page"
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-700 disabled:opacity-40"
               >
-                <ChevronRight size={15} />
+                <ChevronRight size={15} aria-hidden />
               </button>
             </div>
           </div>

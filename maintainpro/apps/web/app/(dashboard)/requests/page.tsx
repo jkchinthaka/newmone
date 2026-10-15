@@ -30,6 +30,7 @@ import {
   requestResultCountLabel,
   requestStageCards,
   requestStatusLabel,
+  requestTriageExplanation,
   requestValueLabel,
   resolveRequestMenuActivation
 } from "@/lib/maintenance-request-ui";
@@ -511,6 +512,7 @@ export default function RequestsPage() {
         ))}
       </div>
       ) : null}
+      {view === "triage" ? <p className="text-sm text-slate-600">{requestTriageExplanation()}</p> : null}
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-3" aria-label="Filters">
         <div className="grid gap-2 lg:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,0.7fr))_auto]">

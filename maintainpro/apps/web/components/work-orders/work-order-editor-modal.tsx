@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Loader2, MoreHorizontal, X, AlertTriangle } from "lucide-react";
 
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { visibleWorkOrderTab, workOrderTabLoads } from "@/lib/operational-deep-link";
+import { dialogTabTrapDecision, workOrderDrawerEscapeDecision } from "@/lib/overlay-dismiss";
 import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
 import type { WorkOrderActivityTimelineResponse } from "@/lib/work-order-activity";
 import { workOrderActivityUnavailableMessage } from "@/lib/work-order-activity";
@@ -86,6 +87,8 @@ export function WorkOrderEditorModal({
   onEdit
 }: WorkOrderEditorModalProps) {
   const isCreateMode = mode === "create";
+  const reduceMotion = useReducedMotion();
+  const drawerMotion = reduceMotion ? { duration: 0 } : { duration: 0.18 };
 
   const initialState = useMemo(
     () => ({
@@ -111,6 +114,7 @@ export function WorkOrderEditorModal({
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<WorkOrderDetailTab>(() => visibleWorkOrderTab(initialTab, showAuditTab));
   const panelRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
   const [activityTimeline, setActivityTimeline] = useState<WorkOrderActivityTimelineResponse | null>(null);
@@ -129,6 +133,66 @@ export function WorkOrderEditorModal({
     setFormError(null);
     setActiveTab(visibleWorkOrderTab(initialTab, showAuditTab));
   }, [initialState, initialTab, open, showAuditTab]);
+
+  useEffect(() => {
+    if (!open) return;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => {
+      const previous = returnFocusRef.current;
+      if (previous && document.contains(previous)) previous.focus();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const nestedOverlayOpen = Array.from(document.querySelectorAll("[role='dialog'], [role='alertdialog']")).some(
+        (node) => node !== panelRef.current && !panelRef.current?.contains(node)
+      );
+      if (event.key === "Tab" && !nestedOverlayOpen && panelRef.current) {
+        const focusable = Array.from(
+          panelRef.current.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((node) => !node.hasAttribute("disabled") && node.getClientRects().length > 0);
+        const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const decision = dialogTabTrapDecision({
+          key: event.key,
+          shiftKey: event.shiftKey,
+          activeInside: Boolean(active && panelRef.current.contains(active)),
+          activeIsFirst: active === focusable[0],
+          activeIsLast: active === focusable[focusable.length - 1],
+          focusableCount: focusable.length
+        });
+        if (decision === "focus-first") {
+          event.preventDefault();
+          focusable[0]?.focus();
+          return;
+        }
+        if (decision === "focus-last") {
+          event.preventDefault();
+          focusable[focusable.length - 1]?.focus();
+          return;
+        }
+      }
+      const decision = workOrderDrawerEscapeDecision({
+        key: event.key,
+        defaultPrevented: event.defaultPrevented,
+        submitting,
+        menuOpen,
+        nestedOverlayOpen
+      });
+      if (decision === "ignore") return;
+      event.preventDefault();
+      if (decision === "close-menu") {
+        setMenuOpen(false);
+        return;
+      }
+      onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [menuOpen, onClose, open, submitting]);
 
   useEffect(() => {
     if (!open) return;
@@ -242,6 +306,7 @@ export function WorkOrderEditorModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={drawerMotion}
           className="fixed inset-0 z-50 flex justify-end bg-[#104D2B]/45"
         >
           <motion.div
@@ -253,7 +318,7 @@ export function WorkOrderEditorModal({
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 24 }}
-            transition={{ duration: 0.18 }}
+            transition={drawerMotion}
             className="flex h-[100dvh] w-full max-w-4xl flex-col bg-white shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
           >
             <header className="flex shrink-0 items-start justify-between gap-3 border-b border-brand-100 px-4 py-3">

@@ -79,3 +79,16 @@ export function pmPlanListParams(state: PmPlanUrlState): Record<string, string |
     pageSize: state.pageSize
   };
 }
+
+export function pmSummaryHint(key: "active" | "soon" | "overdue" | "attention"): string {
+  switch (key) {
+    case "active":
+      return "Plans with status Active.";
+    case "soon":
+      return "Active plans with a next due date in the next 7 days.";
+    case "overdue":
+      return "Active plans whose next due date has passed.";
+    case "attention":
+      return "Active plans missing a trigger, an asset or vehicle, or a calendar due date.";
+  }
+}

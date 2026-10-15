@@ -14,6 +14,7 @@ import {
   gateListStatus,
   gateMeterError,
   gatePresenceLabel,
+  gateReadinessLabel,
   gateReasonHref,
   splitGateReasons,
   type GateDeskState
@@ -210,7 +211,7 @@ export function FleetGatePanel() {
         }
       />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
-        <section className="rounded-lg border border-slate-200 bg-white">
+        <section className="order-2 rounded-lg border border-slate-200 bg-white lg:order-1">
           <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
             <label className="sr-only" htmlFor="gate-search">Search vehicle</label>
             <input id="gate-search" value={draftQuery} onChange={(event) => setDraftQuery(event.target.value)} placeholder="Registration, code, model, or driver" className="h-9 min-w-48 flex-1 rounded-md border border-slate-300 px-3 text-sm" />
@@ -251,7 +252,28 @@ export function FleetGatePanel() {
           ) : null}
           {!loading && !error && rows.length === 0 ? <JobsEmptyState title={GATE_EMPTY} /> : null}
           {!loading && !error && rows.length > 0 ? (
-            <div className="overflow-x-auto">
+            <>
+            <ul className="space-y-2 p-3 md:hidden">
+              {rows.map((row) => {
+                const next = gateActionForStatus(row.status);
+                return (
+                  <li key={row.id}>
+                    <button
+                      type="button"
+                      onClick={() => write({ ...state, vehicleId: row.id })}
+                      className={`w-full rounded-lg border p-3 text-left ${row.id === state.vehicleId ? "border-brand-300 bg-brand-50" : "border-slate-200 bg-white"}`}
+                    >
+                      <span className="block font-medium text-slate-900">{row.registrationNo}</span>
+                      <span className="block text-sm text-slate-600">{[row.make, row.vehicleModel].filter(Boolean).join(" ") || row.assetTag || "Vehicle"}</span>
+                      <span className="mt-1 block text-sm text-slate-700">
+                        {row.status?.replaceAll("_", " ") || "—"} · {gatePresenceLabel(row.status)} · {next === "out" ? "Gate out" : next === "in" ? "Gate in" : "Unavailable"}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
               <table className="min-w-full text-sm">
                 <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
                   <tr>
@@ -282,11 +304,12 @@ export function FleetGatePanel() {
                 </tbody>
               </table>
             </div>
+            </>
           ) : null}
           <JobsPagination page={meta.page} totalPages={meta.totalPages} total={meta.total} pageSize={state.pageSize} onPageChange={(page) => write({ ...state, page })} onPageSizeChange={(pageSize) => write({ ...state, pageSize, page: 1 })} />
         </section>
 
-        <section id="gate-action" className="rounded-lg border border-slate-200 bg-white p-4" aria-live="polite">
+        <section id="gate-action" className="order-1 rounded-lg border border-slate-200 bg-white p-4 lg:order-2" aria-live="polite">
           <h2 className="text-sm font-semibold text-slate-900">Gate action</h2>
           {!selected ? <p className="mt-3 text-sm text-slate-600">Select a vehicle.</p> : (
             <div className="mt-3 space-y-3 text-sm">
@@ -294,7 +317,7 @@ export function FleetGatePanel() {
               <p><span className="text-slate-500">Vehicle </span>{[selected.make, selected.vehicleModel].filter(Boolean).join(" ") || "—"}</p>
               <p><span className="text-slate-500">Odometer </span>{selected.currentMileage ?? "—"} km</p>
               <p><span className="text-slate-500">Gate </span>{gatePresenceLabel(selected.status)}</p>
-              <p><span className="text-slate-500">Readiness </span>{reasonsError ? reasonsError : !reasons ? "Checking…" : reasons.blocked ? "Blocked" : "Ready"}</p>
+              <p><span className="text-slate-500">Readiness </span>{gateReadinessLabel({ action, reasons, reasonsError })}</p>
               {reasons?.blocked ? (
                 <div>
                   <p className="font-medium text-red-800">Cannot gate out</p>
@@ -306,20 +329,20 @@ export function FleetGatePanel() {
                   </ul>
                 </div>
               ) : null}
-              <label className="block">Meter reading
-                <input value={meter} onChange={(event) => setMeter(event.target.value)} inputMode="decimal" className="mt-1 h-9 w-full rounded-md border border-slate-300 px-3" />
+              <label className="block" htmlFor="gate-meter">Meter reading
+                <input id="gate-meter" value={meter} onChange={(event) => setMeter(event.target.value)} inputMode="decimal" aria-invalid={meterError ? true : undefined} aria-describedby={meterError ? "gate-meter-error" : undefined} className="mt-1 min-h-11 w-full rounded-md border border-slate-300 px-3" />
               </label>
-              {meterError ? <p className="text-red-700">{meterError}</p> : null}
+              {meterError ? <p id="gate-meter-error" className="text-red-700">{meterError}</p> : null}
               <label className="block">Checkpoint
                 <input value={checkpoint} onChange={(event) => setCheckpoint(event.target.value)} className="mt-1 h-9 w-full rounded-md border border-slate-300 px-3" />
               </label>
               {action === "out" ? (
-                <button type="button" disabled={submitting || Boolean(meterError) || outBlocked} onClick={() => void submit()} className="h-10 w-full rounded-md bg-slate-900 text-sm font-medium text-white disabled:opacity-50">
+                <button type="button" disabled={submitting || Boolean(meterError) || outBlocked} onClick={() => void submit()} className="min-h-11 w-full rounded-md bg-slate-900 text-sm font-medium text-white disabled:opacity-50">
                   {submitting ? "Recording…" : "Gate out"}
                 </button>
               ) : null}
               {action === "in" ? (
-                <button type="button" disabled={submitting || Boolean(meterError)} onClick={() => void submit()} className="h-10 w-full rounded-md bg-slate-900 text-sm font-medium text-white disabled:opacity-50">
+                <button type="button" disabled={submitting || Boolean(meterError)} onClick={() => void submit()} className="min-h-11 w-full rounded-md bg-slate-900 text-sm font-medium text-white disabled:opacity-50">
                   {submitting ? "Recording…" : "Gate in"}
                 </button>
               ) : null}

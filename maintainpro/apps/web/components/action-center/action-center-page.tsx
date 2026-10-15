@@ -82,7 +82,7 @@ function KpiStrip({ items }: { items: KpiOverviewItem[] }) {
         >
           <p className="text-xs text-slate-500 truncate">{kpi.displayName}</p>
           {kpi.dataWarning ? (
-            <p className="mt-1 text-sm font-medium text-amber-600" title={kpi.dataWarning}>
+            <p className="mt-1 text-sm font-medium text-amber-800" title={kpi.dataWarning}>
               N/A
             </p>
           ) : (
@@ -244,8 +244,6 @@ export function ActionCenterPage() {
 
   return (
     <div className="space-y-6">
-      <PageBreadcrumbs />
-
       <header className="space-y-4">
         <div>
           <h1 className="page-title">{getActionCenterTitle(variant)}</h1>

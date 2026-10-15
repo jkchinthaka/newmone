@@ -199,7 +199,7 @@ function SettingsWorkspace() {
     <div className="mx-auto max-w-3xl ops-page">
       <PageBreadcrumbs />
       <header>
-        <h1 className="text-xl font-semibold text-slate-900">Settings</h1>
+        <h1 className="page-title">Settings</h1>
         <p className="mt-1 text-sm text-slate-600">Your account, notification delivery, and sign-in security.</p>
       </header>
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Settings sections">
@@ -209,7 +209,7 @@ function SettingsWorkspace() {
             type="button"
             role="tab"
             aria-selected={tab === key}
-            className={`rounded-md px-3 py-1.5 text-sm ${tab === key ? "bg-slate-900 text-white" : "border border-slate-300 text-slate-700"}`}
+            className={`min-h-11 flex-1 rounded-md px-3 text-sm sm:flex-none ${tab === key ? "bg-slate-900 text-white" : "border border-slate-300 text-slate-700"}`}
             onClick={() => router.replace(`${pathname}?tab=${key}` as never)}
           >
             {key === "profile" ? "Profile" : key === "notifications" ? "Notifications" : "Security"}

@@ -18,6 +18,7 @@ import { JOB_DOMAINS, JOB_DOMAIN_LABELS } from "@/lib/job-domain";
 import {
   activeQueueFilterChips,
   queueFiltersAfterChipRemove,
+  queuePurpose,
   splitQueueTabs,
   writeQueueFiltersToSearch
 } from "@/lib/work-order-queue-nav";
@@ -369,8 +370,11 @@ export function WorkOrderQueuePanel({
           onMoreOpenChange={setMoreQueuesOpen}
           onSelect={(key) => updateFilters({ queue: key as WorkOrderQueueKey, smartView: undefined, page: 1 })}
         />
+        {queuePurpose(filters.queue) ? (
+          <p className="border-b border-slate-100 px-3 py-2 text-sm text-slate-600">{queuePurpose(filters.queue)}</p>
+        ) : null}
 
-        <div className="flex flex-col gap-2 border-b border-slate-200 px-3 py-2 lg:flex-row lg:items-center">
+        <div className="flex min-w-0 flex-col gap-2 border-b border-slate-200 px-3 py-2 lg:flex-row lg:flex-wrap lg:items-center">
           <label className="min-w-0 flex-1">
             <span className="sr-only">Search work orders</span>
             <input

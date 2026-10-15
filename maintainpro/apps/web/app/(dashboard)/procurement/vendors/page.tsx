@@ -145,12 +145,14 @@ export default function VendorEligibilityPage() {
           <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => void refresh()}>Refresh</button>
         </div>
       </header>
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Eligibility views">
-        {VIEWS.map(([value, labelText, key]) => (
-          <button key={labelText} type="button" role="tab" aria-selected={eligibility === value} className={`min-h-11 rounded-full border px-3 text-sm ${eligibility === value ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`} onClick={() => writeQuery({ eligibility: value || null })}>
-            {labelText} <span className="font-semibold">{counts ? counts[key] : "—"}</span>
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Eligibility views">
+          {VIEWS.map(([value, labelText, key]) => (
+            <button key={labelText} type="button" role="tab" aria-selected={eligibility === value} className={`min-h-11 rounded-full border px-3 text-sm ${eligibility === value ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`} onClick={() => writeQuery({ eligibility: value || null })}>
+              {labelText} <span className="font-semibold">{counts ? counts[key] : "—"}</span>
+            </button>
+          ))}
+        </div>
         <button type="button" aria-pressed={document === "expiring"} className={`min-h-11 rounded-full border px-3 text-sm ${document === "expiring" ? "border-amber-600 bg-amber-50" : "border-slate-300 bg-white"}`} onClick={() => writeQuery({ document: document === "expiring" ? null : "expiring" })}>
           Expiring soon <span className="font-semibold">{counts ? counts.expiringSoon : "—"}</span>
         </button>
@@ -207,7 +209,7 @@ export default function VendorEligibilityPage() {
           <tbody>
             {items.map((vendor) => (
               <tr key={vendor.id} className="border-b">
-                <td className="px-3 py-3"><button type="button" className="font-medium text-brand-700 underline" onClick={() => setSelected(vendor)}>{vendor.name}</button><div className="text-xs text-slate-500">{vendor.vendorCode || "No code"}</div></td>
+                <td className="px-3 py-3"><button type="button" className="font-medium text-brand-700 underline" aria-label={vendor.name?.trim() || vendor.vendorCode || "Open vendor"} onClick={() => setSelected(vendor)}>{vendor.name?.trim() || vendor.vendorCode || "Open vendor"}</button><div className="text-xs text-slate-500">{vendor.vendorCode || "No code"}</div></td>
                 <td className="px-3 py-3">{label(vendor.availability)}</td>
                 <td className="px-3 py-3">{label(vendor.eligibility)}<div className="text-xs text-slate-600">{vendor.reasons[0]?.message || "Meets the rules currently enforced."}</div></td>
                 <td className="px-3 py-3">{label(vendor.contract.state)}</td>
@@ -221,7 +223,7 @@ export default function VendorEligibilityPage() {
       <ul className="space-y-3 md:hidden">
         {items.map((vendor) => (
           <li key={vendor.id} className="rounded-xl border border-slate-200 bg-white p-4">
-            <button type="button" className="font-semibold text-brand-700 underline" onClick={() => setSelected(vendor)}>{vendor.name}</button>
+            <button type="button" className="font-semibold text-brand-700 underline" aria-label={vendor.name?.trim() || vendor.vendorCode || "Open vendor"} onClick={() => setSelected(vendor)}>{vendor.name?.trim() || vendor.vendorCode || "Open vendor"}</button>
             <p className="text-sm text-slate-600">{vendor.vendorCode || "No code"}</p>
             <p className="mt-1 text-sm">{label(vendor.availability)} · {label(vendor.eligibility)}</p>
             <p className="mt-1 text-sm text-slate-600">{vendor.reasons[0]?.message || "Meets the rules currently enforced."}</p>

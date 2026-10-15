@@ -59,6 +59,18 @@ export function gatePresenceLabel(status?: string | null): string {
   return "Unavailable";
 }
 
+/** Gate-out is the only movement that waits on block reasons. Other statuses must not stay on "Checking…". */
+export function gateReadinessLabel(input: {
+  action: "out" | "in" | null;
+  reasons: { blocked: boolean } | null;
+  reasonsError: string | null;
+}): string {
+  if (input.reasonsError) return input.reasonsError;
+  if (input.action !== "out") return input.action === "in" ? "Gate in does not use the block check" : "Unavailable";
+  if (!input.reasons) return "Checking…";
+  return input.reasons.blocked ? "Blocked" : "Ready";
+}
+
 export function gateListStatus(state: GateDeskState): string | undefined {
   if (state.status) return state.status;
   if (state.presence === "inside") return "AVAILABLE";

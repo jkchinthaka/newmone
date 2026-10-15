@@ -151,41 +151,44 @@ export function ReportsDashboardPage() {
         description="Live work-order reporting. Numbers use the same server query as the export."
         actions={
           <>
-            <button type="button" className="h-10 rounded-lg border border-slate-300 px-3 text-sm font-medium" onClick={() => query.refetch()}>
+            <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium" onClick={() => query.refetch()}>
               Generate report
             </button>
-            <button type="button" className="h-10 rounded-lg border border-slate-300 px-3 text-sm font-medium" disabled={exporting} onClick={() => exportReport("csv")}>
-              CSV
+            <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium" disabled={exporting} aria-busy={exporting} onClick={() => exportReport("csv")}>
+              {exporting ? "Preparing export…" : "CSV"}
             </button>
-            <button type="button" className="h-10 rounded-lg border border-slate-300 px-3 text-sm font-medium" disabled={exporting} onClick={() => exportReport("xlsx")}>
-              Excel
+            <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium" disabled={exporting} aria-busy={exporting} onClick={() => exportReport("xlsx")}>
+              {exporting ? "Preparing export…" : "Excel"}
             </button>
           </>
         }
       />
-      <p className="text-xs text-slate-500">{OPERATIONS_COMPLETION_RATE_DEFINITION}</p>
+      {moduleSlug === "operations" ? <p className="text-xs text-slate-500">{OPERATIONS_COMPLETION_RATE_DEFINITION}</p> : null}
+      {query.dataUpdatedAt ? <p className="text-xs text-slate-500">Loaded {new Date(query.dataUpdatedAt).toLocaleString()}. This is the current server result, not an accounting close.</p> : null}
 
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Report category">
-        {modules.map((item) => (
-          <button
-            key={item.slug}
-            type="button"
-            role="tab"
-            aria-selected={moduleSlug === item.slug}
-            className={`h-9 rounded-md px-3 text-sm ${moduleSlug === item.slug ? "bg-slate-900 text-white" : "border border-slate-300 bg-white"}`}
-            onClick={() => {
-              const next = new URLSearchParams(params.toString());
-              next.set("module", item.slug);
-              router.replace(`${pathname}?${next.toString()}` as Route);
-              setFilters((current) => ({ ...current, page: 1 }));
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Report category">
+          {modules.map((item) => (
+            <button
+              key={item.slug}
+              type="button"
+              role="tab"
+              aria-selected={moduleSlug === item.slug}
+              className={`min-h-11 rounded-md px-3 text-sm ${moduleSlug === item.slug ? "bg-slate-900 text-white" : "border border-slate-300 bg-white"}`}
+              onClick={() => {
+                const next = new URLSearchParams(params.toString());
+                next.set("module", item.slug);
+                router.replace(`${pathname}?${next.toString()}` as Route);
+                setFilters((current) => ({ ...current, page: 1 }));
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
         <select
           aria-label="Saved report"
-          className="h-9 rounded-md border border-slate-300 px-2 text-sm"
+          className="min-h-11 rounded-md border border-slate-300 px-2 text-sm"
           defaultValue=""
           onChange={(event) => {
             const template = (templates.data ?? []).find((item) => item.id === event.target.value);
@@ -201,7 +204,7 @@ export function ReportsDashboardPage() {
             <option key={template.id} value={template.id}>{template.name}</option>
           ))}
         </select>
-        <Link href={"/reports/operations" as Route} className="inline-flex h-9 items-center px-2 text-sm text-brand-700">
+        <Link href={"/reports/operations" as Route} className="inline-flex min-h-11 items-center px-2 text-sm text-brand-700">
           All report modules
         </Link>
       </div>

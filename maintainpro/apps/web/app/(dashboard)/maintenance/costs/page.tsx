@@ -174,6 +174,7 @@ export default function MaintenanceCostsPage() {
           <li key={job.id} className="rounded-xl border border-slate-200 bg-white p-4">
             <button type="button" className="font-semibold text-brand-700 underline" onClick={() => setSelected(job)}>{job.woNumber}</button>
             <p className="text-sm">{job.title}</p>
+            <p className="mt-1 text-sm text-slate-600">Parts {money(job.period.parts)} · Labour {money(job.period.labour)} · Services {money(job.period.services)}</p>
             <p className="mt-1 text-sm">Period total {money(job.period.actual)} · {job.period.complete ? "Complete" : "Partial"}</p>
           </li>
         ))}

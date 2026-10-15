@@ -7,6 +7,7 @@ import {
   nextActionLabel,
   queueFiltersAfterChipRemove,
   splitQueueTabs,
+  queuePurpose,
   writeQueueFiltersToSearch
 } from "../work-order-queue-nav";
 import {
@@ -37,6 +38,15 @@ test("primary queues stay visible and secondary queues move into More", () => {
   );
   assert.equal(split.primary.find((queue) => queue.key === "open-requests")?.count, 4);
   assert.equal(split.more.find((queue) => queue.key === "open-load")?.label, "Open Load");
+});
+
+test("priority queues explain the count without changing the filter", () => {
+  assert.match(queuePurpose("overdue"), /due date/);
+  assert.match(queuePurpose("unassigned"), /no technician/);
+  assert.match(queuePurpose("waiting-parts"), /parts/);
+  assert.match(queuePurpose("supervisor-verification"), /supervisor/);
+  assert.match(queuePurpose("high-priority"), /critical/);
+  assert.equal(queuePurpose("completed"), "");
 });
 
 test("queue selection and filters round-trip through the URL", () => {

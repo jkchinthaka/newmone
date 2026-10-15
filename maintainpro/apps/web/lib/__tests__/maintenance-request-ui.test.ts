@@ -10,6 +10,7 @@ import {
   requestResultCountLabel,
   requestStageCards,
   requestStatusLabel,
+  requestTriageExplanation,
   requestValueLabel,
   resolveRequestMenuActivation
 } from "../maintenance-request-ui";
@@ -19,6 +20,8 @@ describe("maintenance request labels", () => {
   it("uses business wording instead of raw codes", () => {
     assert.equal(requestStatusLabel("APPROVED"), "Accepted");
     assert.equal(requestStatusLabel("CONVERTED_TO_WO"), "Converted to Work Order");
+    assert.match(requestTriageExplanation(), /Needs Information/);
+    assert.match(requestTriageExplanation(), /Accepted requests stay on All requests/);
     assert.equal(requestHistoryActionLabel("START_REVIEW"), "Review started");
     assert.equal(requestHistoryActionLabel("CONVERTED_TO_WO"), "Work order created");
     assert.equal(requestValueLabel("VERY_URGENT"), "Very urgent");

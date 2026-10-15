@@ -437,6 +437,31 @@ export function AssetsTable<T extends AssetTableRow>({
   }, [visibleColumns]);
 
   return (
+    <>
+      <ul className="space-y-2 p-3 md:hidden">
+        {rows.length === 0 ? (
+          <li>
+            <EmptyState actionLabel="Clear filters" description={emptyDescription} onAction={onClearFilters} title={ASSET_EMPTY} />
+          </li>
+        ) : (
+          rows.map((asset) => (
+            <li key={asset.id}>
+              <button
+                type="button"
+                onClick={() => onOpenDetails(asset.id)}
+                className="w-full rounded-lg border border-slate-200 bg-white p-3 text-left"
+              >
+                <span className="block font-semibold text-slate-900">{asset.assetTag}</span>
+                <span className="block text-sm text-slate-700">{asset.name}</span>
+                <span className="mt-1 block text-sm text-slate-600">
+                  {formatEnumLabel(asset.status)} · {assetNextAction(asset)}
+                </span>
+              </button>
+            </li>
+          ))
+        )}
+      </ul>
+      <div className="hidden md:block">
     <DataTable
       ariaLabel="Asset registry"
       className="border-0 shadow-none rounded-none"
@@ -512,5 +537,7 @@ export function AssetsTable<T extends AssetTableRow>({
       }}
       rows={rows}
     />
+      </div>
+    </>
   );
 }

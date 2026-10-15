@@ -177,7 +177,7 @@ export function Topbar({
           >
             <Bell size={18} />
             {!unreadQuery.isError && (unreadQuery.data ?? 0) > 0 ? (
-              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-500 px-1.5 text-center text-[10px] font-semibold text-white">
+              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-700 px-1.5 text-center text-[10px] font-bold text-white">
                 {(unreadQuery.data ?? 0) > 99 ? "99+" : unreadQuery.data}
               </span>
             ) : null}

@@ -10,6 +10,8 @@ export const PRIMARY_QUEUE_KEYS = [
   "waiting-parts",
   "supervisor-verification",
   "overdue",
+  "unassigned",
+  "high-priority",
   "completed"
 ] as const;
 
@@ -22,6 +24,8 @@ const PRIMARY_LABELS: Record<string, string> = {
   "waiting-parts": "Waiting Parts",
   "supervisor-verification": "Verification",
   overdue: "Overdue",
+  unassigned: "Unassigned",
+  "high-priority": "High Priority",
   completed: "Completed"
 };
 
@@ -30,9 +34,7 @@ const MORE_ORDER = [
   "waiting-evidence",
   "technician-completed",
   "rework-required",
-  "unassigned",
   "open-load",
-  "high-priority",
   "high-risk",
   "finance-vendor-pending",
   "triage",
@@ -57,6 +59,28 @@ export function splitQueueTabs(queues: QueueTab[]): { primary: QueueTab[]; more:
     return (leftIndex === -1 ? 99 : leftIndex) - (rightIndex === -1 ? 99 : rightIndex);
   });
   return { primary, more };
+}
+
+/** Plain-language meaning of a queue. Counts still come from the API. */
+export function queuePurpose(key: string): string {
+  switch (key) {
+    case "action-required":
+      return "Jobs that need a decision before work can continue.";
+    case "waiting-parts":
+      return "Jobs that are not finished and are waiting on parts.";
+    case "supervisor-verification":
+      return "Jobs waiting for a supervisor to verify the work.";
+    case "overdue":
+      return "Jobs past their due date.";
+    case "unassigned":
+      return "Open or planned jobs with no technician.";
+    case "high-priority":
+      return "Open jobs marked high or critical priority.";
+    case "high-risk":
+      return "Open jobs with a high risk score.";
+    default:
+      return "";
+  }
 }
 
 export function formatQueueDue(

@@ -16,7 +16,7 @@ import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { formatQueueDue } from "@/lib/work-order-queue-nav";
 import { useCurrentUser } from "@/lib/use-current-user";
-import { pmPlanListParams, pmPlanStateFromSearch } from "@/lib/pm-plan-list";
+import { pmPlanListParams, pmPlanStateFromSearch, pmSummaryHint } from "@/lib/pm-plan-list";
 import {
   autoCreatePmWorkOrder,
   createPmPlan,
@@ -177,23 +177,56 @@ export default function PreventiveMaintenancePage() {
       <div className="flex flex-wrap gap-2" aria-label="PM summary">
         {(
           [
-            ["Active", summary.active, { status: state.status === "ACTIVE" ? null : "ACTIVE", due: null, attention: null }],
-            ["Due soon", summary.dueIn7, { due: state.due === "soon" ? null : "soon", attention: null }],
-            ["Overdue", summary.overdue, { due: state.due === "overdue" ? null : "overdue", attention: null }],
-            ["Needs attention", summary.needsAttention, { attention: state.attention ? null : "true", due: null }]
-          ] as Array<[string, number, Record<string, string | null>]>
-        ).map(([label, value, patch]) => (
+            {
+              key: "active" as const,
+              label: "Active",
+              value: summary.active,
+              pressed: state.status === "ACTIVE" && !state.due && !state.attention,
+              patch: { status: state.status === "ACTIVE" && !state.due && !state.attention ? null : "ACTIVE", due: null, attention: null }
+            },
+            {
+              key: "soon" as const,
+              label: "Due soon",
+              value: summary.dueIn7,
+              pressed: state.due === "soon",
+              patch: { due: state.due === "soon" ? null : "soon", attention: null }
+            },
+            {
+              key: "overdue" as const,
+              label: "Overdue",
+              value: summary.overdue,
+              pressed: state.due === "overdue",
+              patch: { due: state.due === "overdue" ? null : "overdue", attention: null }
+            },
+            {
+              key: "attention" as const,
+              label: "Needs attention",
+              value: summary.needsAttention,
+              pressed: state.attention === "true",
+              patch: { attention: state.attention ? null : "true", due: null }
+            }
+          ]
+        ).map((item) => (
           <button
-            key={String(label)}
+            key={item.key}
             type="button"
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm"
-            onClick={() => write(patch as Record<string, string | null>)}
+            aria-pressed={item.pressed}
+            title={pmSummaryHint(item.key)}
+            className={`inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm ${
+              item.pressed ? "border-brand-600 bg-brand-50" : "border-slate-200 bg-white"
+            }`}
+            onClick={() => write(item.patch as Record<string, string | null>)}
           >
-            <span className="text-slate-600">{label}</span>
-            <span className="font-semibold text-slate-900">{value}</span>
+            <span className="text-slate-600">{item.label}</span>
+            <span className="font-semibold text-slate-900">{item.value}</span>
           </button>
         ))}
       </div>
+      {state.due === "soon" || state.due === "overdue" || state.attention === "true" || (state.status === "ACTIVE" && !state.due && !state.attention) ? (
+        <p className="text-sm text-slate-600">
+          {pmSummaryHint(state.attention === "true" ? "attention" : state.due === "soon" ? "soon" : state.due === "overdue" ? "overdue" : "active")}
+        </p>
+      ) : null}
 
       <section className="rounded-lg border border-slate-200 bg-white p-2">
         <div className="flex flex-wrap items-center gap-2">

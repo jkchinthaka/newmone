@@ -75,6 +75,7 @@ export function MobileBottomNav({ onOpenSearch }: Props) {
                 className={`flex min-h-12 w-full flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-medium ${
                   active ? "bg-brand-50 text-brand-800" : "text-slate-600"
                 }`}
+                aria-current={active ? "page" : undefined}
               >
                 <Icon size={18} aria-hidden />
                 <span>{item.label}</span>

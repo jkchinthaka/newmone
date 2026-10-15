@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 import { OperationalPageHeader } from "@/components/operational/operational-page-header";
 import { QueueTabBar } from "@/components/operational/queue-tab-bar";
-import { resolveMyJobFilter } from "@/lib/my-job-filters";
+import { resolveMyJobFilter, myJobPurpose } from "@/lib/my-job-filters";
 import { getVisibleNavigationItems } from "@/lib/navigation";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
@@ -213,11 +213,11 @@ export default function MyJobsPage() {
         actions={
           <>
             {allWorkOrders ? (
-              <Link href={allWorkOrders.href as Route} className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 px-3 text-sm">
+              <Link href={allWorkOrders.href as Route} className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-3 text-sm">
                 All Work Orders
               </Link>
             ) : null}
-            <button type="button" className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => void refresh()}>
+            <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => void refresh()}>
               Refresh
             </button>
           </>
@@ -243,6 +243,7 @@ export default function MyJobsPage() {
           }))}
         />
       </div>
+      <p className="text-sm text-slate-600">{myJobPurpose(view)}</p>
 
       <form
         className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 md:grid-cols-4"
