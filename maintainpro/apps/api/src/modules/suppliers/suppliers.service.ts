@@ -80,9 +80,14 @@ export class SuppliersService {
       throw new BadRequestException("tenantId is required when creating a supplier/vendor.");
     }
 
+    const name = data.name?.trim();
+    if (!name) {
+      throw new BadRequestException("Supplier name is required");
+    }
+
     const supplier = await this.prisma.supplier.create({
       data: {
-        name: data.name,
+        name,
         vendorCode: data.vendorCode?.trim() || null,
         contactName: data.contactName,
         email: data.email,

@@ -30,10 +30,11 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { DateField } from "@/components/forms/date-fields";
 import { getStoredRole } from "@/lib/user-role";
 
 import { AnalyticsCharts } from "./analytics-charts";
@@ -1004,10 +1005,12 @@ export default function UtilitiesDashboard() {
 
           <label className="text-sm text-slate-700">
             Reading date
-            <input
-              type="date"
-              {...readingForm.register("readingDate")}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            <Controller
+              control={readingForm.control}
+              name="readingDate"
+              render={({ field }) => (
+                <DateField bare label="Reading date" value={field.value ?? ""} onChange={field.onChange} />
+              )}
             />
             <span className="mt-1 block text-xs text-rose-600">{readingForm.formState.errors.readingDate?.message}</span>
           </label>
@@ -1085,25 +1088,35 @@ export default function UtilitiesDashboard() {
 
           <label className="text-sm text-slate-700">
             Due date
-            <input type="date" {...billForm.register("dueDate")} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            <Controller
+              control={billForm.control}
+              name="dueDate"
+              render={({ field }) => (
+                <DateField bare label="Due date" value={field.value ?? ""} onChange={field.onChange} />
+              )}
+            />
           </label>
 
           <label className="text-sm text-slate-700">
             Billing start
-            <input
-              type="date"
-              {...billForm.register("billingPeriodStart")}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            <Controller
+              control={billForm.control}
+              name="billingPeriodStart"
+              render={({ field }) => (
+                <DateField bare label="Billing start" value={field.value ?? ""} onChange={field.onChange} />
+              )}
             />
             <span className="mt-1 block text-xs text-rose-600">{billForm.formState.errors.billingPeriodStart?.message}</span>
           </label>
 
           <label className="text-sm text-slate-700">
             Billing end
-            <input
-              type="date"
-              {...billForm.register("billingPeriodEnd")}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            <Controller
+              control={billForm.control}
+              name="billingPeriodEnd"
+              render={({ field }) => (
+                <DateField bare label="Billing end" value={field.value ?? ""} onChange={field.onChange} />
+              )}
             />
             <span className="mt-1 block text-xs text-rose-600">{billForm.formState.errors.billingPeriodEnd?.message}</span>
           </label>

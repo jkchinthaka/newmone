@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { AlertTriangle, ChevronDown } from "lucide-react";
 
+import { DateField } from "@/components/forms/date-fields";
 import { ActiveFilterChips } from "@/components/operational/active-filter-chips";
 import { JobsPagination } from "@/components/operational/jobs-pagination";
 import { OperationalEmptyState, TableLoadingRows } from "@/components/operational/operational-list-states";
@@ -257,7 +258,14 @@ export function WorkOrderQueuePanel({
     else params.delete("qRev");
     const stamped = params.toString();
     if (stamped === searchParams.toString()) return;
-    router.replace((stamped ? `${pathname}?${stamped}` : pathname) as Route, { scroll: false });
+    const previousQuery = new URLSearchParams(searchParams.toString()).get("q") ?? "";
+    const nextQuery = params.get("q") ?? "";
+    const href = (stamped ? `${pathname}?${stamped}` : pathname) as Route;
+    if (previousQuery !== nextQuery) {
+      router.push(href, { scroll: false });
+      return;
+    }
+    router.replace(href, { scroll: false });
   }, [filters, jobDomain, pathname, roleDefault, router, searchParams]);
 
 
@@ -541,11 +549,11 @@ export function WorkOrderQueuePanel({
               </label>
               <label className="block text-sm">
                 Created from
-                <input type="date" value={filters.dateFrom} onChange={(event) => updateFilters({ dateFrom: event.target.value, page: 1 })} className={`${fieldClass} mt-1 w-full`} />
+                <DateField bare label="Created from" value={filters.dateFrom} onChange={(dateFrom) => updateFilters({ dateFrom, page: 1 })} />
               </label>
               <label className="block text-sm">
                 Created to
-                <input type="date" value={filters.dateTo} onChange={(event) => updateFilters({ dateTo: event.target.value, page: 1 })} className={`${fieldClass} mt-1 w-full`} />
+                <DateField bare label="Created to" value={filters.dateTo} onChange={(dateTo) => updateFilters({ dateTo, page: 1 })} />
               </label>
               {queueQuery.data?.categorySummary?.length ? (
                 <label className="block text-sm">

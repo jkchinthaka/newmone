@@ -8,6 +8,7 @@ import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { ErrorState, InlineLoadingState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { formatRemainingDays } from "@/lib/work-order-queue-nav";
 import {
   convertProcurementRecommendation,
   evaluateProcurementRecommendations,
@@ -108,7 +109,7 @@ export function EnterpriseQueuePage({
       return [
         { id: "coverage", header: "Coverage", cell: (row) => asText(row.coverage) },
         { id: "estimatedDueDate", header: "Estimated due", cell: (row) => asText(row.estimatedDueDate) },
-        { id: "remainingDays", header: "Remaining days", cell: (row) => asText(row.remainingDays) },
+        { id: "remainingDays", header: "Remaining days", cell: (row) => formatRemainingDays(row.remainingDays) },
         { id: "confidence", header: "Confidence", cell: (row) => asText(row.confidence) }
       ];
     }

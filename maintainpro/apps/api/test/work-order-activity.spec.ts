@@ -102,7 +102,7 @@ describe("work order activity helpers", () => {
 describe("work order evidence UI helpers", () => {
   const readiness: EvidenceStorageReadiness = {
     providerId: "EVIDENCE_OBJECT_STORAGE",
-    mode: "mock",
+    mode: "local",
     state: "configured",
     uploadsEnabled: true,
     maxFileSizeMb: 10,

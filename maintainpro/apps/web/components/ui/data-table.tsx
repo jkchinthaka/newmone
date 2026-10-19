@@ -45,6 +45,7 @@ export type DataTableProps<T> = {
   leadingHeader?: ReactNode;
   renderLeadingCell?: (row: T) => ReactNode;
   renderActions?: (row: T) => ReactNode;
+  pinActions?: boolean;
   actionsHeader?: ReactNode;
   onRowClick?: (row: T) => void;
   getRowLabel?: (row: T) => string;
@@ -131,6 +132,7 @@ export function DataTable<T>({
   leadingHeader,
   renderLeadingCell,
   renderActions,
+  pinActions = false,
   actionsHeader = "Actions",
   onRowClick,
   getRowLabel,
@@ -156,7 +158,7 @@ export function DataTable<T>({
     <div className={`min-w-0 max-w-full overflow-x-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${className}`.trim()}>
       {/* Desktop table — contain:paint keeps wide minWidth tables from expanding document scrollWidth */}
       <div className="hidden min-w-0 md:block">
-        <div className="max-w-full overflow-x-auto [contain:paint]">
+        <div className="max-w-full overflow-x-auto">
           <table
             aria-label={ariaLabel}
             className="w-full text-left text-sm"
@@ -196,7 +198,7 @@ export function DataTable<T>({
                   </th>
                 ))}
                 {hasActions ? (
-                  <th scope="col" className="px-3 py-3">
+                  <th scope="col" className={pinActions ? "sticky right-0 z-10 bg-slate-50 px-3 py-3" : "px-3 py-3"}>
                     {actionsHeader}
                   </th>
                 ) : null}
@@ -243,7 +245,10 @@ export function DataTable<T>({
                       </td>
                     ))}
                     {renderActions ? (
-                      <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
+                      <td
+                        className={pinActions ? "sticky right-0 z-10 bg-white px-3 py-3" : "px-3 py-3"}
+                        onClick={(event) => event.stopPropagation()}
+                      >
                         {renderActions(row)}
                       </td>
                     ) : null}

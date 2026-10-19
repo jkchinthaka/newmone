@@ -3,6 +3,7 @@ import { safeInternalReturnPath } from "./role-redirect";
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/accept-invite"];
 
 export function isPublicAppPath(pathname: string): boolean {
+  if (pathname === "/dev/identity") return true;
   return PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 

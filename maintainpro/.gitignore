@@ -3,6 +3,7 @@ node_modules/
 .pnpm-store/
 
 # Build artifacts
+.dev-current/
 dist/
 build/
 coverage/
@@ -12,6 +13,7 @@ apps/web/.open-next/
 apps/web/test-results/
 apps/web/playwright-report/
 *.tsbuildinfo
+.cache/
 
 # Environment files
 .env

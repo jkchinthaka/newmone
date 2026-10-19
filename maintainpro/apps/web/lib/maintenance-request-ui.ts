@@ -74,6 +74,55 @@ export function requestStatusLabel(status: string | null | undefined) {
   return STATUS_LABELS[status] ?? titleCase(status);
 }
 
+/**
+ * Requester-facing progress. These are labels only. Converted does not mean the
+ * physical work is finished; that follows the linked work order status.
+ */
+export function requesterFacingStatus(
+  status: string | null | undefined,
+  workOrderStatus?: string | null
+) {
+  switch (status) {
+    case "NEW":
+      return "Submitted";
+    case "UNDER_REVIEW":
+      return "Under Review";
+    case "NEEDS_INFORMATION":
+      return "More Information Needed";
+    case "APPROVED":
+      return "Accepted / Scheduled";
+    case "REJECTED":
+    case "CLOSED":
+      return "Closed Without Work";
+    case "CANCELLED":
+      return "Cancelled";
+    case "CONVERTED_TO_WO":
+      return convertedWorkProgress(workOrderStatus);
+    default:
+      return requestStatusLabel(status);
+  }
+}
+
+function convertedWorkProgress(workOrderStatus?: string | null) {
+  switch (workOrderStatus) {
+    case "IN_PROGRESS":
+    case "ON_HOLD":
+    case "OVERDUE":
+    case "REWORK_REQUIRED":
+      return "Maintenance In Progress";
+    case "TECHNICIAN_COMPLETED":
+      return "Work Done — Awaiting Verification";
+    case "VERIFIED":
+    case "COMPLETED":
+    case "CLOSED":
+      return "Resolved / Completed";
+    case "CANCELLED":
+      return "Closed Without Work";
+    default:
+      return "Accepted / Scheduled";
+  }
+}
+
 /** Matches the API triage queue: New, Under Review, Needs Information. Accepted stays on All requests. */
 export function requestTriageExplanation() {
   return "New, Under Review, and Needs Information. Accepted requests stay on All requests until a work order is created.";
@@ -118,7 +167,7 @@ export type RequestNextStep = {
 export function requestNextStep(request: {
   status: string;
   targetUnresolved?: boolean | null;
-  workOrder?: { woNumber: string } | null;
+  workOrder?: { woNumber: string; status?: string | null } | null;
   allowedActions?: RequestAllowedActions;
   isOwner: boolean;
 }): RequestNextStep {
@@ -153,12 +202,23 @@ export function requestNextStep(request: {
       return isActionAllowed(actions, "convert")
         ? { tone: "info", title: "Ready to become a work order", detail: "Convert it to create the work order with the confirmed target." }
         : { tone: "waiting", title: "Accepted", detail: "A planner will create the work order." };
-    case "CONVERTED_TO_WO":
+    case "CONVERTED_TO_WO": {
+      const progress = requesterFacingStatus(request.status, request.workOrder?.status);
+      if (request.isOwner) {
+        return {
+          tone: progress === "Resolved / Completed" ? "done" : "waiting",
+          title: progress,
+          detail: request.workOrder
+            ? `Linked work order ${request.workOrder.woNumber}. This is not a separate request.`
+            : "A work order was created. Progress is shown once its status is available."
+        };
+      }
       return {
         tone: "done",
         title: request.workOrder ? `Work order ${request.workOrder.woNumber}` : "Converted to a work order",
         detail: "Progress continues on the work order."
       };
+    }
     case "CLOSED":
       return { tone: "done", title: "Closed", detail: "No work order was created for this request." };
     case "CANCELLED":

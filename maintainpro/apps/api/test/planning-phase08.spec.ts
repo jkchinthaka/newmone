@@ -286,6 +286,7 @@ describe("Phase 8 PlanningService - auto-WO, inspection, calibration, revisions"
       expect.objectContaining({
         type: "PREVENTIVE",
         createdById: "user-1",
+        dueDate: "2026-09-14T00:00:00.000Z",
         idempotencyKey: expect.stringMatching(/^pm:plan-1:/)
       }),
       expect.objectContaining({ sub: "user-1", role: "ADMIN" })

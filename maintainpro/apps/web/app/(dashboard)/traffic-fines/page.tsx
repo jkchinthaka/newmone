@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+
+import { DateField } from "@/components/forms/date-fields";
 import { toast } from "sonner";
 import { Loader2, Plus, RefreshCw, Wrench } from "lucide-react";
 
@@ -317,21 +319,11 @@ function CreateFineDialog({
             />
           </Field>
           <Field label="Fine date *">
-            <input
-              required
-              type="date"
-              value={form.fineDate}
-              onChange={(e) => setForm({ ...form, fineDate: e.target.value })}
-              className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
-            />
+            <DateField bare label="Fine date" value={form.fineDate} onChange={(fineDate) => setForm({ ...form, fineDate })} />
+            <input required value={form.fineDate} readOnly tabIndex={-1} aria-hidden="true" className="sr-only" />
           </Field>
           <Field label="Due date">
-            <input
-              type="date"
-              value={form.dueDate}
-              onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-              className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
-            />
+            <DateField bare label="Due date" value={form.dueDate} onChange={(dueDate) => setForm({ ...form, dueDate })} />
           </Field>
         </div>
         <Field label="Offense *">

@@ -1,6 +1,8 @@
 import "reflect-metadata";
 
-import { ValidationPipe } from "@nestjs/common";
+import { execFileSync } from "node:child_process";
+
+import { BadRequestException, ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
@@ -14,6 +16,7 @@ import {
   verifySwaggerBasicAuth
 } from "./bootstrap/swagger-guard";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
+import { validationErrorText } from "./common/utils/validation-error-text";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
 import { sanitizeErrorForLog } from "./common/logging/sanitize-for-log.util";
 import { getAccessJwtSecret } from "./config/jwt-secrets";
@@ -23,6 +26,9 @@ import { QueueHealthService } from "./modules/queues/queue-health.service";
 import {
   registerFatalProcessHandlers
 } from "./bootstrap/fatal-process-handlers";
+import { applyHttpServerTimeouts } from "./bootstrap/http-server-timeouts";
+import { docsJsonAllowed, healthBodyForEnvironment, minimalLiveness } from "./bootstrap/production-surface";
+import { requestContext } from "./common/context/request-context";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
@@ -77,7 +83,14 @@ async function bootstrap(): Promise<void> {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      forbidNonWhitelisted: true
+      forbidNonWhitelisted: true,
+      exceptionFactory: (errors) => {
+        const formatted = validationErrorText(errors);
+        return new BadRequestException({
+          message: formatted.messages,
+          fieldErrors: formatted.fieldErrors
+        });
+      }
     })
   );
 
@@ -97,7 +110,8 @@ async function bootstrap(): Promise<void> {
       // eslint-disable-next-line no-console
       console.error(line);
     },
-    exitProcess: (code) => process.exit(code)
+    exitProcess: (code) => process.exit(code),
+    getRequestId: () => requestContext.getRequestId()
   });
 
   type ExpressRequest = {
@@ -121,15 +135,16 @@ async function bootstrap(): Promise<void> {
   });
 
   express.get("/health", async (_req, res) => {
+    const detailed = isProd ? null : await healthService.getPublicHealth();
     res.json({
-      data: await healthService.getPublicHealth(),
-      message: "Health check passed"
+      data: healthBodyForEnvironment(isProd, detailed),
+      message: isProd ? "Liveness check passed" : "Health check passed"
     });
   });
 
   express.get("/health/live", (_req, res) => {
     res.status(200).json({
-      data: healthService.getLiveness(),
+      data: isProd ? minimalLiveness() : healthService.getLiveness(),
       message: "Liveness check passed"
     });
   });
@@ -198,14 +213,51 @@ async function bootstrap(): Promise<void> {
       // eslint-disable-next-line no-console
       console.warn(`[Swagger] Skipped doc generation: ${safe.messageSafe}`);
     }
-  } else if (isProd && swaggerOptions.swaggerEnabled) {
-    // eslint-disable-next-line no-console
-    console.warn("[Swagger] SWAGGER_ENABLED=true but SWAGGER_USER/SWAGGER_PASSWORD are not set — Swagger disabled.");
+  } else if (isProd) {
+    if (!docsJsonAllowed(true, false)) {
+      express.use(["/api/docs", "/api/docs-json"], (_req, res) => {
+        res.status(404).json({ message: "Not found" });
+      });
+    }
+    if (swaggerOptions.swaggerEnabled) {
+      // eslint-disable-next-line no-console
+      console.warn("[Swagger] SWAGGER_ENABLED=true but SWAGGER_USER/SWAGGER_PASSWORD are not set — Swagger disabled.");
+    }
   }
+
+  const devStartedAt = new Date().toISOString();
+  express.get("/dev/identity", (_req, res) => {
+    if (process.env.NODE_ENV === "production") {
+      res.status(404).json({ message: "Not found" });
+      return;
+    }
+    let branch = "unknown";
+    let sha = "unknown";
+    try {
+      branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { encoding: "utf8" }).trim();
+      sha = execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
+    } catch {
+      branch = "unknown";
+      sha = "unknown";
+    }
+    res.json({
+      app: "MaintainPro",
+      role: "api",
+      worktreeId: process.env.CANONICAL_WORKTREE_ID ?? "unspecified",
+      branch,
+      sha,
+      startedAt: devStartedAt
+    });
+  });
 
   const port = Number(process.env.PORT ?? 3000);
   const host = process.env.HOST ?? "0.0.0.0";
   await app.listen(port, host);
+  const timeouts = applyHttpServerTimeouts(app.getHttpServer());
+  // eslint-disable-next-line no-console
+  console.log(
+    `[bootstrap] http_timeouts keepAliveTimeoutMs=${timeouts.keepAliveTimeoutMs} headersTimeoutMs=${timeouts.headersTimeoutMs}`
+  );
 
   const shutdown = async (signal: string) => {
     const safe = sanitizeErrorForLog(`graceful_shutdown_signal=${signal}`);
@@ -230,4 +282,10 @@ async function bootstrap(): Promise<void> {
   });
 }
 
-bootstrap();
+bootstrap().catch((error: unknown) => {
+  // Boot failures exit non-zero so the supervisor restarts the process instead of leaving it half up.
+  const safe = sanitizeErrorForLog(error);
+  // eslint-disable-next-line no-console
+  console.error(`[bootstrap] fatal_bootstrap_failure category=${safe.errorCategory} ${safe.messageSafe}`);
+  process.exit(1);
+});

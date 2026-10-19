@@ -72,6 +72,7 @@ export interface WorkOrder {
   description: string;
   priority: WorkOrderPriority;
   status: WorkOrderStatus;
+  version?: number;
   approvalStatus?: WorkOrderApprovalStatus;
   rejectionReason?: string | null;
   verificationStatus?: "NOT_REQUIRED" | "PENDING" | "VERIFIED" | "REJECTED" | null;
@@ -171,6 +172,7 @@ export interface UpdateWorkOrderInput {
 
 export interface UpdateWorkOrderStatusInput {
   status: WorkOrderStatus;
+  expectedVersion?: number;
   actualCost?: number;
   actualHours?: number;
   delayReason?: string;

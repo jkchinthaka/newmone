@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
 
+import { DateField } from "@/components/forms/date-fields";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { pmPlanDraftError } from "@/lib/pm-plan-list";
 
@@ -27,6 +28,7 @@ type Props = {
 
 export function CreatePmPlanDialog({ busy, error, onClose, onSubmit }: Props) {
   const titleId = useId();
+  const formRef = useRef<HTMLFormElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -45,6 +47,7 @@ export function CreatePmPlanDialog({ busy, error, onClose, onSubmit }: Props) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   useEffect(() => {
+    formRef.current?.scrollIntoView({ block: "center" });
     nameRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onCloseRef.current();
@@ -92,6 +95,7 @@ export function CreatePmPlanDialog({ busy, error, onClose, onSubmit }: Props) {
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40">
       <button type="button" className="absolute inset-0 cursor-default" aria-label="Close create plan" onClick={onClose} />
       <form
+        ref={formRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -128,7 +132,7 @@ export function CreatePmPlanDialog({ busy, error, onClose, onSubmit }: Props) {
               searchParam="search"
               pageSizeParam="limit"
               pageSize={20}
-              extraParams={{ selectableForWork: true, status: "ACTIVE" }}
+              extraParams={{ selectableForWork: true }}
               value={assetId || null}
               displayField="name"
               secondaryField="assetTag"
@@ -187,7 +191,7 @@ export function CreatePmPlanDialog({ busy, error, onClose, onSubmit }: Props) {
           ) : null}
           <label className="block text-sm">
             Effective date
-            <input type="date" className="mt-1 min-h-10 w-full rounded-lg border px-3" value={effectiveFrom} onChange={(event) => setEffectiveFrom(event.target.value)} />
+            <DateField bare label="Effective date" value={effectiveFrom} onChange={setEffectiveFrom} />
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={autoWo} onChange={(event) => setAutoWo(event.target.checked)} />

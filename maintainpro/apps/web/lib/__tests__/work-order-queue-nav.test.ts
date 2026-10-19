@@ -357,9 +357,10 @@ test("selecting a queue replaces the current history entry and does not navigate
     path.resolve(here, "../../components/work-orders/work-order-queue-panel.tsx"),
     "utf8"
   );
-  assert.match(panel, /router\.replace\(\(stamped \? `\$\{pathname\}\?\$\{stamped\}` : pathname\)/);
+  assert.match(panel, /previousQuery !== nextQuery/);
+  assert.match(panel, /router\.push\(href, \{ scroll: false \}\)/);
+  assert.match(panel, /router\.replace\(href, \{ scroll: false \}\)/);
   assert.match(panel, /params\.set\("qRev", String\(issuedId\)\)/);
-  assert.equal(panel.includes("router.push"), false);
 });
 
 test("the default queue is not written back onto an otherwise matching URL", () => {

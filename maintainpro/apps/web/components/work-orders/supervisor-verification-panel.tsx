@@ -10,19 +10,24 @@ import type { WorkOrderEvidenceRequirements } from "@/lib/work-order-evidence";
 type Props = {
   workOrderId: string;
   status: string;
+  expectedVersion: number;
   evidenceRequirements?: WorkOrderEvidenceRequirements | null;
+  canRequestRework?: boolean;
   onUpdated?: () => void;
 };
 
 export function SupervisorVerificationPanel({
   workOrderId,
   status,
+  expectedVersion,
   evidenceRequirements,
+  canRequestRework = true,
   onUpdated
 }: Props) {
   const [verificationNote, setVerificationNote] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"verify" | "rework" | null>(null);
 
   if (status !== "TECHNICIAN_COMPLETED") {
     return null;
@@ -32,9 +37,10 @@ export function SupervisorVerificationPanel({
     setBusy(true);
     try {
       await apiClient.post(`/work-orders/${workOrderId}/verify-supervisor`, {
-        verificationNote: verificationNote.trim() || undefined
+        verificationNote: verificationNote.trim() || undefined,
+        expectedVersion
       });
-      toast.success("Work order verified and closed.");
+      toast.success("Work order verified. Close it when the job is finished.");
       onUpdated?.();
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Could not verify work order."));
@@ -66,7 +72,7 @@ export function SupervisorVerificationPanel({
     <section className="rounded-lg border border-brand-200 bg-brand-50/60 p-4">
       <h4 className="text-sm font-semibold text-slate-900">Supervisor verification</h4>
       <p className="mt-1 text-xs text-slate-600">
-        Verify technician completion before closing this job, or reject with a reason to require rework.
+        Verification marks this job Verified. It is not closed until an authorized user closes it. Rejection returns it for rework.
       </p>
 
       {evidenceRequirements ? (
@@ -97,37 +103,79 @@ export function SupervisorVerificationPanel({
         />
       </label>
 
-      <label className="mt-3 block space-y-1 text-sm">
-        <span className="font-medium text-slate-700">Rejection reason</span>
-        <textarea
-          rows={2}
-          value={rejectionReason}
-          onChange={(event) => setRejectionReason(event.target.value)}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          placeholder="Required if sending back for rework"
-        />
-      </label>
+      {canRequestRework ? (
+        <label className="mt-3 block space-y-1 text-sm">
+          <span className="font-medium text-slate-700">Rejection reason</span>
+          <textarea
+            rows={2}
+            value={rejectionReason}
+            onChange={(event) => setRejectionReason(event.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder="Required if sending back for rework"
+          />
+        </label>
+      ) : null}
 
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           disabled={busy}
-          onClick={() => void verify()}
+          onClick={() => setPendingAction("verify")}
           className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-70"
         >
           {busy ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-          Verify & close
+          Verify
         </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void reject()}
-          className="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-white px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-70"
-        >
-          <XCircle size={14} />
-          Reject & require rework
-        </button>
+        {canRequestRework ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              if (rejectionReason.trim().length < 3) {
+                toast.error("Reason required for this action.");
+                return;
+              }
+              setPendingAction("rework");
+            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-white px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-70"
+          >
+            <XCircle size={14} />
+            Request Rework
+          </button>
+        ) : null}
       </div>
+      {pendingAction ? (
+        <div className="mt-3 rounded-md border border-slate-300 bg-white p-3 text-sm text-slate-800">
+          <p>
+            {pendingAction === "verify"
+              ? "Verify this completion? The work order stays open until it is closed."
+              : "Send this work order back for rework?"}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                const action = pendingAction;
+                setPendingAction(null);
+                if (action === "verify") void verify();
+                else void reject();
+              }}
+              className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white disabled:opacity-70"
+            >
+              Confirm
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setPendingAction(null)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

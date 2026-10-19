@@ -6,6 +6,7 @@ import {
   NotFoundException
 } from "@nestjs/common";
 import {
+  AssetStatus,
   AuditAction,
   MaintenanceRequestStatus,
   Prisma,
@@ -39,6 +40,14 @@ import {
   SAFETY_IMPACT_VALUES
 } from "./dto/maintenance-request.dto";
 import {
+  ASSET_LOOKUP_MAX,
+  selectableAssetLookupWhere
+} from "./selectable-asset-lookup";
+import {
+  VEHICLE_LOOKUP_MAX,
+  selectableVehicleLookupWhere
+} from "./selectable-vehicle-lookup";
+import {
   assertValidTransition,
   compareTriageOrder,
   DEFAULT_PROBLEM_CATEGORIES,
@@ -68,6 +77,95 @@ export class MaintenanceRequestsService {
     private readonly workOrders: WorkOrdersService,
     private readonly notifications: NotificationsService
   ) {}
+
+  async lookupSelectableAssets(
+    tenantId: string | null,
+    rawQuery: string,
+    requestedLimit?: number,
+    assetId?: string
+  ) {
+    const q = rawQuery.trim();
+    const pinnedId = assetId?.trim() || "";
+    if (!q && !pinnedId) {
+      throw new BadRequestException("Enter a machine code, name, or serial number.");
+    }
+    const take = Math.min(Math.max(requestedLimit ?? 10, 1), ASSET_LOOKUP_MAX);
+    const tid = requireTenantId(tenantId);
+    const rows = q
+      ? await this.prisma.asset.findMany({
+          where: selectableAssetLookupWhere(tid, q),
+          take,
+          orderBy: [{ assetTag: "asc" }],
+          select: {
+            id: true,
+            assetTag: true,
+            name: true,
+            serialNumber: true,
+            siteId: true,
+            functionalLocationId: true,
+            site: { select: { name: true } },
+            functionalLocation: { select: { name: true } }
+          }
+        })
+      : [];
+    const already = new Set(rows.map((row) => row.id));
+    if (pinnedId && !already.has(pinnedId) && rows.length < take) {
+      const pinned = await this.prisma.asset.findFirst({
+        where: {
+          id: pinnedId,
+          tenantId: tid,
+          isActive: true,
+          archivedAt: null,
+          status: {
+            notIn: [AssetStatus.RETIRED, AssetStatus.DISPOSED, AssetStatus.INACTIVE]
+          }
+        },
+        select: {
+          id: true,
+          assetTag: true,
+          name: true,
+          serialNumber: true,
+          siteId: true,
+          functionalLocationId: true,
+          site: { select: { name: true } },
+          functionalLocation: { select: { name: true } }
+        }
+      });
+      if (pinned) rows.unshift(pinned);
+    }
+    return rows.map((row) => ({
+      id: row.id,
+      assetTag: row.assetTag,
+      name: row.name,
+      serialNumber: row.serialNumber,
+      siteId: row.siteId,
+      functionalLocationId: row.functionalLocationId,
+      siteName: row.site?.name ?? null,
+      locationName: row.functionalLocation?.name ?? null
+    }));
+  }
+
+  async lookupSelectableVehicles(tenantId: string | null, rawQuery: string, requestedLimit?: number) {
+    const q = rawQuery.trim();
+    if (!q) {
+      throw new BadRequestException("Enter a registration, code, make, or model.");
+    }
+    const take = Math.min(Math.max(requestedLimit ?? 10, 1), VEHICLE_LOOKUP_MAX);
+    const rows = await this.prisma.vehicle.findMany({
+      where: selectableVehicleLookupWhere(tenantId, q),
+      take,
+      orderBy: [{ registrationNo: "asc" }],
+      select: {
+        id: true,
+        registrationNo: true,
+        assetTag: true,
+        make: true,
+        vehicleModel: true,
+        assetId: true
+      }
+    });
+    return rows;
+  }
 
   async seedProblemCategories(tenantId: string | null) {
     const tid = requireTenantId(tenantId);
@@ -1201,9 +1299,12 @@ export class MaintenanceRequestsService {
       assetDomainCode
     });
 
+    const described = current.description.replace(/\s+/g, " ").trim();
     const title =
       dto.title?.trim() ||
-      `MR ${current.requestNumber}: ${(current.problemCategoryLabel || "Maintenance").slice(0, 80)}`;
+      (described
+        ? `${current.requestNumber}: ${described.slice(0, 80)}`
+        : `${current.requestNumber}: ${current.problemCategoryLabel || "Maintenance"}`);
 
     let preservedJobCategoryId: string | undefined;
     if (jobDomain && typeof (this.prisma as { maintenanceJobCategory?: unknown }).maintenanceJobCategory !== "undefined") {
@@ -1360,8 +1461,8 @@ export class MaintenanceRequestsService {
     });
 
     void this.notifyRequester(tid, current.reportedById, {
-      title: `Request ${current.requestNumber} converted`,
-      message: `Work order ${result.workOrder?.woNumber ?? ""} was created from your request.`,
+      title: `${current.requestNumber} converted to a work order`,
+      message: `Work order ${result.workOrder?.woNumber ?? ""} was created for: ${current.description.replace(/\s+/g, " ").trim().slice(0, 120)}`,
       dedupeKey: `mr-converted:${id}`
     });
 

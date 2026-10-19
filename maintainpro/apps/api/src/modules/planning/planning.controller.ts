@@ -282,6 +282,20 @@ export class PlanningController {
     return { data, message: "Inspection scheduled" };
   }
 
+  @Post("inspection-templates")
+  @Roles(...MANAGE_ROLES)
+  @Permissions("planning.manage")
+  async createInspectionTemplate(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
+    const data = await this.planning.createInspectionTemplate(req.user, {
+      code: String(body.code ?? ""),
+      name: String(body.name ?? ""),
+      description: body.description ? String(body.description) : undefined,
+      domainKey: body.domainKey ? String(body.domainKey) : undefined,
+      checklistTemplateId: body.checklistTemplateId ? String(body.checklistTemplateId) : undefined
+    });
+    return { data, message: "Inspection template created" };
+  }
+
   @Get("inspection-templates")
   @Roles(...READ_ROLES)
   @Permissions("planning.view")

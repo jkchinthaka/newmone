@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
@@ -15,12 +16,15 @@ import { ApprovalProcessType } from "@prisma/client";
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { ApprovalInboxService } from "./approval-inbox.service";
 import { ApprovalsService } from "./approvals.service";
 import {
   ApprovalInboxQueryDto,
+  BulkApproveDto,
   CreateApprovalRuleDto,
   DecideApprovalDto,
   EmergencyOverrideDto,
+  InboxDecisionDto,
   ListRulesQueryDto,
   SimulateApprovalDto
 } from "./dto/approvals.dto";
@@ -66,14 +70,54 @@ const DECIDE_ROLES = [
 @UseGuards(JwtAuthGuard)
 @Controller()
 export class ApprovalsController {
-  constructor(private readonly approvals: ApprovalsService) {}
+  constructor(
+    private readonly approvals: ApprovalsService,
+    private readonly inbox: ApprovalInboxService
+  ) {}
 
   @Get("approvals/inbox")
   @Roles(...READ_ROLES)
   @Permissions("approvals.view")
-  async inbox(@Req() req: AuthedRequest, @Query() query: ApprovalInboxQueryDto) {
-    const data = await this.approvals.listInbox(req.user!, query);
+  async listInbox(@Req() req: AuthedRequest, @Query() query: ApprovalInboxQueryDto) {
+    const data = await this.inbox.list(req.user!, query);
     return { data, message: "Approval inbox fetched", meta: data.meta };
+  }
+
+  @Post("approvals/inbox/decide")
+  @Roles(...DECIDE_ROLES)
+  @Permissions("approvals.decide")
+  async decideInbox(
+    @Req() req: AuthedRequest,
+    @Body() body: InboxDecisionDto & { id?: string },
+    @Headers("idempotency-key") idempotencyKey?: string
+  ) {
+    const id = body.id;
+    if (!id) {
+      return { data: null, message: "Approval id is required" };
+    }
+    const data = await this.inbox.decide({
+      actor: req.user!,
+      id,
+      kind: body.kind,
+      decision: body.decision,
+      reason: body.reason,
+      expectedVersion: body.expectedVersion,
+      workOrderId: body.workOrderId,
+      idempotencyKey
+    });
+    return { data, message: "Approval decision recorded" };
+  }
+
+  @Post("approvals/inbox/bulk-approve")
+  @Roles(...DECIDE_ROLES)
+  @Permissions("approvals.decide")
+  async bulkApprove(
+    @Req() req: AuthedRequest,
+    @Body() body: BulkApproveDto,
+    @Headers("idempotency-key") idempotencyKey?: string
+  ) {
+    const data = await this.inbox.bulkApprove({ actor: req.user!, items: body.items, idempotencyKey });
+    return { data, message: "Bulk approval finished" };
   }
 
   /** Phase 10 integration surface — documents GATE_OVERRIDE process wiring without fleet engine. */
@@ -105,13 +149,17 @@ export class ApprovalsController {
   async decide(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: DecideApprovalDto
+    @Body() body: DecideApprovalDto,
+    @Headers("idempotency-key") idempotencyKey?: string
   ) {
-    const data = await this.approvals.decide({
+    const data = await this.inbox.decide({
       actor: req.user!,
-      requestId: id,
+      id,
+      kind: "approval",
       decision: body.decision,
-      reason: body.reason
+      reason: body.reason,
+      expectedVersion: body.expectedVersion,
+      idempotencyKey
     });
     return { data, message: "Approval decision recorded" };
   }

@@ -4,6 +4,7 @@ import QRCode from "react-qr-code";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Download, Plus, RefreshCw } from "lucide-react";
 
+import { DateField } from "@/components/forms/date-fields";
 import { apiClient } from "@/lib/api-client";
 import { toOptionalNumber } from "@/lib/form-payload";
 
@@ -514,21 +515,11 @@ export default function CleaningLocationsPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="text-sm text-slate-600">
               <span className="mb-1 block">From</span>
-              <input
-                type="date"
-                value={calendarRange.from}
-                onChange={(event) => setCalendarRange((current) => ({ ...current, from: event.target.value }))}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              />
+              <DateField bare label="From" value={calendarRange.from} onChange={(from) => setCalendarRange((current) => ({ ...current, from }))} />
             </label>
             <label className="text-sm text-slate-600">
               <span className="mb-1 block">To</span>
-              <input
-                type="date"
-                value={calendarRange.to}
-                onChange={(event) => setCalendarRange((current) => ({ ...current, to: event.target.value }))}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              />
+              <DateField bare label="To" value={calendarRange.to} onChange={(to) => setCalendarRange((current) => ({ ...current, to }))} />
             </label>
             <button
               type="button"

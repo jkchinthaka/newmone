@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { DateField } from "@/components/forms/date-fields";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ActiveFilterChips } from "@/components/operational/active-filter-chips";
 import { JobsPagination } from "@/components/operational/jobs-pagination";
@@ -204,20 +205,8 @@ export default function MaintenanceHistoryPage() {
             <option value="asset">Assets</option>
             <option value="vehicle">Vehicles</option>
           </select>
-          <input
-            aria-label="Completed from"
-            type="date"
-            className="h-10 rounded-md border border-slate-300 px-2 text-sm"
-            value={state.from}
-            onChange={(event) => write({ from: event.target.value || null })}
-          />
-          <input
-            aria-label="Completed to"
-            type="date"
-            className="h-10 rounded-md border border-slate-300 px-2 text-sm"
-            value={state.to}
-            onChange={(event) => write({ to: event.target.value || null })}
-          />
+          <DateField bare label="Completed from" value={state.from} onChange={(from) => write({ from: from || null })} />
+          <DateField bare label="Completed to" value={state.to} onChange={(to) => write({ to: to || null })} />
           <select
             aria-label="Work order status"
             className="h-10 rounded-md border border-slate-300 px-2 text-sm"

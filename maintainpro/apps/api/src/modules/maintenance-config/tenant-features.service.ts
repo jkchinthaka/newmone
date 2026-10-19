@@ -124,7 +124,7 @@ export class TenantFeaturesService {
       entityType: "TenantFeatureFlag",
       entityId: saved.id,
       action: before ? "UPDATE" : "CREATE",
-      reason: input.reason ?? `Feature ${code} ${input.enabled ? "enabled" : "disabled"}`,
+      reason: input.reason,
       beforeJson: before,
       afterJson: saved
     });

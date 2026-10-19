@@ -58,18 +58,20 @@ export function evaluateEvidenceRequirements(
   // Non-production may proceed with completion note only when storage is explicitly disabled.
   const storageBlocksCompletion = required && !storageEnabled && isProduction;
   const photoComplete = hasBefore && hasAfter;
-  const evidenceSatisfied = storageEnabled ? photoComplete : !isProduction;
+  const waived = required && !storageEnabled && !isProduction;
+  const evidenceSatisfied = storageEnabled ? photoComplete : waived;
   const complete = required && evidenceSatisfied && !storageBlocksCompletion;
 
   return {
     required,
     storageEnabled,
+    waived,
     hasBefore,
     hasAfter,
     beforeCount: accepted.filter((item) => item.evidenceType === EvidenceType.BEFORE_PHOTO).length,
     afterCount: accepted.filter((item) => item.evidenceType === EvidenceType.AFTER_PHOTO).length,
-    missingBefore: required && storageEnabled && !hasBefore,
-    missingAfter: required && storageEnabled && !hasAfter,
+    missingBefore: required && storageEnabled && !waived && !hasBefore,
+    missingAfter: required && storageEnabled && !waived && !hasAfter,
     storageUnavailableBlocking: storageBlocksCompletion,
     complete,
     rejectedCount: active.filter((item) => item.verificationStatus === EvidenceVerificationStatus.REJECTED).length

@@ -84,6 +84,17 @@ export function queuePurpose(key: string): string {
   }
 }
 
+export function formatRemainingDays(value: unknown): string {
+  const days = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(days)) return "No due date";
+  const whole = Math.round(days);
+  if (whole === 0) return "Due today";
+  if (whole === 1) return "Due in 1 day";
+  if (whole === -1) return "1 day overdue";
+  if (whole < 0) return `${Math.abs(whole)} days overdue`;
+  return `Due in ${whole} days`;
+}
+
 export function formatQueueDue(
   dueDate: string | null | undefined,
   overdueDays?: number,

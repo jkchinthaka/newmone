@@ -203,7 +203,7 @@ describe("work order D2 core", () => {
           actualHours: 1,
           woNumber: "WO-2026-0100"
         }),
-        updateMany: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         count: jest.fn().mockResolvedValue(1)
       },
       workOrderLabourEntry: {
@@ -263,6 +263,7 @@ describe("work order D2 core", () => {
       "wo-1",
       {
         status: WorkOrderStatus.TECHNICIAN_COMPLETED,
+        expectedVersion: 1,
         completionNote: "Belt replaced and tested",
         actualCost: 9999,
         actualHours: 99
@@ -275,7 +276,7 @@ describe("work order D2 core", () => {
       }
     );
 
-    expect(prisma.workOrder.update).toHaveBeenCalledWith(
+    expect(prisma.workOrder.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           status: WorkOrderStatus.TECHNICIAN_COMPLETED,

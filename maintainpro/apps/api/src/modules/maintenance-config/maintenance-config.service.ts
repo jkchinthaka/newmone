@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { ApprovalRequestStatus, ApprovalStepStatus, Priority, WorkOrderStatus } from "@prisma/client";
+import { ApprovalRequestStatus, ApprovalStepStatus, Prisma, Priority, WorkOrderStatus } from "@prisma/client";
 
 import { JOB_DOMAINS, parseJobDomain, type JobDomain } from "../../common/utils/job-domain.util";
 import {
@@ -9,7 +9,9 @@ import {
   dashboardOverdueWhere
 } from "../../common/utils/maintenance-dashboard.util";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
-import { unassignedQueueWhere, waitingPartsQueueWhere } from "../../common/utils/work-order-queues";
+import { parseTaxRatePercent } from "../../common/utils/vendor-tax";
+import { inProgressQueueWhere, unassignedQueueWhere, waitingPartsQueueWhere } from "../../common/utils/work-order-queues";
+import { pmPlanDueSoonWhere, pmPlanOverdueWhere } from "../planning/pm-plan-query";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { requestStageFilter } from "../maintenance-requests/request-lifecycle";
@@ -136,6 +138,7 @@ export class MaintenanceConfigService {
       externalJobs,
       pendingApprovals,
       pmDueSoon,
+      pmOverdue,
       requestsOpen,
       unplannedJobs,
       unassignedJobs,
@@ -190,15 +193,8 @@ export class MaintenanceConfigService {
             }
           })
         : Promise.resolve(null as number | null),
-      this.prisma.pmPlan.count({
-        where: {
-          tenantId,
-          status: "ACTIVE",
-          nextDueAt: { gte: now, lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) },
-          triggers: { some: {} },
-          OR: [{ assetId: { not: null } }, { vehicleId: { not: null } }]
-        }
-      }),
+      this.prisma.pmPlan.count({ where: { tenantId, ...pmPlanDueSoonWhere(now) } }),
+      this.prisma.pmPlan.count({ where: { tenantId, ...pmPlanOverdueWhere(now) } }),
       this.prisma.maintenanceRequest.count({
         where: { tenantId, status: { in: requestOpenStatuses } }
       }),
@@ -210,7 +206,7 @@ export class MaintenanceConfigService {
         where: { AND: [{ tenantId }, unassignedQueueWhere()] }
       }),
       this.prisma.workOrder.count({
-        where: { tenantId, status: WorkOrderStatus.IN_PROGRESS }
+        where: { tenantId, ...inProgressQueueWhere() }
       }),
       this.prisma.workOrder.count({
         where: { tenantId, status: WorkOrderStatus.ON_HOLD }
@@ -302,6 +298,7 @@ export class MaintenanceConfigService {
       externalJobs,
       pendingApprovals,
       pmDueSoon,
+      pmOverdue,
       lowStock,
       requestsOpen,
       unplannedJobs,
@@ -1064,5 +1061,36 @@ export class MaintenanceConfigService {
         detail: "Background job queues"
       }
     };
+  }
+
+  async getDefaultTaxRate(actor: Actor) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const rows = await this.prisma.$queryRaw<Array<{ defaultTaxRatePercent: unknown }>>(
+      Prisma.sql`SELECT TOP 1 defaultTaxRatePercent FROM TenantMaintenanceSetting WHERE tenantId = ${tenantId}`
+    );
+    const stored = rows[0]?.defaultTaxRatePercent;
+    return {
+      name: "Default tax rate %",
+      defaultTaxRatePercent: stored == null ? null : Number(stored)
+    };
+  }
+
+  async updateDefaultTaxRate(actor: Actor, rawRate: unknown) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const parsed = parseTaxRatePercent(rawRate);
+    if (!parsed.ok) throw new BadRequestException(parsed.message);
+    const existing = await this.prisma.$queryRaw<Array<{ id: string }>>(
+      Prisma.sql`SELECT TOP 1 id FROM TenantMaintenanceSetting WHERE tenantId = ${tenantId}`
+    );
+    if (existing[0]) {
+      await this.prisma.$executeRaw(
+        Prisma.sql`UPDATE TenantMaintenanceSetting SET defaultTaxRatePercent = ${parsed.rate}, updatedById = ${actor.sub}, updatedAt = SYSUTCDATETIME() WHERE tenantId = ${tenantId}`
+      );
+    } else {
+      await this.prisma.$executeRaw(
+        Prisma.sql`INSERT INTO TenantMaintenanceSetting (id, tenantId, defaultTaxRatePercent, updatedById) VALUES (${crypto.randomUUID()}, ${tenantId}, ${parsed.rate}, ${actor.sub})`
+      );
+    }
+    return this.getDefaultTaxRate(actor);
   }
 }

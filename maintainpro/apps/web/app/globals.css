@@ -111,6 +111,13 @@ html:has([data-app-shell]) body {
   color: var(--nelna-charcoal);
 }
 
+.field.field-multiline {
+  min-height: 7rem;
+  height: auto;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
 .field:focus-visible,
 .btn-primary:focus-visible,
 .btn-quiet:focus-visible {
@@ -180,6 +187,25 @@ main th {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--nelna-green-dark);
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  aside,
+  nav,
+  header,
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+
+  main {
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

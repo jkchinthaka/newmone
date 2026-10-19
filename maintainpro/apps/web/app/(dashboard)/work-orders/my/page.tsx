@@ -12,8 +12,11 @@ import { resolveMyJobFilter, myJobPurpose } from "@/lib/my-job-filters";
 import { getVisibleNavigationItems } from "@/lib/navigation";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { JOB_CHANGED_MESSAGE, classifyJobActionError } from "@/lib/job-action-outcome";
+import { mutationErrorMessage, showMutationError } from "@/lib/mutation-feedback";
 import { humanWorkOrderStatusLabel } from "@/components/work-orders/helpers";
 import { ErrorState } from "@/components/ui/page-state";
+import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 
 type NextAction = { kind: "start" | "continue" | "summary" | "open" | "blocked"; label: string; reason?: string };
 
@@ -25,6 +28,8 @@ type MyJob = {
   priority: string;
   dueDate?: string | null;
   approvalStatus?: string | null;
+  /** Sent as expectedVersion on every status action. */
+  version: number;
   asset?: { name?: string | null; assetTag?: string | null } | null;
   functionalLocation?: { name?: string | null; code?: string | null } | null;
   site?: { name?: string | null } | null;
@@ -80,6 +85,7 @@ export default function MyJobsPage() {
   const pathname = usePathname();
   const params = useSearchParams();
   const user = useCurrentUser();
+  const { prompt, dialog } = usePromptDialog();
   const view = resolveMyJobFilter({ filter: params.get("filter"), view: params.get("view") });
   const search = params.get("search") || "";
   const status = params.get("status") || "";
@@ -192,14 +198,82 @@ export default function MyJobsPage() {
     setStartingId(job.id);
     setBlocker(null);
     try {
-      await apiClient.post(`/work-orders/${job.id}/start`, {});
+      await apiClient.post(`/work-orders/${job.id}/start`, { expectedVersion: job.version });
       toast.success(`${job.woNumber} started.`);
       await refresh();
     } catch (err) {
-      const message = getApiErrorMessage(err, "This job could not be started.");
-      setBlocker(message);
-      toast.error(message);
+      const outcome = classifyJobActionError(err);
+      if (outcome === "conflict") {
+        // Someone else changed the job: show the fresh row and keep the user here.
+        toast.message(JOB_CHANGED_MESSAGE);
+        await refresh();
+      } else if (outcome === "unavailable") {
+        setBlocker(mutationErrorMessage(err, "This job could not be started."));
+        showMutationError(err, "This job could not be started.", () => void startJob(job));
+      } else {
+        const message = mutationErrorMessage(err, "This job could not be started.");
+        setBlocker(message);
+        toast.error(message);
+        await refresh();
+      }
+    } finally {
+      setStartingId(null);
+    }
+  }
+
+  async function holdJob(job: MyJob) {
+    const reason = await prompt({
+      title: `Hold ${job.woNumber}`,
+      label: "Reason",
+      required: true
+    });
+    if (!reason?.trim()) return;
+    setStartingId(job.id);
+    try {
+      await apiClient.post(`/work-orders/${job.id}/hold`, {
+        holdReasonCode: "OTHER",
+        delayReason: reason.trim(),
+        expectedVersion: job.version
+      });
+      toast.success(`${job.woNumber} placed on hold.`);
       await refresh();
+    } catch (err) {
+      toast.error(mutationErrorMessage(err, "This job could not be placed on hold."));
+    } finally {
+      setStartingId(null);
+    }
+  }
+
+  async function resumeJob(job: MyJob) {
+    setStartingId(job.id);
+    try {
+      await apiClient.post(`/work-orders/${job.id}/resume`, { expectedVersion: job.version });
+      toast.success(`${job.woNumber} resumed.`);
+      await refresh();
+    } catch (err) {
+      toast.error(mutationErrorMessage(err, "This job could not be resumed."));
+    } finally {
+      setStartingId(null);
+    }
+  }
+
+  async function completeJob(job: MyJob) {
+    const note = await prompt({
+      title: `Complete ${job.woNumber}`,
+      label: "Completion note",
+      required: true
+    });
+    if (!note?.trim()) return;
+    setStartingId(job.id);
+    try {
+      await apiClient.post(`/work-orders/${job.id}/complete-technician`, {
+        completionNote: note.trim(),
+        expectedVersion: job.version
+      });
+      toast.success(`${job.woNumber} submitted for verification.`);
+      await refresh();
+    } catch (err) {
+      toast.error(mutationErrorMessage(err, "This job could not be completed."));
     } finally {
       setStartingId(null);
     }
@@ -296,7 +370,8 @@ export default function MyJobsPage() {
 
       {capped ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">Showing the first 500 assigned jobs. Narrow the list with search if you cannot find a job.</p> : null}
       {blocker ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="alert">{blocker}</p> : null}
-      {forbidden ? <ErrorState title="You cannot view assigned jobs." description={error || "Your role does not include this workspace."} onRetry={() => void refresh()} /> : null}
+      {dialog}
+      {forbidden ? <ErrorState title="You cannot view assigned jobs." description="Your role does not include this workspace." onRetry={() => void refresh()} /> : null}
       {!forbidden && error ? <ErrorState title="We couldn't load your jobs." description={error} onRetry={() => void refresh()} /> : null}
 
       {loading ? (
@@ -324,7 +399,14 @@ export default function MyJobsPage() {
       <ul className="space-y-3 md:hidden">
         {items.map((job) => (
           <li key={job.id} className="rounded-xl border border-slate-200 bg-white p-4">
-            <JobBody job={job} starting={startingId === job.id} onStart={() => void startJob(job)} />
+            <JobBody
+              job={job}
+              starting={startingId === job.id}
+              onStart={() => void startJob(job)}
+              onHold={() => void holdJob(job)}
+              onResume={() => void resumeJob(job)}
+              onComplete={() => void completeJob(job)}
+            />
           </li>
         ))}
       </ul>
@@ -352,7 +434,16 @@ export default function MyJobsPage() {
                 <td className="px-3 py-3">{job.priority}</td>
                 <td className="px-3 py-3">{humanWorkOrderStatusLabel(job.status)}</td>
                 <td className="px-3 py-3">{relativeDue(job.dueDate)}</td>
-                <td className="px-3 py-3"><JobAction job={job} starting={startingId === job.id} onStart={() => void startJob(job)} /></td>
+                <td className="px-3 py-3">
+                  <JobAction
+                    job={job}
+                    starting={startingId === job.id}
+                    onStart={() => void startJob(job)}
+                    onHold={() => void holdJob(job)}
+                    onResume={() => void resumeJob(job)}
+                    onComplete={() => void completeJob(job)}
+                  />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -370,7 +461,21 @@ export default function MyJobsPage() {
   );
 }
 
-function JobBody({ job, starting, onStart }: { job: MyJob; starting: boolean; onStart: () => void }) {
+function JobBody({
+  job,
+  starting,
+  onStart,
+  onHold,
+  onResume,
+  onComplete
+}: {
+  job: MyJob;
+  starting: boolean;
+  onStart: () => void;
+  onHold: () => void;
+  onResume: () => void;
+  onComplete: () => void;
+}) {
   return (
     <div>
       <div className="flex items-start justify-between gap-2">
@@ -380,16 +485,55 @@ function JobBody({ job, starting, onStart }: { job: MyJob; starting: boolean; on
       <p className="mt-1 text-sm text-slate-800">{job.title}</p>
       <p className="mt-1 text-sm text-slate-600">{locationLabel(job)}</p>
       <p className="mt-1 text-sm">{humanWorkOrderStatusLabel(job.status)} · {relativeDue(job.dueDate)}</p>
-      <div className="mt-3"><JobAction job={job} starting={starting} onStart={onStart} /></div>
+      <div className="mt-3">
+        <JobAction job={job} starting={starting} onStart={onStart} onHold={onHold} onResume={onResume} onComplete={onComplete} />
+      </div>
     </div>
   );
 }
 
-function JobAction({ job, starting, onStart }: { job: MyJob; starting: boolean; onStart: () => void }) {
+function JobAction({
+  job,
+  starting,
+  onStart,
+  onHold,
+  onResume,
+  onComplete
+}: {
+  job: MyJob;
+  starting: boolean;
+  onStart: () => void;
+  onHold: () => void;
+  onResume: () => void;
+  onComplete: () => void;
+}) {
   if (job.nextAction.kind === "start") {
     return (
-      <button type="button" className="min-h-11 rounded bg-brand-600 px-3 text-sm text-white disabled:opacity-60" disabled={starting} onClick={onStart}>
+      <button
+        type="button"
+        className="min-h-11 rounded bg-brand-600 px-3 text-sm text-white disabled:opacity-60"
+        disabled={starting}
+        onClick={(event) => {
+          event.currentTarget.disabled = true;
+          onStart();
+        }}
+      >
         {starting ? "Starting..." : "Start work"}
+      </button>
+    );
+  }
+  if (job.status === "IN_PROGRESS") {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="min-h-11 rounded border px-3 text-sm disabled:opacity-60" disabled={starting} onClick={onHold}>Hold</button>
+        <button type="button" className="min-h-11 rounded bg-brand-600 px-3 text-sm text-white disabled:opacity-60" disabled={starting} onClick={onComplete}>Complete</button>
+      </div>
+    );
+  }
+  if (job.status === "ON_HOLD") {
+    return (
+      <button type="button" className="min-h-11 rounded bg-brand-600 px-3 text-sm text-white disabled:opacity-60" disabled={starting} onClick={onResume}>
+        Resume
       </button>
     );
   }

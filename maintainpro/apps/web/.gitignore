@@ -1,0 +1,3 @@
+# Isolated Next dist dirs (NEXT_DIST_DIR=.next-*) and the tsconfig Next writes for them.
+.next-*/
+tsconfig.isolated.json

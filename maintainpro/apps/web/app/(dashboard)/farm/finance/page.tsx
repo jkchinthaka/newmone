@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { DateField } from "@/components/forms/date-fields";
 import { EmptyState, PageHeader, Section, StatCard } from "@/components/farm/farm-ui";
 import { farmGet, farmPost, formatLkr } from "@/lib/farm-api";
 import { getActiveTenantId } from "@/lib/tenant-context";
@@ -125,13 +126,8 @@ export default function FarmFinancePage() {
         <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
             <span>Date *</span>
-            <input
-              type="date"
-              required
-              value={form.date ?? ""}
-              onChange={(e) => setForm((s) => ({ ...s, date: e.target.value }))}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
+            <DateField bare label="Date" value={form.date ?? ""} onChange={(date) => setForm((s) => ({ ...s, date }))} />
+            <input required value={form.date ?? ""} readOnly tabIndex={-1} aria-hidden="true" className="sr-only" />
           </label>
           {tab === "expense" ? (
             <>

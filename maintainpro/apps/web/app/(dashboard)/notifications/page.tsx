@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { DateField } from "@/components/forms/date-fields";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ActiveFilterChips } from "@/components/operational";
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
@@ -270,11 +271,11 @@ function NotificationsInbox() {
           </label>
           <label className="text-sm text-slate-700">
             From
-            <input aria-label="From date" type="date" value={state.from} onChange={(event) => replaceState({ ...state, from: event.target.value, page: 1 })} className="field" />
+            <DateField bare label="From date" value={state.from} onChange={(from) => replaceState({ ...state, from, page: 1 })} />
           </label>
           <label className="text-sm text-slate-700">
             To
-            <input aria-label="To date" type="date" value={state.to} onChange={(event) => replaceState({ ...state, to: event.target.value, page: 1 })} className="field" />
+            <DateField bare label="To date" value={state.to} onChange={(to) => replaceState({ ...state, to, page: 1 })} />
           </label>
         </div>
       ) : null}

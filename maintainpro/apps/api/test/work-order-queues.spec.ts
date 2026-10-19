@@ -35,6 +35,12 @@ describe("work order queues", () => {
     expect(roleCanAccessQueue(RoleName.INVENTORY_KEEPER, "waiting-parts")).toBe(true);
   });
 
+  it("denies security officers every work order queue", () => {
+    expect(roleCanAccessQueue(RoleName.SECURITY_OFFICER, "all")).toBe(false);
+    expect(roleCanAccessQueue(RoleName.SECURITY_OFFICER, "supervisor-verification")).toBe(false);
+    expect(resolveDefaultQueueForRole(RoleName.SECURITY_OFFICER)).toBe("my-tasks");
+  });
+
   it("detects overdue work orders consistently", () => {
     const overdue = isWorkOrderOverdue({
       status: "IN_PROGRESS",

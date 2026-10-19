@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, Filter, Search } from "lucide-react";
 
+import { DateField } from "@/components/forms/date-fields";
 import { toTitleCase } from "./helpers";
 import {
   WORK_ORDER_PRIORITIES,
@@ -137,21 +138,21 @@ export function WorkOrderFiltersBar({
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(2,minmax(0,1fr))_minmax(0,1fr)_minmax(0,1fr)]">
               <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <span>Due Date From</span>
-                <input
-                  type="date"
+                <DateField
+                  bare
+                  label="Due Date From"
                   value={filters.dueDateFrom}
-                  onChange={(event) => onChange({ dueDateFrom: event.target.value })}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                  onChange={(dueDateFrom) => onChange({ dueDateFrom })}
                 />
               </label>
 
               <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <span>Due Date To</span>
-                <input
-                  type="date"
+                <DateField
+                  bare
+                  label="Due Date To"
                   value={filters.dueDateTo}
-                  onChange={(event) => onChange({ dueDateTo: event.target.value })}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                  onChange={(dueDateTo) => onChange({ dueDateTo })}
                 />
               </label>
 

@@ -18,6 +18,7 @@ import {
 } from "@/lib/tenant-session";
 import { safeInternalReturnPath } from "@/lib/role-redirect";
 import { stackedOverlayEscape } from "@/lib/overlay-dismiss";
+import { queryRetryDelay, shouldRetryQuery } from "@/lib/upstream-status";
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -182,8 +183,12 @@ export default function DashboardLayout({
         defaultOptions: {
           queries: {
             staleTime: 30_000,
-            refetchOnWindowFocus: false
-          }
+            refetchOnWindowFocus: false,
+            retry: shouldRetryQuery,
+            retryDelay: queryRetryDelay
+          },
+          // A mutation is never replayed automatically; the user retries it.
+          mutations: { retry: false }
         }
       })
   );

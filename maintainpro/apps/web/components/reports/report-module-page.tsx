@@ -13,7 +13,7 @@ import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { defaultReportFilters, getReportModule, isReportModuleSlug } from "./api";
 import { ExportActions, ReportFiltersBar, ReportHeader, ReportTableView, StatePanel } from "./report-ui";
 import { ReportFilters, ReportModuleSlug } from "./types";
-import { isRetainedReportSlug, RETAINED_REPORTS } from "@/lib/report-workspace";
+import { isRetainedReportSlug, reportModuleHref, RETAINED_REPORTS } from "@/lib/report-workspace";
 
 export function ReportModulePage({ module }: { module: string }) {
   const searchParams = useSearchParams();
@@ -67,7 +67,13 @@ export function ReportModulePage({ module }: { module: string }) {
         {tabs.map((item) => (
           <Link
             key={item.slug}
-            href={`/reports?module=${item.slug}` as Route}
+            href={reportModuleHref(item.slug, {
+              search: filters.search,
+              status: filters.status,
+              category: filters.category,
+              from: filters.startDate,
+              to: filters.endDate
+            }) as Route}
             className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${item.slug === moduleSlug ? "bg-brand-600 text-white shadow-sm" : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"}`}
           >
             {item.label}

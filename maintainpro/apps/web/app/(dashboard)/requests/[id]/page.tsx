@@ -35,7 +35,8 @@ import {
   requestNextStep,
   requestResolutionLabel,
   requestStatusLabel,
-  requestValueLabel
+  requestValueLabel,
+  requesterFacingStatus
 } from "@/lib/maintenance-request-ui";
 
 type TargetKind = "asset" | "vehicle" | "location";
@@ -274,7 +275,7 @@ export default function RequestDetailPage() {
         title={detail.requestNumber}
         description={detail.problemCategoryLabel || undefined}
         actions={
-          detail.workOrder ? (
+          detail.workOrder && (!isOwner || governancePanel) ? (
             <Link
               href={`/work-orders?wo=${detail.workOrder.id}` as Route}
               className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium"
@@ -436,10 +437,15 @@ export default function RequestDetailPage() {
             <h2 className="mb-2 font-semibold">Reported by</h2>
             <p>{detail.reportedBy?.name || "—"}</p>
             <p className="text-slate-500">{detail.reportedAt ? new Date(detail.reportedAt).toLocaleString() : "—"}</p>
-            {detail.workOrder ? (
-              <Link href={`/work-orders?wo=${detail.workOrder.id}` as Route} className="mt-3 inline-flex font-medium text-brand-700">
+            {detail.workOrder && (!isOwner || governancePanel) ? (
+              <Link href={`/work-orders?wo=${detail.workOrder.id}` as Route} className="mt-3 inline-flex min-h-11 items-center font-medium text-brand-700">
                 Open work order {detail.workOrder.woNumber}
               </Link>
+            ) : detail.workOrder ? (
+              <p className="mt-3 text-slate-700">
+                {requesterFacingStatus(detail.status, detail.workOrder.status)}
+                <span className="mt-1 block text-slate-500">Work order {detail.workOrder.woNumber}</span>
+              </p>
             ) : null}
           </section>
 

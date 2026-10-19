@@ -54,6 +54,7 @@ const ASSET_READ_ROLES = [
 ] as const;
 
 const ASSET_WRITE_ROLES = ["SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER"] as const;
+const ASSET_CREATE_ROLES = ["SUPER_ADMIN", "ADMIN"] as const;
 const ASSET_DELETE_ROLES = ["SUPER_ADMIN", "ADMIN"] as const;
 
 @ApiTags("Assets")
@@ -109,14 +110,14 @@ export class AssetsController {
   }
 
   @Post()
-  @Roles(...ASSET_WRITE_ROLES)
+  @Roles(...ASSET_CREATE_ROLES)
   async create(@Req() req: AuthedRequest, @Body() body: CreateAssetDto) {
     const data = await this.assetsService.create(req.user?.tenantId ?? null, req.user!.sub, body);
     return { data, message: "Asset created" };
   }
 
   @Post("bulk-import")
-  @Roles(...ASSET_WRITE_ROLES)
+  @Roles(...ASSET_CREATE_ROLES)
   async bulkImport(@Req() req: AuthedRequest, @Body() body: BulkImportAssetsDto) {
     const data = await this.assetsService.bulkImport(
       req.user?.tenantId ?? null,

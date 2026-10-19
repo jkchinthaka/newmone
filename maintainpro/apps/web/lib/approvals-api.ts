@@ -43,11 +43,28 @@ export type ApprovalRule = {
 
 export type ApprovalInboxItem = {
   id: string;
-  processType: ApprovalProcessType;
-  subjectEntityType: string;
-  subjectEntityId: string;
+  kind?: string;
+  tab?: "requests" | "work_orders" | "parts" | "vendor_quotations" | "vendor_invoices" | "emergency";
+  processType?: ApprovalProcessType | null;
+  subjectEntityType?: string | null;
+  subjectEntityId?: string | null;
   status: string;
   requestedAt: string;
+  reference?: string;
+  title?: string;
+  requesterName?: string;
+  assetLabel?: string | null;
+  amount?: number | null;
+  taxRatePercent?: number | null;
+  priority?: string | null;
+  age?: string;
+  sla?: "green" | "amber" | "red";
+  version?: number;
+  canDecide?: boolean;
+  canReturn?: boolean;
+  workOrderId?: string | null;
+  attachments?: Array<{ id: string; label: string }>;
+  history?: Array<{ at: string; label: string; reason?: string | null }>;
   currentLevel?: number | null;
   dueAt?: string | null;
   overdue?: boolean;
@@ -85,9 +102,32 @@ export async function simulateApprovalRule(body: Record<string, unknown>) {
   return (response.data as { data: unknown }).data;
 }
 
-export async function fetchApprovalInbox(params?: { page?: number; pageSize?: number }) {
+export type ApprovalInboxQuery = {
+  page?: number;
+  pageSize?: number;
+  tab?: string;
+  search?: string;
+  priority?: string;
+  siteId?: string;
+  from?: string;
+  to?: string;
+};
+
+export type ApprovalInboxCounts = {
+  all: number;
+  requests: number;
+  work_orders: number;
+  parts: number;
+  vendor_quotations: number;
+  vendor_invoices: number;
+  emergency: number;
+};
+
+export async function fetchApprovalInbox(params?: ApprovalInboxQuery) {
   const response = await apiClient.get("/approvals/inbox", { params });
-  const payload = response.data as { data: { items: ApprovalInboxItem[]; meta: unknown } };
+  const payload = response.data as {
+    data: { items: ApprovalInboxItem[]; meta: { total: number; counts?: ApprovalInboxCounts } };
+  };
   return payload.data;
 }
 
@@ -96,7 +136,41 @@ export async function fetchApprovalRequest(id: string) {
   return (response.data as { data: Record<string, unknown> }).data;
 }
 
-export async function decideApproval(id: string, decision: "APPROVED" | "REJECTED", reason?: string) {
-  const response = await apiClient.post(`/approvals/${id}/decide`, { decision, reason });
+export async function decideApproval(
+  id: string,
+  decision: "APPROVED" | "REJECTED" | "RETURNED",
+  reason?: string,
+  expectedVersion?: number,
+  idempotencyKey?: string
+) {
+  const response = await apiClient.post(
+    `/approvals/${id}/decide`,
+    { decision, reason, expectedVersion },
+    { headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined }
+  );
   return (response.data as { data: unknown }).data;
+}
+
+export async function decideInboxItem(body: {
+  id: string;
+  kind: string;
+  decision: "APPROVED" | "REJECTED" | "RETURNED";
+  reason?: string;
+  expectedVersion: number;
+  workOrderId?: string | null;
+  idempotencyKey?: string;
+}) {
+  const response = await apiClient.post("/approvals/inbox/decide", body, {
+    headers: body.idempotencyKey ? { "Idempotency-Key": body.idempotencyKey } : undefined
+  });
+  return (response.data as { data: unknown }).data;
+}
+
+export async function bulkApproveInbox(items: Array<{ id: string; kind: string; expectedVersion: number; workOrderId?: string | null }>, idempotencyKey?: string) {
+  const response = await apiClient.post(
+    "/approvals/inbox/bulk-approve",
+    { items },
+    { headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined }
+  );
+  return (response.data as { data: { results: Array<{ id: string; ok: boolean; error?: string }> } }).data;
 }

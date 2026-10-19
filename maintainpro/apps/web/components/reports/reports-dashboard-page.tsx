@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { DateField } from "@/components/forms/date-fields";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ActiveFilterChips } from "@/components/operational/active-filter-chips";
 import { JobsPagination } from "@/components/operational/jobs-pagination";
@@ -252,8 +253,8 @@ export function ReportsDashboardPage() {
 
       <section className="rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 p-2">
-          <input aria-label="Date from" type="date" className="h-10 rounded-md border px-2 text-sm" value={filters.startDate} onChange={(event) => setFilters({ ...filters, startDate: event.target.value, page: 1 })} />
-          <input aria-label="Date to" type="date" className="h-10 rounded-md border px-2 text-sm" value={filters.endDate} onChange={(event) => setFilters({ ...filters, endDate: event.target.value, page: 1 })} />
+          <DateField bare label="Date from" value={filters.startDate} onChange={(startDate) => setFilters({ ...filters, startDate, page: 1 })} />
+          <DateField bare label="Date to" value={filters.endDate} onChange={(endDate) => setFilters({ ...filters, endDate, page: 1 })} />
           <select aria-label="Work order status" className="h-10 rounded-md border px-2 text-sm" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value, page: 1 })}>
             <option value="">Status</option>
             {(report?.filterOptions.statuses ?? ["OPEN", "IN_PROGRESS", "COMPLETED", "CLOSED", "CANCELLED"]).map((status) => (

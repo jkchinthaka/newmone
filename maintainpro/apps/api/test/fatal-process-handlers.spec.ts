@@ -40,6 +40,30 @@ describe("MP-007: fatal process handlers", () => {
     expect(exitProcess).toHaveBeenCalledWith(1);
   });
 
+  it("includes the active request id in fatal log lines", () => {
+    const logFatal = jest.fn();
+    const handlers = {
+      captureBootstrapRedisError: () => false,
+      logFatal,
+      exitProcess: jest.fn(),
+      getRequestId: () => "req-abc-123"
+    };
+    handleUnhandledRejection(new Error("boom"), handlers);
+    handleUncaughtException(new Error("boom"), handlers);
+    expect(logFatal).toHaveBeenNthCalledWith(1, expect.stringContaining("requestId=req-abc-123"));
+    expect(logFatal).toHaveBeenNthCalledWith(2, expect.stringContaining("requestId=req-abc-123"));
+  });
+
+  it("logs requestId=none outside a request", () => {
+    const logFatal = jest.fn();
+    handleUncaughtException(new Error("boom"), {
+      captureBootstrapRedisError: () => false,
+      logFatal,
+      exitProcess: jest.fn()
+    });
+    expect(logFatal).toHaveBeenCalledWith(expect.stringContaining("requestId=none"));
+  });
+
   it("registers fatal listeners only once", () => {
     const fakeProcess = {
       on: jest.fn()

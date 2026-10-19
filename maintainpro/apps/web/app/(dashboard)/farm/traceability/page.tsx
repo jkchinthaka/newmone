@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { DateField } from "@/components/forms/date-fields";
 import { EmptyState, PageHeader, Section } from "@/components/farm/farm-ui";
 import { farmGet, farmPost } from "@/lib/farm-api";
 import { getActiveTenantId } from "@/lib/tenant-context";
@@ -123,13 +124,8 @@ export default function FarmTraceabilityPage() {
             </label>
             <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
               <span>Harvest date *</span>
-              <input
-                type="date"
-                required
-                value={form.harvestDate}
-                onChange={(e) => setForm((s) => ({ ...s, harvestDate: e.target.value }))}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
+              <DateField bare label="Harvest date" value={form.harvestDate} onChange={(harvestDate) => setForm((s) => ({ ...s, harvestDate }))} />
+              <input required value={form.harvestDate} readOnly tabIndex={-1} aria-hidden="true" className="sr-only" />
             </label>
             <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
               <span>Buyer name</span>

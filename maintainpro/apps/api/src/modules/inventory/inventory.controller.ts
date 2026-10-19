@@ -170,7 +170,7 @@ export class InventoryController {
 
   @Post("parts/:id/stock-out")
   @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({ description: "Stock deducted against a tenant-scoped work order" })
+  @ApiOkResponse({ description: "Stock issue accepted for ERP reconciliation. Local quantity is not deducted." })
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
   @Permissions("inventory.stock_issue")
   async stockOut(
@@ -198,7 +198,7 @@ export class InventoryController {
       },
       req.user
     );
-    return { data, message: "Stock deducted" };
+    return { data, message: "Stock issue recorded. ERP reconciliation is pending." };
   }
 
   @Get("parts/:id/movements")

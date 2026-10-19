@@ -149,7 +149,7 @@ describe("UAT-019 high-volume work orders", () => {
 
     await expect(
       service.bulkStatus(
-        { workOrderIds: ["wo-1"], targetStatus: WorkOrderStatus.COMPLETED },
+        { items: [{ id: "wo-1", expectedVersion: 1 }], targetStatus: WorkOrderStatus.COMPLETED },
         actor
       )
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -165,7 +165,7 @@ describe("UAT-019 high-volume work orders", () => {
     );
 
     await expect(
-      service.bulkStatus({ workOrderIds: ["wo-1"], targetStatus: WorkOrderStatus.CANCELLED }, actor)
+      service.bulkStatus({ items: [{ id: "wo-1", expectedVersion: 1 }], targetStatus: WorkOrderStatus.CANCELLED }, actor)
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

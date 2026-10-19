@@ -4,7 +4,19 @@ export type FatalProcessHandlers = {
   captureBootstrapRedisError: (origin: string, error: unknown) => boolean;
   logFatal: (line: string) => void;
   exitProcess: (code: number) => void;
+  /** Request id of the async context that failed, when one is active. */
+  getRequestId?: () => string | null;
 };
+
+function requestIdField(handlers: FatalProcessHandlers): string {
+  let requestId: string | null = null;
+  try {
+    requestId = handlers.getRequestId?.() ?? null;
+  } catch {
+    requestId = null;
+  }
+  return `requestId=${requestId || "none"}`;
+}
 
 const HANDLER_FLAG = Symbol.for("maintainpro.fatalProcessHandlersRegistered");
 
@@ -21,7 +33,7 @@ export function handleUnhandledRejection(
   }
   const safe = sanitizeErrorForLog(reason);
   handlers.logFatal(
-    `[bootstrap] fatal_unhandled_rejection category=${safe.errorCategory} ${safe.messageSafe}`
+    `[bootstrap] fatal_unhandled_rejection ${requestIdField(handlers)} category=${safe.errorCategory} ${safe.messageSafe}`
   );
   handlers.exitProcess(1);
 }
@@ -32,7 +44,7 @@ export function handleUncaughtException(err: Error, handlers: FatalProcessHandle
   }
   const safe = sanitizeErrorForLog(err);
   handlers.logFatal(
-    `[bootstrap] fatal_uncaught_exception category=${safe.errorCategory} ${safe.messageSafe}`
+    `[bootstrap] fatal_uncaught_exception ${requestIdField(handlers)} category=${safe.errorCategory} ${safe.messageSafe}`
   );
   handlers.exitProcess(1);
 }

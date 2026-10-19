@@ -42,6 +42,8 @@ interface FormState {
   dailyCapacityHours: string;
   active: boolean;
   canLogin: boolean;
+  canReceiveWorkOrders: boolean;
+  availabilityStatus: "AVAILABLE" | "ON_LEAVE" | "INACTIVE";
 }
 
 const EMPTY_FORM: FormState = {
@@ -55,7 +57,9 @@ const EMPTY_FORM: FormState = {
   skills: "",
   dailyCapacityHours: "8",
   active: true,
-  canLogin: false
+  canLogin: false,
+  canReceiveWorkOrders: true,
+  availabilityStatus: "AVAILABLE"
 };
 
 export default function WorkforceEmployeesPage() {
@@ -140,7 +144,13 @@ export default function WorkforceEmployeesPage() {
           .filter(Boolean),
         dailyCapacityHours: capacity,
         active: form.active,
-        canLogin: form.canLogin
+        canLogin: form.canLogin,
+        ...(editingId
+          ? {}
+          : {
+              canReceiveWorkOrders: form.canReceiveWorkOrders,
+              availabilityStatus: form.availabilityStatus
+            })
       };
 
       if (editingId) {
@@ -176,7 +186,9 @@ export default function WorkforceEmployeesPage() {
       skills: row.skills.join(", "),
       dailyCapacityHours: String(row.dailyCapacityHours ?? 8),
       active: row.active,
-      canLogin: row.canLogin
+      canLogin: row.canLogin,
+      canReceiveWorkOrders: true,
+      availabilityStatus: "AVAILABLE"
     });
   };
 
@@ -331,6 +343,32 @@ export default function WorkforceEmployeesPage() {
                   onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))}
                 />
                 Active
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.canReceiveWorkOrders}
+                  onChange={(event) => setForm((current) => ({ ...current, canReceiveWorkOrders: event.target.checked }))}
+                />
+                Can receive work orders
+              </label>
+              <label className="space-y-1">
+                <span className="font-medium text-slate-700">Availability</span>
+                <select
+                  aria-label="Availability"
+                  value={form.availabilityStatus}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      availabilityStatus: event.target.value as FormState["availabilityStatus"]
+                    }))
+                  }
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                >
+                  <option value="AVAILABLE">Available</option>
+                  <option value="ON_LEAVE">On leave</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
               </label>
               <label className="flex items-center gap-2">
                 <input

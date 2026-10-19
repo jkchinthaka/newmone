@@ -1,4 +1,11 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Inject, Injectable } from "@nestjs/common";
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  UnauthorizedException
+} from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { RoleName } from "@prisma/client";
 
@@ -59,6 +66,8 @@ export class TenantContextGuard implements CanActivate {
     if (!request.user?.sub) {
       return true;
     }
+
+    request.user.role = await this.currentRole(request.user.sub);
 
     if (platformScoped && request.user.role !== RoleName.SUPER_ADMIN) {
       throw new ForbiddenException("Platform scope requires SUPER_ADMIN");
@@ -184,5 +193,22 @@ export class TenantContextGuard implements CanActivate {
     request.tenantId = tenantId;
 
     return true;
+  }
+
+  /**
+   * Token role is not authorization. A demoted or disabled account must lose
+   * access on the next request even while the access cookie is unexpired.
+   * A current SUPER_ADMIN may enter an active tenant without a membership row.
+   * Every other current role must hold a membership in that tenant.
+   */
+  private async currentRole(userId: string): Promise<string> {
+    const account = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { isActive: true, role: { select: { name: true } } }
+    });
+    if (!account?.isActive || !account.role?.name) {
+      throw new UnauthorizedException("Account is inactive or no longer exists");
+    }
+    return account.role.name;
   }
 }

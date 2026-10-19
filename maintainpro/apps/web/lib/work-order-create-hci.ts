@@ -28,16 +28,14 @@ export function suggestWorkOrderTitle(input: {
   }
 
   const entity = input.entityLabel?.replace(/\s+/g, " ").trim();
-  let title: string;
-  if (entity) {
-    const shortened =
-      description.length > 48 ? `${description.slice(0, 45).trimEnd()}…` : description;
+  const entityAlreadyNamed = Boolean(entity && description.toLowerCase().includes(entity.toLowerCase()));
+  let title = description;
+  if (entity && !entityAlreadyNamed) {
+    const shortened = description.length > 48 ? description.slice(0, 48).trimEnd() : description;
     title = `${entity} — ${shortened}`;
-  } else {
-    title = description.length > maxLength ? `${description.slice(0, maxLength - 1).trimEnd()}…` : description;
   }
-
-  return title.length > maxLength ? `${title.slice(0, maxLength - 1).trimEnd()}…` : title;
+  if (title.length > maxLength) title = title.slice(0, maxLength).trimEnd();
+  return title;
 }
 
 /** Fields that belong on the primary (non-More-options) surface per domain. */

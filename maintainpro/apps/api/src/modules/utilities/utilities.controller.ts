@@ -1,8 +1,9 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Headers, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { METER_READING_ROLES } from "./meter-reading-rules";
 import { UtilitiesService } from "./utilities.service";
 
 interface AuthedRequest {
@@ -17,7 +18,7 @@ export class UtilitiesController {
   constructor(private readonly utilitiesService: UtilitiesService) {}
 
   @Get("meters")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  @Roles(...METER_READING_ROLES)
   async meters(@Req() req: AuthedRequest) {
     const data = await this.utilitiesService.meters(req.user?.tenantId ?? null);
     return { data, message: "Meters fetched" };
@@ -52,48 +53,55 @@ export class UtilitiesController {
   }
 
   @Post("meters/:id/readings")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Roles(...METER_READING_ROLES)
   async addReading(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { readingDate: string; readingValue: number; images?: string[]; notes?: string }
+    @Body() body: { readingDate: string; readingValue: unknown; images?: string[]; notes?: string; resetReason?: string; idempotencyKey?: string },
+    @Headers("idempotency-key") idempotencyKey?: string
   ) {
-    const data = await this.utilitiesService.addReading(id, req.user?.tenantId ?? null, body);
+    const data = await this.utilitiesService.addReading(id, req.user?.tenantId ?? null, {
+      ...body,
+      idempotencyKey: idempotencyKey || body.idempotencyKey,
+      recordedBy: req.user?.sub
+    });
     return { data, message: "Reading created" };
   }
 
   @Get("meters/:id/readings")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  @Roles(...METER_READING_ROLES)
   async readings(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.utilitiesService.readings(id, req.user?.tenantId ?? null);
     return { data, message: "Readings fetched" };
   }
 
   @Get("readings")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  @Roles(...METER_READING_ROLES)
   async allReadings(@Req() req: AuthedRequest) {
     const data = await this.utilitiesService.allReadings(req.user?.tenantId ?? null);
     return { data, message: "Readings fetched" };
   }
 
   @Post("readings")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Roles(...METER_READING_ROLES)
   async addReadingByMeter(
     @Req() req: AuthedRequest,
     @Body()
     body: {
       meterId: string;
       readingDate: string;
-      readingValue: number;
+      readingValue: unknown;
       images?: string[];
       notes?: string;
-    }
+      resetReason?: string;
+      idempotencyKey?: string;
+    },
+    @Headers("idempotency-key") idempotencyKey?: string
   ) {
     const data = await this.utilitiesService.addReading(body.meterId, req.user?.tenantId ?? null, {
-      readingDate: body.readingDate,
-      readingValue: body.readingValue,
-      images: body.images,
-      notes: body.notes
+      ...body,
+      idempotencyKey: idempotencyKey || body.idempotencyKey,
+      recordedBy: req.user?.sub
     });
     return { data, message: "Reading created" };
   }

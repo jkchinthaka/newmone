@@ -8,6 +8,7 @@ import {
 } from "@prisma/client";
 
 import { assertValidTransition, humanRequestStatus } from "../src/modules/maintenance-requests/request-lifecycle";
+import { MaintenanceRequestsController } from "../src/modules/maintenance-requests/maintenance-requests.controller";
 import { MaintenanceRequestsService } from "../src/modules/maintenance-requests/maintenance-requests.service";
 
 jest.mock("../src/common/utils/audit-trail.util", () => ({
@@ -872,5 +873,91 @@ describe("MaintenanceRequestsService", () => {
     const result = await service.duplicateCandidates(tenantA, "mr-6", actor);
     expect(result.items.length).toBeGreaterThanOrEqual(1);
     expect(prisma.maintenanceRequest.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("company requester scope", () => {
+  const prisma: any = {
+    maintenanceRequest: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn()
+    },
+    user: { findUnique: jest.fn() }
+  };
+  const service = new MaintenanceRequestsService(
+    prisma as never,
+    { resolveLocationPath: jest.fn(), validateSiteAndLocation: jest.fn() } as never,
+    { create: jest.fn() } as never,
+    { createNotification: jest.fn() } as never
+  );
+  const finance = {
+    sub: "finance-user",
+    role: "FINANCE",
+    tenantId: tenantA,
+    permissions: [
+      "maintenance_requests.create",
+      "maintenance_requests.view_own",
+      "maintenance_requests.cancel_own"
+    ]
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("keeps a finance employee on their own rows when mine is false", async () => {
+    prisma.maintenanceRequest.count.mockResolvedValue(0);
+    prisma.maintenanceRequest.findMany.mockResolvedValue([]);
+    await service.list(tenantA, finance, { mine: false, page: 1, limit: 25 } as never);
+    expect(prisma.maintenanceRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tenantId: tenantA, reportedById: finance.sub })
+      })
+    );
+  });
+
+  it("rejects a sales employee opening the triage queue", async () => {
+    await expect(
+      service.list(tenantA, { ...finance, role: "SALES", sub: "sales-user" }, {
+        triageQueue: true
+      } as never)
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("rejects a farm employee reading someone else's request", async () => {
+    prisma.maintenanceRequest.findFirst.mockResolvedValue(
+      detailRow({ reportedById: "other-employee" })
+    );
+    await expect(
+      service.findOne(tenantA, "mr-1", { ...finance, role: "FARM_WORKER", sub: "farm-user" })
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});
+
+describe("maintenance request route gates", () => {
+  it("lets any department role through when the request permission is granted", () => {
+    expect(Reflect.getMetadata("roles", MaintenanceRequestsController.prototype.create)).toBeUndefined();
+    expect(Reflect.getMetadata("permissions", MaintenanceRequestsController.prototype.create)).toEqual([
+      "maintenance_requests.create"
+    ]);
+    expect(Reflect.getMetadata("permissions", MaintenanceRequestsController.prototype.list)).toEqual([
+      "maintenance_requests.view_own"
+    ]);
+    expect(Reflect.getMetadata("permissions", MaintenanceRequestsController.prototype.detail)).toEqual([
+      "maintenance_requests.view_own"
+    ]);
+    expect(Reflect.getMetadata("roles", MaintenanceRequestsController.prototype.assetLookup)).toBeUndefined();
+    expect(Reflect.getMetadata("permissions", MaintenanceRequestsController.prototype.assetLookup)).toEqual([
+      "maintenance_requests.create"
+    ]);
+    expect(Reflect.getMetadata("roles", MaintenanceRequestsController.prototype.vehicleLookup)).toBeUndefined();
+    expect(Reflect.getMetadata("permissions", MaintenanceRequestsController.prototype.vehicleLookup)).toEqual([
+      "maintenance_requests.create"
+    ]);
+    const triageRoles = Reflect.getMetadata("roles", MaintenanceRequestsController.prototype.approve) as string[];
+    expect(triageRoles).toContain("MANAGER");
+    expect(triageRoles).not.toContain("FINANCE");
+    expect(triageRoles).not.toContain("FARM_WORKER");
   });
 });

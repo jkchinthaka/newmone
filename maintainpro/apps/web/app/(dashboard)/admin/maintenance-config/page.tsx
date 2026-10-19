@@ -1,9 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import type { Route } from "next";
+import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { taxRateInputIsValid } from "@/lib/vendor-tax";
 
 const SECTIONS = [
   {
@@ -67,7 +71,7 @@ const SECTIONS = [
     description: "CBM threshold rules and open breach events."
   },
   {
-    href: "/admin/approvals",
+    href: "/admin/approval-rules",
     title: "Approval Rules",
     description: "Request, high-cost, external repair, and overrides."
   },
@@ -99,6 +103,7 @@ export default function AdminMaintenanceConfigPage() {
           Operational changes here apply without code deployments.
         </p>
       </div>
+      <DefaultTaxRateSetting />
       <div className="grid gap-3 md:grid-cols-2">
         {SECTIONS.map((section) => (
           <Link
@@ -112,5 +117,66 @@ export default function AdminMaintenanceConfigPage() {
         ))}
       </div>
     </div>
+  );
+}
+
+function DefaultTaxRateSetting() {
+  const [rate, setRate] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    void apiClient
+      .get<{ data: { defaultTaxRatePercent: number | null; name: string } }>("/admin/maintenance-config/tax-rate")
+      .then((response) => {
+        const stored = response.data.data.defaultTaxRatePercent;
+        setRate(stored == null ? "" : String(stored));
+      })
+      .catch((error) => {
+        toast.error(getApiErrorMessage(error, "Unable to load the default tax rate."));
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <form
+      className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!taxRateInputIsValid(rate)) {
+          toast.error("Default tax rate must be from 0 to 100 with at most 2 decimals.");
+          return;
+        }
+        setSaving(true);
+        void apiClient
+          .patch("/admin/maintenance-config/tax-rate", { defaultTaxRatePercent: Number(rate) })
+          .then(() => toast.success("Default tax rate saved."))
+          .catch((error) => toast.error(getApiErrorMessage(error, "Unable to save the default tax rate.")))
+          .finally(() => setSaving(false));
+      }}
+    >
+      <h2 className="font-semibold">Default tax rate %</h2>
+      <p className="mt-1 text-sm text-slate-600">
+        Used as the suggested VAT rate on vendor quotations and invoices. Each document can still use a different rate.
+      </p>
+      <label className="mt-3 flex max-w-xs items-center gap-2 text-sm">
+        <input
+          inputMode="decimal"
+          value={loading ? "" : rate}
+          onChange={(event) => setRate(event.target.value)}
+          aria-label="Default tax rate %"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+          disabled={loading || saving}
+        />
+        <span>%</span>
+      </label>
+      <button
+        type="submit"
+        disabled={loading || saving}
+        className="mt-3 rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+      >
+        Save default tax rate
+      </button>
+    </form>
   );
 }

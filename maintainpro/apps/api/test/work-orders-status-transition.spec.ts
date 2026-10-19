@@ -13,6 +13,7 @@ const createPrismaMock = () => ({
   workOrder: {
     findFirst: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     count: jest.fn().mockResolvedValue(1)
   },
   workOrderLabourEntry: {
@@ -61,7 +62,8 @@ describe("WorkOrdersService status transitions", () => {
     delayReason: null,
     dueDate: new Date("2026-06-20T00:00:00.000Z"),
     expectedCompletionDate: null,
-    plannedEndAt: null
+    plannedEndAt: null,
+    version: 1
   };
 
   const inProgressWorkOrder = {
@@ -98,13 +100,13 @@ describe("WorkOrdersService status transitions", () => {
 
     const updated = await service.updateStatus(
       "wo-1",
-      { status: WorkOrderStatus.IN_PROGRESS },
+      { status: WorkOrderStatus.IN_PROGRESS, expectedVersion: 1 },
       technician
     );
 
-    expect(prisma.workOrder.update).toHaveBeenCalledWith(
+    expect(prisma.workOrder.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "wo-1" },
+        where: { id: "wo-1", version: 1 },
         data: expect.objectContaining({
           status: WorkOrderStatus.IN_PROGRESS,
           startDate: expect.any(Date),
@@ -125,7 +127,7 @@ describe("WorkOrdersService status transitions", () => {
     const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
     await expect(
-      service.updateStatus("wo-1", { status: WorkOrderStatus.IN_PROGRESS }, technician)
+      service.updateStatus("wo-1", { status: WorkOrderStatus.IN_PROGRESS, expectedVersion: 1 }, technician)
     ).rejects.toThrow(BadRequestException);
     expect(prisma.workOrder.update).not.toHaveBeenCalled();
   });
