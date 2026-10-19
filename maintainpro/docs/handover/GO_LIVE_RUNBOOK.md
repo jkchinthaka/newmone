@@ -15,7 +15,7 @@
 | **OS** | Windows Server 2019/2022 (or Windows 10/11 Pro for workstation) | `systeminfo` |
 | **Node.js** | 20.x LTS (exact: `v20.18.0` or later 20.x) | `node --version` |
 | **npm** | 10.x (bundled with Node 20) | `npm --version` |
-| **SQL Server** | 2019/2022 Express or Standard, localhost:1433, mixed mode **disabled** (Windows auth only) | `sqlcmd -E -Q "SELECT @@VERSION"` |
+| **SQL Server** | 2019/2022 **Express** (or Standard), localhost:1433, mixed mode **disabled** (Windows auth only). **Express limit: 10 GB per database** — monitor `MaintainProProd` size. | `sqlcmd -E -C -Q "SELECT @@VERSION"` |
 | **Process supervisor** | **NSSM** (Windows service) **or** PM2 (if Linux) | `nssm status MaintainProApi` / `pm2 list` |
 | **Disk** | ≥ 20 GB free for app + logs + evidence + backups | `dir C:\` |
 | **Evidence folder** | `C:\MaintainProData\evidence-prod` (NTFS, service account Modify) | `icacls C:\MaintainProData\evidence-prod` |
@@ -25,6 +25,8 @@
 | **Firewall** | Inbound 3000 (API), 3001 (Web) from load balancer / reverse proxy only | `netsh advfirewall firewall show rule name=all` |
 
 > **Never use `sa` or SQL authentication.** Production uses Windows integrated auth only.
+>
+> **STORAGE_MODE=local blocker:** `env.validation.ts` blocks `STORAGE_MODE=local` with `STORAGE_UPLOADS_ENABLED=true` in production (line 255-258). Production must use `minio`, `s3`, `r2`, or `azure_blob`. If local storage is required, this validation must be changed by Cursor before go-live. Flow 4 (photo upload) tests real local storage in QA; production will need object storage.
 
 ---
 
@@ -79,6 +81,8 @@ npx prisma migrate status --schema=prisma/schema.prisma
 ```
 
 > **Rollback note:** If migration fails, restore the pre-migration DB backup (see §9) and investigate. Do not `prisma migrate reset` in production.
+
+> **SQL Server Express:** All `sqlcmd` commands below use `-C` to trust the self-signed certificate.
 
 ---
 
@@ -168,7 +172,7 @@ pm2 save && pm2 startup
 
 ## 7. Smoke Checks
 
-Run **after both services report healthy**:
+Run **after both services report healthy** (production ports 3000/3001):
 
 | Check | Command / Action | Expected |
 |-------|------------------|----------|
@@ -177,13 +181,13 @@ Run **after both services report healthy**:
 | Web loads | Open `https://app.maintainpro.local` in browser | Login page renders, no console errors |
 | SUPER_ADMIN login | Sign in as `superadmin@maintainpro.local` | Redirects to dashboard, cookies set |
 | Create one WO | As SUPER_ADMIN: create a CORRECTIVE WO with title "Go-live smoke test" | WO created, appears in list, woNumber assigned |
-| Evidence upload | Attach a small test image to the WO | Upload succeeds, file in `C:\MaintainProData\evidence-prod\...` |
+| Evidence upload | Attach a small test image to the WO | Upload succeeds, file in `C:\MaintainProData\evidence-prod\...` (or MinIO/S3 bucket) |
 | Audit log | Check `AuditLog` table for the WO create row | 1 row with `entity="WorkOrder"`, `action="CREATE"` |
 
 **Automated smoke script:**
 ```powershell
-cd C:\Users\chint\AppData\Local\MaintainPro\worktrees\golive-ops\maintainpro
-.\scripts\ops\health-check.ps1
+cd C:\Users\chint\AppData\Local\MaintainPro\worktrees\release-final-20261013\maintainpro
+.\scripts\ops\health-check.ps1 -ApiBase http://127.0.0.1:3000 -WebBase http://127.0.0.1:3001
 # Should print: OK — all checks passed
 ```
 
@@ -237,8 +241,8 @@ nssm stop MaintainProApi
 # 2. Restore latest clean backup
 #    Backup naming: MaintainProProd_YYYYMMDD_HHMMSS.bak
 $latestBackup = Get-ChildItem C:\MaintainProData\backups\MaintainProProd_*.bak | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-sqlcmd -E -Q "ALTER DATABASE MaintainProProd SET SINGLE_USER WITH ROLLBACK IMMEDIATE"
-sqlcmd -E -Q "RESTORE DATABASE MaintainProProd FROM DISK='$($latestBackup.FullName)' WITH REPLACE, RECOVERY"
+sqlcmd -E -C -Q "ALTER DATABASE MaintainProProd SET SINGLE_USER WITH ROLLBACK IMMEDIATE"
+sqlcmd -E -C -Q "RESTORE DATABASE MaintainProProd FROM DISK='$($latestBackup.FullName)' WITH REPLACE, RECOVERY"
 
 # 3. Verify schema version matches previous build
 #    (Run prisma migrate status — should show applied migrations matching previous tag)
@@ -252,6 +256,31 @@ nssm start MaintainProApi
 - Document incident in `docs/handover/INCIDENT_YYYYMMDD.md`
 - Root cause analysis within 24h
 - Re-apply fix on feature branch → qa-reviewer PASS → new release tag
+
+---
+
+## 11. Backup Scheduling (Windows Task Scheduler — No SQL Agent on Express)
+
+SQL Server Express has **no SQL Agent**. Schedule the nightly backup script via Windows Task Scheduler:
+
+```powershell
+# Run as Administrator. Creates a daily task at 02:00 AM.
+# Adjust -StartBoundary time as needed.
+schtasks /Create /TN "MaintainPro Nightly Backup" `
+  /TR "powershell.exe -ExecutionPolicy Bypass -File C:\Users\chint\AppData\Local\MaintainPro\worktrees\release-final-20261013\maintainpro\scripts\ops\backup-maintainpro.ps1 -DatabaseName MaintainProProd -BackupRoot C:\MaintainProData\backups -EvidenceSource C:\MaintainProData\evidence-prod -RetentionDays 14" `
+  /SC DAILY /ST 02:00 /RU "maintainpro-svc" /RP "<service-account-password>" /F /RL HIGHEST
+```
+
+**Verify:**
+```powershell
+schtasks /Query /TN "MaintainPro Nightly Backup" /V /FO LIST
+```
+
+**Monitor DB size (10 GB Express limit):**
+```powershell
+sqlcmd -E -C -Q "SELECT name, size*8.0/1024 AS size_mb FROM sys.database_files WHERE type=0"
+# Alert if > 8000 MB
+```
 
 ---
 
