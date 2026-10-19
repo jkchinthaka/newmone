@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { loginViaUi } from "./helpers/auth";
 import { authenticatedGet, authenticatedPost } from "./helpers/browser-session";
@@ -9,6 +9,11 @@ const invocationStamp = `${process.pid.toString(36)}${Date.now().toString(36)}`;
 function fixtureIdentity(testInfo: { project: { name: string }; workerIndex: number; retry: number }) {
   const project = testInfo.project.name.replace(/[^a-z0-9]/gi, "").slice(0, 12) || "project";
   return `${e2eRunId()}-${project}-w${testInfo.workerIndex}-r${testInfo.retry}-${invocationStamp}`;
+}
+
+async function openListedWorkOrder(page: Page, woNumber: string) {
+  const label = `Open ${woNumber.replace(/"/g, "")}`;
+  await page.locator(`[aria-label="${label}"]`).locator("visible=true").click();
 }
 import { buildValidWorkOrderPayload } from "./helpers/work-order-payload";
 
@@ -60,7 +65,7 @@ test.describe("Release candidate behavior @full-stack @smoke", () => {
     expect(woNumber.length).toBeGreaterThan(0);
 
     await page.goto(`/work-orders?q=${encodeURIComponent(woNumber)}&queue=open-requests`);
-    await page.getByRole("row", { name: `Open ${woNumber}` }).getByText(woNumber, { exact: true }).click();
+    await openListedWorkOrder(page, woNumber);
     await expect(page.getByRole("button", { name: "Edit details" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
     await page.getByRole("button", { name: "Edit details" }).click();
@@ -167,7 +172,7 @@ test.describe("Release candidate behavior @full-stack @smoke", () => {
     expect(workOrder.status()).toBe(201);
     const woNumber = String(((await workOrder.json()).data || {}).woNumber || "");
     await page.goto(`/work-orders?q=${encodeURIComponent(woNumber)}&queue=open-requests`);
-    await page.getByRole("row", { name: `Open ${woNumber}` }).getByText(woNumber, { exact: true }).click();
+    await openListedWorkOrder(page, woNumber);
     await page.getByRole("tab", { name: "Assignment" }).click();
     const filter = page.getByLabel("Filter by designation");
     await expect(filter).toBeVisible();
