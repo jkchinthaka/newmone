@@ -35,10 +35,8 @@ describe("role-redirect helper", () => {
     expect(getPostLoginRedirect({ role: { name: "ADMIN" } })).toBe("/admin");
   });
 
-  it("falls back to notifications for unknown roles", () => {
-    expect(getPostLoginRedirect({ role: { name: "UNKNOWN_ROLE" } })).toBe(
-      DEFAULT_POST_LOGIN_REDIRECT
-    );
+  it("sends an unknown department role to maintenance requests", () => {
+    expect(getPostLoginRedirect({ role: { name: "UNKNOWN_ROLE" } })).toBe("/requests");
   });
 
   it("falls back to notifications when role is missing", () => {
@@ -49,6 +47,15 @@ describe("role-redirect helper", () => {
   it("maps facility roles to facilities", () => {
     expect(getPostLoginRedirect({ role: { name: "FACILITY_MANAGER" } })).toBe("/facilities");
     expect(getPostLoginRedirect({ role: { name: "BUILDING_SUPERVISOR" } })).toBe("/facilities");
+  });
+
+  it("maps supervisor, vendor, asset manager, and mechanic to their workspaces", () => {
+    expect(getPostLoginRedirect("SUPERVISOR")).toBe("/maintenance");
+    expect(getPostLoginRedirect("VENDOR")).toBe("/vendor-portal");
+    expect(getPostLoginRedirect("ASSET_MANAGER")).toBe("/assets");
+    expect(getPostLoginRedirect("MECHANIC")).toBe("/work-orders/my");
+    expect(getPostLoginRedirect("OPERATIONS_MANAGER")).toBe("/maintenance");
+    expect(getPostLoginRedirect("STOREKEEPER")).toBe("/inventory");
   });
 
   it("never lands on the retired Action Center or splash route", () => {

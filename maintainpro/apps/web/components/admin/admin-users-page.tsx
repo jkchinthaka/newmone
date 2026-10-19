@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +27,7 @@ import { UserAccessTable } from "./user-access-table";
 
 export function AdminUsersPage() {
   const user = useCurrentUser();
+  const focusUserId = useSearchParams().get("user");
   const roleName = extractRoleName(user);
   const isAdmin = isAdminConsoleRole(roleName);
   const isSuperAdmin = roleName === "SUPER_ADMIN";
@@ -68,17 +70,15 @@ export function AdminUsersPage() {
   const filteredRows = useMemo(() => {
     const rows = query.data ?? [];
     const needle = search.trim().toLowerCase();
-    if (!needle) {
-      return rows;
-    }
-
-    return rows.filter((row) =>
-      [row.displayName, row.email, row.roleName, row.tenantName ?? "", row.tenantId ?? ""]
+    return rows.filter((row) => {
+      if (focusUserId && row.id !== focusUserId) return false;
+      if (!needle) return true;
+      return [row.displayName, row.email, row.roleName, row.tenantName ?? "", row.tenantId ?? ""]
         .join(" ")
         .toLowerCase()
-        .includes(needle)
-    );
-  }, [query.data, search]);
+        .includes(needle);
+    });
+  }, [focusUserId, query.data, search]);
 
   const handleStatusAction = async (row: AdminUserAccessRow) => {
     const nextActive = !row.isActive;

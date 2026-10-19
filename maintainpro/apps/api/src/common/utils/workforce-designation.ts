@@ -80,6 +80,23 @@ export function resolveEffectiveDesignation(input: {
   return roleNameToDesignationFallback(input.roleName);
 }
 
+/** Assignment picker query. An empty designation still uses the uncapped eligible list. */
+export function isAssignmentEmployeeListQuery(query: {
+  designation?: string;
+  q?: string;
+  departmentId?: string;
+  branchName?: string;
+  active?: string;
+}): boolean {
+  return (
+    query.designation !== undefined &&
+    !query.q?.trim() &&
+    !query.departmentId?.trim() &&
+    !query.branchName?.trim() &&
+    query.active === undefined
+  );
+}
+
 export function matchesWorkforceDesignation(
   input: { designation?: string | null; roleName?: string | null },
   designationFilter?: string | null
