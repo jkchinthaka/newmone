@@ -54,6 +54,45 @@ describe("ReportsService — DB-authoritative report permissions", () => {
     );
   });
 
+  it("neutralizes spreadsheet formulas in CSV and XLSX export cells", async () => {
+    const formula = "=HYPERLINK(\"http://evil\")";
+    const order = {
+      id: "wo-1",
+      woNumber: "WO-1",
+      title: formula,
+      status: "OPEN",
+      priority: "MEDIUM",
+      createdAt: new Date(),
+      completedDate: null,
+      dueDate: null,
+      asset: null,
+      vehicle: null,
+      technician: null,
+      parts: []
+    };
+    const prisma = buildPrisma(["reports.view", "reports.export"]);
+    prisma.workOrder.findMany = jest.fn().mockResolvedValue([order]);
+    prisma.workOrder.count = jest.fn().mockResolvedValue(1);
+    const service = new ReportsService(prisma as any, {} as any, {} as any, {} as any);
+
+    const csv = await service.exportModule(
+      { ...supervisor, permissions: ["reports.view", "reports.export"] } as any,
+      "operations",
+      "csv",
+      {}
+    );
+    expect(csv.buffer.toString("utf8")).toContain(`"'${formula.replaceAll('"', '""')}"`);
+
+    const xlsx = await service.exportModule(
+      { ...supervisor, permissions: ["reports.view", "reports.export"] } as any,
+      "operations",
+      "xlsx",
+      {}
+    );
+    expect(xlsx.contentType).toContain("spreadsheet");
+    expect(xlsx.buffer.length).toBeGreaterThan(32);
+  });
+
   it("does not re-query when the caller already supplies permissions", async () => {
     const prisma = buildPrisma([]);
     const service = new ReportsService(prisma as any, {} as any, {} as any, {} as any);

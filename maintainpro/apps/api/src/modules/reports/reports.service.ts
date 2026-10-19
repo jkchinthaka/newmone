@@ -1,9 +1,5 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { existsSync } from "fs";
-import path from "path";
 import { AuditAction, ExpenseCategory, Prisma, PurchaseOrderWorkflowStatus, RoleName, WorkOrderApprovalStatus, WorkOrderStatus } from "@prisma/client";
-import ExcelJS from "exceljs";
-import PDFDocument from "pdfkit";
 
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { rolePermissionKeys } from "../../common/utils/role-permissions.util";
@@ -19,9 +15,11 @@ import {
   REPORTING_CURRENCY_CODE,
   REPORTING_TIMEZONE
 } from "./report-currency.util";
-import { contentDispositionAttachment, csvEscapeCell, neutralizeSpreadsheetValue, safeExportFilename } from "./report-export-safety.util";
+import { isNelnaOrganization, nersFilename, officialLogoPath, renderNersPdf, renderNersWorkbook, type NersDocument } from "./ners-layout";
+import { csvEscapeCell, neutralizeSpreadsheetValue } from "./report-export-safety.util";
 import { colomboMonthKey, resolveBusinessDateRange } from "./report-timezone.util";
 import { ErpMonitoringService } from "./erp-monitoring.service";
+import { isReportCompleted, REPORT_COMPLETED_STATUSES, sumAmounts } from "./report-completion";
 
 export type ReportModuleKey =
   | "operations"
@@ -282,7 +280,7 @@ export class ReportsService {
             }
           }),
           this.prisma.workOrder.count({
-            where: { ...workOrderWhere, status: WorkOrderStatus.COMPLETED }
+            where: { ...workOrderWhere, status: { in: REPORT_COMPLETED_STATUSES } }
           }),
           this.prisma.workOrder.findMany({
             where: {
@@ -670,7 +668,8 @@ export class ReportsService {
     const report = await this.moduleReport(actor, module, { ...query, page: 1, pageSize: MAX_EXPORT_ROWS });
     const totalMatchedCount = report.table.pagination.total;
     const truncated = totalMatchedCount > report.table.rows.length;
-    const filename = safeExportFilename(module, format);
+    const organizationName = await this.organizationName(actor);
+    const filename = nersFilename(report.title, format);
 
     await writeAuditTrail(this.prisma, {
       entity: "ReportExport",
@@ -701,12 +700,12 @@ export class ReportsService {
           }
         : format === "xlsx"
           ? {
-              buffer: await this.toXlsxBuffer(report),
+              buffer: await renderNersWorkbook(this.nersDocument(report, organizationName, actor, truncated, totalMatchedCount)),
               contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
               filename
             }
           : {
-              buffer: await this.toPdfBuffer(report),
+              buffer: await renderNersPdf(this.nersDocument(report, organizationName, actor, truncated, totalMatchedCount)),
               contentType: "application/pdf",
               filename
             };
@@ -1220,7 +1219,7 @@ export class ReportsService {
 
     const now = new Date();
     const totalJobs = allOrders.length;
-    const completed = allOrders.filter((item) => item.status === WorkOrderStatus.COMPLETED).length;
+    const completed = allOrders.filter((item) => isReportCompleted(item.status)).length;
     const cancelled = allOrders.filter((item) => item.status === WorkOrderStatus.CANCELLED).length;
     const pendingStatuses: WorkOrderStatus[] = [WorkOrderStatus.OPEN, WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD];
     const pending = allOrders.filter((item) => pendingStatuses.includes(item.status)).length;
@@ -1314,7 +1313,7 @@ export class ReportsService {
 
     const sorted = this.sortRows(transactions, query.sortBy ?? "date", query.sortDirection ?? "desc");
     const pageRows = sorted.slice((pagination.page - 1) * pagination.pageSize, pagination.page * pagination.pageSize);
-    const totalExpenses = transactions.reduce((sum, item) => sum + item.amount, 0);
+    const totalExpenses = sumAmounts(transactions);
     const committedSpend = committed.reduce((sum, item) => sum + item.amount, 0);
     const jobCosts = workOrders.reduce((sum, item) => sum + (item.actualCost ?? 0), 0);
     const partsCost = partsDetail.reduce((sum, item) => sum + item.amount, 0);
@@ -1679,7 +1678,7 @@ export class ReportsService {
     ]);
 
     const now = new Date();
-    const completed = orders.filter((item) => item.status === WorkOrderStatus.COMPLETED);
+    const completed = orders.filter((item) => isReportCompleted(item.status));
     const overdue = orders.filter((item) => this.isWorkOrderOverdue(item, now));
     const avgCompletion = this.average(completed.map((item) => this.hoursBetween(item.startDate ?? item.createdAt, item.completedDate ?? item.updatedAt)));
     const avgResponse = this.average(orders.filter((item) => item.startDate).map((item) => this.hoursBetween(item.createdAt, item.startDate ?? item.createdAt)));
@@ -2295,7 +2294,7 @@ export class ReportsService {
       const department = this.departmentLabel(order);
       const current = rows.get(department) ?? { department, total: 0, completed: 0, overdue: 0 };
       current.total += 1;
-      if (order.status === WorkOrderStatus.COMPLETED) current.completed += 1;
+      if (isReportCompleted(order.status)) current.completed += 1;
       if (this.isWorkOrderOverdue(order, now)) current.overdue += 1;
       rows.set(department, current);
     }
@@ -2309,7 +2308,7 @@ export class ReportsService {
       const technician = this.userLabel(order.technician);
       const current = rows.get(technician) ?? { technician, total: 0, completed: 0, overdue: 0 };
       current.total += 1;
-      if (order.status === WorkOrderStatus.COMPLETED) current.completed += 1;
+      if (isReportCompleted(order.status)) current.completed += 1;
       if (this.isWorkOrderOverdue(order, now)) current.overdue += 1;
       rows.set(technician, current);
     }
@@ -2346,7 +2345,7 @@ export class ReportsService {
       const point = trend.find((item) => item.period === period);
       if (!point) continue;
       point.total += 1;
-      if (order.status === WorkOrderStatus.COMPLETED) point.completed += 1;
+      if (isReportCompleted(order.status)) point.completed += 1;
       if (this.isWorkOrderOverdue(order, new Date())) point.overdue += 1;
       if (order.completedDate) point.completionHours.push(this.hoursBetween(order.startDate ?? order.createdAt, order.completedDate));
     }
@@ -2570,9 +2569,9 @@ export class ReportsService {
   ) {
     const exportColumns = this.exportColumns(columns);
     const headers = exportColumns.map((column) => column.label);
-    const lines = [headers.map((h) => csvEscapeCell(h)).join(",")];
+    const lines = [headers.map((h) => csvEscapeCell(neutralizeSpreadsheetValue(h))).join(",")];
     for (const row of rows) {
-      lines.push(exportColumns.map((column) => csvEscapeCell(row[column.key])).join(","));
+      lines.push(exportColumns.map((column) => csvEscapeCell(neutralizeSpreadsheetValue(row[column.key]))).join(","));
     }
     if (meta?.truncated) {
       lines.push(
@@ -2581,79 +2580,49 @@ export class ReportsService {
         )
       );
     }
-    return Buffer.from(lines.join("\n"), "utf8");
+    return Buffer.from(`\uFEFF${lines.join("\n")}`, "utf8");
   }
 
-  private async toXlsxBuffer(report: ReportModuleResponse) {
-    const workbook = new ExcelJS.Workbook();
-    workbook.creator = "MaintainPro";
-    workbook.created = new Date();
-    const sheet = workbook.addWorksheet("Report");
-    const exportColumns = this.exportColumns(report.table.columns);
-    sheet.columns = exportColumns.map((column) => ({
-      header: column.label,
-      key: column.key,
-      width: Math.max(14, column.label.length + 4)
-    }));
-    for (const row of report.table.rows) {
-      const safeRow: Record<string, string | number | null> = {};
-      for (const column of exportColumns) {
-        const value = row[column.key];
-        if (column.type === "number" || column.type === "currency" || typeof value === "number") {
-          safeRow[column.key] = typeof value === "number" && Number.isFinite(value) ? value : Number(value) || 0;
-        } else {
-          safeRow[column.key] = neutralizeSpreadsheetValue(value);
+  private async organizationName(actor: ReportActor) {
+    if (!actor.tenantId || typeof this.prisma.tenant?.findUnique !== "function") return "Nelna Farm (Pvt) Ltd";
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: actor.tenantId }, select: { name: true } });
+    return tenant?.name?.trim() || "Nelna Farm (Pvt) Ltd";
+  }
+
+  private nersDocument(
+    report: ReportModuleResponse,
+    organizationName: string,
+    actor: ReportActor,
+    truncated: boolean,
+    totalMatchedCount: number
+  ): NersDocument {
+    const columns = this.exportColumns(report.table.columns);
+    return {
+      title: report.title,
+      organizationName,
+      generatedAt: new Date(report.generatedAt),
+      generatedBy: actor.email,
+      period: `${report.filters.startDate} to ${report.filters.endDate}`,
+      filters: [
+        { label: "Status", value: report.filters.status ?? "" },
+        { label: "Search", value: report.filters.search ?? "" },
+        { label: "Department", value: report.filters.departmentId ?? "" }
+      ],
+      kpis: report.summaryCards.map((card) => ({ label: card.label, value: String(card.value ?? "") })),
+      columns: columns.map((column) => ({ key: column.key, label: column.label, type: column.type })),
+      rows: report.table.rows.map((row) => {
+        const next: Record<string, string | number | null> = {};
+        for (const column of columns) {
+          const value = row[column.key] ?? null;
+          next[column.key] = typeof value === "number" ? value : neutralizeSpreadsheetValue(value);
         }
-      }
-      sheet.addRow(safeRow);
-    }
-    sheet.getRow(1).font = { bold: true };
-    sheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFF6FF" } };
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
-  }
-
-  private async toPdfBuffer(report: ReportModuleResponse) {
-    return new Promise<Buffer>((resolve, reject) => {
-      const doc = new PDFDocument({ margin: 36, size: "A4", layout: "landscape" });
-      const chunks: Buffer[] = [];
-      doc.on("data", (chunk: Buffer) => chunks.push(chunk));
-      doc.on("end", () => resolve(Buffer.concat(chunks)));
-      doc.on("error", reject);
-
-      const logoPath = path.join(process.cwd(), "assets", "brand", "nelna-group-logo.jpg");
-      if (existsSync(logoPath)) {
-        doc.image(logoPath, { width: 96 });
-        doc.moveDown(0.25);
-      }
-      doc.fontSize(9).fillColor("#263238").text("MaintainPro");
-      doc.moveDown(0.15);
-      doc.fontSize(18).fillColor("#0f172a").text(report.title, { continued: false });
-      doc.moveDown(0.25);
-      doc.fontSize(9).fillColor("#475569").text(`Generated ${new Date(report.generatedAt).toLocaleString()}`);
-      doc.moveDown(0.75);
-      doc.fillColor("#0f172a").fontSize(10).text(report.summaryCards.map((card) => `${card.label}: ${card.value}`).join("   "));
-      doc.moveDown();
-
-      const columns = this.exportColumns(report.table.columns).slice(0, 7);
-      const rowHeight = 20;
-      const startX = doc.x;
-      let y = doc.y;
-      const widths = columns.map(() => 105);
-      doc.fontSize(8).fillColor("#0f172a");
-      columns.forEach((column, index) => doc.text(column.label, startX + widths.slice(0, index).reduce((sum, item) => sum + item, 0), y, { width: widths[index] }));
-      y += rowHeight;
-      doc.moveTo(startX, y - 6).lineTo(startX + widths.reduce((sum, item) => sum + item, 0), y - 6).stroke("#cbd5e1");
-
-      for (const row of report.table.rows.slice(0, 22)) {
-        columns.forEach((column, index) => {
-          doc.text(String(row[column.key] ?? ""), startX + widths.slice(0, index).reduce((sum, item) => sum + item, 0), y, { width: widths[index], ellipsis: true });
-        });
-        y += rowHeight;
-        if (y > 520) break;
-      }
-
-      doc.end();
-    });
+        return next;
+      }),
+      coverageNotes: report.coverageNotes,
+      truncatedNote: truncated
+        ? `Exported ${report.table.rows.length} of ${totalMatchedCount} matching rows. This file is not the complete set.`
+        : null,
+      logoPath: isNelnaOrganization(organizationName) ? officialLogoPath() : null
+    };
   }
 }

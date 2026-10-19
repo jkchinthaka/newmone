@@ -64,6 +64,18 @@ const ROLE_PERMS = {
     "reports.performance.view"
   ],
   SECURITY_OFFICER: ["dashboard.view", "gate.in.create", "gate.out.create"],
+  REQUESTER: ["dashboard.view", "maintenance_requests.create", "maintenance_requests.view_own"],
+  FINANCE: [
+    "dashboard.view",
+    "purchase_orders.view",
+    "purchase_orders.approve_finance",
+    "part_requests.view",
+    "part_requests.approve_finance",
+    "reports.view",
+    "reports.financials.view"
+  ],
+  SUPERVISOR: ["dashboard.view", "work_orders.view_own", "work_orders.verify", "work_orders.manage"],
+  SUPER_ADMIN: ADMIN_PERMISSION_KEYS,
   INVENTORY_KEEPER: [
     "dashboard.view",
     "inventory.manage",
@@ -158,6 +170,11 @@ async function main() {
         });
       }
       const tenantId = tenant.id;
+      await prisma.$executeRawUnsafe(
+        `IF NOT EXISTS (SELECT 1 FROM TenantMaintenanceSetting WHERE tenantId = N'${tenantId}')
+         INSERT INTO TenantMaintenanceSetting (id, tenantId, defaultTaxRatePercent)
+         VALUES (N'${newId()}', N'${tenantId}', 18)`
+      );
 
       const roleIds = {};
       for (const roleName of Object.keys(usersSpec)) {
@@ -193,6 +210,11 @@ async function main() {
               userId: user.id,
               membershipRole: roleName === "ADMIN" ? "ADMIN" : "MEMBER"
             }
+          });
+        } else if (user.roleId !== roleIds[roleName]) {
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { roleId: roleIds[roleName], isActive: true }
           });
         }
         users[roleName] = { id: user.id, email };
@@ -397,7 +419,11 @@ async function main() {
         MANAGER: "manager-a",
         TECHNICIAN: "tech-a",
         SECURITY_OFFICER: "security-a",
-        INVENTORY_KEEPER: "inventory-a"
+        INVENTORY_KEEPER: "inventory-a",
+        REQUESTER: "requester-a",
+        FINANCE: "finance-a",
+        SUPERVISOR: "supervisor-a",
+        SUPER_ADMIN: "super-a"
       },
       true
     );
