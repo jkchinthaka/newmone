@@ -220,12 +220,6 @@ function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: st
     onHoldJobs: data.onHoldJobs
   };
   const priority = data.priorityWorkList ?? [];
-  const diagnostics = [
-    ["MTTR", data.notAvailable?.mttr ?? "Not Configured"],
-    ["MTBF", data.notAvailable?.mtbf ?? "Not Configured"],
-    ["ERP exceptions", data.notAvailable?.erpExceptions ?? "Not Available"],
-    ["Gate / availability blocks", data.notAvailable?.gateBlocks ?? "Not Available"]
-  ];
 
   return (
     <>
@@ -345,21 +339,6 @@ function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: st
           ) : null}
         </div>
       </Section>
-
-      <details className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-        <summary className="cursor-pointer font-medium text-slate-900">Setup and diagnostics</summary>
-        <ul className="mt-3 space-y-1">
-          {diagnostics.map(([label, value]) => (
-            <li key={label}>
-              {label}: {value}
-            </li>
-          ))}
-          <li>
-            Low stock is not shown here. Bileeta owns stock; the local spare-part quantity is not the operational
-            balance.
-          </li>
-        </ul>
-      </details>
     </>
   );
 }
