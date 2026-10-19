@@ -50,6 +50,8 @@ describe("vendor repair controls", () => {
       auditLog: {
         create: jest.fn().mockResolvedValue({ id: "audit-1" })
       },
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      $executeRaw: jest.fn().mockResolvedValue(0),
       ...overrides
     };
 
@@ -139,6 +141,100 @@ describe("vendor repair controls", () => {
         actor
       )
     ).rejects.toThrow(new BadRequestException("Duplicate vendor invoice detected."));
+    expect(prisma.vendorInvoice.create).not.toHaveBeenCalled();
+  });
+
+  it("stores server-computed tax and ignores a client tax amount when a rate is sent", async () => {
+    const { service, prisma } = buildService({
+      vendorRepairCase: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "case-1",
+          tenantId: "tenant-1",
+          approvedQuotationAmount: 11_800,
+          quotations: [],
+          invoices: []
+        }),
+        update: jest.fn()
+      },
+      vendorInvoice: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: "inv-new" }),
+        update: jest.fn()
+      }
+    });
+
+    await service.submitInvoice(
+      "wo-1",
+      {
+        supplierId: "vendor-1",
+        invoiceNo: "INV-TAX",
+        invoiceDate: new Date().toISOString(),
+        invoiceAmount: 10_000,
+        taxRatePercent: 18,
+        taxAmount: 1
+      },
+      actor
+    );
+
+    expect(prisma.vendorInvoice.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ taxAmount: 1800, totalAmount: 11800 })
+      })
+    );
+    expect(prisma.$executeRaw).toHaveBeenCalled();
+  });
+
+  it("compares the computed invoice total with the approved quotation", async () => {
+    const { service } = buildService({
+      vendorRepairCase: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "case-1",
+          tenantId: "tenant-1",
+          approvedQuotationAmount: 10_000
+        })
+      },
+      vendorInvoice: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn(),
+        update: jest.fn()
+      }
+    });
+
+    await expect(
+      service.submitInvoice(
+        "wo-1",
+        {
+          supplierId: "vendor-1",
+          invoiceNo: "INV-OVER",
+          invoiceDate: new Date().toISOString(),
+          invoiceAmount: 10_000,
+          taxRatePercent: 18
+        },
+        actor
+      )
+    ).rejects.toThrow(new BadRequestException("Invoice amount exceeds approved quotation."));
+  });
+
+  it("rejects a tax rate above 100", async () => {
+    const { service, prisma } = buildService({
+      vendorRepairCase: {
+        findUnique: jest.fn().mockResolvedValue({ id: "case-1", tenantId: "tenant-1", approvedQuotationAmount: 50_000 })
+      }
+    });
+
+    await expect(
+      service.submitInvoice(
+        "wo-1",
+        {
+          supplierId: "vendor-1",
+          invoiceNo: "INV-RATE",
+          invoiceDate: new Date().toISOString(),
+          invoiceAmount: 10_000,
+          taxRatePercent: 101
+        },
+        actor
+      )
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.vendorInvoice.create).not.toHaveBeenCalled();
   });
 

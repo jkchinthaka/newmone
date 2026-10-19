@@ -12,6 +12,7 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import { deriveTaxRatePercent, resolveVendorTaxLine, type VendorTaxLine } from "../../common/utils/vendor-tax";
 import {
   assertInvoiceAttachment,
   assertInvoiceWithinQuotation,
@@ -64,18 +65,24 @@ export class VendorRepairService {
       _sum: { totalCost: true }
     });
 
-    const approvedQuotation = vendorCase?.quotations.find((q) => quotationIsApproved(q.status));
-    const latestInvoice = vendorCase?.invoices[0];
-    const costSummary = calculateCostVariance(
-      vendorCase?.approvedQuotationAmount ?? approvedQuotation?.quotedAmount,
-      latestInvoice?.totalAmount ?? 0
-    );
+    const decorated = await this.decorateTax(vendorCase, workOrder.tenantId);
+    const approvedQuotation = decorated.vendorCase?.quotations.find((q) => quotationIsApproved(q.status)) as
+      | { quotedAmount: unknown; totalAmount?: number | null }
+      | undefined;
+    const latestInvoice = decorated.vendorCase?.invoices[0];
+    const approvedRaw =
+      decorated.vendorCase?.approvedQuotationAmount ??
+      approvedQuotation?.totalAmount ??
+      approvedQuotation?.quotedAmount;
+    const approvedTotal = approvedRaw == null ? null : Number(approvedRaw);
+    const costSummary = calculateCostVariance(approvedTotal, Number(latestInvoice?.totalAmount ?? 0));
 
     return {
       workOrderId,
       workOrderStatus: workOrder.status,
       verificationStatus: workOrder.verificationStatus,
-      vendorCase,
+      defaultTaxRatePercent: decorated.defaultTaxRatePercent,
+      vendorCase: decorated.vendorCase,
       costSummary: {
         ...costSummary,
         partsCost: partsCost._sum.totalCost ?? 0,
@@ -176,6 +183,8 @@ export class VendorRepairService {
       quotationNo: string;
       quotationDate: string;
       quotedAmount: number;
+      taxRatePercent?: number | null;
+      taxAmount?: number;
       currency?: string;
       validityDate?: string;
       evidenceAttachmentId?: string;
@@ -185,7 +194,8 @@ export class VendorRepairService {
     this.assertCanRequest(actor);
     assertPositiveAmount("Quotation amount", body.quotedAmount);
     const vendorCase = await this.requireCase(workOrderId, actor);
-    const level = resolveVendorApprovalLevel(body.quotedAmount);
+    const tax = this.taxLine(body.quotedAmount, body);
+    const level = resolveVendorApprovalLevel(tax.totalAmount);
 
     const quotation = await this.prisma.vendorQuotation.create({
       data: {
@@ -206,6 +216,8 @@ export class VendorRepairService {
       }
     });
 
+    await this.storeQuotationTax(quotation.id, tax);
+
     await this.prisma.vendorRepairCase.update({
       where: { id: vendorCase.id },
       data: { status: VendorRepairStatus.QUOTATION_SUBMITTED, supplierId: body.supplierId }
@@ -217,7 +229,7 @@ export class VendorRepairService {
       workOrderId,
       vendorId: body.supplierId,
       quotationId: quotation.id,
-      amount: body.quotedAmount,
+      amount: tax.totalAmount,
       metadata: { approvalLevel: level }
     });
 
@@ -226,7 +238,8 @@ export class VendorRepairService {
 
   async approveQuotation(workOrderId: string, quotationId: string, approvalNote: string | undefined, actor: Actor) {
     const quotation = await this.findQuotation(workOrderId, quotationId, actor);
-    const level = quotation.requiredApprovalLevel ?? resolveVendorApprovalLevel(quotation.quotedAmount);
+    const payable = await this.quotationPayableAmount(quotationId, Number(quotation.quotedAmount));
+    const level = quotation.requiredApprovalLevel ?? resolveVendorApprovalLevel(payable);
     if (!roleCanApproveVendorLevel(actor.role, level)) {
       throw new ForbiddenException("Manager approval required.");
     }
@@ -234,7 +247,7 @@ export class VendorRepairService {
       throw new BadRequestException("Same user cannot request and approve vendor repair unless admin override.");
     }
 
-    if (isHighCostVendorRepair(quotation.quotedAmount)) {
+    if (isHighCostVendorRepair(payable)) {
       const approvedCount = await this.prisma.vendorQuotation.count({
         where: { workOrderId, status: VendorQuotationStatus.APPROVED }
       });
@@ -257,7 +270,7 @@ export class VendorRepairService {
       where: { id: quotation.vendorRepairCaseId },
       data: {
         status: VendorRepairStatus.QUOTATION_APPROVED,
-        approvedQuotationAmount: quotation.quotedAmount,
+        approvedQuotationAmount: payable,
         approvedQuotationId: quotationId
       }
     });
@@ -267,7 +280,7 @@ export class VendorRepairService {
       actor,
       workOrderId,
       quotationId,
-      amount: quotation.quotedAmount,
+      amount: payable,
       note: approvalNote
     });
 
@@ -342,6 +355,7 @@ export class VendorRepairService {
       invoiceNo: string;
       invoiceDate: string;
       invoiceAmount: number;
+      taxRatePercent?: number | null;
       taxAmount?: number;
       currency?: string;
       evidenceAttachmentId?: string;
@@ -352,7 +366,8 @@ export class VendorRepairService {
     this.assertCanRequest(actor);
     assertPositiveAmount("Invoice amount", body.invoiceAmount);
     const vendorCase = await this.requireCase(workOrderId, actor);
-    const totalAmount = body.invoiceAmount + (body.taxAmount ?? 0);
+    const tax = this.taxLine(body.invoiceAmount, body);
+    const totalAmount = tax.totalAmount;
 
     const duplicate = await this.prisma.vendorInvoice.findFirst({
       where: { tenantId: requireTenantId(vendorCase.tenantId), supplierId: body.supplierId, invoiceNo: body.invoiceNo.trim() }
@@ -372,7 +387,7 @@ export class VendorRepairService {
         invoiceNo: body.invoiceNo.trim(),
         invoiceDate: new Date(body.invoiceDate),
         invoiceAmount: body.invoiceAmount,
-        taxAmount: body.taxAmount ?? 0,
+        taxAmount: tax.taxAmount,
         totalAmount,
         currency: body.currency ?? "LKR",
         evidenceAttachmentId: body.evidenceAttachmentId ?? null,
@@ -382,6 +397,8 @@ export class VendorRepairService {
         exceedsQuotationReason: body.exceedsQuotationReason?.trim() || null
       }
     });
+
+    await this.storeInvoiceRate(invoice.id, tax.taxRatePercent);
 
     await this.prisma.vendorRepairCase.update({
       where: { id: vendorCase.id },
@@ -583,5 +600,113 @@ export class VendorRepairService {
         } as Prisma.InputJsonValue
       }
     });
+  }
+
+  private taxLine(baseAmount: number, input: { taxRatePercent?: unknown; taxAmount?: unknown }) {
+    const resolved = resolveVendorTaxLine(baseAmount, input);
+    if (!resolved.ok) throw new BadRequestException(resolved.message);
+    return resolved.line;
+  }
+
+  private async storeQuotationTax(id: string, line: VendorTaxLine) {
+    await this.prisma.$executeRaw(
+      Prisma.sql`UPDATE VendorQuotation SET taxRatePercent = ${line.taxRatePercent}, taxAmount = ${line.taxAmount}, totalAmount = ${line.totalAmount} WHERE id = ${id}`
+    );
+  }
+
+  private async storeInvoiceRate(id: string, rate: number | null) {
+    if (rate === null) return;
+    await this.prisma.$executeRaw(Prisma.sql`UPDATE VendorInvoice SET taxRatePercent = ${rate} WHERE id = ${id}`);
+  }
+
+  private async quotationPayableAmount(quotationId: string, quotedAmount: number) {
+    try {
+      const rows = await this.prisma.$queryRaw<Array<{ totalAmount: unknown }>>(
+        Prisma.sql`SELECT totalAmount FROM VendorQuotation WHERE id = ${quotationId}`
+      );
+      const total = rows[0]?.totalAmount;
+      if (total === null || total === undefined) return quotedAmount;
+      const amount = Number(total);
+      return Number.isFinite(amount) ? amount : quotedAmount;
+    } catch {
+      return quotedAmount;
+    }
+  }
+
+  private async decorateTax<
+    TQuotation extends { id: string; quotedAmount: unknown },
+    TInvoice extends { id: string; invoiceAmount: unknown; taxAmount: unknown },
+    TCase extends { id: string; quotations: TQuotation[]; invoices: TInvoice[] }
+  >(vendorCase: TCase | null, tenantId: string) {
+    let defaultTaxRatePercent: number | null = null;
+    let quotationRates = new Map<string, { taxRatePercent: number | null; taxAmount: number | null; totalAmount: number | null }>();
+    let invoiceRates = new Map<string, number | null>();
+    try {
+      const settings = await this.prisma.$queryRaw<Array<{ defaultTaxRatePercent: unknown }>>(
+        Prisma.sql`SELECT TOP 1 defaultTaxRatePercent FROM TenantMaintenanceSetting WHERE tenantId = ${tenantId}`
+      );
+      if (settings[0]?.defaultTaxRatePercent != null) {
+        const rate = Number(settings[0].defaultTaxRatePercent);
+        defaultTaxRatePercent = Number.isFinite(rate) ? rate : null;
+      }
+      if (vendorCase) {
+        const quotations = await this.prisma.$queryRaw<
+          Array<{ id: string; taxRatePercent: unknown; taxAmount: unknown; totalAmount: unknown }>
+        >(Prisma.sql`SELECT id, taxRatePercent, taxAmount, totalAmount FROM VendorQuotation WHERE vendorRepairCaseId = ${vendorCase.id}`);
+        quotationRates = new Map(
+          quotations.map((row) => [
+            row.id,
+            {
+              taxRatePercent: row.taxRatePercent == null ? null : Number(row.taxRatePercent),
+              taxAmount: row.taxAmount == null ? null : Number(row.taxAmount),
+              totalAmount: row.totalAmount == null ? null : Number(row.totalAmount)
+            }
+          ])
+        );
+        const invoices = await this.prisma.$queryRaw<Array<{ id: string; taxRatePercent: unknown }>>(
+          Prisma.sql`SELECT id, taxRatePercent FROM VendorInvoice WHERE vendorRepairCaseId = ${vendorCase.id}`
+        );
+        invoiceRates = new Map(invoices.map((row) => [row.id, row.taxRatePercent == null ? null : Number(row.taxRatePercent)]));
+      }
+    } catch {
+      defaultTaxRatePercent = null;
+    }
+
+    if (!vendorCase) return { vendorCase, defaultTaxRatePercent };
+
+    const quotations: Array<
+      TQuotation & {
+        taxRatePercent: number | null;
+        taxAmount: number | null;
+        totalAmount: number | null;
+        displayTaxRatePercent: number | null;
+      }
+    > = vendorCase.quotations.map((quotation) => {
+      const stored = quotationRates.get(quotation.id);
+      const base = Number(quotation.quotedAmount);
+      const taxAmount = stored?.taxAmount ?? null;
+      return {
+        ...quotation,
+        taxRatePercent: stored?.taxRatePercent ?? null,
+        taxAmount,
+        totalAmount: stored?.totalAmount ?? null,
+        displayTaxRatePercent: stored?.taxRatePercent ?? (taxAmount == null ? null : deriveTaxRatePercent(base, taxAmount))
+      };
+    });
+    const invoices = vendorCase.invoices.map((invoice) => {
+      const stored = invoiceRates.get(invoice.id) ?? null;
+      const base = Number(invoice.invoiceAmount);
+      const taxAmount = Number(invoice.taxAmount);
+      return {
+        ...invoice,
+        taxRatePercent: stored,
+        displayTaxRatePercent: stored ?? deriveTaxRatePercent(base, taxAmount)
+      };
+    });
+
+    return {
+      defaultTaxRatePercent,
+      vendorCase: { ...vendorCase, quotations, invoices }
+    };
   }
 }

@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Truck } from "lucide-react";
 import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { useCurrentUser } from "@/lib/use-current-user";
+import { previewVendorTax, taxRateInputIsValid } from "@/lib/vendor-tax";
 import {
   canApproveVendorQuotation,
   canFinanceApproveVendorInvoice,
@@ -28,7 +29,8 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [payload, setPayload] = useState<VendorRepairResponse | null>(null);
-  const [suppliers, setSuppliers] = useState<Array<{ id: string; name: string; blacklisted?: boolean }>>([]);
+  const submitLock = useRef(false);
+  const [suppliers, setSuppliers] = useState<Array<{ id: string; name: string; blacklisted?: boolean; isActive?: boolean }>>([]);
 
   const [requestReason, setRequestReason] = useState("");
   const [isEmergency, setIsEmergency] = useState(false);
@@ -36,9 +38,10 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
   const [selectedVendorId, setSelectedVendorId] = useState("");
   const [quotationNo, setQuotationNo] = useState("");
   const [quotedAmount, setQuotedAmount] = useState("");
+  const [quotationTaxRate, setQuotationTaxRate] = useState("");
   const [invoiceNo, setInvoiceNo] = useState("");
   const [invoiceAmount, setInvoiceAmount] = useState("");
-  const [taxAmount, setTaxAmount] = useState("0");
+  const [invoiceTaxRate, setInvoiceTaxRate] = useState("");
   const [exceedsReason, setExceedsReason] = useState("");
 
   const vendorCase = payload?.vendorCase;
@@ -63,8 +66,10 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
   useEffect(() => {
     if (!canRequestVendorRepair(role)) return;
     void apiClient
-      .get<ApiEnvelope<Array<{ id: string; name: string; blacklisted?: boolean }>>>("/suppliers")
-      .then((response) => setSuppliers(response.data.data ?? []))
+      .get<ApiEnvelope<Array<{ id: string; name: string; blacklisted?: boolean; isActive?: boolean }>>>("/suppliers")
+      .then((response) =>
+        setSuppliers((response.data.data ?? []).filter((supplier) => supplier.isActive !== false))
+      )
       .catch(() => setSuppliers([]));
   }, [role]);
 
@@ -74,6 +79,8 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
   );
 
   async function runAction(label: string, action: () => Promise<void>) {
+    if (submitLock.current) return;
+    submitLock.current = true;
     setSubmitting(true);
     try {
       await action();
@@ -82,6 +89,7 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Unable to complete vendor repair action."));
     } finally {
+      submitLock.current = false;
       setSubmitting(false);
     }
   }
@@ -123,8 +131,8 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
           <Metric label="Invoice total" value={formatCurrency(costSummary.invoiceTotal)} />
           <Metric
             label="Variance"
-            value={formatCurrency(costSummary.varianceAmount)}
-            warn={costSummary.varianceAmount > 0}
+            value={costSummary.invoiceTotal > 0 ? formatCurrency(costSummary.varianceAmount) : "—"}
+            warn={costSummary.invoiceTotal > 0 && costSummary.varianceAmount > 0}
           />
           <Metric label="Total maintenance cost" value={formatCurrency(costSummary.totalMaintenanceCost)} />
         </div>
@@ -233,24 +241,36 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
               type="number"
               min="0"
               step="0.01"
+              inputMode="decimal"
               value={quotedAmount}
               onChange={(event) => setQuotedAmount(event.target.value)}
               placeholder="Quoted amount"
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
+            <TaxRateField
+              value={quotationTaxRate}
+              onChange={setQuotationTaxRate}
+              defaultRate={payload?.defaultTaxRatePercent}
+              amount={quotedAmount}
+            />
             <button
               type="button"
-              disabled={submitting || !quotationNo.trim() || !quotedAmount || !vendorCase.supplier?.id}
-              onClick={() =>
+              disabled={submitting || !quotationNo.trim() || !quotedAmount || !taxRateInputIsValid(quotationTaxRate) || !vendorCase.supplier?.id}
+              onClick={(event) => {
+                event.currentTarget.disabled = true;
                 void runAction("Quotation submitted", async () => {
                   await apiClient.post(`/work-orders/${workOrderId}/vendor-repair/quotations`, {
                     supplierId: vendorCase.supplier!.id,
                     quotationNo: quotationNo.trim(),
                     quotationDate: new Date().toISOString(),
-                    quotedAmount: Number(quotedAmount)
+                    quotedAmount: Number(quotedAmount),
+                    taxRatePercent: Number(quotationTaxRate)
                   });
-                })
-              }
+                  setQuotationNo("");
+                  setQuotedAmount("");
+                  setQuotationTaxRate("");
+                });
+              }}
               className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900 disabled:opacity-60"
             >
               Add Quotation
@@ -264,7 +284,9 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
                   <div>
                     <p className="font-medium">{quotation.quotationNo}</p>
                     <p className="text-slate-600">
-                      {formatCurrency(quotation.quotedAmount, quotation.currency)} · {quotation.status}
+                      {formatCurrency(quotation.totalAmount ?? quotation.quotedAmount, quotation.currency)} · Tax{" "}
+                      {quotation.displayTaxRatePercent == null ? "rate not recorded" : `${quotation.displayTaxRatePercent}%`}{" "}
+                      {formatCurrency(quotation.taxAmount ?? 0, quotation.currency)} · {quotation.status}
                     </p>
                   </div>
                   {quotation.status === "SUBMITTED" && canApproveVendorQuotation(role) ? (
@@ -363,18 +385,15 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
               placeholder="Invoice amount"
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={taxAmount}
-              onChange={(event) => setTaxAmount(event.target.value)}
-              placeholder="Tax"
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            <TaxRateField
+              value={invoiceTaxRate}
+              onChange={setInvoiceTaxRate}
+              defaultRate={payload?.defaultTaxRatePercent}
+              amount={invoiceAmount}
             />
             <button
               type="button"
-              disabled={submitting || !invoiceNo.trim() || !invoiceAmount || !vendorCase.supplier?.id}
+              disabled={submitting || !invoiceNo.trim() || !invoiceAmount || !taxRateInputIsValid(invoiceTaxRate) || !vendorCase.supplier?.id}
               onClick={() =>
                 void runAction("Invoice submitted", async () => {
                   await apiClient.post(`/work-orders/${workOrderId}/vendor-repair/invoices`, {
@@ -382,7 +401,7 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
                     invoiceNo: invoiceNo.trim(),
                     invoiceDate: new Date().toISOString(),
                     invoiceAmount: Number(invoiceAmount),
-                    taxAmount: Number(taxAmount || 0),
+                    taxRatePercent: Number(invoiceTaxRate),
                     exceedsQuotationReason: exceedsReason.trim() || undefined
                   });
                 })
@@ -404,7 +423,9 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
               <div>
                 <p className="font-medium">{invoice.invoiceNo}</p>
                 <p className="text-slate-600">
-                  {formatCurrency(invoice.totalAmount, invoice.currency)} · {invoice.status}
+                  Tax {invoice.displayTaxRatePercent == null ? "rate not recorded" : `${invoice.displayTaxRatePercent}%`}{" "}
+                  {formatCurrency(invoice.taxAmount, invoice.currency)} · Total {formatCurrency(invoice.totalAmount, invoice.currency)} ·{" "}
+                  {invoice.status}
                 </p>
               </div>
               {(invoice.status === "SUBMITTED" || invoice.status === "UNDER_REVIEW") && canFinanceApproveVendorInvoice(role) ? (
@@ -457,13 +478,68 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
         </section>
       ) : null}
 
-      {costSummary && costSummary.varianceAmount > 0 ? (
+      {costSummary && costSummary.invoiceTotal > 0 && costSummary.varianceAmount > 0 ? (
         <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
           Invoice exceeds quotation by {formatCurrency(costSummary.varianceAmount)} (
           {costSummary.variancePercentage.toFixed(1)}%).
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function TaxRateField({
+  value,
+  onChange,
+  defaultRate,
+  amount
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  defaultRate: number | null | undefined;
+  amount: string;
+}) {
+  const chips = [
+    { label: "0% vendor not VAT-registered", value: "0" },
+    ...(defaultRate == null ? [] : [{ label: `${defaultRate}% tenant default`, value: String(defaultRate) }])
+  ];
+  const preview =
+    taxRateInputIsValid(value) && amount.trim() !== "" && Number(amount) >= 0
+      ? previewVendorTax(Number(amount), Number(value))
+      : null;
+  return (
+    <div className="space-y-2 sm:col-span-3">
+      <label className="block text-sm text-slate-700">
+        Tax %
+        <span className="mt-1 flex items-center gap-2">
+          <input
+            inputMode="decimal"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            aria-label="Tax %"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+          <span aria-hidden="true">%</span>
+        </span>
+      </label>
+      <div className="flex flex-wrap gap-2">
+        {chips.map((chip) => (
+          <button
+            key={chip.label}
+            type="button"
+            onClick={() => onChange(chip.value)}
+            className="rounded-full border border-slate-300 px-3 py-1 text-xs hover:bg-slate-50"
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-sm text-slate-600">
+        {preview
+          ? `Tax ${formatCurrency(preview.taxAmount)} · Total ${formatCurrency(preview.totalAmount)}`
+          : "Rate from 0 to 100, up to 2 decimals. The server calculates the tax."}
+      </p>
     </div>
   );
 }

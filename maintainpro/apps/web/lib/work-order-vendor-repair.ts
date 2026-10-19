@@ -37,6 +37,10 @@ export type VendorQuotation = {
   quotationNo: string;
   quotationDate: string;
   quotedAmount: number;
+  taxRatePercent?: number | null;
+  taxAmount?: number | null;
+  totalAmount?: number | null;
+  displayTaxRatePercent?: number | null;
   currency: string;
   status: VendorQuotationStatus;
   rejectionReason?: string | null;
@@ -49,6 +53,8 @@ export type VendorInvoice = {
   invoiceDate: string;
   invoiceAmount: number;
   taxAmount: number;
+  taxRatePercent?: number | null;
+  displayTaxRatePercent?: number | null;
   totalAmount: number;
   currency: string;
   status: VendorInvoiceStatus;
@@ -82,6 +88,7 @@ export type VendorRepairResponse = {
   workOrderStatus: string;
   verificationStatus: string;
   vendorCase: VendorRepairCase | null;
+  defaultTaxRatePercent?: number | null;
   costSummary: VendorRepairCostSummary;
 };
 
