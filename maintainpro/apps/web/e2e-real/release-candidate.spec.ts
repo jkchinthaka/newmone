@@ -60,7 +60,7 @@ test.describe("Release candidate behavior @full-stack @smoke", () => {
     expect(woNumber.length).toBeGreaterThan(0);
 
     await page.goto(`/work-orders?q=${encodeURIComponent(woNumber)}&queue=open-requests`);
-    await page.getByRole("row", { name: `Open ${woNumber}` }).click();
+    await page.getByRole("row", { name: `Open ${woNumber}` }).getByText(woNumber, { exact: true }).click();
     await expect(page.getByRole("button", { name: "Edit details" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
     await page.getByRole("button", { name: "Edit details" }).click();
@@ -167,7 +167,7 @@ test.describe("Release candidate behavior @full-stack @smoke", () => {
     expect(workOrder.status()).toBe(201);
     const woNumber = String(((await workOrder.json()).data || {}).woNumber || "");
     await page.goto(`/work-orders?q=${encodeURIComponent(woNumber)}&queue=open-requests`);
-    await page.getByRole("row", { name: `Open ${woNumber}` }).click();
+    await page.getByRole("row", { name: `Open ${woNumber}` }).getByText(woNumber, { exact: true }).click();
     await page.getByRole("tab", { name: "Assignment" }).click();
     const filter = page.getByLabel("Filter by designation");
     await expect(filter).toBeVisible();
