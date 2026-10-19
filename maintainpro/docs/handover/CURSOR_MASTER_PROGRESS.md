@@ -146,3 +146,7 @@ Status: NOT STARTED. Docker, skipped Mongo tests, My Jobs SQL pagination, audit 
 ## Phase 10 — Final validation
 
 Status: NOT STARTED. Stop before any commit.
+
+## Pre go-live sweep 2026-10-19
+
+Phase 0: PR #76 merged. PR #77 open; full-stack-e2e failed on mobile-smoke (hidden desktop row). Fix branch `fix/sweep-mobile-queue-open`. PR #82 diagnostics is open into release. Phases 1–7 not started.
