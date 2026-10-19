@@ -9,6 +9,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
   MinLength
@@ -438,6 +439,44 @@ export class RequesterRespondDto {
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   evidenceIds?: string[];
+}
+
+export class AssetLookupQueryDto {
+  @ApiPropertyOptional({ description: "Machine code, name, or serial number" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  q?: string;
+
+  @ApiPropertyOptional({ description: "Prefill a known asset without exposing the inventory" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(36)
+  assetId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(15)
+  limit?: number;
+}
+
+export class VehicleLookupQueryDto {
+  @ApiPropertyOptional({ description: "Registration, asset code, make, or model" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  q?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(15)
+  limit?: number;
 }
 
 export class ResumeReviewDto {

@@ -70,7 +70,7 @@ check(
 
 check(
   "WO-LC-CONTRACT-007",
-  /Canonical assignee model: sync WorkOrderAssignee/.test(service),
+  /async assign\([\s\S]*workOrderAssigneesService\.prepareAssignee\(/.test(service),
   "Assign syncs canonical assignee model"
 );
 

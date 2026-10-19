@@ -22,6 +22,7 @@ import {
   evidencePayloadHasSecrets,
   evidenceTypeLabel,
   evidenceUploadDisabledMessage,
+  offlineEvidenceRetryBlock,
   formatAllowedEvidenceMimeTypes,
   formatEvidenceFileSize,
   isEvidenceUploadEnabled,
@@ -51,6 +52,7 @@ type WorkOrderEvidencePanelProps = {
 type EvidenceUploadRequestResultLike = {
   ok: boolean;
   attachmentId?: string;
+  uploadMethod?: string;
   message?: string;
 };
 
@@ -66,6 +68,7 @@ export function WorkOrderEvidencePanel({
 }: WorkOrderEvidencePanelProps) {
   const currentUser = useCurrentUser();
   const [submitting, setSubmitting] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<"idle" | "uploading" | "failed">("idle");
   const [evidenceType, setEvidenceType] = useState("BEFORE_PHOTO");
   const [uploadNote, setUploadNote] = useState("");
   const [pendingFile, setPendingFile] = useState<EvidencePickerFile | null>(null);
@@ -126,7 +129,11 @@ export function WorkOrderEvidencePanel({
         return;
       }
 
+      if (submitting) {
+        return;
+      }
       setSubmitting(true);
+      setUploadPhase("uploading");
       try {
         // clientGeneratedId doubles as idempotency for upload-request retries on flaky mobile networks.
         const clientGeneratedId = crypto.randomUUID();
@@ -143,10 +150,20 @@ export function WorkOrderEvidencePanel({
         );
         const uploadResult = uploadResponse.data.data;
 
-        if (!uploadResult.ok || !uploadResult.attachmentId) {
+        if (!uploadResult.ok || !uploadResult.attachmentId || uploadResult.uploadMethod !== "direct") {
+          setUploadPhase("failed");
           toast.error(uploadResult.message || "Evidence upload is not available.");
           return;
         }
+
+        await apiClient.post(
+          `/work-orders/${workOrderId}/evidence/${uploadResult.attachmentId}/content`,
+          await file.arrayBuffer(),
+          {
+            headers: { "Content-Type": "application/octet-stream" },
+            transformRequest: [(data) => data]
+          }
+        );
 
         const confirmResponse = await apiClient.post<ApiEnvelope<{ ok: boolean; message: string }>>(
           `/work-orders/${workOrderId}/evidence/confirm`,
@@ -154,64 +171,35 @@ export function WorkOrderEvidencePanel({
         );
 
         if (!confirmResponse.data.data.ok) {
+          setUploadPhase("failed");
           toast.error(confirmResponse.data.data.message || "Evidence upload confirmation failed.");
           return;
         }
 
-        toast.success("Evidence recorded.");
+        setUploadPhase("idle");
+        toast.success("Evidence uploaded.");
         setUploadNote("");
         setPendingFile(null);
         await onRefresh?.();
       } catch (error) {
+        setUploadPhase("failed");
         toast.error(getApiErrorMessage(error, "Evidence upload failed."));
       } finally {
         setSubmitting(false);
       }
     },
-    [canUpload, evidenceType, onRefresh, readiness?.maxFileSizeMb, storageConfigured, uploadNote, workOrderId]
+    [canUpload, evidenceType, onRefresh, readiness?.maxFileSizeMb, storageConfigured, submitting, uploadNote, workOrderId]
   );
 
-  async function retryOfflineDraft(draft: OfflineEvidenceDraft) {
-    if (!isBrowserOnline() || !storageConfigured) {
-      toast.error("Connect and configure storage before retrying sync.");
-      return;
-    }
-
-    updateOfflineEvidenceDraft(draft.clientGeneratedId, { syncStatus: "SYNCING" });
+  function retryOfflineDraft(draft: OfflineEvidenceDraft) {
+    const blocked = offlineEvidenceRetryBlock();
+    updateOfflineEvidenceDraft(draft.clientGeneratedId, {
+      syncStatus: "FAILED",
+      syncError: blocked.message
+    });
     setOfflineQueue(readOfflineEvidenceQueue().filter((item) => item.workOrderId === workOrderId));
-
-    try {
-      const uploadResponse = await apiClient.post<ApiEnvelope<EvidenceUploadRequestResultLike>>(
-        `/work-orders/${workOrderId}/evidence/upload-request`,
-        {
-          fileName: draft.fileName,
-          mimeType: draft.mimeType,
-          sizeBytes: draft.sizeBytes,
-          evidenceType: draft.evidenceType,
-          note: draft.note,
-          source: "OFFLINE_SYNC",
-          clientGeneratedId: draft.clientGeneratedId
-        }
-      );
-      const uploadResult = uploadResponse.data.data;
-      if (!uploadResult.ok || !uploadResult.attachmentId) {
-        throw new Error(uploadResult.message || "Sync failed");
-      }
-      await apiClient.post(`/work-orders/${workOrderId}/evidence/confirm`, {
-        attachmentId: uploadResult.attachmentId
-      });
-      updateOfflineEvidenceDraft(draft.clientGeneratedId, { syncStatus: "SYNCED" });
-      toast.success("Offline evidence synced.");
-      await onRefresh?.();
-    } catch (error) {
-      updateOfflineEvidenceDraft(draft.clientGeneratedId, {
-        syncStatus: "FAILED",
-        syncError: getApiErrorMessage(error, "Sync failed")
-      });
-      toast.error(getApiErrorMessage(error, "Offline sync failed."));
-    } finally {
-      setOfflineQueue(readOfflineEvidenceQueue().filter((item) => item.workOrderId === workOrderId));
-    }
+    toast.error(blocked.message);
+    void draft;
   }
 
   async function verifyQr() {
@@ -378,7 +366,9 @@ export function WorkOrderEvidencePanel({
               </li>
             ) : null}
           </ul>
-          {!requirements.complete && requirements.required ? (
+          {requirements.waived ? (
+            <p className="mt-2 font-medium text-slate-700">Photo evidence waived while storage is off.</p>
+          ) : !requirements.complete && requirements.required ? (
             <p className="mt-2 font-medium text-amber-800">Required evidence missing.</p>
           ) : null}
           {requirements.rejectedCount > 0 ? (
@@ -391,6 +381,10 @@ export function WorkOrderEvidencePanel({
         <p className="text-sm font-medium text-slate-900">Upload evidence</p>
         {!storageConfigured ? (
           <p className="mt-2 text-xs text-amber-800">{evidenceUploadDisabledMessage(readiness)}</p>
+        ) : null}
+        {uploadPhase === "uploading" ? <p className="mt-2 text-xs text-slate-600">Uploading evidence…</p> : null}
+        {uploadPhase === "failed" ? (
+          <p className="mt-2 text-xs text-red-700">Upload failed. Choose the file again to retry.</p>
         ) : null}
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-slate-600">

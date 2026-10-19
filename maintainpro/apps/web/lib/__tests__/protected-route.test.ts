@@ -34,6 +34,11 @@ describe("unauthenticated protected routes", () => {
     assert.equal(unauthenticatedLoginRedirect("/work-orders/my", "", true), null);
   });
 
+  it("lets the development identity probe through without a session", () => {
+    assert.equal(unauthenticatedLoginRedirect("/dev/identity", "", false), null);
+    assert.equal(isPublicAppPath("/dev"), false);
+  });
+
   it("keeps password reset and invitation routes public", () => {
     assert.equal(isPublicAppPath("/forgot-password"), true);
     assert.equal(isPublicAppPath("/reset-password"), true);

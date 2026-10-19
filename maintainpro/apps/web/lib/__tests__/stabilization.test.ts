@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { requestMenuPosition } from "../request-row-menu";
-import { designationChoices, employeesMatchingDesignation } from "../workforce-designations";
+import {
+  assignmentEmployeeListParams,
+  designationChoices,
+  employeesMatchingDesignation,
+  formatEmployeeOptionLabel
+} from "../workforce-designations";
 
 describe("request row menu", () => {
   it("does not place a menu for a hidden zero-size trigger", () => {
@@ -32,5 +37,21 @@ describe("workforce designation filter", () => {
   it("filters staff and restores the list when cleared", () => {
     assert.deepEqual(employeesMatchingDesignation(employees, "technician").map((item) => item.id), ["1"]);
     assert.equal(employeesMatchingDesignation(employees, "").length, 3);
+    assert.deepEqual(assignmentEmployeeListParams(""), { designation: "" });
+    assert.deepEqual(assignmentEmployeeListParams("ELECTRICIAN"), { designation: "ELECTRICIAN" });
+  });
+
+  it("does not label missing availability as Available", () => {
+    const unknown = formatEmployeeOptionLabel({ fullName: "Sam", availabilityLabel: null, workloadPercentage: null });
+    assert.equal(unknown.includes("— —"), false);
+    assert.match(unknown, /Availability unknown/);
+    assert.equal(unknown.includes("— load"), false);
+    const known = formatEmployeeOptionLabel({
+      fullName: "Sam",
+      availabilityLabel: "Busy",
+      workloadPercentage: 80
+    });
+    assert.match(known, /Busy/);
+    assert.match(known, /80% load/);
   });
 });

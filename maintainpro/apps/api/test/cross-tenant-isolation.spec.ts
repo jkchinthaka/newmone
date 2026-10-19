@@ -37,9 +37,12 @@ function guardContext(request: Record<string, unknown>) {
 describe("Cross-tenant isolation", () => {
   describe("TenantContextGuard — switching & platform scope", () => {
     const prisma = {
+      user: { findUnique: jest.fn() },
       tenantMembership: { findFirst: jest.fn(), findUnique: jest.fn() },
       tenant: { findUnique: jest.fn() }
     };
+    const asRole = (role: RoleName) =>
+      prisma.user.findUnique.mockResolvedValue({ isActive: true, role: { name: role } });
 
     const buildGuard = (meta: Record<string, boolean | undefined> = {}) =>
       new TenantContextGuard(
@@ -50,6 +53,7 @@ describe("Cross-tenant isolation", () => {
     beforeEach(() => jest.clearAllMocks());
 
     it("tenant-less authenticated user receives 403", async () => {
+      asRole(RoleName.TECHNICIAN);
       prisma.tenantMembership.findFirst.mockResolvedValue(null);
       const request = { headers: {}, user: { sub: "u1", role: RoleName.TECHNICIAN, tenantId: null } };
       await expect(buildGuard().canActivate(guardContext(request))).rejects.toThrow(ForbiddenException);
@@ -58,6 +62,7 @@ describe("Cross-tenant isolation", () => {
     it("Tenant A user cannot switch into Tenant B (no active membership)", async () => {
       // Requested tenant supplied via header; membership lookup (which requires an
       // active membership in an active tenant) returns nothing => denied.
+      asRole(RoleName.MANAGER);
       prisma.tenantMembership.findFirst.mockResolvedValue(null);
       const request = {
         headers: { "x-tenant-id": TENANT_B },
@@ -68,6 +73,7 @@ describe("Cross-tenant isolation", () => {
 
     it("disabled membership / inactive tenant cannot be switched into", async () => {
       // findFirst filters on tenant.isActive:true, so a disabled tenant yields null.
+      asRole(RoleName.ADMIN);
       prisma.tenantMembership.findFirst.mockResolvedValue(null);
       const request = {
         headers: { "x-tenant-id": TENANT_B },
@@ -82,6 +88,7 @@ describe("Cross-tenant isolation", () => {
     });
 
     it("allows a user holding an active membership to operate in that tenant", async () => {
+      asRole(RoleName.MANAGER);
       prisma.tenantMembership.findFirst.mockResolvedValue({ tenantId: TENANT_A });
       const request = {
         headers: { "x-tenant-id": TENANT_A },
@@ -91,6 +98,7 @@ describe("Cross-tenant isolation", () => {
     });
 
     it("platform scope requires explicit SUPER_ADMIN", async () => {
+      asRole(RoleName.ADMIN);
       const request = { headers: {}, user: { sub: "a1", role: RoleName.ADMIN, tenantId: null } };
       await expect(
         buildGuard({ [PLATFORM_SCOPED_KEY]: true }).canActivate(guardContext(request))
@@ -98,6 +106,7 @@ describe("Cross-tenant isolation", () => {
     });
 
     it("SUPER_ADMIN may hold platform scope without a tenant", async () => {
+      asRole(RoleName.SUPER_ADMIN);
       const request = { headers: {}, user: { sub: "sa", role: RoleName.SUPER_ADMIN, tenantId: null } };
       await expect(
         buildGuard({ [PLATFORM_SCOPED_KEY]: true }).canActivate(guardContext(request))

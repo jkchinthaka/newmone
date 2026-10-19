@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, UseGu
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
+import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { CreateVehicleDto } from "./dto/create-vehicle.dto";
 import { VehiclesService } from "./vehicles.service";
@@ -74,6 +75,7 @@ export class VehiclesController {
   }
 
   @Post()
+  @Roles("SUPER_ADMIN", "ADMIN")
   @Permissions("vehicles.create")
   async create(@Body() body: CreateVehicleDto) {
     const data = await this.vehiclesService.create(body);

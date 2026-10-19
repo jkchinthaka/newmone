@@ -4,6 +4,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 
+import { DateField } from "@/components/forms/date-fields";
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
+import { EXPECTED_COMPLETION_AFTER_DUE, createScheduleIssues } from "@maintainpro/shared-types";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import type { JobDomain } from "@/lib/job-domain";
 import { JOB_DOMAIN_LABELS } from "@/lib/job-domain";
@@ -13,6 +16,7 @@ import {
   suggestWorkOrderTitle
 } from "@/lib/work-order-create-hci";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { disableSubmitControl } from "@/lib/submit-lock";
 import { withTenantScope } from "@/lib/tenant-query";
 
 import { toTitleCase } from "./helpers";
@@ -164,43 +168,23 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
     parseDate(dueDate, "dueDate");
     parseDate(expectedCompletionDate, "expectedCompletionDate");
 
-    if (!next.dueDate && dueDate.trim()) {
-      const due = new Date(dueDate);
-      const today = new Date();
-      const dueDay = Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
-      const todayDay = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-      if (dueDay < todayDay) {
-        next.dueDate = "Due date cannot be in the past.";
-      }
-    }
-
-    if (!next.expectedCompletionDate && expectedCompletionDate.trim()) {
-      const expected = new Date(expectedCompletionDate);
-      const today = new Date();
-      const expectedDay = Date.UTC(expected.getUTCFullYear(), expected.getUTCMonth(), expected.getUTCDate());
-      const todayDay = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-      if (expectedDay < todayDay) {
-        next.expectedCompletionDate = "Expected completion cannot be in the past.";
-      }
-    }
-
-    if (!next.dueDate && !next.expectedCompletionDate && dueDate.trim() && expectedCompletionDate.trim()) {
-      const due = new Date(dueDate);
-      const expected = new Date(expectedCompletionDate);
-      if (due.getTime() < expected.getTime()) {
-        next.expectedCompletionDate = "Expected completion must not be later than due date.";
-      }
-    }
+    const schedule = createScheduleIssues({
+      dueDate,
+      expectedCompletionDate,
+      today: colomboTodayYmd()
+    });
+    if (schedule.dueDate) next.dueDate = schedule.dueDate;
+    if (schedule.expectedCompletionDate) next.expectedCompletionDate = schedule.expectedCompletionDate;
 
     setFieldErrors(next);
     return Object.keys(next).length === 0;
   };
 
   const submit = () => {
-    if (submitting) return;
+    if (submitting) return false;
     if (!validate() || !domain) {
       descriptionRef.current?.focus();
-      return;
+      return false;
     }
 
     onSubmit({
@@ -220,6 +204,7 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
           ? Number(currentOdometer)
           : undefined
     });
+    return true;
   };
 
   if (!domain) {
@@ -324,7 +309,11 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
       aria-labelledby={`${formId}-title`}
       onSubmit={(event) => {
         event.preventDefault();
-        submit();
+        disableSubmitControl(event.currentTarget);
+        if (!submit()) {
+          const button = event.currentTarget.querySelector<HTMLButtonElement>('button[type="submit"]');
+          if (button) button.disabled = false;
+        }
       }}
     >
       <div>
@@ -529,34 +518,24 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
               </span>
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block space-y-1 text-sm text-slate-700">
-                <span className="font-medium">Due date</span>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(event) => setDueDate(event.target.value)}
-                  className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-                {fieldErrors.dueDate ? (
-                  <span className="text-xs text-rose-700" role="alert">
-                    {fieldErrors.dueDate}
-                  </span>
-                ) : null}
-              </label>
-              <label className="block space-y-1 text-sm text-slate-700">
-                <span className="font-medium">Expected completion</span>
-                <input
-                  type="date"
-                  value={expectedCompletionDate}
-                  onChange={(event) => setExpectedCompletionDate(event.target.value)}
-                  className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-                {fieldErrors.expectedCompletionDate ? (
-                  <span className="text-xs text-rose-700" role="alert">
-                    {fieldErrors.expectedCompletionDate}
-                  </span>
-                ) : null}
-              </label>
+              <DateField
+                id="guided-due-date"
+                label="Due date"
+                value={dueDate}
+                minDate={colomboTodayYmd()}
+                onChange={setDueDate}
+                error={fieldErrors.dueDate}
+              />
+              <DateField
+                id="guided-expected-completion"
+                label="Expected completion"
+                value={expectedCompletionDate}
+                minDate={colomboTodayYmd()}
+                maxDate={dueDate || undefined}
+                maxDateMessage={EXPECTED_COMPLETION_AFTER_DUE}
+                onChange={setExpectedCompletionDate}
+                error={fieldErrors.expectedCompletionDate}
+              />
             </div>
             {domain === "SERVICE" ? (
               <div className="space-y-1">

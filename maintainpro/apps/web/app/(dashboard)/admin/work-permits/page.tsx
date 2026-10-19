@@ -4,7 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DateTimeField } from "@/components/forms/date-fields";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { toDateTimeLocalValue } from "@/lib/workforce-designations";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { withTenantScope } from "@/lib/tenant-query";
@@ -124,11 +126,10 @@ export default function AdminWorkPermitsPage() {
             </option>
           ))}
         </select>
-        <input
-          type="datetime-local"
-          className="rounded border border-slate-300 px-3 py-2 text-sm"
-          value={form.validTo}
-          onChange={(e) => setForm((f) => ({ ...f, validTo: e.target.value }))}
+        <DateTimeField
+          label="Valid to"
+          value={form.validTo ? new Date(form.validTo).toISOString() : ""}
+          onChange={(iso) => setForm((f) => ({ ...f, validTo: toDateTimeLocalValue(iso) }))}
         />
         <textarea
           className="rounded border border-slate-300 px-3 py-2 text-sm"

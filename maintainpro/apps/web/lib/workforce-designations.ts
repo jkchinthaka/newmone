@@ -84,6 +84,11 @@ export function designationChoices(
   return [...values].sort((left, right) => left.localeCompare(right));
 }
 
+/** Always sends designation so the API uses the uncapped eligible-employee list. */
+export function assignmentEmployeeListParams(designation: string): { designation: string } {
+  return { designation };
+}
+
 export function employeesMatchingDesignation<T extends { designation?: string | null; effectiveDesignation?: string | null }>(
   employees: readonly T[],
   designation: string
@@ -104,10 +109,9 @@ export function formatEmployeeOptionLabel(input: {
   availabilityLabel?: string | null;
   workloadPercentage?: number | null;
 }): string {
-  const designation = input.effectiveDesignation ?? "Unspecified";
-  const location = [input.branchName, input.departmentName].filter(Boolean).join(" / ") || "—";
-  const availability = input.availabilityLabel ?? "Available";
-  const workload =
-    typeof input.workloadPercentage === "number" ? `${input.workloadPercentage}% load` : "— load";
-  return `${input.fullName} — ${designation} — ${location} — ${availability} — ${workload}`;
+  const designation = input.effectiveDesignation?.trim() || "Unspecified";
+  const location = [input.branchName, input.departmentName].filter((part) => Boolean(part && String(part).trim())).join(" / ");
+  const availability = input.availabilityLabel?.trim() || "Availability unknown";
+  const workload = typeof input.workloadPercentage === "number" ? `${input.workloadPercentage}% load` : "";
+  return [input.fullName.trim(), designation, location, availability, workload].filter(Boolean).join(" — ");
 }

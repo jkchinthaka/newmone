@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
@@ -23,17 +23,21 @@ import {
   type SafetyImpact
 } from "@/lib/maintenance-requests-api";
 import { listLocations, listSites, type OrgLocation, type OrgSite } from "@/lib/organization-api";
+import {
+  MACHINE_SEARCH_DEBOUNCE_MS,
+  isCurrentMachineSearch,
+  isCurrentSearch,
+  machineForPrefill,
+  machineLocationLabel,
+  machineQueryRepresentsSelection,
+  readMachineHits,
+  shouldSearchMachines,
+  type MachineHit
+} from "@/lib/machine-search";
 
 type TargetKind = "MACHINE" | "VEHICLE" | "FACILITY" | "NOT_SURE";
 
-type AssetHit = {
-  id: string;
-  assetTag: string;
-  name: string;
-  serialNumber?: string | null;
-  siteId?: string | null;
-  functionalLocationId?: string | null;
-};
+type AssetHit = MachineHit;
 
 type VehicleHit = {
   id: string;
@@ -60,6 +64,15 @@ function NewRequestForm() {
   const [assetHits, setAssetHits] = useState<AssetHit[]>([]);
   const [vehicleHits, setVehicleHits] = useState<VehicleHit[]>([]);
   const [searching, setSearching] = useState(false);
+  const [machineSearching, setMachineSearching] = useState(false);
+  const [machineSearchMessage, setMachineSearchMessage] = useState<string | null>(null);
+  const [machineSearchError, setMachineSearchError] = useState<string | null>(null);
+  const machineSearchSeq = useRef(0);
+  const machineSearchAbort = useRef<AbortController | null>(null);
+  const vehicleSearchSeq = useRef(0);
+  const vehicleSearchAbort = useRef<AbortController | null>(null);
+  const selectedMachineQuery = useRef<string | null>(null);
+  const userEditedMachineQuery = useRef(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetHit | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleHit | null>(null);
   const [sites, setSites] = useState<OrgSite[]>([]);
@@ -99,64 +112,148 @@ function NewRequestForm() {
     })();
   }, [siteId]);
 
-  const resolveAsset = useCallback(async (q: string) => {
-    const query = q.trim();
-    if (!query) {
-      setAssetHits([]);
-      return;
-    }
-    setSearching(true);
-    try {
-      const res = await apiClient.get("/assets", {
-        params: { search: query, limit: 10, selectableForWork: true }
-      });
-      const data = (res.data as { data?: AssetHit[] }).data ?? [];
-      setAssetHits(Array.isArray(data) ? data : []);
-      const exact = data.find(
-        (a) =>
-          a.assetTag?.toLowerCase() === query.toLowerCase() ||
-          a.serialNumber?.toLowerCase() === query.toLowerCase()
-      );
-      if (exact) {
-        setSelectedAsset(exact);
-        if (exact.siteId) setSiteId(exact.siteId);
-        if (exact.functionalLocationId) setFunctionalLocationId(exact.functionalLocationId);
-      }
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, "Asset search failed."));
-    } finally {
-      setSearching(false);
-    }
+  const chooseAsset = useCallback((hit: AssetHit, committedQuery: string) => {
+    selectedMachineQuery.current = committedQuery.trim();
+    setSelectedAsset(hit);
+    if (hit.siteId) setSiteId(hit.siteId);
+    if (hit.functionalLocationId) setFunctionalLocationId(hit.functionalLocationId);
   }, []);
+
+  const searchMachines = useCallback(
+    async (
+      raw: string,
+      options?: { selectPrefill?: boolean; assetId?: string }
+    ) => {
+      const query = raw.trim();
+      const seq = ++machineSearchSeq.current;
+      machineSearchAbort.current?.abort();
+      const controller = new AbortController();
+      machineSearchAbort.current = controller;
+      if (!query && !options?.assetId) {
+        setAssetHits([]);
+        setMachineSearching(false);
+        setMachineSearchMessage(null);
+        setMachineSearchError(null);
+        return;
+      }
+      setMachineSearching(true);
+      setMachineSearchError(null);
+      setMachineSearchMessage("Searching machines...");
+      try {
+        const res = await apiClient.get("/maintenance-requests/asset-lookup", {
+          params: {
+            ...(query ? { q: query } : {}),
+            ...(options?.assetId ? { assetId: options.assetId } : {})
+          },
+          signal: controller.signal
+        });
+        if (!isCurrentMachineSearch(seq, machineSearchSeq.current)) return;
+        const hits = readMachineHits(res.data);
+        setAssetHits(hits);
+        setMachineSearchMessage(hits.length === 0 ? "No matching machines found" : null);
+        if (options?.selectPrefill) {
+          const match = machineForPrefill(hits, options.assetId || query, true);
+          if (match) {
+            chooseAsset(match, match.assetTag);
+            setAssetQuery(match.assetTag);
+          }
+        }
+      } catch (err) {
+        const canceled =
+          (err as { code?: string; name?: string })?.code === "ERR_CANCELED" ||
+          (err as { name?: string })?.name === "CanceledError";
+        if (canceled || !isCurrentMachineSearch(seq, machineSearchSeq.current)) return;
+        setAssetHits([]);
+        setMachineSearchMessage(null);
+        setMachineSearchError(getApiErrorMessage(err, "Asset search failed."));
+      } finally {
+        if (isCurrentMachineSearch(seq, machineSearchSeq.current)) setMachineSearching(false);
+      }
+    },
+    [chooseAsset]
+  );
+
+  const resolveAsset = useCallback(
+    async (q: string) => {
+      await searchMachines(q, { selectPrefill: true });
+    },
+    [searchMachines]
+  );
 
   const resolveVehicle = useCallback(async (q: string) => {
     const query = q.trim();
+    const seq = ++vehicleSearchSeq.current;
+    vehicleSearchAbort.current?.abort();
+    const controller = new AbortController();
+    vehicleSearchAbort.current = controller;
     if (!query) {
       setVehicleHits([]);
+      setSearching(false);
       return;
     }
     setSearching(true);
     try {
-      const res = await apiClient.get("/vehicles", {
-        params: { q: query, pageSize: 10 }
+      const res = await apiClient.get("/maintenance-requests/vehicle-lookup", {
+        params: { q: query },
+        signal: controller.signal
       });
-      const payload = res.data as { data?: { items?: VehicleHit[] } | VehicleHit[] };
-      const raw = payload.data;
-      const data = Array.isArray(raw) ? raw : raw?.items ?? [];
-      setVehicleHits(Array.isArray(data) ? data : []);
+      if (!isCurrentSearch(seq, vehicleSearchSeq.current)) return;
+      const payload = res.data as { data?: VehicleHit[] };
+      setVehicleHits(Array.isArray(payload.data) ? payload.data : []);
     } catch (err) {
+      const canceled =
+        (err as { code?: string; name?: string })?.code === "ERR_CANCELED" ||
+        (err as { name?: string })?.name === "CanceledError";
+      if (canceled || !isCurrentSearch(seq, vehicleSearchSeq.current)) return;
+      setVehicleHits([]);
       toast.error(getApiErrorMessage(err, "Vehicle search failed."));
     } finally {
-      setSearching(false);
+      if (isCurrentSearch(seq, vehicleSearchSeq.current)) setSearching(false);
     }
   }, []);
 
   useEffect(() => {
     if (prefillAssetId || prefillTag) {
       setTargetKind("MACHINE");
-      void resolveAsset(prefillAssetId || prefillTag);
+      setStep(2);
+      void searchMachines(prefillTag, { selectPrefill: true, assetId: prefillAssetId || undefined });
     }
-  }, [prefillAssetId, prefillTag, resolveAsset]);
+  }, [prefillAssetId, prefillTag, searchMachines]);
+
+  useEffect(() => {
+    if (step !== 2 || targetKind !== "MACHINE") return;
+    if (!shouldSearchMachines(assetQuery)) {
+      if (!userEditedMachineQuery.current && (prefillAssetId || prefillTag)) return;
+      machineSearchSeq.current += 1;
+      machineSearchAbort.current?.abort();
+      setAssetHits([]);
+      setMachineSearching(false);
+      setMachineSearchMessage(null);
+      setMachineSearchError(null);
+      return;
+    }
+    if (machineQueryRepresentsSelection(assetQuery, selectedMachineQuery.current)) return;
+    const handle = window.setTimeout(() => {
+      if (machineQueryRepresentsSelection(assetQuery, selectedMachineQuery.current)) return;
+      void searchMachines(assetQuery);
+    }, MACHINE_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [assetQuery, searchMachines, step, targetKind]);
+
+  useEffect(() => {
+    if (step !== 2 || targetKind !== "VEHICLE") return;
+    if (!shouldSearchMachines(vehicleQuery)) {
+      vehicleSearchSeq.current += 1;
+      vehicleSearchAbort.current?.abort();
+      setVehicleHits([]);
+      setSearching(false);
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      void resolveVehicle(vehicleQuery);
+    }, MACHINE_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [vehicleQuery, resolveVehicle, step, targetKind]);
 
   const selectedLocation = useMemo(
     () => locations.find((l) => l.id === functionalLocationId) ?? null,
@@ -219,6 +316,7 @@ function NewRequestForm() {
   const chooseKind = (kind: TargetKind) => {
     setTargetKind(kind);
     setSelectedAsset(null);
+    selectedMachineQuery.current = null;
     setSelectedVehicle(null);
     setFunctionalLocationId("");
     setApproximateLocation("");
@@ -229,6 +327,7 @@ function NewRequestForm() {
 
   const submit = async (event?: FormEvent) => {
     event?.preventDefault();
+    if (submitting) return;
     if (!canContinueTarget || !targetKind) {
       toast.error("Identify what has a problem, or choose Not Sure with a site and area.");
       return;
@@ -268,7 +367,7 @@ function NewRequestForm() {
         payload
       });
       setPendingLocalId(localActionId);
-      toast.message("Saved offline as pending — will sync when online. Not submitted yet.");
+      toast.message("Pending Sync. This request is not submitted until it syncs.");
       return;
     }
 
@@ -341,52 +440,100 @@ function NewRequestForm() {
           >
             <QrCode size={16} /> Scan QR (optional shortcut)
           </button>
-          <div className="flex gap-2">
+          <div className="flex min-w-0 gap-2">
             <input
-              className="min-h-11 flex-1 rounded-lg border border-slate-200 px-3 text-sm"
+              className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-200 px-3 text-sm"
               placeholder="Search code, name, or serial"
               value={assetQuery}
-              onChange={(e) => setAssetQuery(e.target.value)}
+              aria-label="Search machines"
+              aria-autocomplete="list"
+              aria-controls="machine-search-results"
+              aria-expanded={assetHits.length > 0}
+              onChange={(event) => {
+                const next = event.target.value;
+                userEditedMachineQuery.current = true;
+                setAssetQuery(next);
+                if (selectedAsset && !machineQueryRepresentsSelection(next, selectedMachineQuery.current)) {
+                  selectedMachineQuery.current = null;
+                  setSelectedAsset(null);
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void searchMachines(assetQuery);
+                }
+              }}
             />
             <button
               type="button"
-              className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-slate-200 px-3 text-sm"
-              onClick={() => void resolveAsset(assetQuery)}
+              className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-3 text-sm"
+              onClick={() => void searchMachines(assetQuery)}
             >
-              {searching ? <Loader2 className="animate-spin" size={14} /> : <Search size={14} />}
+              {machineSearching ? <Loader2 className="animate-spin" size={14} /> : <Search size={14} />}
               Search
             </button>
           </div>
+          <div aria-live="polite" className="min-h-5 text-sm text-slate-600">
+            {machineSearching ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="animate-spin" size={14} aria-hidden />
+                Searching machines...
+              </span>
+            ) : null}
+            {machineSearchError ? (
+              <p role="alert" className="text-red-700">
+                {machineSearchError}
+              </p>
+            ) : null}
+            {!machineSearching && !machineSearchError && machineSearchMessage ? (
+              <p>{machineSearchMessage}</p>
+            ) : null}
+          </div>
           {assetHits.length > 0 ? (
-            <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100">
-              {assetHits.map((hit) => (
-                <li key={hit.id}>
-                  <button
-                    type="button"
-                    className={`flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-slate-50 ${
-                      selectedAsset?.id === hit.id ? "bg-brand-50" : ""
-                    }`}
-                    onClick={() => {
-                      setSelectedAsset(hit);
-                      if (hit.siteId) setSiteId(hit.siteId);
-                      if (hit.functionalLocationId) setFunctionalLocationId(hit.functionalLocationId);
-                    }}
-                  >
-                    <span className="font-medium">
-                      {hit.assetTag} — {hit.name}
-                    </span>
-                    {hit.serialNumber ? (
-                      <span className="text-xs text-slate-500">Serial {hit.serialNumber}</span>
-                    ) : null}
-                  </button>
-                </li>
-              ))}
+            <ul
+              id="machine-search-results"
+              role="listbox"
+              aria-label="Matching machines"
+              className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-100"
+            >
+              {assetHits.map((hit) => {
+                const location = machineLocationLabel(hit);
+                const selected = selectedAsset?.id === hit.id;
+                return (
+                  <li key={hit.id}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={selected}
+                      className={`flex min-h-11 w-full min-w-0 flex-col items-start break-words px-3 py-2 text-left text-sm hover:bg-slate-50 ${
+                        selected ? "bg-brand-50 ring-2 ring-inset ring-brand-600" : ""
+                      }`}
+                      onClick={() => chooseAsset(hit, assetQuery)}
+                    >
+                      <span className="font-medium text-slate-900">{hit.name}</span>
+                      <span className="text-xs text-slate-600">Asset: {hit.assetTag}</span>
+                      <span className="text-xs text-slate-600">
+                        Serial: {hit.serialNumber || "Not recorded"}
+                      </span>
+                      {location ? (
+                        <span className="text-xs text-slate-600">Location: {location}</span>
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           ) : null}
           {selectedAsset ? (
             <div className="space-y-2">
               <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                Selected: <strong>{selectedAsset.assetTag} — {selectedAsset.name}</strong>
+                Selected: <strong>{selectedAsset.name}</strong>
+                <span className="mt-1 block text-xs text-slate-600">
+                  Asset: {selectedAsset.assetTag}
+                  {selectedAsset.serialNumber ? ` · Serial: ${selectedAsset.serialNumber}` : ""}
+                  {machineLocationLabel(selectedAsset) ? ` · Location: ${machineLocationLabel(selectedAsset)}` : ""}
+                </span>
               </p>
               {openMatches.length > 0 ? (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
@@ -431,7 +578,10 @@ function NewRequestForm() {
               className="min-h-11 flex-1 rounded-lg border border-slate-200 px-3 text-sm"
               placeholder="Search registration, code, or name"
               value={vehicleQuery}
-              onChange={(e) => setVehicleQuery(e.target.value)}
+              onChange={(event) => {
+                setVehicleQuery(event.target.value);
+                setSelectedVehicle(null);
+              }}
             />
             <button
               type="button"

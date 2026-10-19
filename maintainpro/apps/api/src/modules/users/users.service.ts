@@ -242,7 +242,10 @@ export class UsersService {
 
   private async applyProtectedUserStatusUpdate(userId: string, isActive: boolean) {
     const actorId = requestContext.getActorId();
-    const { isSuperAdmin } = this.currentTenantScope();
+    const { isSuperAdmin, tenantId } = this.currentTenantScope();
+    if (!isSuperAdmin && !tenantId) {
+      throw new BadRequestException("Tenant context is required");
+    }
     const target = await this.findAdminMutationTarget(userId);
 
     if (!target) {
@@ -484,75 +487,121 @@ export class UsersService {
     return this.toPublicUserResponse(user);
   }
 
-  async invite(data: InviteUserDto) {
-    const tenantId = this.requiredTenantIdForNonSuperAdmin();
-    const email = data.email.toLowerCase().trim();
-    const existing = await this.prisma.user.findUnique({
-      where: { email },
-      select: { id: true }
-    });
+  async invite() {
+    throw new BadRequestException("Use tenant invitations. Active users are not created with an unsent password.");
+  }
 
-    if (existing) {
-      throw new BadRequestException("Email already in use");
+  private readonly openWorkStatuses = [
+    "OPEN",
+    "PLANNED",
+    "ASSIGNED",
+    "IN_PROGRESS",
+    "ON_HOLD",
+    "TECHNICIAN_COMPLETED",
+    "REWORK_REQUIRED"
+  ] as const;
+
+  async remove(id: string) {
+    await this.assertTenantUserAccessOrThrow(id);
+    const actorId = requestContext.getActorId();
+    if (actorId && actorId === id) {
+      throw new BadRequestException("You cannot delete your own account");
+    }
+    const target = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, role: { select: this.userRoleSelect } }
+    });
+    if (!target) {
+      throw new NotFoundException("User not found");
+    }
+    this.assertTenantAdminCannotTouchSuperAdmin(target);
+    await this.assertNotLastActiveSuperAdmin(target);
+
+    const { tenantId, isSuperAdmin } = this.currentTenantScope();
+    const openWorkOrders = await this.prisma.workOrder.count({
+      where: {
+        ...(!isSuperAdmin && tenantId ? { tenantId } : {}),
+        status: { in: [...this.openWorkStatuses] },
+        OR: [
+          { technicianId: id },
+          { assignees: { some: { employee: { linkedUserId: id } } } }
+        ]
+      }
+    });
+    if (openWorkOrders > 0) {
+      throw new BadRequestException("Cannot delete user with assigned open work orders");
     }
 
-    const role = await this.ensureRoleExists(data.roleId);
-
-    const tempPassword = `Invite-${randomUUID().slice(0, 8)}`;
-    const passwordHash = await bcrypt.hash(tempPassword, 12);
-
-    const user = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.user.create({
-        data: {
-          email,
-          firstName: data.firstName.trim(),
-          lastName: data.lastName.trim(),
-          roleId: data.roleId,
-          phone: data.phone?.trim() || undefined,
-          passwordHash,
-          isActive: true,
-          tenantId: tenantId === null ? undefined : tenantId
-        },
-        include: {
-          role: { select: this.userRoleSelect }
+    return this.prisma.$transaction(async (tx) => {
+      if (!isSuperAdmin && tenantId) {
+        await tx.tenantMembership.deleteMany({ where: { userId: id, tenantId } });
+        const remaining = await tx.tenantMembership.count({ where: { userId: id } });
+        if (remaining > 0) {
+          await writeAuditTrail(tx as unknown as PrismaService, {
+            entity: "User",
+            entityId: id,
+            action: AuditAction.UPDATE,
+            module: "users",
+            reason: "Tenant membership removed",
+            metadata: { event: "USER_TENANT_MEMBERSHIP_REMOVED", tenantId }
+          });
+          return { deleted: false, membershipRemoved: true };
         }
-      });
-
-      if (tenantId) {
-        await tx.tenantMembership.create({
-          data: {
-            tenantId,
-            userId: created.id,
-            membershipRole: this.membershipRoleForRole(role.name)
-          }
-        });
+      } else {
+        await tx.refreshToken.deleteMany({ where: { userId: id } });
+        await tx.tenantMembership.deleteMany({ where: { userId: id } });
       }
 
-      return created;
-    });
+      try {
+        await tx.user.delete({ where: { id } });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+          throw new ConflictException("Deactivate instead");
+        }
+        throw error;
+      }
 
-    return this.toPublicUserResponse(user);
+      await writeAuditTrail(tx as unknown as PrismaService, {
+        entity: "User",
+        entityId: id,
+        action: AuditAction.DELETE,
+        module: "users",
+        reason: "User deleted",
+        metadata: { event: "USER_DELETED" }
+      });
+      return { deleted: true };
+    });
+  }
+
+  private assertTenantAdminCannotTouchSuperAdmin(target: { role: { name: RoleName } } | null) {
+    const { isSuperAdmin } = this.currentTenantScope();
+    if (!isSuperAdmin && target?.role.name === RoleName.SUPER_ADMIN) {
+      throw new ForbiddenException("Administrators cannot modify super admin accounts");
+    }
   }
 
   async update(id: string, data: UpdateUserDto) {
     await this.assertTenantUserAccessOrThrow(id);
-    await this.findOne(id);
+    const current = await this.prisma.user.findUnique({
+      where: { id },
+      select: { roleId: true, role: { select: { name: true } } }
+    });
+    if (!current) {
+      throw new NotFoundException("User not found");
+    }
+    this.assertTenantAdminCannotTouchSuperAdmin(current);
 
-    if (data.roleId) {
-      const current = await this.prisma.user.findUnique({
-        where: { id },
-        select: { roleId: true, role: { select: { name: true } } }
+    let nextRoleName = current.role.name;
+    if (data.roleId && current.roleId !== data.roleId) {
+      const role = await this.ensureRoleExists(data.roleId);
+      nextRoleName = role.name;
+      assertRoleAssignmentAllowed({
+        actorRole: requestContext.get()?.actorRole,
+        actorId: requestContext.getActorId(),
+        targetUserId: id,
+        currentRoleName: current.role.name,
+        nextRoleName: role.name
       });
-      if (current && current.roleId !== data.roleId) {
-        const role = await this.ensureRoleExists(data.roleId);
-        assertRoleAssignmentAllowed({
-          actorRole: requestContext.get()?.actorRole,
-          actorId: requestContext.getActorId(),
-          targetUserId: id,
-          currentRoleName: current.role.name,
-          nextRoleName: role.name
-        });
-      }
     }
 
     const user = await this.prisma.user.update({
@@ -566,56 +615,23 @@ export class UsersService {
       include: { role: { select: this.userRoleSelect } }
     });
 
+    if (data.roleId && current.roleId !== data.roleId) {
+      await writeAuditTrail(this.prisma, {
+        entity: "User",
+        entityId: id,
+        action: AuditAction.UPDATE,
+        module: "users",
+        reason: "User role changed",
+        metadata: { event: "USER_ROLE_CHANGED", fromRole: current.role.name, toRole: nextRoleName }
+      });
+    }
+
     return this.toPublicUserResponse(user);
   }
 
   async setActive(id: string, isActive: boolean) {
     const updated = await this.applyProtectedUserStatusUpdate(id, isActive);
     return this.toPublicUserResponse(updated);
-  }
-
-  async remove(id: string) {
-    await this.assertTenantUserAccessOrThrow(id);
-    const actorId = requestContext.getActorId();
-    if (actorId && actorId === id) {
-      throw new BadRequestException("You cannot delete your own account");
-    }
-    const target = await this.prisma.user.findUnique({ where: { id }, select: { id: true, role: { select: this.userRoleSelect } } });
-    if (!target) {
-      throw new NotFoundException("User not found");
-    }
-    await this.assertNotLastActiveSuperAdmin(target);
-
-    const { tenantId, isSuperAdmin } = this.currentTenantScope();
-    const openWorkOrders = await this.prisma.workOrder.count({
-      where: {
-        technicianId: id,
-        ...(!isSuperAdmin && tenantId ? { tenantId } : {}),
-        status: {
-          in: ["OPEN", "IN_PROGRESS", "ON_HOLD"]
-        }
-      }
-    });
-
-    if (openWorkOrders > 0) {
-      throw new BadRequestException("Cannot delete user with assigned open work orders");
-    }
-
-    await this.prisma.refreshToken.deleteMany({ where: { userId: id } });
-    await this.prisma.tenantMembership.deleteMany({ where: { userId: id } });
-
-    try {
-      await this.prisma.user.delete({ where: { id } });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
-        throw new ConflictException("This user still has related records. Deactivate the account instead of deleting it.");
-      }
-      throw error;
-    }
-
-    return {
-      deleted: true
-    };
   }
 
   // ---------------------------------------------------------------------

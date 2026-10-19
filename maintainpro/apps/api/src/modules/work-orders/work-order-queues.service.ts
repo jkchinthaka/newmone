@@ -30,6 +30,7 @@ import {
   overdueDayCount,
   priorityWeight,
   waitingPartsQueueWhere,
+  inProgressQueueWhere,
   unassignedQueueWhere,
   openLoadQueueWhere,
   resolveDefaultQueueForRole,
@@ -326,7 +327,7 @@ export class WorkOrderQueuesService {
       },
       assigned: { where: this.assignedWhere() },
       "in-progress": {
-        where: { status: { in: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD] } }
+        where: inProgressQueueWhere()
       },
       "waiting-parts": { where: this.waitingPartsWhere() },
       // "waiting-evidence" is intentionally absent here — see countWaitingEvidence(),
@@ -682,6 +683,8 @@ export class WorkOrderQueuesService {
         dueDate: true,
         approvalStatus: true,
         type: true,
+        // Start/hold/resume/complete send this as expectedVersion.
+        version: true,
         asset: { select: { name: true, assetTag: true } },
         functionalLocation: { select: { name: true, code: true } },
         site: { select: { name: true } },
@@ -699,7 +702,11 @@ export class WorkOrderQueuesService {
           select: { evidenceType: true, status: true, verificationStatus: true }
         }
       },
+      orderBy: [{ dueDate: "asc" }, { id: "asc" }],
       take: 500
+    });
+    const assignedTotal = await this.prisma.workOrder.count({
+      where: { tenantId, ...this.myTasksWhere(actor) }
     });
     const assigned = rows.map((row) => ({
       ...row,
@@ -753,6 +760,7 @@ export class WorkOrderQueuesService {
       priority: row.priority,
       dueDate: row.dueDate,
       approvalStatus: row.approvalStatus,
+      version: row.version,
       asset: row.asset,
       functionalLocation: row.functionalLocation,
       site: row.site,
@@ -764,7 +772,8 @@ export class WorkOrderQueuesService {
       scope: "assigned-to-me",
       view,
       timezone: businessDayWindow(now).timeZone,
-      capped: rows.length >= 500,
+      capped: assignedTotal > rows.length,
+      assignedTotal,
       page,
       pageSize,
       total: visible.length
@@ -814,6 +823,9 @@ export class WorkOrderQueuesService {
   }
 
   async search(actor: Actor, query: WorkOrderQueueQuery = {}) {
+    if ((actor.role as RoleName) === RoleName.SECURITY_OFFICER) {
+      throw new ForbiddenException("You do not have access to work orders.");
+    }
     const queue = (query.queue as WorkOrderQueueKey | undefined) ?? resolveDefaultQueueForRole(actor.role as RoleName);
     if (query.queue === "all" && TECHNICIAN_ROLES.has(actor.role as RoleName)) {
       throw new ForbiddenException("Technicians cannot access all company work orders.");
@@ -1119,7 +1131,7 @@ export class WorkOrderQueuesService {
       this.prisma.workOrder.count({
         where: {
           ...tenantWhere,
-          status: { in: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD] }
+          ...inProgressQueueWhere()
         }
       }),
       this.prisma.workOrder.count({
@@ -1201,7 +1213,7 @@ export class WorkOrderQueuesService {
       case "cancelled":
         return { AND: [where, { status: WorkOrderStatus.CANCELLED }] };
       case "in-progress":
-        return { AND: [where, { status: { in: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD] } }] };
+        return { AND: [where, inProgressQueueWhere()] };
       case "rework-required":
         return { AND: [where, { status: WorkOrderStatus.REWORK_REQUIRED }] };
       case "technician-completed":
@@ -1588,6 +1600,7 @@ export class WorkOrderQueuesService {
     );
     if (!checklist.required) return "Not required";
     if (row.evidenceAttachments.some((item) => item.verificationStatus === "REJECTED")) return "Rejected";
+    if (checklist.waived) return "Waived";
     if (!checklist.complete) return "Missing";
     return "Complete";
   }

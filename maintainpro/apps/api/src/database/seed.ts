@@ -503,7 +503,20 @@ rolePermissions.PROCUREMENT_OFFICER = Array.from(
   ])
 );
 rolePermissions.TECHNICIAN = Array.from(
-  new Set([...(rolePermissions.TECHNICIAN ?? []), "reports.operations.view", "reports.performance.view"])
+  new Set([
+    ...(rolePermissions.TECHNICIAN ?? []),
+    "reports.operations.view",
+    "reports.performance.view",
+    "maintenance_requests.create",
+    "maintenance_requests.view_own"
+  ])
+);
+rolePermissions.MECHANIC = Array.from(
+  new Set([
+    ...(rolePermissions.MECHANIC ?? []),
+    "maintenance_requests.create",
+    "maintenance_requests.view_own"
+  ])
 );
 rolePermissions.SUPERVISOR = Array.from(
   new Set([
@@ -767,11 +780,17 @@ async function verifySeedBaseline(tenantId: string) {
 async function main() {
   const tenant = await prisma.tenant.upsert({
     where: { slug: "default" },
-    update: {},
+    update: { name: "Nelna Group" },
     create: {
-      name: "MaintainPro Default Tenant",
+      name: "Nelna Group",
       slug: "default"
     }
+  });
+
+  await prisma.tenantMaintenanceSetting.upsert({
+    where: { tenantId: tenant.id },
+    update: { defaultTaxRatePercent: 18 },
+    create: { tenantId: tenant.id, defaultTaxRatePercent: 18 }
   });
 
   await ensurePermissions();
@@ -846,6 +865,11 @@ async function main() {
     }
   });
 
+  const seedDemo = process.env.SEED_DEMO === "true";
+  const driverUsers = [];
+  const drivers = [];
+
+  if (seedDemo) {
   await prisma.user.upsert({
     where: { email: "supervisor@maintainpro.local" },
     update: {
@@ -1011,7 +1035,6 @@ async function main() {
     }
   });
 
-  const driverUsers = [];
   for (let i = 1; i <= 3; i += 1) {
     const driverUser = await prisma.user.upsert({
       where: { email: `driver${i}@maintainpro.local` },
@@ -1037,7 +1060,6 @@ async function main() {
     driverUsers.push(driverUser);
   }
 
-  const drivers = [];
   for (let i = 0; i < driverUsers.length; i += 1) {
     const trainingStatus =
       i === 0
@@ -1077,6 +1099,7 @@ async function main() {
     });
 
     drivers.push(driver);
+  }
   }
 
   const planDefinitions: Array<{
@@ -1275,6 +1298,7 @@ async function main() {
     });
   }
 
+  if (seedDemo) {
   const assetTags = ["AST-1001", "AST-1002", "AST-1003", "AST-1004", "AST-1005"];
   const assetIds: string[] = [];
 
@@ -1549,10 +1573,13 @@ async function main() {
       }
     });
   }
+  }
 
   await verifySeedBaseline(tenant.id);
 
-  await seedWorkforceEmployees(tenant.id);
+  if (seedDemo) {
+    await seedWorkforceEmployees(tenant.id);
+  }
 
   const taxonomy = new AssetTaxonomyService(prisma as never);
   const taxonomySeed = await taxonomy.seedDefaults(tenant.id);

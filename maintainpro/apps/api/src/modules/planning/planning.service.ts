@@ -20,6 +20,7 @@ import {
 } from "@prisma/client";
 
 import { persistEvidenceFileBytes } from "../evidence/evidence-storage.mapper";
+import { whitelistPmPlanPatch } from "./pm-plan-revise";
 import { evaluateInspectionChecklist } from "./inspection-checklist";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
@@ -355,15 +356,7 @@ export class PlanningService {
       data: { effectiveTo: now }
     });
 
-    const {
-      triggers: _triggers,
-      revisions: _revisions,
-      id: _id,
-      tenantId: _tenantId,
-      createdAt: _createdAt,
-      updatedAt: _updatedAt,
-      ...safePatch
-    } = patch;
+    const safePatch = whitelistPmPlanPatch(patch);
 
     const updated = await this.prisma.pmPlan.update({
       where: { id: planId },
@@ -607,7 +600,7 @@ export class PlanningService {
           vehicleId: plan.vehicleId ?? undefined,
           siteId: plan.siteId ?? undefined,
           functionalLocationId: plan.functionalLocationId ?? undefined,
-          dueDate: evaluation.dueAt ? evaluation.dueAt.toISOString() : undefined,
+          dueDate: this.workOrderDueForAutoGeneration(evaluation.dueAt, ctx.now),
           idempotencyKey: `pm:${plan.id}:${generationKey}`
         },
         {
@@ -865,6 +858,25 @@ export class PlanningService {
       throw new BadRequestException("code and name are required");
     }
 
+    const items = (input.items ?? []).map((item, index) => {
+      const key = String(item.key ?? "").trim();
+      const label = String(item.label ?? "").trim();
+      if (!key || !label) {
+        throw new BadRequestException("Each checklist item needs a key and a label");
+      }
+      const options = Array.isArray(item.options) ? item.options.map(String) : [];
+      return {
+        tenantId,
+        key,
+        label,
+        type: String(item.type ?? "CHECKBOX"),
+        required: item.required ?? false,
+        sortOrder: item.sortOrder ?? index,
+        unit: item.unit,
+        options: JSON.stringify(options)
+      };
+    });
+
     const created = await this.prisma.checklistTemplate.create({
       data: {
         tenantId,
@@ -873,20 +885,7 @@ export class PlanningService {
         description: input.description,
         domainKey: input.domainKey,
         version: input.version ?? 1,
-        items: input.items?.length
-          ? {
-              create: input.items.map((item, index) => ({
-                tenantId,
-                key: item.key,
-                label: item.label,
-                type: item.type,
-                required: item.required ?? false,
-                sortOrder: item.sortOrder ?? index,
-                unit: item.unit,
-                options: JSON.stringify(item.options ?? [])
-              }))
-            }
-          : undefined
+        items: items.length ? { create: items } : undefined
       },
       include: { items: true }
     });
@@ -1310,6 +1309,33 @@ export class PlanningService {
           ? JSON.stringify({ reinspectionOfId: input.priorInspectionId })
           : undefined,
         status: "SCHEDULED"
+      }
+    });
+  }
+
+  async createInspectionTemplate(
+    actor: Actor,
+    input: { code: string; name: string; description?: string; domainKey?: string; checklistTemplateId?: string }
+  ) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const code = input.code?.trim().toUpperCase();
+    const name = input.name?.trim();
+    if (!code || !name) throw new BadRequestException("code and name are required");
+    if (input.checklistTemplateId) {
+      const checklist = await this.prisma.checklistTemplate.findFirst({
+        where: { id: input.checklistTemplateId, tenantId },
+        select: { id: true }
+      });
+      if (!checklist) throw new BadRequestException("Checklist template is not in this workspace.");
+    }
+    return this.prisma.inspectionTemplate.create({
+      data: {
+        tenantId,
+        code,
+        name,
+        description: input.description?.trim() || null,
+        domainKey: input.domainKey,
+        checklistTemplateId: input.checklistTemplateId
       }
     });
   }
@@ -1843,6 +1869,14 @@ export class PlanningService {
   /** Optional hook so ApprovalsService injection stays wired for future PM approval gates. */
   getApprovalsService(): ApprovalsService | undefined {
     return this.approvalsService;
+  }
+
+  /** Overdue plans still generate a work order. A past plan due date is stored as the evaluation time so create validation accepts it. */
+  private workOrderDueForAutoGeneration(dueAt: Date | null | undefined, now?: Date): string | undefined {
+    if (!dueAt) return undefined;
+    const clock = now ?? new Date();
+    const effective = dueAt.getTime() < clock.getTime() ? clock : dueAt;
+    return effective.toISOString();
   }
 
   private async createCanonicalWorkOrder(

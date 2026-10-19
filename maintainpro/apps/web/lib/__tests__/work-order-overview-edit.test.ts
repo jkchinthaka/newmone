@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { overviewDraftDirty, overviewSaveDecision } from "../work-order-overview-edit";
+import { workOrderStatusBadgeClass } from "../work-order-governance";
 
 const draft = {
   title: "Belt",
@@ -59,5 +60,11 @@ describe("work order overview editing", () => {
     });
     assert.equal(decision.showSave, false);
     assert.match(decision.reason ?? "", /own changes/);
+  });
+
+  it("uses a distinct badge tone for cancelled work orders", () => {
+    assert.equal(workOrderStatusBadgeClass("CANCELLED").includes("slate"), true);
+    assert.equal(workOrderStatusBadgeClass("OPEN").includes("brand"), true);
+    assert.notEqual(workOrderStatusBadgeClass("CANCELLED"), workOrderStatusBadgeClass("OPEN"));
   });
 });

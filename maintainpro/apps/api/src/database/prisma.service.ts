@@ -205,6 +205,24 @@ interface ReplicationTransactionContext {
 
 const replicationTransactionContext = new AsyncLocalStorage<ReplicationTransactionContext>();
 
+type DeferredAuditWrite = {
+  model: string;
+  action: Prisma.PrismaAction;
+  params: Prisma.MiddlewareParams;
+  beforeRows: Array<Record<string, unknown>>;
+  result: unknown;
+  ctx: ReturnType<typeof requestContext.get>;
+  delegate: any;
+};
+
+/** Audits captured for one Prisma `$transaction`. Flushed only after that promise resolves. */
+const deferredAuditContext = new AsyncLocalStorage<{
+  entries: DeferredAuditWrite[];
+  /** Batch transactions can prefetch before-images. Interactive transactions cannot: the SQL Server
+   *  assignment path deadlocks if a before-image read runs on the same connection. */
+  prefetch: boolean;
+}>();
+
 function safeStringify(value: unknown): string {
   try {
     return JSON.stringify(value);
@@ -389,20 +407,48 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     options?: PrismaBatchTransactionOptions
   ): Promise<PrismaBatchTransactionResult<T>>;
   $transaction(input: unknown, options?: PrismaTransactionOptions | PrismaBatchTransactionOptions): Promise<unknown> {
-    if (!this.shouldCaptureReplication()) {
-      return (super.$transaction as any)(input, options);
+    const execute = () => {
+      if (!this.shouldCaptureReplication()) {
+        return (super.$transaction as any)(input, options);
+      }
+
+      const existingContext = replicationTransactionContext.getStore();
+      if (existingContext) {
+        return (super.$transaction as any)(input, options);
+      }
+
+      const context: ReplicationTransactionContext = { events: [] };
+
+      return replicationTransactionContext.run(context, async () => {
+        const result = await (super.$transaction as any)(input, options);
+        await this.persistReplicationCandidates(context.events);
+        return result;
+      });
+    };
+
+    // A nested `$transaction` reuses the bucket opened by the outer call.
+    if (deferredAuditContext.getStore()) {
+      return execute();
     }
 
-    const existingContext = replicationTransactionContext.getStore();
-    if (existingContext) {
-      return (super.$transaction as any)(input, options);
-    }
-
-    const context: ReplicationTransactionContext = { events: [] };
-
-    return replicationTransactionContext.run(context, async () => {
-      const result = await (super.$transaction as any)(input, options);
-      await this.persistReplicationCandidates(context.events);
+    const bucket: DeferredAuditWrite[] = [];
+    // Batch transactions prefetch before-images. Interactive transactions do not: that read
+    // deadlocks SQL Server when the transaction already holds the row.
+    // Automatic audits flush only after this promise resolves. A crash after commit and
+    // before this flush can omit the automatic row. Generic createMany stays unaudited.
+    // Role-permission and user-skill replacements write their own audit rows inside the
+    // business transaction. Explicit auditLog.create calls commit and roll back with it.
+    const batch = Array.isArray(input);
+    return deferredAuditContext.run({ entries: bucket, prefetch: batch }, () => execute()).then(async (result: unknown) => {
+      for (const entry of bucket) {
+        try {
+          await this.writeAudit(entry);
+        } catch (error) {
+          this.logger.warn(
+            `deferred audit write failed for ${entry.model}.${entry.action}: ${(error as Error).message}`
+          );
+        }
+      }
       return result;
     });
   }
@@ -665,15 +711,18 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       let ctx: ReturnType<typeof requestContext.get> | undefined;
       let delegate: any;
       let beforeRows: Array<Record<string, unknown>> = [];
+      const inInteractiveTxn = Boolean((params as { runInTransaction?: boolean }).runInTransaction);
 
       try {
         ctx = requestContext.get();
         delegate = (this as unknown as Record<string, any>)[camelCase(model)];
 
-        // Inside interactive transactions, pre-fetch via the outer client can self-deadlock
-        // against row locks held by the same transaction (seen on Request→WO conversion).
-        const inInteractiveTxn = Boolean((params as { runInTransaction?: boolean }).runInTransaction);
-        if (!inInteractiveTxn) {
+        const deferredForPrefetch = deferredAuditContext.getStore();
+        // Interactive transactions skip the outer-client before-image read. That read
+        // deadlocks SQL Server when the same transaction already holds the row
+        // (Request→WO conversion and work-order assignment). Batch transactions have no
+        // such lock and need the before-image so deleteMany/updateMany can be audited.
+        if (!inInteractiveTxn || deferredForPrefetch?.prefetch) {
           if (action === "update" || action === "delete" || action === "upsert") {
             const where = (params.args as { where?: unknown })?.where;
             if (where && delegate?.findUnique) {
@@ -697,6 +746,15 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
 
       // Run the actual operation. Any error here is a real business error and must propagate.
       const result = await next(params);
+
+      const deferred = deferredAuditContext.getStore();
+      if (inInteractiveTxn || deferred?.prefetch) {
+        // Do not write this audit on the outer connection. A later rollback would leave a false record.
+        if (deferred) {
+          deferred.entries.push({ model, action, params, beforeRows, result, ctx, delegate });
+        }
+        return result;
+      }
 
       // Fire-and-forget audit write. Wrap in setImmediate so any sync work inside
       // writeAudit cannot interfere with the current request response cycle.

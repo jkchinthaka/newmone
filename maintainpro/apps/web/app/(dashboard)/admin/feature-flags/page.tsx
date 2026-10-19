@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -21,6 +22,8 @@ type FeatureFlag = {
 
 export default function AdminFeatureFlagsPage() {
   const qc = useQueryClient();
+  const [pending, setPending] = useState<FeatureFlag | null>(null);
+  const [reason, setReason] = useState("");
   const query = useQuery({
     queryKey: withTenantScope(["admin", "feature-flags"]),
     queryFn: async () => {
@@ -32,15 +35,17 @@ export default function AdminFeatureFlagsPage() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (row: FeatureFlag) => {
+    mutationFn: async (input: { row: FeatureFlag; reason: string }) => {
       await apiClient.post("/admin/maintenance-config/feature-flags", {
-        code: row.code,
-        enabled: !row.enabled,
-        reason: `${row.code} ${row.enabled ? "disabled" : "enabled"} by admin`
+        code: input.row.code,
+        enabled: !input.row.enabled,
+        reason: input.reason.trim()
       });
     },
     onSuccess: () => {
       toast.success("Feature flag updated");
+      setPending(null);
+      setReason("");
       void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "feature-flags"]) });
     },
     onError: (error) => toast.error(getApiErrorMessage(error, "Update failed"))
@@ -104,7 +109,10 @@ export default function AdminFeatureFlagsPage() {
                     type="button"
                     className="text-brand-700 underline"
                     disabled={saveMutation.isPending}
-                    onClick={() => saveMutation.mutate(row)}
+                    onClick={() => {
+                      setPending(row);
+                      setReason("");
+                    }}
                   >
                     {row.enabled ? "Enabled" : "Disabled"}
                   </button>
@@ -114,6 +122,39 @@ export default function AdminFeatureFlagsPage() {
           </tbody>
         </table>
       </div>
+      {pending ? (
+        <form
+          className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (reason.trim().length < 5) return;
+            saveMutation.mutate({ row: pending, reason });
+          }}
+        >
+          <h2 className="font-semibold">Change {pending.code}?</h2>
+          <p className="text-sm text-slate-600">
+            This {pending.enabled ? "turns off" : "turns on"} {pending.name}. Navigation hides a disabled module. The API still checks permissions.
+          </p>
+          <label className="block text-sm">
+            Reason
+            <input
+              required
+              minLength={5}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              className="mt-1 w-full rounded-lg border px-3 py-2"
+            />
+          </label>
+          <div className="flex gap-2">
+            <button type="submit" className="min-h-11 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white" disabled={reason.trim().length < 5 || saveMutation.isPending}>
+              Confirm
+            </button>
+            <button type="button" className="min-h-11 rounded-lg border px-3 text-sm" onClick={() => setPending(null)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : null}
     </div>
   );
 }

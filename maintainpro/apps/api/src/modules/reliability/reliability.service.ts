@@ -345,6 +345,7 @@ export class ReliabilityService {
         tenantId,
         createdAt: { gte: since },
         status: { notIn: ["CANCELLED"] },
+        repeatFailureCandidate: true,
         ...(policy.matchSameAsset ? { assetId: { not: null } } : {}),
         ...(policy.matchSameFaultCode ? { failureCodeSnapshot: { not: null } } : {})
       },

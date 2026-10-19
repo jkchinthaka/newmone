@@ -33,9 +33,12 @@ export const EXISTING_POST_LOGIN_ROUTES = new Set<string>([
   "/settings",
   "/work-orders/my",
   "/maintenance",
+  "/maintenance/jobs",
   "/qr/report-issue",
   "/requests",
-  "/maintenance/forecast"
+  "/maintenance/forecast",
+  "/vendor-portal",
+  "/utilities/readings"
 ]);
 
 export type PostLoginUserLike =
@@ -67,14 +70,14 @@ export const ROLE_POST_LOGIN_PREFERENCES: Record<string, readonly string[]> = {
   PROCUREMENT_OFFICER: ["/inventory", "/notifications"],
   FINANCE_APPROVER: ["/reports", "/notifications"],
   FINANCE: ["/reports", "/notifications"],
-  VENDOR: ["/notifications"],
-  REQUESTER: ["/notifications"],
+  VENDOR: ["/vendor-portal", "/notifications"],
+  REQUESTER: ["/requests", "/notifications"],
   VIEWER: ["/reports", "/notifications"],
   AUDITOR: ["/reports", "/notifications"],
   FLEET_MANAGER: ["/fleet", "/notifications"],
   COMPLIANCE_MANAGER: ["/compliance", "/notifications"],
   ASSET_MANAGER: ["/assets", "/notifications"],
-  SUPERVISOR: ["/work-orders", "/notifications"],
+  SUPERVISOR: ["/maintenance", "/maintenance/jobs", "/notifications"],
   DRIVER: ["/fleet", "/notifications"],
   // Farm ops retired from product surface — land on Assets, then notifications.
   FARM_OWNER: ["/assets", "/notifications"],
@@ -152,7 +155,7 @@ export function getPostLoginRedirect(userOrRole: PostLoginUserLike): string {
   }
 
   const preferences =
-    ROLE_POST_LOGIN_PREFERENCES[roleName] ?? [DEFAULT_POST_LOGIN_REDIRECT];
+    ROLE_POST_LOGIN_PREFERENCES[roleName] ?? ["/requests", DEFAULT_POST_LOGIN_REDIRECT];
 
   return resolvePostLoginPath(preferences);
 }

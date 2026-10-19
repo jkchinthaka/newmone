@@ -15,6 +15,12 @@ describe("authorized landing", () => {
     assert.equal(getPostLoginRedirect("INVENTORY_KEEPER"), "/inventory");
   });
 
+  it("sends a supervisor to the maintenance dashboard and a vendor to the portal", () => {
+    assert.equal(getPostLoginRedirect("SUPERVISOR"), "/maintenance");
+    assert.equal(getPostLoginRedirect("VENDOR"), "/vendor-portal");
+    assert.equal(getPostLoginRedirect("ASSET_MANAGER"), "/assets");
+  });
+
   it("sends maintenance managers to the maintenance dashboard", () => {
     assert.equal(getPostLoginRedirect("MAINTENANCE_SUPERVISOR"), "/maintenance");
     assert.equal(getPostLoginRedirect("MANAGER"), "/maintenance");
@@ -41,6 +47,13 @@ describe("authorized landing", () => {
     assert.equal(resolveAuthorizedDestination({ role: "TECHNICIAN" }, "/admin"), "/work-orders/my");
     assert.equal(resolveAuthorizedDestination({ role: "STOREKEEPER" }, "/admin"), "/inventory");
     assert.equal(resolveAuthorizedDestination({ role: "FINANCE" }, "/maintenance"), "/reports");
+  });
+
+  it("sends a requester and an unmapped department role to their requests", () => {
+    assert.equal(getPostLoginRedirect("REQUESTER"), "/requests");
+    assert.equal(getPostLoginRedirect("SALES"), "/requests");
+    assert.equal(getPostLoginRedirect("FINANCE"), "/reports");
+    assert.equal(getPostLoginRedirect("MANAGER"), "/maintenance");
   });
 
   it("never lands on splash, action center, or login", () => {

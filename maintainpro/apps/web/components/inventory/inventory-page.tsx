@@ -1,7 +1,7 @@
 "use client";
 
 import { Download, FileSpreadsheet, Loader2, Printer, Tags, Trash2 } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
@@ -76,6 +76,7 @@ export default function InventoryManagementPage() {
   const [bulkCategoryValue, setBulkCategoryValue] = useState("");
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
+  const stockOutKey = useRef("");
   const [stockDialog, setStockDialog] = useState<StockDialogState>({
     open: false,
     mode: "in",
@@ -267,7 +268,8 @@ export default function InventoryManagementPage() {
         id: stockDialog.part.id,
         quantity,
         notes: stockDialog.notes || undefined,
-        workOrderId: stockDialog.workOrderId.trim()
+        workOrderId: stockDialog.workOrderId.trim(),
+        idempotencyKey: stockOutKey.current
       });
     }
 
@@ -371,6 +373,7 @@ export default function InventoryManagementPage() {
   }
 
   function openStockDialog(part: InventoryPart, mode: "in" | "out") {
+    stockOutKey.current = mode === "out" ? crypto.randomUUID() : "";
     setStockDialog({
       open: true,
       mode,

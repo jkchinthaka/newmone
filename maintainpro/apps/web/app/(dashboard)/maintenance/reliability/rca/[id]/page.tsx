@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DateField } from "@/components/forms/date-fields";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { withTenantScope } from "@/lib/tenant-query";
@@ -182,7 +183,7 @@ export default function RcaDetailPage() {
             <option value="PREVENTIVE">Preventive</option>
           </select>
           <textarea className="rounded border px-3 py-2 text-sm" rows={2} required placeholder="Action" value={capa.description} onChange={(event) => setCapa((form) => ({ ...form, description: event.target.value }))} />
-          <input type="date" className="rounded border px-3 py-2 text-sm" value={capa.dueDate} onChange={(event) => setCapa((form) => ({ ...form, dueDate: event.target.value }))} />
+          <DateField label="Due date" value={capa.dueDate} onChange={(dueDate) => setCapa((form) => ({ ...form, dueDate }))} />
           <button type="submit" className="w-fit rounded bg-slate-900 px-3 py-2 text-sm text-white" disabled={addCapa.isPending}>Add CAPA</button>
         </form>
       </section>

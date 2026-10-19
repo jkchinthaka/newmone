@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -157,12 +158,17 @@ export class SimulateApprovalDto {
 }
 
 export class DecideApprovalDto {
-  @IsEnum(ApprovalDecisionOutcome)
-  decision!: ApprovalDecisionOutcome;
+  @IsIn(["APPROVED", "REJECTED", "RETURNED"])
+  decision!: "APPROVED" | "REJECTED" | "RETURNED";
 
   @IsOptional()
   @IsString()
   reason?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  expectedVersion?: number;
 }
 
 export class EmergencyOverrideDto {
@@ -175,6 +181,30 @@ export class ApprovalInboxQueryDto {
   @IsOptional()
   @IsEnum(ApprovalRequestStatus)
   status?: ApprovalRequestStatus;
+
+  @IsOptional()
+  @IsString()
+  tab?: string;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  priority?: string;
+
+  @IsOptional()
+  @IsString()
+  siteId?: string;
+
+  @IsOptional()
+  @IsString()
+  from?: string;
+
+  @IsOptional()
+  @IsString()
+  to?: string;
 
   @IsOptional()
   @Type(() => Number)
@@ -198,4 +228,49 @@ export class ListRulesQueryDto {
   @IsBoolean()
   @Type(() => Boolean)
   activeOnly?: boolean;
+}
+
+export class InboxDecisionDto {
+  @IsString()
+  id!: string;
+
+  @IsIn(["approval", "request", "part", "vendor_quotation", "vendor_invoice", "emergency"])
+  kind!: "approval" | "request" | "part" | "vendor_quotation" | "vendor_invoice" | "emergency";
+
+  @IsIn(["APPROVED", "REJECTED", "RETURNED"])
+  decision!: "APPROVED" | "REJECTED" | "RETURNED";
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @IsNumber()
+  expectedVersion!: number;
+
+  @IsOptional()
+  @IsString()
+  workOrderId?: string;
+}
+
+export class BulkApproveItemDto {
+  @IsString()
+  id!: string;
+
+  @IsIn(["approval", "request", "part", "vendor_quotation", "vendor_invoice", "emergency"])
+  kind!: "approval" | "request" | "part" | "vendor_quotation" | "vendor_invoice" | "emergency";
+
+  @IsNumber()
+  expectedVersion!: number;
+
+  @IsOptional()
+  @IsString()
+  workOrderId?: string;
+}
+
+export class BulkApproveDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => BulkApproveItemDto)
+  items!: BulkApproveItemDto[];
 }

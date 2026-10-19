@@ -15,7 +15,8 @@ export type WorkOrderActivityEntryType =
   | "facility_issue_reported"
   | "facility_issue_first_response"
   | "facility_issue_resolved"
-  | "part_requested";
+  | "part_requested"
+  | "job_event";
 
 export type WorkOrderActivitySource = "work_order" | "facility_issue" | "system";
 
@@ -108,7 +109,36 @@ type ActivityWorkOrderRecord = {
   technician: UserNameFields | null;
   facilityIssue: ActivityFacilityIssueRecord | null;
   partRequests: ActivityPartRequestRecord[];
+  statusEvents?: Array<{
+    id: string;
+    action: string;
+    createdAt: Date;
+    actorName: string | null;
+    reason?: string | null;
+  }>;
 };
+
+export function historyActivityLabel(action: string): string | null {
+  switch (action) {
+    case "PLANNED":
+      return "Planned";
+    case "ASSIGNED":
+    case "REASSIGNED":
+      return "Assigned";
+    case "ON_HOLD":
+      return "Held";
+    case "RESUMED":
+      return "Resumed";
+    case "PART_ISSUED":
+      return "Part issued";
+    case "VERIFIED":
+      return "Verified";
+    case "CLOSED":
+      return "Closed";
+    default:
+      return null;
+  }
+}
 
 type ActivityFacilityIssueRecord = {
   id: string;
@@ -307,6 +337,25 @@ export function buildWorkOrderActivityTimeline(input: ActivityWorkOrderRecord): 
       category: null,
       source: "work_order",
       relatedId: input.id,
+      relatedLabel: input.woNumber
+    });
+  }
+
+  for (const event of input.statusEvents ?? []) {
+    const label = historyActivityLabel(event.action);
+    if (!label) continue;
+    pushEntry(entries, {
+      id: `${input.id}-history-${event.id}`,
+      type: "job_event",
+      label,
+      description: event.reason?.trim() || `${label} on ${input.woNumber}`,
+      timestamp: event.createdAt.toISOString(),
+      actorName: event.actorName,
+      severity: null,
+      status: event.action,
+      category: null,
+      source: "work_order",
+      relatedId: event.id,
       relatedLabel: input.woNumber
     });
   }

@@ -30,19 +30,22 @@ type Props = {
   canReturnToService?: boolean;
 };
 
+function displayValue(value: unknown): string {
+  if (value == null || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  const text = String(value);
+  if (/^[A-Z0-9_]+$/.test(text) && text.includes("_")) {
+    const words = text.toLowerCase().replaceAll("_", " ");
+    return words.charAt(0).toUpperCase() + words.slice(1);
+  }
+  return text;
+}
+
 function Field({ label, value }: { label: string; value: unknown }) {
-  const text =
-    value == null || value === ""
-      ? "—"
-      : typeof value === "boolean"
-        ? value
-          ? "Yes"
-          : "No"
-        : String(value);
   return (
-    <div className="space-y-0.5">
+    <div className="min-w-0 space-y-1">
       <dt className="text-sm font-medium text-brand-800">{label}</dt>
-      <dd className="text-sm text-ink">{text}</dd>
+      <dd className="break-words text-sm text-ink">{displayValue(value)}</dd>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { toast } from "sonner";
 
+import { DateField } from "@/components/forms/date-fields";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { workOrderRecordHref } from "@/lib/operational-deep-link";
 import {
@@ -98,21 +99,11 @@ export function MaintenanceExceptionsPage() {
         <div className="flex flex-wrap items-end gap-3">
           <label className="text-xs font-medium text-slate-600">
             From
-            <input
-              type="date"
-              value={filters.startDate}
-              onChange={(e) => setFilters((prev) => ({ ...prev, startDate: e.target.value }))}
-              className="mt-1 block rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-            />
+            <DateField bare label="From" value={filters.startDate} onChange={(startDate) => setFilters((prev) => ({ ...prev, startDate }))} />
           </label>
           <label className="text-xs font-medium text-slate-600">
             To
-            <input
-              type="date"
-              value={filters.endDate}
-              onChange={(e) => setFilters((prev) => ({ ...prev, endDate: e.target.value }))}
-              className="mt-1 block rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-            />
+            <DateField bare label="To" value={filters.endDate} onChange={(endDate) => setFilters((prev) => ({ ...prev, endDate }))} />
           </label>
           <button
             type="button"

@@ -18,9 +18,22 @@ import { WorkOrdersService } from "../src/modules/work-orders/work-orders.servic
 import { createWorkOrderPartsServiceMock } from "./helpers/work-order-parts-service.mock";
 import { createWorkOrderTaxonomyServiceMock } from "./helpers/work-order-taxonomy-service.mock";
 
-const hasDb = Boolean(process.env.DATABASE_URL && !String(process.env.DATABASE_URL).includes("<"));
+function databaseName(url: string): string {
+  const match = url.match(/(?:database|initial catalog)\s*=\s*([^;]+)/i);
+  return match?.[1]?.trim() ?? "";
+}
 
-const describeIfDb = hasDb ? describe : describe.skip;
+const databaseUrl = process.env.DATABASE_URL?.trim() ?? "";
+const lifecycleDbName = databaseName(databaseUrl);
+if (/nelna|MaintainProDev/i.test(databaseUrl)) {
+  throw new Error(`Refusing lifecycle tests against shared database ${lifecycleDbName || databaseUrl}`);
+}
+const hasDisposableDb =
+  Boolean(databaseUrl) &&
+  !databaseUrl.includes("<") &&
+  lifecycleDbName.startsWith("maintainpro_e2e_");
+
+const describeIfDb = hasDisposableDb ? describe : describe.skip;
 
 type Actor = {
   sub: string;
@@ -35,15 +48,26 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
   parts.getCostSummary = jest.fn().mockResolvedValue({ netPartCost: 0, unaccountedLines: 0 });
 
   // PrismaService middleware normally stringifies audit JSON fields; raw PrismaClient does not.
-  const originalAuditCreate = prisma.auditLog.create.bind(prisma.auditLog);
-  (prisma.auditLog as any).create = (args: any) => {
+  // Assignment now writes that audit on the transaction client, so both delegates need the same patch.
+  function stringifyAuditArgs(args: any) {
     const data = { ...(args?.data ?? {}) };
     for (const key of ["actorSnapshot", "metadata", "beforeData", "afterData"]) {
       if (data[key] != null && typeof data[key] === "object") {
         data[key] = JSON.stringify(data[key]);
       }
     }
-    return originalAuditCreate({ ...args, data });
+    return { ...args, data };
+  }
+  const originalAuditCreate = prisma.auditLog.create.bind(prisma.auditLog);
+  (prisma.auditLog as any).create = (args: any) => originalAuditCreate(stringifyAuditArgs(args));
+  const originalTransaction = prisma.$transaction.bind(prisma);
+  (prisma as any).$transaction = (input: unknown, options?: unknown) => {
+    if (typeof input !== "function") return originalTransaction(input as never, options as never);
+    return originalTransaction(async (tx) => {
+      const originalTxAuditCreate = tx.auditLog.create.bind(tx.auditLog);
+      (tx.auditLog as any).create = (args: any) => originalTxAuditCreate(stringifyAuditArgs(args));
+      return input(tx);
+    }, options as never);
   };
 
   let domainService: WorkOrderDomainService;
@@ -71,8 +95,11 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
 
     await prisma.$connect();
 
-    const tenant = await prisma.tenant.findFirst({ select: { id: true } });
-    if (!tenant) throw new Error("No tenant in local DB — cannot run lifecycle closeout");
+    const tenant = await prisma.tenant.findUnique({
+      where: { slug: "default" },
+      select: { id: true }
+    });
+    if (!tenant) throw new Error("Seeded tenant slug=default is missing — cannot run lifecycle closeout");
     tenantId = tenant.id;
 
     const users = await prisma.user.findMany({
@@ -159,22 +186,35 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
 
     domainService = new WorkOrderDomainService(prisma as any);
 
+    const persistAssignee = jest.fn().mockImplementation(async (
+      tx: { workOrderAssignee?: typeof prisma.workOrderAssignee },
+      prepared: { workOrder: { id: string }; employee: { id: string } }
+    ) => {
+      const db = tx?.workOrderAssignee ? tx : prisma;
+      const assignees = db.workOrderAssignee;
+      if (!assignees) throw new Error("Assignee delegate is unavailable");
+      const workOrderId = prepared.workOrder.id;
+      const employeeId = prepared.employee.id;
+      const existing = await assignees.findFirst({
+        where: { workOrderId, employeeId }
+      });
+      if (existing) return existing;
+      return assignees.create({
+        data: {
+          tenantId,
+          workOrderId,
+          employeeId,
+          isPrimary: true,
+          assignmentStatus: "ASSIGNED"
+        }
+      });
+    });
     const assignees = {
-      addAssignee: jest.fn().mockImplementation(async (workOrderId: string, input: { employeeId: string }) => {
-        const existing = await prisma.workOrderAssignee.findFirst({
-          where: { workOrderId, employeeId: input.employeeId }
-        });
-        if (existing) return existing;
-        return prisma.workOrderAssignee.create({
-          data: {
-            tenantId,
-            workOrderId,
-            employeeId: input.employeeId,
-            isPrimary: true,
-            assignmentStatus: "ASSIGNED"
-          }
-        });
-      })
+      prepareAssignee: jest.fn().mockResolvedValue(undefined),
+      persistAssignee,
+      addAssignee: jest.fn().mockImplementation(async (workOrderId: string, input: { employeeId: string }) =>
+        persistAssignee(prisma, { workOrder: { id: workOrderId }, employee: { id: input.employeeId } })
+      )
     };
 
     workOrders = new WorkOrdersService(
@@ -275,9 +315,21 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
         productionImpact: true,
         technicianId: true,
         verifiedById: true,
-        description: true
+        verificationStatus: true,
+        verificationRejectionReason: true,
+        description: true,
+        version: true
       }
     });
+  }
+
+  async function moveStatus(
+    id: string,
+    data: Parameters<WorkOrdersService["updateStatus"]>[1],
+    actor: Parameters<WorkOrdersService["updateStatus"]>[2]
+  ) {
+    const current = await readback(id);
+    return workOrders.updateStatus(id, { ...data, expectedVersion: current.version }, actor);
   }
 
   async function history(id: string) {
@@ -339,10 +391,10 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
     await workOrders.assign(created.id, technician.sub, planner);
     expect((await readback(created.id)).status).toBe(WorkOrderStatus.ASSIGNED);
 
-    await workOrders.updateStatus(created.id, { status: WorkOrderStatus.IN_PROGRESS }, technician);
+    await moveStatus(created.id, { status: WorkOrderStatus.IN_PROGRESS }, technician);
     expect((await readback(created.id)).status).toBe(WorkOrderStatus.IN_PROGRESS);
 
-    await workOrders.updateStatus(
+    await moveStatus(
       created.id,
       {
         status: WorkOrderStatus.TECHNICIAN_COMPLETED,
@@ -367,7 +419,7 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
 
     await workOrders.verifySupervisor(
       created.id,
-      { verificationNote: `${input.label} supervisor verification` },
+      { verificationNote: `${input.label} supervisor verification`, expectedVersion: afterComplete.version },
       verifier
     );
     const afterVerify = await readback(created.id);
@@ -511,6 +563,129 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
       ).rejects.toThrow(/Vehicle/);
     });
 
+    it("reject returns rework, resume returns in progress, and a repeat completion does not add history", async () => {
+      const created = await workOrders.create(
+        {
+          title: "Rework path",
+          description: "Reject then resume",
+          priority: Priority.MEDIUM,
+          type: WorkOrderType.CORRECTIVE,
+          createdById: planner.sub,
+          jobDomain: "MACHINERY",
+          assetId
+        },
+          planner
+      );
+      createdWoIds.push(created.id);
+      await workOrders.planWork(
+        created.id,
+        { plannedStartAt: new Date().toISOString(), estimatedHours: 1, notes: "Rework plan" },
+        planner
+      );
+      await workOrders.assign(created.id, technician.sub, planner);
+      await moveStatus(created.id, { status: WorkOrderStatus.IN_PROGRESS }, technician);
+      await moveStatus(
+        created.id,
+        {
+          status: WorkOrderStatus.TECHNICIAN_COMPLETED,
+          completionNote: "First completion note for rework path",
+          failureCode: "GENERAL",
+          causeCode: "WEAR",
+          remedyCode: "REPAIRED",
+          functionalTestResult: "PASS",
+          roadTestResult: "NOT_REQUIRED",
+          productionImpact: "NONE"
+        } as any,
+        technician
+      );
+      const pending = await readback(created.id);
+      expect(pending.status).toBe(WorkOrderStatus.TECHNICIAN_COMPLETED);
+      expect(pending.verificationStatus).toBe("PENDING");
+
+      const awaiting = await prisma.workOrder.count({
+        where: {
+          id: created.id,
+          tenantId,
+          status: WorkOrderStatus.TECHNICIAN_COMPLETED,
+          verificationStatus: "PENDING"
+        }
+      });
+      expect(awaiting).toBe(1);
+
+      await expect(
+        workOrders.findOne(created.id, { ...verifier, tenantId: "clxxxxxxxxxxxxxxxxxxxxxx" })
+      ).rejects.toThrow();
+
+      const beforeRepeat = await history(created.id);
+      await moveStatus(
+        created.id,
+        {
+          status: WorkOrderStatus.TECHNICIAN_COMPLETED,
+          completionNote: "Duplicate completion must not append history"
+        } as any,
+        technician
+      );
+      const afterRepeat = await history(created.id);
+      expect(afterRepeat).toHaveLength(beforeRepeat.length);
+      expect((await readback(created.id)).status).toBe(WorkOrderStatus.TECHNICIAN_COMPLETED);
+
+      await expect(workOrders.rejectSupervisor(created.id, "  ", verifier)).rejects.toThrow(/reason/i);
+      await workOrders.rejectSupervisor(created.id, "Bearing still noisy", verifier);
+      const rejected = await readback(created.id);
+      expect(rejected.status).toBe(WorkOrderStatus.REWORK_REQUIRED);
+      expect(rejected.verificationStatus).toBe("REJECTED");
+      expect(rejected.verificationRejectionReason).toContain("Bearing still noisy");
+
+      await moveStatus(created.id, { status: WorkOrderStatus.IN_PROGRESS }, technician);
+      expect((await readback(created.id)).status).toBe(WorkOrderStatus.IN_PROGRESS);
+    }, 180_000);
+
+    it("blocks technician completion when required photo evidence cannot be stored", async () => {
+      const created = await workOrders.create(
+        {
+          title: "Evidence block",
+          description: "Missing photos",
+          priority: Priority.MEDIUM,
+          type: WorkOrderType.CORRECTIVE,
+          createdById: planner.sub,
+          jobDomain: "MACHINERY",
+          assetId
+        },
+          planner
+      );
+      createdWoIds.push(created.id);
+      await workOrders.planWork(
+        created.id,
+        { plannedStartAt: new Date().toISOString(), estimatedHours: 1, notes: "Evidence plan" },
+        planner
+      );
+      await workOrders.assign(created.id, technician.sub, planner);
+      await moveStatus(created.id, { status: WorkOrderStatus.IN_PROGRESS }, technician);
+      const previous = process.env.STORAGE_UPLOADS_ENABLED;
+      process.env.STORAGE_UPLOADS_ENABLED = "true";
+      try {
+        await expect(
+          moveStatus(
+            created.id,
+            {
+              status: WorkOrderStatus.TECHNICIAN_COMPLETED,
+              completionNote: "Completion without photos",
+              failureCode: "GENERAL",
+              causeCode: "WEAR",
+              remedyCode: "REPAIRED",
+              functionalTestResult: "PASS",
+              roadTestResult: "NOT_REQUIRED",
+              productionImpact: "NONE"
+            } as any,
+            technician
+          )
+        ).rejects.toThrow(/Before photo is required/);
+      } finally {
+        process.env.STORAGE_UPLOADS_ENABLED = previous;
+      }
+      expect((await readback(created.id)).status).toBe(WorkOrderStatus.IN_PROGRESS);
+    }, 180_000);
+
     it("rejects cross-tenant Asset on MACHINERY create", async () => {
       await expect(
         workOrders.create(
@@ -550,9 +725,9 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
       createdWoIds.push(created.id);
       await workOrders.planWork(created.id, { plannedStartAt: new Date().toISOString() }, planner);
       await workOrders.assign(created.id, technician.sub, planner);
-      await workOrders.updateStatus(created.id, { status: WorkOrderStatus.IN_PROGRESS }, technician);
+      await moveStatus(created.id, { status: WorkOrderStatus.IN_PROGRESS }, technician);
       await expect(
-        workOrders.updateStatus(
+        moveStatus(
           created.id,
           {
             status: WorkOrderStatus.TECHNICIAN_COMPLETED,
@@ -588,9 +763,9 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
       createdWoIds.push(created.id);
       await workOrders.planWork(created.id, { plannedStartAt: new Date().toISOString() }, planner);
       await workOrders.assign(created.id, technician.sub, planner);
-      await workOrders.updateStatus(created.id, { status: WorkOrderStatus.IN_PROGRESS }, technician);
+      await moveStatus(created.id, { status: WorkOrderStatus.IN_PROGRESS }, technician);
       await expect(
-        workOrders.updateStatus(
+        moveStatus(
           created.id,
           {
             status: WorkOrderStatus.TECHNICIAN_COMPLETED,
@@ -652,8 +827,8 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
               createdWoIds.push(created.id);
               await workOrders.planWork(created.id, { plannedStartAt: new Date().toISOString() }, planner);
               await workOrders.assign(created.id, technician.sub, planner);
-              await workOrders.updateStatus(created.id, { status: WorkOrderStatus.IN_PROGRESS }, technician);
-              await workOrders.updateStatus(
+              await moveStatus(created.id, { status: WorkOrderStatus.IN_PROGRESS }, technician);
+              await moveStatus(
                 created.id,
                 {
                   status: WorkOrderStatus.TECHNICIAN_COMPLETED,
@@ -664,7 +839,12 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
                 } as any,
                 technician
               );
-              await workOrders.verifySupervisor(created.id, { verificationNote: "OK" }, verifier);
+              const completedRow = await readback(created.id);
+              await workOrders.verifySupervisor(
+                created.id,
+                { verificationNote: "OK", expectedVersion: completedRow.version },
+                verifier
+              );
               return created.id;
             })()
           ),
@@ -673,5 +853,38 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
         )
       ).rejects.toThrow(/critical open work order/);
     }, 180_000);
+  });
+
+  afterAll(async () => {
+    if (createdWoIds.length > 0) {
+      const where = { workOrderId: { in: createdWoIds } };
+      const children = [
+        "workOrderAssignee",
+        "workOrderStatusHistory",
+        "workOrderLabourEntry",
+        "workOrderHoldHistory",
+        "workOrderPlanning",
+        "workOrderExecution",
+        "workOrderCompletion",
+        "workOrderSafety",
+        "workOrderClassification",
+        "workOrderCostSnapshot",
+        "downtimeSegment"
+      ] as const;
+      for (const name of children) {
+        await (prisma[name] as unknown as {
+          deleteMany: (args: { where: { workOrderId: { in: string[] } } }) => Promise<unknown>;
+        }).deleteMany({ where });
+      }
+      await prisma.workOrder.deleteMany({
+        where: { tenantId, id: { in: createdWoIds } }
+      });
+    }
+    if (createdLocation && functionalLocationId) {
+      await prisma.functionalLocation.deleteMany({
+        where: { tenantId, id: functionalLocationId }
+      });
+    }
+    await prisma.$disconnect();
   });
 });

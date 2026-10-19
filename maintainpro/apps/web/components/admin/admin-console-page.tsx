@@ -85,7 +85,7 @@ function AdminConsoleAuthorized({ user, roleName }: { user: CurrentUser; roleNam
             </Link>
           ))}
           {userHits.map((hit) => (
-            <Link key={hit.id} href={"/admin/users" as never} className="flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-sm">
+            <Link key={hit.id} href={`/admin/users?user=${hit.id}` as never} className="flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-sm">
               <span>
                 <span className="font-medium">User · {[hit.firstName, hit.lastName].filter(Boolean).join(" ") || "Account"}</span>
                 <span className="mt-0.5 block text-xs text-slate-500">{hit.email}</span>

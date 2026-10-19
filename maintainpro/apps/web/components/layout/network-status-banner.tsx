@@ -1,8 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Wifi, WifiOff } from "lucide-react";
+import { RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { toast } from "sonner";
+
+import {
+  UPSTREAM_RECONNECTING_MESSAGE,
+  getUpstreamDegraded,
+  subscribeUpstreamStatus
+} from "@/lib/upstream-status";
+
+function useUpstreamDegraded(): boolean {
+  const [degraded, setDegraded] = useState(false);
+  useEffect(() => {
+    setDegraded(getUpstreamDegraded());
+    return subscribeUpstreamStatus(setDegraded);
+  }, []);
+  return degraded;
+}
 
 import {
   connectionRestoredMessage,
@@ -36,8 +51,24 @@ export function NetworkStatusBanner() {
     });
   }, []);
 
+  const upstreamDegraded = useUpstreamDegraded();
+
   const message = networkStatusMessage(state);
   if (!message) {
+    if (upstreamDegraded) {
+      // Non-blocking: pages stay usable while queries retry against a restarting API.
+      return (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="upstream-reconnecting-banner"
+          className="flex items-center justify-center gap-2 border-b border-sky-200 bg-sky-50 px-3 py-2 text-center text-xs font-medium text-sky-950 sm:text-sm"
+        >
+          <RefreshCw size={16} aria-hidden className="shrink-0 motion-safe:animate-spin" />
+          <span>{UPSTREAM_RECONNECTING_MESSAGE}</span>
+        </div>
+      );
+    }
     return null;
   }
 

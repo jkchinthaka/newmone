@@ -20,6 +20,7 @@ import {
 import { stringArrayToText, toStringArray } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { assertAmountWithinRole, assertExpectedVersion, assertNotOwnRequest, readAmount, versionFromDate } from "./approval-inbox.rules";
 import {
   ApprovalEvaluationContext,
   conditionsMatch,
@@ -886,8 +887,9 @@ export class ApprovalsService {
   async decide(input: {
     actor: Actor;
     requestId: string;
-    decision: ApprovalDecisionOutcome;
+    decision: ApprovalDecisionOutcome | "RETURNED";
     reason?: string;
+    expectedVersion?: number;
   }) {
     const tenantId = this.requireTenantId(input.actor);
     const request = await this.getRequest(input.requestId, input.actor);
@@ -907,11 +909,17 @@ export class ApprovalsService {
     }
 
     this.assertCanDecide(input.actor, currentStep);
+    assertNotOwnRequest(request.requesterId, input.actor.sub);
+    if (input.expectedVersion != null) {
+      assertExpectedVersion(versionFromDate(request.updatedAt), input.expectedVersion);
+    }
+    assertAmountWithinRole(input.actor.role, readAmount(request.sourceContext));
 
-    if (input.decision === ApprovalDecisionOutcome.REJECTED) {
+    const returned = input.decision === "RETURNED";
+    if (input.decision === ApprovalDecisionOutcome.REJECTED || returned) {
       const reason = input.reason?.trim();
       if (!reason || reason.length < 3) {
-        throw new BadRequestException("Rejection reason is required");
+        throw new BadRequestException(returned ? "A reason is required to return this item" : "Rejection reason is required");
       }
     }
 
@@ -922,7 +930,7 @@ export class ApprovalsService {
           approvalRequestId: request.id,
           approvalStepId: currentStep.id,
           actorId: input.actor.sub,
-          decision: input.decision,
+          decision: input.decision as ApprovalDecisionOutcome,
           reason: input.reason?.trim() || undefined
         }
       });
@@ -930,23 +938,26 @@ export class ApprovalsService {
       await tx.approvalStep.update({
         where: { id: currentStep.id },
         data: {
-          status:
-            input.decision === ApprovalDecisionOutcome.APPROVED
+          status: (returned
+            ? "RETURNED"
+            : input.decision === ApprovalDecisionOutcome.APPROVED
               ? ApprovalStepStatus.APPROVED
-              : ApprovalStepStatus.REJECTED,
+              : ApprovalStepStatus.REJECTED) as ApprovalStepStatus,
           actedAt: new Date()
         }
       });
 
-      if (input.decision === ApprovalDecisionOutcome.REJECTED) {
+      if (input.decision === ApprovalDecisionOutcome.REJECTED || returned) {
+        const finalStatus = returned ? "RETURNED" : ApprovalRequestStatus.REJECTED;
         await tx.approvalRequest.update({
           where: { id: request.id },
           data: {
-            status: ApprovalRequestStatus.REJECTED,
-            completedAt: new Date()
+            status: finalStatus as ApprovalRequestStatus,
+            completedAt: new Date(),
+            cancellationReason: returned ? input.reason?.trim() : undefined
           }
         });
-        return { createdDecision, finalStatus: ApprovalRequestStatus.REJECTED };
+        return { createdDecision, finalStatus };
       }
 
       const remaining = request.steps.filter(
@@ -987,16 +998,20 @@ export class ApprovalsService {
     await this.notifySafe({
       userId: request.requesterId,
       title:
-        decision.finalStatus === ApprovalRequestStatus.APPROVED
-          ? "Approval approved"
-          : decision.finalStatus === ApprovalRequestStatus.REJECTED
-            ? "Approval rejected"
-            : "Approval step approved",
+        decision.finalStatus === "RETURNED"
+          ? "More information requested"
+          : decision.finalStatus === ApprovalRequestStatus.APPROVED
+            ? "Approval approved"
+            : decision.finalStatus === ApprovalRequestStatus.REJECTED
+              ? "Approval rejected"
+              : "Approval step approved",
       message: `${request.processType} decision recorded`,
       type:
-        decision.finalStatus === ApprovalRequestStatus.REJECTED
-          ? NotificationType.APPROVAL_REJECTED
-          : NotificationType.APPROVAL_APPROVED,
+        decision.finalStatus === "RETURNED"
+          ? NotificationType.APPROVAL_REQUIRED
+          : decision.finalStatus === ApprovalRequestStatus.REJECTED
+            ? NotificationType.APPROVAL_REJECTED
+            : NotificationType.APPROVAL_APPROVED,
       priority: NotificationPriority.WARNING,
       referenceId: request.id,
       referenceType: "ApprovalRequest"

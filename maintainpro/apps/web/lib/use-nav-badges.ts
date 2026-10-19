@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { isDatabaseUnavailableError } from "@/lib/api-client";
+import { fetchApprovalInbox } from "@/lib/approvals-api";
 import { fetchWorkOrderQueueSummary } from "@/lib/work-order-queues-api";
 import type { NavBadgeKey } from "@/lib/navigation";
 import { withTenantScope } from "@/lib/tenant-query";
@@ -11,6 +12,11 @@ export type NavBadgeCounts = Partial<Record<NavBadgeKey, number>>;
 // Keep this aligned with WorkOrdersController.queueSummary @Roles. Navigation
 // exists for additional roles (for example DRIVER and CLEANER), but merely
 // rendering that navigation must not trigger a guaranteed 403.
+const APPROVAL_BADGE_ROLES = new Set([
+  "SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "SUPERVISOR",
+  "ASSET_MANAGER", "FACILITY_MANAGER", "FINANCE", "VIEWER"
+]);
+
 const WORK_ORDER_QUEUE_SUMMARY_ROLES = new Set([
   "SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER",
   "FLEET_MANAGER", "COMPLIANCE_MANAGER", "FACILITY_MANAGER", "BUILDING_SUPERVISOR",
@@ -38,6 +44,15 @@ function mapQueueSummaryToBadges(summary: Awaited<ReturnType<typeof fetchWorkOrd
 }
 
 export function useNavBadges(enabled: boolean, roleName?: string | null) {
+  const approvals = useQuery({
+    queryKey: withTenantScope(["approvals", "inbox-count"]),
+    queryFn: () => fetchApprovalInbox({ page: 1, pageSize: 1 }),
+    select: (data) => data.meta.counts?.all ?? data.meta.total ?? 0,
+    enabled: enabled && Boolean(roleName && APPROVAL_BADGE_ROLES.has(roleName)),
+    staleTime: 30_000,
+    retry: false
+  });
+
   const query = useQuery({
     queryKey: withTenantScope(["work-orders", "queue-summary", ""]),
     queryFn: () => fetchWorkOrderQueueSummary(),
@@ -54,7 +69,7 @@ export function useNavBadges(enabled: boolean, roleName?: string | null) {
   });
 
   return {
-    badges: query.data ?? {},
+    badges: { ...(query.data ?? {}), approvals: approvals.data },
     isLoading: query.isLoading,
     hasError: query.isError
   };

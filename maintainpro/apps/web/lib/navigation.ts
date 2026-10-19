@@ -42,7 +42,8 @@ export type NavBadgeKey =
   | "high-risk"
   | "triage"
   | "overdue"
-  | "system-health";
+  | "system-health"
+  | "approvals";
 
 export interface NavigationItem {
   id: string;
@@ -270,6 +271,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/admin/people",
   "/admin/invitations",
   "/admin/approvals",
+  "/admin/approval-rules",
   "/admin/bulk-imports",
   "/approvals",
   "/vendor-portal",
@@ -287,6 +289,10 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/traffic-fines",
   "/facilities",
   "/utilities",
+  "/utilities/readings",
+  "/admin/assets/new",
+  "/admin/vehicles/new",
+  "/admin/asset-tags",
   "/operations/exceptions",
   LEGACY_FMS_HOME_PATH
 ]);
@@ -409,6 +415,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
+    id: "meter-readings",
+    label: "Meter Readings",
+    href: "/utilities/readings",
+    icon: "Gauge",
+    allowedRoles: mergeRoles(ADMIN_ROLES, ["ASSET_MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC"]),
+    category: "advanced",
+    description: "Record utility meter readings",
+    activeMatch: "startsWith"
+  },
+  {
     id: "reliability",
     label: "Reliability",
     href: "/maintenance/reliability",
@@ -425,6 +441,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     icon: "ClipboardCheck",
     allowedRoles: mergeRoles(SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN", "OPERATIONS_MANAGER", "FINANCE", "FACILITY_MANAGER"]),
     requiredPermissions: ["approvals.view"],
+    badgeKey: "approvals",
     category: "advanced",
     description: "Secondary inbox. Decide inside the work order, parts, vendor, request, or PM record.",
     activeMatch: "startsWith"
@@ -563,6 +580,36 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
+    id: "admin-asset-register",
+    label: "Register asset",
+    href: "/admin/assets/new",
+    icon: "Package",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "Create an asset from the admin register",
+    activeMatch: "exact"
+  },
+  {
+    id: "admin-vehicle-register",
+    label: "Register vehicle",
+    href: "/admin/vehicles/new",
+    icon: "Truck",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "Create a vehicle from the admin register",
+    activeMatch: "exact"
+  },
+  {
+    id: "admin-asset-tags",
+    label: "Asset tag upload",
+    href: "/admin/asset-tags",
+    icon: "QrCode",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "Preview and apply asset tags",
+    activeMatch: "exact"
+  },
+  {
     id: "system-health",
     label: "System Health",
     href: "/system-health",
@@ -634,6 +681,7 @@ const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/admin/integrations": ["/admin"],
   "/admin/security": ["/admin"],
   "/admin/approvals": ["/admin"],
+  "/admin/approval-rules": ["/admin"],
   "/admin/data-quality": ["/admin"],
   "/admin/audit": ["/admin"],
   "/work-orders": ["/maintenance/jobs"],
@@ -658,7 +706,6 @@ const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/insurance-claims": ["/fleet"],
   "/traffic-fines": ["/fleet"],
   "/facilities": ["/assets"],
-  "/utilities": ["/assets"],
   "/operations/exceptions": ["/reports"]
 };
 
@@ -699,7 +746,11 @@ export function isNavigationItemVisible(
   }
 
   if (!item.allowedRoles.includes(normalized)) {
-    return false;
+    // Requests are granted by permission, not by department role. An authorized
+    // Finance, Farm, or other employee must see the entry the API will allow.
+    if (item.id !== "requests") {
+      return false;
+    }
   }
 
   if (item.requiredFeature && enabledFeatures != null && enabledFeatures.length > 0) {

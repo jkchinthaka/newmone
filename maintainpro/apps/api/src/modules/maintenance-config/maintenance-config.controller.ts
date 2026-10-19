@@ -34,6 +34,22 @@ export class MaintenanceConfigController {
     private readonly templates: MaintenanceTemplatesService
   ) {}
 
+  @Get("tax-rate")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("admin.overview.view")
+  async getTaxRate(@Req() req: AuthedRequest) {
+    const data = await this.config.getDefaultTaxRate(req.user);
+    return { data, message: "Default tax rate" };
+  }
+
+  @Patch("tax-rate")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("admin.organization.manage")
+  async updateTaxRate(@Req() req: AuthedRequest, @Body() body: { defaultTaxRatePercent?: unknown }) {
+    const data = await this.config.updateDefaultTaxRate(req.user, body.defaultTaxRatePercent);
+    return { data, message: "Default tax rate updated" };
+  }
+
   @Get("overview")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
   @Permissions("admin.overview.view")
@@ -236,7 +252,11 @@ export class MaintenanceConfigController {
     if (!body.code?.trim() || typeof body.enabled !== "boolean") {
       throw new BadRequestException("code and enabled are required");
     }
-    const data = await this.features.upsert(req.user, body);
+    const reason = body.reason?.trim() ?? "";
+    if (reason.length < 5) {
+      throw new BadRequestException("A reason of at least 5 characters is required");
+    }
+    const data = await this.features.upsert(req.user, { ...body, reason });
     return { data, message: "Feature flag saved" };
   }
 

@@ -20,7 +20,9 @@ describe("WorkOrderAssigneesService leave conflict", () => {
       findFirst: jest.fn()
     },
     employeeLeaveRequest: { findFirst: jest.fn() },
-    auditLog: { create: jest.fn() }
+    auditLog: { create: jest.fn() },
+    $transaction: (fn: (db: unknown) => Promise<unknown>) => fn(prisma),
+    $queryRaw: async () => [{ id: "wo-1" }]
   };
 
   const workforce = new WorkforcePlanningService(prisma as never);
@@ -36,6 +38,8 @@ describe("WorkOrderAssigneesService leave conflict", () => {
     designation: "ELECTRICIAN",
     linkedUserId: null,
     active: true,
+    canReceiveWorkOrders: true,
+    availabilityStatus: "AVAILABLE",
     linkedUser: null,
     department: null
   };

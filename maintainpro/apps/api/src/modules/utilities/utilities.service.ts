@@ -1,7 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { toJsonText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
+import { comparableConsumptions, evaluateMeterReading, meterFractionDigits, parseStrictReadingValue } from "./meter-reading-rules";
 
 @Injectable()
 export class UtilitiesService {
@@ -42,30 +45,84 @@ export class UtilitiesService {
     return this.prisma.utilityMeter.update({ where: { id }, data });
   }
 
-  async addReading(id: string, tenantId: string | null, data: { readingDate: string; readingValue: number; images?: string[]; notes?: string }) {
-    await this.meter(id, tenantId);
-
-    const last = await this.prisma.meterReading.findFirst({
-      where: { meterId: id },
-      orderBy: { readingDate: "desc" }
-    });
-
-    if (last && Number(data.readingValue) < Number(last.readingValue)) {
-      throw new BadRequestException("Meter readings must be monotonically increasing");
+  async addReading(
+    id: string,
+    tenantId: string | null,
+    data: {
+      readingDate: string;
+      readingValue: unknown;
+      images?: string[];
+      notes?: string;
+      resetReason?: string;
+      idempotencyKey?: string;
+      recordedBy?: string;
     }
-
-    const consumption = last ? Number(data.readingValue) - Number(last.readingValue) : 0;
-
-    return this.prisma.meterReading.create({
-      data: {
-        meterId: id,
-        readingDate: new Date(data.readingDate),
-        readingValue: data.readingValue,
-        consumption,
-        images: data.images ?? [],
-        notes: data.notes
+  ) {
+    const meter = await this.meter(id, tenantId);
+    const parsed = parseStrictReadingValue(data.readingValue, meterFractionDigits(meter.unit, meter.type));
+    if (!parsed.ok) throw new BadRequestException(parsed.message);
+    const readingAt = new Date(data.readingDate);
+    const idempotencyKey = data.idempotencyKey?.trim();
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        if (idempotencyKey) {
+          const existingRows = await tx.meterReading.findMany({ where: { meterId: id } });
+          const replay = existingRows.find((row) => String(row.notes ?? "").includes(`[idempotency:${idempotencyKey}]`));
+          if (replay) {
+            const samePayload = Number(replay.readingValue) === parsed.value && replay.readingDate.getTime() === readingAt.getTime();
+            if (!samePayload) {
+              throw new ConflictException("This idempotency key was already used for a different reading.");
+            }
+            return { ...replay, warning: null, replayed: true };
+          }
+        }
+        const history = await tx.meterReading.findMany({
+          where: { meterId: id },
+          orderBy: { readingDate: "desc" },
+          take: 8
+        });
+        if (history.some((row) => row.readingDate.getTime() === readingAt.getTime())) {
+          throw new ConflictException("A reading already exists for this meter at that time.");
+        }
+        const previous = history[0];
+        const decision = evaluateMeterReading({
+          value: parsed.value,
+          readingAt,
+          now: new Date(),
+          previousValue: previous ? Number(previous.readingValue) : null,
+          recentConsumptions: comparableConsumptions(history),
+          resetReason: data.resetReason
+        });
+        if (!decision.ok) throw new BadRequestException(decision.message);
+        const noteParts = [
+          idempotencyKey ? `[idempotency:${idempotencyKey}]` : "",
+          data.recordedBy ? `[by:${data.recordedBy}]` : "",
+          decision.reset ? `[reset:${data.resetReason?.trim()}]` : "",
+          data.notes?.trim() ?? ""
+        ].filter(Boolean);
+        const created = await tx.meterReading.create({
+          data: {
+            meterId: id,
+            readingDate: readingAt,
+            readingValue: parsed.value,
+            consumption: decision.consumption,
+            images: toJsonText(data.images ?? []) ?? "[]",
+            notes: noteParts.join(" ") || null
+          }
+        });
+        return { ...created, warning: decision.warning, replayed: false };
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        const existing = await this.prisma.meterReading.findFirst({
+          where: { meterId: id, readingDate: readingAt }
+        });
+        const sameReplay = existing && idempotencyKey && String(existing.notes ?? "").includes(`[idempotency:${idempotencyKey}]`) && Number(existing.readingValue) === parsed.value;
+        if (sameReplay && existing) return { ...existing, warning: null, replayed: true };
+        throw new ConflictException("A reading already exists for this meter at that time.");
       }
-    });
+      throw error;
+    }
   }
 
   async readings(id: string, tenantId: string | null) {

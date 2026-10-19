@@ -5,10 +5,11 @@ import { useParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Plus } from "lucide-react";
 import { Line, LineChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { DateField } from "@/components/forms/date-fields";
 import { getStoredRole } from "@/lib/user-role";
 
 import { formatCompact, formatDate, formatQuantity, getErrorMessage, toNumber } from "./helpers";
@@ -242,10 +243,12 @@ export default function MeterReadingsPage() {
         <form className="grid gap-3 md:grid-cols-2" onSubmit={(event) => event.preventDefault()}>
           <label className="text-sm text-slate-700">
             Reading date
-            <input
-              type="date"
-              {...readingForm.register("readingDate")}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            <Controller
+              control={readingForm.control}
+              name="readingDate"
+              render={({ field }) => (
+                <DateField bare label="Reading date" value={field.value ?? ""} onChange={field.onChange} />
+              )}
             />
           </label>
 

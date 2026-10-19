@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+
+import { DateTimeField } from "@/components/forms/date-fields";
+import { toDateTimeLocalValue } from "@/lib/workforce-designations";
 import { toast } from "sonner";
 import { CarFront, Loader2, Plus, RefreshCw, Wrench } from "lucide-react";
 
@@ -253,13 +256,13 @@ function CreateAccidentDialog({
             />
           </Field>
           <Field label="Occurred at *">
-            <input
-              required
-              type="datetime-local"
-              value={form.occurredAt}
-              onChange={(e) => setForm({ ...form, occurredAt: e.target.value })}
-              className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
+            <DateTimeField
+              bare
+              label="Occurred at"
+              value={form.occurredAt ? new Date(form.occurredAt).toISOString() : ""}
+              onChange={(iso) => setForm({ ...form, occurredAt: toDateTimeLocalValue(iso) })}
             />
+            <input required value={form.occurredAt} readOnly tabIndex={-1} aria-hidden="true" className="sr-only" />
           </Field>
           <Field label="Severity">
             <select

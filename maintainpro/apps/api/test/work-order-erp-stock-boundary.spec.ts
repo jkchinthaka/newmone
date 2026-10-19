@@ -95,8 +95,27 @@ describe("issuePartRequest ERP boundary", () => {
         create: jest.fn().mockResolvedValue({ id: "issue-1" }),
         update: jest.fn().mockResolvedValue({})
       },
-      domainEventOutbox: { create: jest.fn().mockResolvedValue({ id: "outbox-1" }) },
-      sparePart: { update: sparePartUpdate }
+      domainEventOutbox: {
+        create: jest.fn().mockResolvedValue({ id: "outbox-1" }),
+        findMany: jest.fn().mockResolvedValue([])
+      },
+      warehouse: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "wh-1",
+            erpWarehouseCode: "MAIN",
+            lastErpValidatedAt: new Date("2026-10-01T00:00:00.000Z"),
+            isDefault: true
+          }
+        ]),
+        findFirst: jest.fn()
+      },
+      warehouseItemBalance: {
+        findFirst: jest.fn().mockResolvedValue({ id: "bal-1", onHand: 40, reserved: 0, available: 40 })
+      },
+      sparePart: { update: sparePartUpdate },
+      auditLog: { create: jest.fn().mockResolvedValue({ id: "audit-tx" }) },
+      workOrderStatusHistory: { create: jest.fn().mockResolvedValue({ id: "hist-1" }) }
     };
     const prisma = {
       workOrder: { findFirst: jest.fn().mockResolvedValue({ id: "wo-1", tenantId: "tenant-a" }) },
@@ -137,7 +156,7 @@ describe("issuePartRequest ERP boundary", () => {
     );
     expect(parts.syncIssuedLine).toHaveBeenCalledWith(expect.objectContaining({ issueQuantity: 2 }));
     expect(sparePartUpdate).not.toHaveBeenCalled();
-    const audit = prisma.auditLog.create.mock.calls[0][0].data.metadata;
+    const audit = tx.auditLog.create.mock.calls[0][0].data.metadata;
     expect(audit.quantityInStockMutated).toBe(false);
     expect(audit.erpReconciliationStatus).toBe("PENDING");
   });

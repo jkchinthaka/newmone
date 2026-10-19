@@ -430,6 +430,14 @@ export class InventoryTransactionEngine {
       const part = await this.loadActivePart(tx, tenantId, input.partId);
       await this.ensureBalances(tx, tenantId, part.id, [warehouse.id], part);
       const before = await this.loadBalance(tx, tenantId, warehouse.id, part.id);
+      if (
+        (operation === "issue" || operation === "issueReserved") &&
+        input.quantity > before.onHand - before.reserved
+      ) {
+        throw new BadRequestException(
+          `Insufficient verified stock. Available: ${before.onHand - before.reserved}, Requested: ${input.quantity}.`
+        );
+      }
       try {
         preview(before, input.quantity);
       } catch (error) {
@@ -471,7 +479,12 @@ export class InventoryTransactionEngine {
         );
       }
 
-      await this.syncPartFromBalances(tx, tenantId, part.id);
+      await this.syncPartFromBalances(
+        tx,
+        tenantId,
+        part.id,
+        operation === "issue" || operation === "issueReserved"
+      );
 
       let movement: { id: string; type: MovementType; quantity: number } | undefined;
       if (movementType) {
@@ -857,7 +870,12 @@ export class InventoryTransactionEngine {
     return result.count === 1;
   }
 
-  private async syncPartFromBalances(tx: Prisma.TransactionClient, tenantId: string, partId: string) {
+  private async syncPartFromBalances(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    partId: string,
+    preserveQuantityInStock = false
+  ) {
     const balances = await tx.warehouseItemBalance.findMany({
       where: { tenantId, partId }
     });
@@ -867,7 +885,7 @@ export class InventoryTransactionEngine {
     await tx.sparePart.update({
       where: { id: partId },
       data: {
-        quantityInStock: onHand,
+        ...(preserveQuantityInStock ? {} : { quantityInStock: onHand }),
         reservedQuantity: reserved,
         availableQuantity: available
       }

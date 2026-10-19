@@ -152,14 +152,16 @@ export class AssetTaxonomyService {
       attributesCreated += 1;
     }
 
-    await writeAuditTrail(this.prisma, {
-      entity: "AssetTaxonomy",
-      entityId: tid,
-      action: AuditAction.CREATE,
-      module: "asset-taxonomy",
-      actor: asAuditActor(actor),
-      afterData: { domainsCreated, categoriesCreated, typesCreated, attributesCreated } as Prisma.InputJsonValue
-    });
+    if (domainsCreated + categoriesCreated + typesCreated + attributesCreated > 0) {
+      await writeAuditTrail(this.prisma, {
+        entity: "AssetTaxonomy",
+        entityId: tid,
+        action: AuditAction.CREATE,
+        module: "asset-taxonomy",
+        actor: asAuditActor(actor),
+        afterData: { domainsCreated, categoriesCreated, typesCreated, attributesCreated } as Prisma.InputJsonValue
+      });
+    }
 
     return { domainsCreated, categoriesCreated, typesCreated, attributesCreated };
   }

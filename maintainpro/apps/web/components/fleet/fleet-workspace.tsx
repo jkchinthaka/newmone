@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ActiveFilterChips, JobsEmptyState, JobsLoadingSkeleton, JobsPagination, OperationalJobsHeader } from "@/components/operational";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { useCurrentUser } from "@/lib/use-current-user";
 import { getFleetOverview, type FleetOverviewSummary } from "@/lib/fleet-lifecycle-api";
 import {
   FLEET_EMPTY,
@@ -66,6 +67,8 @@ function soonestDoc(row: VehicleRow) {
 
 export function FleetWorkspace() {
   const router = useRouter();
+  const currentUser = useCurrentUser();
+  const canRegisterVehicle = currentUser.role === "SUPER_ADMIN" || currentUser.role === "ADMIN";
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const state = useMemo(() => fleetStateFromSearch(new URLSearchParams(searchParams.toString())), [searchParams]);
@@ -226,9 +229,11 @@ export function FleetWorkspace() {
             <button type="button" className="h-9 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>
               Refresh
             </button>
-            <Link href={"/vehicles" as never} className="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white">
-              Add Vehicle
-            </Link>
+            {canRegisterVehicle ? (
+              <Link href={"/admin/vehicles/new" as never} className="inline-flex h-9 items-center rounded-md border border-slate-300 px-3 text-sm">
+                Register in Admin
+              </Link>
+            ) : null}
           </>
         }
       />

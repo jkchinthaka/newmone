@@ -24,6 +24,14 @@ Any AI session can end abruptly (usage limits). Continuity lives in the repo, no
    never reset or discard others' changes, never pop stashes you did not create.
 4. Never record secrets (passwords, tokens, connection strings) in these files.
 
+## Run the current project
+
+When the user says "Run this project", "Start MaintainPro", "Open localhost", or "Run current project", use `npm run dev:current` inside the canonical worktree from `maintainpro/scripts/canonical-project.json`. Do not start `npm run dev` from another checkout, and do not treat a listening port as current until `/dev/identity` matches that worktree. The fallback command is:
+
+```powershell
+node C:\Users\chint\AppData\Local\MaintainPro\worktrees\release-final-20261013\maintainpro\scripts\start-current.mjs
+```
+
 ## Repository layout
 
 This git repo's root contains deployment glue (root `Dockerfile`, `vercel.json`, `wrangler.jsonc`, `render.yaml`) and the GitHub Actions workflows (root `.github/workflows/`), all pointing into the actual application, which lives entirely under `maintainpro/`. **Almost all work happens inside `maintainpro/`.** Run all commands below from `maintainpro/` unless otherwise noted.

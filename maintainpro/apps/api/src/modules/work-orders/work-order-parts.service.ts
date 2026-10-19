@@ -10,6 +10,7 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import { stagePartReturn } from "./part-request-access";
 import { TERMINAL_WORK_ORDER_STATUSES } from "../../common/utils/work-order-governance";
 import {
   assertPositiveQuantity,
@@ -412,10 +413,11 @@ export class WorkOrderPartsService {
       throw new BadRequestException("Authenticated actor required");
     }
 
+    const staged = stagePartReturn(line, data.returnedQuantity);
     const updated = await this.prisma.workOrderPart.update({
       where: { id: lineId },
       data: {
-        pendingReturnQuantity: line.pendingReturnQuantity + data.returnedQuantity,
+        pendingReturnQuantity: staged.pendingReturnQuantity,
         returnedById: actorId,
         returnedAt: new Date(),
         returnCondition: data.returnCondition,

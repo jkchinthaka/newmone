@@ -243,7 +243,7 @@ describe("Phase 7 ApprovalsService behaviors (unit with mocks)", () => {
       processType: ApprovalProcessType.WORK_ORDER_REOPEN,
       subjectEntityType: "WorkOrder",
       subjectEntityId: "wo-3",
-      requesterId: "user-req",
+      requesterId: "someone-else",
       steps: [
         {
           id: "step-1",

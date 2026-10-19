@@ -1,65 +1,123 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import type { Route } from "next";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { PendingApprovalsInbox } from "@/components/approvals/pending-approvals-inbox";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ResponsivePageHeader } from "@/components/ui/responsive-page-header";
 import { ErrorState } from "@/components/ui/page-state";
-import { getApiErrorMessage } from "@/lib/api-client";
 import {
-  decideApproval,
+  bulkApproveInbox,
+  decideInboxItem,
   fetchApprovalInbox,
+  type ApprovalInboxCounts,
   type ApprovalInboxItem
 } from "@/lib/approvals-api";
+import type { InboxTabId, InboxViewItem } from "@/lib/approval-inbox-view";
+import { getApiErrorMessage } from "@/lib/api-client";
+
+function toView(item: ApprovalInboxItem): InboxViewItem {
+  return {
+    id: item.id,
+    kind: item.kind ?? "approval",
+    tab: item.tab ?? "requests",
+    reference: item.reference ?? item.subjectEntityId ?? item.id,
+    title: item.title ?? item.processType ?? "Approval",
+    requesterName: item.requesterName ?? "Unknown",
+    assetLabel: item.assetLabel ?? null,
+    amount: item.amount ?? null,
+    taxRatePercent: item.taxRatePercent ?? null,
+    priority: item.priority ?? null,
+    requestedAt: item.requestedAt,
+    age: item.age ?? "",
+    sla: item.sla ?? "green",
+    version: item.version ?? 0,
+    canDecide: item.canDecide !== false,
+    canReturn: item.canReturn !== false,
+    workOrderId: item.workOrderId ?? null,
+    attachments: item.attachments ?? [],
+    history: item.history ?? []
+  };
+}
 
 export default function ApprovalsInboxPage() {
-  const [items, setItems] = useState<ApprovalInboxItem[]>([]);
+  const [items, setItems] = useState<InboxViewItem[]>([]);
+  const [counts, setCounts] = useState<ApprovalInboxCounts | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [rejectId, setRejectId] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
+  const [tab, setTab] = useState<InboxTabId>("all");
+  const [search, setSearch] = useState("");
+  const [priority, setPriority] = useState("");
+  const [site, setSite] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchApprovalInbox({ page: 1, pageSize: 50 });
-      setItems(data.items ?? []);
+      const data = await fetchApprovalInbox({
+        page: 1,
+        pageSize: 50,
+        tab,
+        search: search || undefined,
+        priority: priority || undefined,
+        siteId: site || undefined,
+        from: from || undefined,
+        to: to || undefined
+      });
+      setItems((data.items ?? []).map(toView));
+      setCounts(data.meta.counts);
     } catch (err) {
       setError(getApiErrorMessage(err, "Request failed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tab, search, priority, site, from, to]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  async function onApprove(id: string) {
-    try {
-      await decideApproval(id, "APPROVED");
-      toast.success("Approved");
-      await refresh();
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, "Request failed"));
-    }
-  }
-
-  async function onReject(id: string) {
-    if (rejectReason.trim().length < 3) {
-      toast.error("Rejection reason is required");
+  async function onDecide(item: InboxViewItem, decision: "APPROVED" | "REJECTED" | "RETURNED", reason?: string) {
+    if (decision !== "APPROVED" && (reason?.trim().length ?? 0) < 3) {
+      toast.error("A reason is required");
       return;
     }
     try {
-      await decideApproval(id, "REJECTED", rejectReason.trim());
-      toast.success("Rejected");
-      setRejectId(null);
-      setRejectReason("");
+      await decideInboxItem({
+        id: item.id,
+        kind: item.kind,
+        decision,
+        reason,
+        expectedVersion: item.version,
+        workOrderId: item.workOrderId,
+        idempotencyKey: crypto.randomUUID()
+      });
+      toast.success(decision === "APPROVED" ? "Approved" : decision === "RETURNED" ? "Returned" : "Rejected");
+      await refresh();
+    } catch (err) {
+      const message = getApiErrorMessage(err, "Request failed");
+      toast.error(message.includes("Refresh") ? "This approval changed. Refresh and try again." : message);
+      if (message.includes("Refresh")) await refresh();
+    }
+  }
+
+  async function onBulkApprove(selected: InboxViewItem[]) {
+    try {
+      const result = await bulkApproveInbox(
+        selected.map((item) => ({
+          id: item.id,
+          kind: item.kind,
+          expectedVersion: item.version,
+          workOrderId: item.workOrderId
+        })),
+        crypto.randomUUID()
+      );
+      const failed = result.results.filter((row) => !row.ok);
+      if (failed.length === 0) toast.success("Approved");
+      else toast.error(`${failed.length} of ${result.results.length} could not be approved`);
       await refresh();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Request failed"));
@@ -69,149 +127,27 @@ export default function ApprovalsInboxPage() {
   return (
     <div className="ops-page">
       <PageBreadcrumbs items={[{ label: "Approvals", href: "/approvals" }]} />
-      <ResponsivePageHeader
-        title="Pending Approvals"
-        description="Decide rule-driven approvals for work orders, retirements, and controlled exceptions."
+      <ResponsivePageHeader title="Pending Approvals" description="One inbox for requests, work, parts, and vendor documents." />
+      {error ? <ErrorState title="Could not load approvals" description={error} onRetry={() => void refresh()} /> : null}
+      <PendingApprovalsInbox
+        items={items}
+        counts={counts}
+        loading={loading}
+        tab={tab}
+        onTab={setTab}
+        search={search}
+        onSearch={setSearch}
+        priority={priority}
+        onPriority={setPriority}
+        site={site}
+        onSite={setSite}
+        from={from}
+        to={to}
+        onFrom={setFrom}
+        onTo={setTo}
+        onDecide={(item, decision, reason) => void onDecide(item, decision, reason)}
+        onBulkApprove={(selected) => void onBulkApprove(selected)}
       />
-
-      {loading ? (
-        <div className="flex min-h-40 items-center justify-center text-slate-500">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading inboxâ€¦
-        </div>
-      ) : error ? (
-        <ErrorState title="Could not load approvals" description={error ?? "Error"} onRetry={() => void refresh()} />
-      ) : items.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-200 p-8 text-center text-sm text-slate-600">
-          No pending approvals assigned to you.
-        </p>
-      ) : (
-        <>
-          <div className="grid gap-3 md:hidden">
-            {items.map((item) => (
-              <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">{item.processType.replaceAll("_", " ")}</p>
-                    <p className="text-xs text-slate-500">
-                      {item.subjectEntityType} Â· {item.subjectEntityId.slice(-6)}
-                    </p>
-                  </div>
-                  {item.overdue ? (
-                    <span className="text-xs font-medium text-red-600">Overdue</span>
-                  ) : null}
-                </div>
-                <p className="mt-2 text-xs text-slate-600">
-                  Level {item.currentLevel ?? "â€”"} Â· Requested{" "}
-                  {new Date(item.requestedAt).toLocaleString()}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Link
-                    href={`/approvals/${item.id}` as Route}
-                    className="inline-flex min-h-10 items-center rounded-lg border px-3 text-sm"
-                  >
-                    View
-                  </Link>
-                  <button
-                    type="button"
-                    className="min-h-10 rounded-lg bg-emerald-600 px-3 text-sm text-white"
-                    onClick={() => void onApprove(item.id)}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    className="min-h-10 rounded-lg border border-red-200 px-3 text-sm text-red-700"
-                    onClick={() => setRejectId(item.id)}
-                  >
-                    Reject
-                  </button>
-                </div>
-                {rejectId === item.id ? (
-                  <div className="mt-3 space-y-2">
-                    <textarea
-                      className="min-h-20 w-full rounded-lg border px-3 py-2 text-sm"
-                      placeholder="Rejection reason (required)"
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      className="min-h-10 rounded-lg bg-red-600 px-3 text-sm text-white"
-                      onClick={() => void onReject(item.id)}
-                    >
-                      Confirm reject
-                    </button>
-                  </div>
-                ) : null}
-              </article>
-            ))}
-          </div>
-
-          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-600">
-                <tr>
-                  <th className="px-3 py-2">Process</th>
-                  <th className="px-3 py-2">Subject</th>
-                  <th className="px-3 py-2">Requester</th>
-                  <th className="px-3 py-2">Due</th>
-                  <th className="px-3 py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id} className="border-t">
-                    <td className="px-3 py-2 font-medium">{item.processType.replaceAll("_", " ")}</td>
-                    <td className="px-3 py-2">
-                      {item.subjectEntityType} / {item.subjectEntityId.slice(-8)}
-                    </td>
-                    <td className="px-3 py-2">
-                      {item.requester
-                        ? `${item.requester.firstName ?? ""} ${item.requester.lastName ?? ""}`.trim()
-                        : "â€”"}
-                    </td>
-                    <td className="px-3 py-2">
-                      {item.dueAt ? new Date(item.dueAt).toLocaleString() : "â€”"}
-                      {item.overdue ? <span className="ml-2 text-red-600">Overdue</span> : null}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-wrap gap-2">
-                        <Link href={`/approvals/${item.id}` as Route} className="text-brand-700 underline">
-                          View
-                        </Link>
-                        <button type="button" className="text-emerald-700" onClick={() => void onApprove(item.id)}>
-                          Approve
-                        </button>
-                        <button type="button" className="text-red-700" onClick={() => setRejectId(item.id)}>
-                          Reject
-                        </button>
-                      </div>
-                      {rejectId === item.id ? (
-                        <div className="mt-2 flex gap-2">
-                          <input
-                            className="min-h-10 flex-1 rounded border px-2"
-                            placeholder="Rejection reason"
-                            value={rejectReason}
-                            onChange={(e) => setRejectReason(e.target.value)}
-                          />
-                          <button
-                            type="button"
-                            className="rounded bg-red-600 px-3 text-white"
-                            onClick={() => void onReject(item.id)}
-                          >
-                            Confirm
-                          </button>
-                        </div>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
     </div>
   );
 }
-

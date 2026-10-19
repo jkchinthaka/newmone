@@ -48,6 +48,14 @@ describe("work-order-create-hci domain correctness", () => {
     });
     assert.equal(withEntity, "Packing Machine 03 — bearing making loud noise");
     assert.equal(
+      suggestWorkOrderTitle({
+        description: "Packing Machine 03 bearing noise",
+        entityLabel: "Packing Machine 03"
+      }),
+      "Packing Machine 03 bearing noise"
+    );
+    assert.equal(suggestWorkOrderTitle({ description: "x".repeat(90), maxLength: 20 }).includes("…"), false);
+    assert.equal(
       suggestWorkOrderTitle({ description: "Brake noise on morning route" }),
       "Brake noise on morning route"
     );

@@ -119,6 +119,29 @@ export class WorkOrderActivityService {
       throw new NotFoundException("Work order not found");
     }
 
-    return buildWorkOrderActivityTimeline(workOrder);
+    const history = await this.prisma.workOrderStatusHistory.findMany({
+      where: { workOrderId, tenantId: tenantId ?? "__mp003_no_tenant_match__" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, action: true, createdAt: true, actorId: true, reason: true }
+    });
+    const actorIds = [...new Set(history.map((row) => row.actorId).filter((id): id is string => Boolean(id)))];
+    const actors = actorIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: actorIds } },
+          select: { id: true, firstName: true, lastName: true }
+        })
+      : [];
+    const names = new Map(actors.map((user) => [user.id, `${user.firstName} ${user.lastName}`.trim()]));
+
+    return buildWorkOrderActivityTimeline({
+      ...workOrder,
+      statusEvents: history.map((row) => ({
+        id: row.id,
+        action: row.action,
+        createdAt: row.createdAt,
+        actorName: row.actorId ? names.get(row.actorId) ?? null : null,
+        reason: row.reason
+      }))
+    });
   }
 }

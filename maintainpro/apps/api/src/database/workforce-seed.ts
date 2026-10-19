@@ -141,6 +141,7 @@ export async function upsertLinkedWorkforceEmployee(
   };
 
   if (existing) {
+    // Do not overwrite availability. Blank legacy rows need a separately approved correction.
     return prisma.employee.update({
       where: { id: existing.id },
       data
@@ -150,6 +151,8 @@ export async function upsertLinkedWorkforceEmployee(
   return prisma.employee.create({
     data: {
       tenantId: input.tenantId,
+      availabilityStatus: "AVAILABLE",
+      canReceiveWorkOrders: true,
       ...data
     } as Prisma.EmployeeUncheckedCreateInput
   });
@@ -185,6 +188,8 @@ export async function upsertWorkforceOnlyEmployee(
   return prisma.employee.create({
     data: {
       tenantId: input.tenantId,
+      availabilityStatus: "AVAILABLE",
+      canReceiveWorkOrders: true,
       ...data
     } as Prisma.EmployeeUncheckedCreateInput
   });

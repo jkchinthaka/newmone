@@ -1,4 +1,7 @@
-import { Injectable } from "@nestjs/common";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 import {
@@ -21,7 +24,7 @@ export type EvidenceProviderUploadRequestInput = {
 
 export type EvidenceProviderUploadRequestOutput = {
   ok: boolean;
-  uploadMethod: "mock" | "presigned";
+  uploadMethod: "mock" | "presigned" | "direct";
   uploadUrl: string | null;
   expiresAt: string | null;
   message: string;
@@ -40,7 +43,7 @@ export class EvidenceStorageProviderService {
     );
     const missingKeys = this.missingProviderKeys(mode);
 
-    if (mode === "disabled" || mode === "local") {
+    if (mode === "disabled") {
       return this.finalizeReadiness({
         providerId: "EVIDENCE_OBJECT_STORAGE",
         mode,
@@ -48,11 +51,25 @@ export class EvidenceStorageProviderService {
         uploadsEnabled,
         maxFileSizeMb,
         allowedMimeTypes,
-        message:
-          mode === "local"
-            ? "Evidence uploads require a dedicated storage mode (mock, minio, s3, cloudinary, azure_blob)."
-            : "Evidence storage uploads are disabled by STORAGE_MODE=disabled.",
-        missingKeys: mode === "local" ? ["STORAGE_MODE"] : []
+        message: "Evidence storage uploads are disabled by STORAGE_MODE=disabled.",
+        missingKeys: []
+      });
+    }
+
+    if (mode === "local") {
+      return this.localReadiness({ uploadsEnabled, maxFileSizeMb, allowedMimeTypes });
+    }
+
+    if (mode === "mock") {
+      return this.finalizeReadiness({
+        providerId: "EVIDENCE_OBJECT_STORAGE",
+        mode,
+        state: "disabled",
+        uploadsEnabled: false,
+        maxFileSizeMb,
+        allowedMimeTypes,
+        message: "Mock evidence storage does not store file bytes. Use STORAGE_MODE=local with STORAGE_LOCAL_ROOT for isolated development.",
+        missingKeys: ["STORAGE_MODE"]
       });
     }
 
@@ -66,22 +83,6 @@ export class EvidenceStorageProviderService {
         allowedMimeTypes,
         message: "Evidence uploads are disabled. Set STORAGE_UPLOADS_ENABLED=true after provider sign-off.",
         missingKeys: ["STORAGE_UPLOADS_ENABLED"]
-      });
-    }
-
-    if (mode === "mock") {
-      const blockedInProduction = this.isProduction() && !this.isMockAllowed();
-      return this.finalizeReadiness({
-        providerId: "EVIDENCE_OBJECT_STORAGE",
-        mode,
-        state: blockedInProduction ? "misconfigured" : "configured",
-        uploadsEnabled,
-        maxFileSizeMb,
-        allowedMimeTypes,
-        message: blockedInProduction
-          ? "Mock evidence uploads are blocked in production unless explicitly allowed."
-          : "Mock evidence storage is enabled for metadata-only upload UAT.",
-        missingKeys: []
       });
     }
 
@@ -114,11 +115,68 @@ export class EvidenceStorageProviderService {
     return this.finalizeReadiness({
       providerId: "EVIDENCE_OBJECT_STORAGE",
       mode,
-      state: "configured",
+      state: "misconfigured",
       uploadsEnabled,
       maxFileSizeMb,
       allowedMimeTypes,
-      message: `${mode} evidence storage is configured; presigned upload UAT still required before live bytes transfer.`,
+      message: `${mode} credentials are present, but live byte transfer is not implemented. Uploads stay disabled.`,
+      missingKeys: []
+    });
+  }
+
+  private localReadiness(input: {
+    uploadsEnabled: boolean;
+    maxFileSizeMb: number;
+    allowedMimeTypes: string[];
+  }): EvidenceStorageReadiness {
+    if (this.isProduction()) {
+      return this.finalizeReadiness({
+        providerId: "EVIDENCE_OBJECT_STORAGE",
+        mode: "local",
+        state: "misconfigured",
+        uploadsEnabled: input.uploadsEnabled,
+        maxFileSizeMb: input.maxFileSizeMb,
+        allowedMimeTypes: input.allowedMimeTypes,
+        message: "Local file storage is not available in production. Configure MinIO or S3 before enabling uploads.",
+        missingKeys: ["STORAGE_MODE"]
+      });
+    }
+
+    if (!input.uploadsEnabled) {
+      return this.finalizeReadiness({
+        providerId: "EVIDENCE_OBJECT_STORAGE",
+        mode: "local",
+        state: "disabled",
+        uploadsEnabled: false,
+        maxFileSizeMb: input.maxFileSizeMb,
+        allowedMimeTypes: input.allowedMimeTypes,
+        message: "Evidence uploads are disabled. Set STORAGE_UPLOADS_ENABLED=true and STORAGE_LOCAL_ROOT for isolated development.",
+        missingKeys: ["STORAGE_UPLOADS_ENABLED"]
+      });
+    }
+
+    const root = this.configuredLocalRoot();
+    if (!root) {
+      return this.finalizeReadiness({
+        providerId: "EVIDENCE_OBJECT_STORAGE",
+        mode: "local",
+        state: "misconfigured",
+        uploadsEnabled: true,
+        maxFileSizeMb: input.maxFileSizeMb,
+        allowedMimeTypes: input.allowedMimeTypes,
+        message: "Local evidence storage needs STORAGE_LOCAL_ROOT, a private directory outside the repository.",
+        missingKeys: ["STORAGE_LOCAL_ROOT"]
+      });
+    }
+
+    return this.finalizeReadiness({
+      providerId: "EVIDENCE_OBJECT_STORAGE",
+      mode: "local",
+      state: "configured",
+      uploadsEnabled: true,
+      maxFileSizeMb: input.maxFileSizeMb,
+      allowedMimeTypes: input.allowedMimeTypes,
+      message: "Local private file storage is ready.",
       missingKeys: []
     });
   }
@@ -157,14 +215,13 @@ export class EvidenceStorageProviderService {
       };
     }
 
-    if (readiness.mode === "mock") {
+    if (readiness.mode === "local") {
       return {
         ok: true,
-        uploadMethod: "mock",
+        uploadMethod: "direct",
         uploadUrl: null,
         expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-        message:
-          "Mock upload request accepted. Confirm upload after client-side validation; no external storage call is made."
+        message: "Send the file bytes to the evidence content endpoint, then confirm after storage verification."
       };
     }
 
@@ -176,6 +233,20 @@ export class EvidenceStorageProviderService {
       message:
         "Provider credentials are present, but live presigned upload is not enabled in this foundation release. Use mock mode for UAT."
     };
+  }
+
+  async putObject(storageKey: string, bytes: Buffer): Promise<void> {
+    const absolute = this.resolveObjectPath(storageKey);
+    await mkdir(path.dirname(absolute), { recursive: true });
+    await writeFile(absolute, bytes);
+  }
+
+  async readObject(storageKey: string): Promise<Buffer> {
+    return readFile(this.resolveObjectPath(storageKey));
+  }
+
+  async deleteObject(storageKey: string): Promise<void> {
+    await rm(this.resolveObjectPath(storageKey), { force: true });
   }
 
   getDownloadUrl(): { ok: false; url: null; message: string } {
@@ -207,6 +278,28 @@ export class EvidenceStorageProviderService {
       mode: readiness.mode,
       message: readiness.message
     };
+  }
+
+  private configuredLocalRoot(): string | null {
+    const value = this.configService.get<string>("STORAGE_LOCAL_ROOT", "").trim();
+    return value ? path.resolve(value) : null;
+  }
+
+  private resolveObjectPath(storageKey: string): string {
+    const root = this.configuredLocalRoot();
+    if (!root) {
+      throw new BadRequestException("Local evidence storage is not configured.");
+    }
+    const normalized = storageKey.replace(/\\/g, "/");
+    if (!normalized.startsWith("evidence/") || normalized.split("/").some((segment) => segment === ".." || segment === "")) {
+      throw new BadRequestException("Evidence path is not allowed.");
+    }
+    const absolute = path.resolve(root, ...normalized.split("/"));
+    const relative = path.relative(root, absolute);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+      throw new BadRequestException("Evidence path is not allowed.");
+    }
+    return absolute;
   }
 
   private resolveMode(): EvidenceStorageMode {

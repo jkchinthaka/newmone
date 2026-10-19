@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from "@/components/forms/date-fields";
 import {
   Bar,
   BarChart,
@@ -68,22 +69,12 @@ export function AnalyticsCharts({ analytics, bills, meters, filters, onFiltersCh
         <div className="flex flex-wrap items-center gap-3">
           <label className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
             Start
-            <input
-              type="date"
-              value={filters.startDate}
-              onChange={(event) => onFiltersChange({ ...filters, startDate: event.target.value })}
-              className="ml-2 rounded-lg border border-slate-200 px-2 py-1 text-sm text-slate-700"
-            />
+            <DateField bare label="Start" value={filters.startDate} onChange={(startDate) => onFiltersChange({ ...filters, startDate })} />
           </label>
 
           <label className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
             End
-            <input
-              type="date"
-              value={filters.endDate}
-              onChange={(event) => onFiltersChange({ ...filters, endDate: event.target.value })}
-              className="ml-2 rounded-lg border border-slate-200 px-2 py-1 text-sm text-slate-700"
-            />
+            <DateField bare label="End" value={filters.endDate} onChange={(endDate) => onFiltersChange({ ...filters, endDate })} />
           </label>
 
           <label className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">

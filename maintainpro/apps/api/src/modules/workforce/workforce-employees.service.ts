@@ -7,6 +7,7 @@ import { RoleName, TenantMembershipRole } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 
+import { workforceMasterAvailability } from "../../common/utils/workforce-availability";
 import {
   isAssignableWorkforceDesignation,
   matchesWorkforceDesignation
@@ -283,6 +284,8 @@ export class WorkforceEmployeesService {
         dailyCapacityHours,
         active: input.active !== false,
         canLogin,
+        canReceiveWorkOrders: input.canReceiveWorkOrders ?? true,
+        availabilityStatus: workforceMasterAvailability(input.availabilityStatus),
         linkedUserId
       },
       include: {
@@ -466,5 +469,56 @@ export class WorkforceEmployeesService {
     }
 
     return null;
+  }
+
+  /**
+   * Assignment boundary. Inactive, non-receiving, unknown, and unavailable employees are rejected.
+   * Approved-leave override stays in workforce planning and is not granted here.
+   */
+  async assertEligibleForAssignment(
+    employeeId: string,
+    tenantId: string | null | undefined,
+    designation?: string | null
+  ) {
+    const employee = await this.resolveAssignableEmployee(employeeId, tenantId);
+    if (!employee) {
+      const scopedWhere = tenantId !== undefined && tenantId !== null ? { tenantId } : {};
+      const inactive = await this.prisma.employee.findFirst({
+        where: { OR: [{ id: employeeId }, { linkedUserId: employeeId }], ...scopedWhere },
+        select: { active: true, tenantId: true }
+      });
+      if (inactive && !inactive.active) {
+        throw new BadRequestException("Inactive employees cannot be assigned");
+      }
+      throw new NotFoundException("Employee not found");
+    }
+
+    if (employee.canReceiveWorkOrders !== true) {
+      throw new BadRequestException("Employee cannot receive work orders");
+    }
+
+    const availability = String(employee.availabilityStatus ?? "").trim().toUpperCase();
+    if (availability !== "AVAILABLE" && availability !== "ON_LEAVE") {
+      throw new BadRequestException(
+        availability
+          ? `Employee is not available for assignment (${availability}).`
+          : "Employee availability is unknown and cannot be assigned."
+      );
+    }
+
+    if (designation?.trim()) {
+      const matches = matchesWorkforceDesignation(
+        { designation: employee.designation, roleName: employee.linkedUser?.role?.name },
+        designation
+      );
+      if (!matches) {
+        const shown = employee.designation?.trim() || employee.linkedUser?.role?.name || "unspecified";
+        throw new BadRequestException(
+          `Employee designation "${shown}" does not match required "${designation.trim()}"`
+        );
+      }
+    }
+
+    return employee;
   }
 }

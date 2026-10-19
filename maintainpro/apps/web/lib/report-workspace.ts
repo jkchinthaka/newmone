@@ -98,8 +98,17 @@ export function reportModuleFromSearch(
   return visible[0]?.slug ?? "operations";
 }
 
-export function reportModuleHref(slug: RetainedReportSlug): string {
-  return `/reports?module=${slug}`;
+export function reportModuleHref(
+  slug: RetainedReportSlug,
+  focus?: { search?: string; status?: string; category?: string; from?: string; to?: string }
+): string {
+  const params = new URLSearchParams({ module: slug });
+  if (focus?.search) params.set("search", focus.search);
+  if (focus?.status) params.set("status", focus.status);
+  if (focus?.category) params.set("category", focus.category);
+  if (focus?.from) params.set("from", focus.from);
+  if (focus?.to) params.set("to", focus.to);
+  return `/reports?${params.toString()}`;
 }
 
 export function reportRowHref(row: Record<string, string | number | null>): string | null {

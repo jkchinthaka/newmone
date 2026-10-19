@@ -4,7 +4,6 @@ import { EvidenceAttachmentStatus } from "@prisma/client";
 import { EvidenceService } from "../src/modules/evidence/evidence.service";
 import { EvidenceStorageProviderService } from "../src/modules/evidence/evidence-storage-provider.service";
 import {
-  publicEvidenceAttachmentHasSensitiveFields,
   sanitizeEvidenceFileName,
   validateEvidenceUploadInput
 } from "../src/modules/evidence/evidence-storage.mapper";
@@ -62,8 +61,9 @@ describe("work order evidence storage", () => {
     const provider = new EvidenceStorageProviderService(
       configService({
         NODE_ENV: "development",
-        STORAGE_MODE: "mock",
-        STORAGE_UPLOADS_ENABLED: true
+        STORAGE_MODE: "local",
+        STORAGE_UPLOADS_ENABLED: true,
+        STORAGE_LOCAL_ROOT: "C:\\MaintainPro\\evidence-objects"
       })
     );
     const prisma = {
@@ -88,12 +88,13 @@ describe("work order evidence storage", () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it("creates metadata-only mock upload and confirm flow without storageKey in public DTO", async () => {
+  it("rejects confirmation when no file bytes were stored", async () => {
     const provider = new EvidenceStorageProviderService(
       configService({
         NODE_ENV: "development",
-        STORAGE_MODE: "mock",
-        STORAGE_UPLOADS_ENABLED: true
+        STORAGE_MODE: "local",
+        STORAGE_UPLOADS_ENABLED: true,
+        STORAGE_LOCAL_ROOT: "C:\\MaintainPro\\evidence-objects"
       })
     );
     const prisma = {
@@ -159,17 +160,22 @@ describe("work order evidence storage", () => {
     });
 
     const confirm = await service.confirmWorkOrderUpload("wo-1", { attachmentId: "ev-1" }, actor);
-    expect(confirm.ok).toBe(true);
-    expect(confirm.attachment?.status).toBe("UPLOADED");
-    expect(publicEvidenceAttachmentHasSensitiveFields(confirm.attachment)).toBe(false);
+    expect(confirm.ok).toBe(false);
+    expect(confirm.status).toBe("failed");
+    expect(prisma.evidenceAttachment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: EvidenceAttachmentStatus.FAILED })
+      })
+    );
   });
 
   it("rejects oversized files before creating metadata", async () => {
     const provider = new EvidenceStorageProviderService(
       configService({
         NODE_ENV: "development",
-        STORAGE_MODE: "mock",
+        STORAGE_MODE: "local",
         STORAGE_UPLOADS_ENABLED: true,
+        STORAGE_LOCAL_ROOT: "C:\\MaintainPro\\evidence-objects",
         STORAGE_MAX_FILE_SIZE_MB: 1
       })
     );

@@ -59,6 +59,11 @@ jobs:
         env:
           CI: true
 
+      - name: Web unit tests
+        run: npm run test --workspace @maintainpro/web
+        env:
+          CI: true
+
       - name: Security-sensitive Jest suites
         run: npx jest --config ./jest.config.cjs --runInBand test/sensitive-data-hardening.spec.ts test/security-rbac-audit.spec.ts test/work-orders-tenant-isolation.spec.ts test/users-tenant-isolation.spec.ts
         working-directory: maintainpro/apps/api

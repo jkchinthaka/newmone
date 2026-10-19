@@ -17,6 +17,8 @@ export type AuditTrailInput = {
   metadata?: Prisma.InputJsonValue;
   beforeData?: Prisma.InputJsonValue;
   afterData?: Prisma.InputJsonValue;
+  /** Target tenant when the audited row has no tenant column of its own. */
+  tenantId?: string | null;
   overrideFlag?: boolean;
   overrideType?: string;
   riskSeverity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -35,7 +37,10 @@ export function resolveAuditSource(requestPath?: string | null): AuditSource {
  * Standard audit writer for sensitive actions.
  * See docs/go-live/audit-trail-standard.md for field contract.
  */
-export async function writeAuditTrail(prisma: PrismaService, payload: AuditTrailInput) {
+export async function writeAuditTrail(
+  prisma: Pick<PrismaService, "auditLog">,
+  payload: AuditTrailInput
+) {
   const ctx = requestContext.get();
   const actorId = payload.actor?.sub ?? ctx?.actorId ?? null;
   const actorEmail = payload.actor?.email ?? ctx?.actorEmail ?? null;
@@ -53,7 +58,7 @@ export async function writeAuditTrail(prisma: PrismaService, payload: AuditTrail
 
   await prisma.auditLog.create({
     data: {
-      tenantId: payload.actor?.tenantId ?? ctx?.tenantId ?? null,
+      tenantId: payload.tenantId ?? payload.actor?.tenantId ?? ctx?.tenantId ?? null,
       actorId,
       module: payload.module,
       entity: payload.entity,
