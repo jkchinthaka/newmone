@@ -150,3 +150,7 @@ Status: NOT STARTED. Stop before any commit.
 ## Pre go-live sweep 2026-10-19
 
 Phase 0: PR #76 merged. PR #77 open; full-stack-e2e failed on mobile-smoke (hidden desktop row). Fix branch `fix/sweep-mobile-queue-open`. PR #82 diagnostics is open into release. Phases 1–7 not started.
+
+## Full-stack e2e fix 2026-10-19
+
+Branch `fix/sweep-e2e-tenant`. Local `npm run test:e2e:full-stack` against the rebuilt stack on 127.0.0.1:18080: 128 passed. Jest `workforce-employees.spec.ts` 17 passed. Jest `work-order-evidence-governance.spec.ts` 10 passed. qa-reviewer could not be started (billing). `fix/sweep-approvals` stays unpushed.

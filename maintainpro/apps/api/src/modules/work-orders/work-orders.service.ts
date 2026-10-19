@@ -65,6 +65,7 @@ import {
 import {
   assertEvidenceForSupervisorVerification,
   assertEvidenceForTechnicianCompletion,
+  isStorageUploadsEnabled,
   requiresQrVerification
 } from "../../common/utils/work-order-evidence-governance";
 import { canOverrideCompletionBlock } from "../../common/utils/work-order-evidence-rbac";
@@ -137,7 +138,10 @@ export class WorkOrdersService {
   private readonly financeApprovalThreshold = Number(process.env.PHASE3_FINANCE_THRESHOLD ?? 5000);
 
   private resolveTenantId(actor?: Actor): string {
-    return requireTenantId(actor?.tenantId);
+    // TenantContextGuard stores the membership-checked tenant on the request.
+    // A controller-level JwtAuthGuard then replaces req.user, so actor.tenantId
+    // can still be the home tenant. Prefer the guard-resolved request tenant.
+    return requireTenantId(requestContext.getTenantId() ?? actor?.tenantId);
   }
 
   private async recordAudit(payload: {
@@ -2255,7 +2259,7 @@ export class WorkOrdersService {
         const evidenceCount = await this.prisma.evidenceAttachment.count({
           where: { workOrderId: id, status: "UPLOADED" }
         });
-        const storageEnabled = /^(1|true|yes)$/i.test((process.env.STORAGE_UPLOADS_ENABLED ?? "").trim());
+        const storageEnabled = isStorageUploadsEnabled();
         const isProduction = String(process.env.NODE_ENV ?? "").toLowerCase() === "production";
         if (!storageEnabled && isProduction) {
           throw new BadRequestException(
