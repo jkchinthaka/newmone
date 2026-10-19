@@ -334,6 +334,20 @@ jobs:
           SKIP_E2E_SEED: "true"
           MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
 
+      - name: Release-candidate behavior gate
+        run: |
+          set -euo pipefail
+          mkdir -p ../../artifacts/e2e-logs
+          npx playwright test e2e-real/release-candidate.spec.ts \
+            --config=playwright.full-stack.config.ts \
+            --project=chromium-desktop \
+            --project=mobile-smoke \
+            | tee ../../artifacts/e2e-logs/release-candidate-behavior-gate.txt
+        working-directory: maintainpro/apps/web
+        env:
+          SKIP_E2E_SEED: "true"
+          MAINTAINPRO_E2E_ENV_FILE: ${{ github.workspace }}/maintainpro/.env.e2e
+
       - name: Release-candidate auth stability gate
         run: |
           set -euo pipefail

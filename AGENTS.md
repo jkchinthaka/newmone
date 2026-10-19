@@ -11,6 +11,21 @@ for every agent:
    on the working branch.
 3. Follow the Git policy below. Never write secrets into these files.
 
+## Run the current project
+
+When the user says "Run this project", "Start MaintainPro", "Open localhost", or "Run current project":
+
+- Run `node maintainpro/scripts/start-current.mjs` from the canonical release worktree recorded in `maintainpro/scripts/canonical-project.json`. From the maintainpro directory, `npm run dev:current` does the same thing.
+- Do not run `npm run dev` from an unknown directory.
+- Do not open an existing localhost server until its `/dev/identity` worktree id, branch, and SHA match that worktree.
+- Port 3001 belonging to another checkout is not the current app.
+
+Fallback from any directory:
+
+```powershell
+node C:\Users\chint\AppData\Local\MaintainPro\worktrees\release-final-20261013\maintainpro\scripts\start-current.mjs
+```
+
 ## Git policy (single source of truth)
 
 This section is the only authoritative rule for commit, push, and merge behavior. `CLAUDE.md`,
