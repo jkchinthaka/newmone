@@ -11,7 +11,7 @@ import {
 import { calculateSlaRisk } from "../../common/utils/work-order-validation";
 import { matchesWorkforceDesignation, resolveEffectiveDesignation } from "../../common/utils/workforce-designation";
 import { PrismaService } from "../../database/prisma.service";
-import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { requireTenantId, tenantWhere } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
@@ -154,7 +154,7 @@ export class WorkforcePlanningService {
         active: true,
         canReceiveWorkOrders: true,
         availabilityStatus: EmployeeAvailabilityStatus.AVAILABLE,
-        ...(tenantId !== undefined && tenantId !== null ? { tenantId } : {})
+        ...(tenantWhere(tenantId)),
       },
       select: {
         id: true,

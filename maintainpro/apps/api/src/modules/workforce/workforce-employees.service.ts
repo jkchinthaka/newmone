@@ -15,6 +15,7 @@ import {
 import { stringArrayToText, toStringArray } from "../../common/utils/json-text";
 import { syncUserSkills } from "../../common/utils/user-skills.util";
 import { PrismaService } from "../../database/prisma.service";
+import { tenantWhere } from "../../common/utils/tenant-scope.util";
 import type { CreateWorkforceEmployeeDto, UpdateWorkforceEmployeeDto } from "./dto/workforce-employee.dto";
 
 function designationToRoleName(designation: string): RoleName {
@@ -118,7 +119,7 @@ export class WorkforceEmployeesService {
 
     const rows = await this.prisma.employee.findMany({
       where: {
-        ...(tenantId !== undefined && tenantId !== null ? { tenantId } : {}),
+        ...tenantWhere(tenantId),
         ...(filters.active !== undefined ? { active: filters.active } : {}),
         ...(filters.departmentId?.trim() ? { departmentId: filters.departmentId.trim() } : {}),
         ...(filters.branchName?.trim()
@@ -159,7 +160,7 @@ export class WorkforceEmployeesService {
     const employee = await this.prisma.employee.findFirst({
       where: {
         id,
-        ...(tenantId !== undefined && tenantId !== null ? { tenantId } : {})
+        ...tenantWhere(tenantId)
       },
       include: {
         department: { select: { id: true, name: true, code: true } },
@@ -441,8 +442,7 @@ export class WorkforceEmployeesService {
    * Resolve workforce employee by Employee id, with legacy fallback when assignee rows still store User ids.
    */
   async resolveAssignableEmployee(employeeId: string, tenantId?: string | null) {
-    const scopedWhere =
-      tenantId !== undefined && tenantId !== null ? { tenantId } : {};
+    const scopedWhere = tenantWhere(tenantId);
 
     const direct = await this.prisma.employee.findFirst({
       where: { id: employeeId, active: true, ...scopedWhere },
@@ -457,14 +457,14 @@ export class WorkforceEmployeesService {
     }
 
     const linked = await this.prisma.employee.findFirst({
-      where: { linkedUserId: employeeId },
+      where: { linkedUserId: employeeId, ...scopedWhere },
       include: {
         linkedUser: { select: { id: true, role: { select: { name: true } } } },
         department: { select: { id: true, name: true, code: true } }
       }
     });
 
-    if (linked?.active && (tenantId === undefined || tenantId === null || linked.tenantId === tenantId)) {
+    if (linked?.active) {
       return linked;
     }
 
@@ -482,9 +482,8 @@ export class WorkforceEmployeesService {
   ) {
     const employee = await this.resolveAssignableEmployee(employeeId, tenantId);
     if (!employee) {
-      const scopedWhere = tenantId !== undefined && tenantId !== null ? { tenantId } : {};
       const inactive = await this.prisma.employee.findFirst({
-        where: { OR: [{ id: employeeId }, { linkedUserId: employeeId }], ...scopedWhere },
+        where: { OR: [{ id: employeeId }, { linkedUserId: employeeId }], ...tenantWhere(tenantId) },
         select: { active: true, tenantId: true }
       });
       if (inactive && !inactive.active) {

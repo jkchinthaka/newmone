@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { RoleName } from "@prisma/client";
 
 import {
@@ -270,5 +270,31 @@ describe("ForbiddenException for unauthorized override", () => {
     expect(new ForbiddenException("Leave override requires manager permission")).toBeInstanceOf(
       ForbiddenException
     );
+  });
+});
+
+describe("WorkforceEmployeesService.findOne tenant isolation", () => {
+  function buildService() {
+    const prisma = { employee: { findFirst: jest.fn() } };
+    const service = new WorkforceEmployeesService(prisma as never);
+    return { service, prisma };
+  }
+
+  it("scopes GET by id to the caller tenant and returns 404 when that tenant does not own the row", async () => {
+    const { service, prisma } = buildService();
+    prisma.employee.findFirst.mockResolvedValue(null);
+    await expect(service.findOne("tenant-b", "employee-a")).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.employee.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "employee-a", tenantId: "tenant-b" })
+      })
+    );
+  });
+
+  it("does not query when tenant context is missing", async () => {
+    const { service, prisma } = buildService();
+    prisma.employee.findFirst.mockResolvedValue({ id: "employee-a", tenantId: "tenant-a" });
+    await expect(service.findOne(null, "employee-a")).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.employee.findFirst).not.toHaveBeenCalled();
   });
 });

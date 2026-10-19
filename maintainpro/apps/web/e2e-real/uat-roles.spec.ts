@@ -168,6 +168,22 @@ test.describe("role UAT @full-stack", () => {
         return `HTTP ${response.status()}`;
       });
     }
+    // A missing before-photo records a step failure but leaves the labour
+    // session open. Release it so later lifecycle starts are not blocked.
+    const afterTech = await authenticatedGet(page, `/api/backend/work-orders/${workOrderId}`);
+    const afterBody = await afterTech.json();
+    const afterStatus = String((afterBody.data || afterBody).status || "");
+    if (afterStatus === "IN_PROGRESS") {
+      const version = Number((afterBody.data || afterBody).version);
+      const release = await authenticatedPost(page, `/api/backend/work-orders/${workOrderId}/hold`, {
+        data: {
+          holdReasonCode: "OTHER",
+          notes: "UAT release open labour session",
+          expectedVersion: version
+        }
+      });
+      expect(release.status()).toBeLessThan(300);
+    }
     await step("TECHNICIAN", "denied finance approve", "API rejects", async () => {
       const code = await statusOf(page, "/api/backend/purchase-orders/missing/approve-finance", {});
       if (code < 400) throw new Error(`HTTP ${code}`);
