@@ -75,3 +75,99 @@ The API sets `server.keepAliveTimeout = 65000` and `server.headersTimeout = 6600
 - The Next.js route handler reads the full request body with no limit of its own, so local and self-hosted deployments accept evidence uploads up to `STORAGE_MAX_FILE_SIZE_MB`. The API (multer) enforces that limit and returns 413.
 - nginx: `client_max_body_size` must be at least `STORAGE_MAX_FILE_SIZE_MB`.
 - **Vercel serverless functions reject request bodies above about 4.5 MB.** Vercel is a retired target. If it is ever used again, larger evidence uploads will fail there before they reach the API.
+
+## Client IP for BFF throttling (X-Real-IP)
+
+The API keys login/refresh at 5 requests per minute and other routes at 100 per minute with `resolveTrustedClientIp`. The Next.js BFF forwards `X-Real-IP` only when the incoming request already has a single valid value. It does not read `X-Forwarded-For`.
+
+Without a reverse proxy, every browser is seen as the BFF's loopback peer and shares the `127.0.0.1` bucket. The proxy in front of the web process must set `X-Real-IP` to that connection's client address, one IP, with no comma-separated list.
+
+Do not point `X-Real-IP` at `{HTTP_X_FORWARDED_FOR}` or `$proxy_add_x_forwarded_for`. Those values can be client-supplied. ARR's "Enable X-Forwarded-For" does not satisfy this, because the BFF ignores that header.
+
+The API honors `X-Real-IP` only when the TCP peer is a private hop (`127.0.0.1`, `::1`, or RFC1918). The Next.js process on the same host meets that condition.
+
+### nginx
+
+This is the web-facing server block from `maintainpro/infra/nginx/default.conf`. Both the BFF location and the page location set `X-Real-IP` to `$remote_addr`.
+
+```nginx
+upstream maintainpro_web {
+  server web:3001;
+}
+
+upstream maintainpro_api {
+  server api:3000;
+}
+
+map $http_x_request_id $maintainpro_request_id {
+  ""      $request_id;
+  default $http_x_request_id;
+}
+
+server {
+  listen 80;
+  server_name _;
+
+  location ^~ /api/backend/ {
+    proxy_pass http://maintainpro_web;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Request-Id $maintainpro_request_id;
+    proxy_buffer_size 32k;
+    proxy_buffers 8 32k;
+    proxy_busy_buffers_size 64k;
+  }
+
+  location / {
+    proxy_pass http://maintainpro_web;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Request-Id $maintainpro_request_id;
+  }
+}
+```
+
+`$remote_addr` is the address nginx accepted. Replace `web:3001` with the Next.js listen address (local go-live web is `127.0.0.1:3041`).
+
+### IIS ARR and URL Rewrite
+
+Allow the server variable once, at the server level. URL Rewrite rejects `HTTP_X_REAL_IP` until it is listed. In `applicationHost.config` (IIS Manager: server node → URL Rewrite → View Server Variables → Add):
+
+```xml
+<system.webServer>
+  <rewrite>
+    <allowedServerVariables>
+      <add name="HTTP_X_REAL_IP" />
+    </allowedServerVariables>
+  </rewrite>
+</system.webServer>
+```
+
+Site `web.config`. `{REMOTE_ADDR}` is the TCP client of the IIS connection. `HTTP_X_REAL_IP` is sent to Next.js as the `X-Real-IP` header. The rewrite target is the Next.js site, not the API, because the browser talks to the BFF.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <system.webServer>
+    <rewrite>
+      <rules>
+        <rule name="MaintainPro client IP" stopProcessing="true">
+          <match url="(.*)" />
+          <serverVariables>
+            <set name="HTTP_X_REAL_IP" value="{REMOTE_ADDR}" />
+          </serverVariables>
+          <action type="Rewrite" url="http://127.0.0.1:3041/{R:1}" />
+        </rule>
+      </rules>
+    </rewrite>
+  </system.webServer>
+</configuration>
+```
+
+ARR must be installed and the proxy enabled (`appcmd set config -section:system.webServer/proxy /enabled:true`). Leave ARR's X-Forwarded-For option off for throttle identity; this rule is the header the BFF forwards.
