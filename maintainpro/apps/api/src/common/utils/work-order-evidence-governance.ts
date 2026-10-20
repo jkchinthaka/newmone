@@ -33,7 +33,14 @@ export function requiresQrVerification(type: WorkOrderType, assetId?: string | n
 }
 
 export function isStorageUploadsEnabled(): boolean {
-  return /^(1|true|yes)$/i.test((process.env.STORAGE_UPLOADS_ENABLED ?? "").trim());
+  const enabled = /^(1|true|yes)$/i.test((process.env.STORAGE_UPLOADS_ENABLED ?? "").trim());
+  if (!enabled) return false;
+  const mode = (process.env.STORAGE_MODE ?? "").trim().toLowerCase();
+  // MinIO and S3 credentials can be present while live byte transfer is still
+  // unimplemented. Treat those modes as uploads disabled so completion is not
+  // blocked on photos the provider refuses to store.
+  if (mode === "minio" || mode === "s3") return false;
+  return true;
 }
 
 export function evaluateEvidenceRequirements(

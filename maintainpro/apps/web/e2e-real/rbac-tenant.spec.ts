@@ -41,17 +41,35 @@ test.describe("E2E RBAC and tenant isolation @full-stack @tenant @security", () 
     expect(me.status()).toBe(200);
     const meBody = await me.json();
     const memberships = meBody.data?.memberships || meBody.memberships || [];
+    const activeBefore = String(
+      meBody.data?.activeTenant?.id || meBody.activeTenant?.id || ""
+    );
     const other = memberships.find((m: { tenantSlug?: string }) =>
       String(m.tenantSlug || "").startsWith("e2e-b-")
     );
     test.skip(!other?.tenantId, "Tenant B membership not present for admin-a — product/seed gap");
     const cookies = await readCookieMap(page);
-    const csrf = cookies.get("maintainpro_csrf")?.value;
+    const token = cookies.get("maintainpro_csrf")?.value;
+    expect(token).toBeTruthy();
+    if (!token) {
+      throw new Error("missing csrf token");
+    }
+    const csrfToken: string = token;
+    const headers: Record<string, string> = { "x-csrf-token": csrfToken };
     const response = await page.request.post(`/api/backend/tenants/${other.tenantId}/switch`, {
-      headers: csrf ? { "x-csrf-token": csrf } : {}
+      headers
     });
     expect([200, 201]).toContain(response.status());
     const json = await response.json();
     expect(JSON.stringify(json)).not.toMatch(/"accessToken"\s*:/);
+
+    // switchTenant persists User.tenantId. Put admin-a back so later tests
+    // are not scoped to tenant B.
+    if (activeBefore && activeBefore !== other.tenantId) {
+      const restore = await page.request.post(`/api/backend/tenants/${activeBefore}/switch`, {
+        headers
+      });
+      expect([200, 201]).toContain(restore.status());
+    }
   });
 });

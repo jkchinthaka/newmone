@@ -15,6 +15,7 @@ import { requestContext } from "../src/common/context/request-context";
 import { syncUserSkills, syncUserSkillsTx } from "../src/common/utils/user-skills.util";
 import { PrismaService } from "../src/database/prisma.service";
 import { RolesService } from "../src/modules/roles/roles.service";
+import { deleteDisposableTenants } from "./disposable-tenant-cleanup";
 
 function databaseName(url: string): string {
   const match = url.match(/(?:database|initial catalog)\s*=\s*([^;]+)/i);
@@ -32,6 +33,7 @@ const describeIfDisposable = usable ? describe : describe.skip;
 describeIfDisposable("deferred automatic audits (disposable SQL Server)", () => {
   jest.setTimeout(60_000);
   let prisma: PrismaService;
+  const createdTenantIds: string[] = [];
 
   beforeAll(async () => {
     process.env.DATABASE_URL = disposableUrl;
@@ -44,7 +46,11 @@ describeIfDisposable("deferred automatic audits (disposable SQL Server)", () => 
 
   afterAll(async () => {
     if (!usable) return;
-    await prisma.$disconnect();
+    try {
+      await deleteDisposableTenants(prisma, createdTenantIds);
+    } finally {
+      await prisma.$disconnect();
+    }
   });
 
   async function fixture(label: string) {
@@ -52,6 +58,7 @@ describeIfDisposable("deferred automatic audits (disposable SQL Server)", () => 
     const tenant = await prisma.tenant.create({
       data: { name: `E2E audit ${stamp}`, slug: `e2e-audit-${stamp}` }
     });
+    createdTenantIds.push(tenant.id);
     const role = await prisma.role.create({
       data: { tenantId: tenant.id, name: RoleName.ADMIN }
     });

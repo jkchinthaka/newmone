@@ -151,3 +151,7 @@ Status: NOT STARTED. Stop before any commit.
 
 Phase 0: PR #76 merged. PR #77 open; full-stack-e2e failed on mobile-smoke (hidden desktop row). Fix branch `fix/sweep-mobile-queue-open`. PR #82 diagnostics is open into release. Phases 1–7 not started.
 2026-10-20 STEP2 chore/golive-final from origin/chore/golive-ops e37ee55f: rewrote GO_LIVE_MASTER_DATA from bulk-import adapters, added runbook IIS X-Real-IP, login burst, Express schtasks, build order, env modes; committed DEPLOYMENT_RUNBOOK X-Real-IP; MANUAL_SAVE_CHECK; fleet 404 not reproduced; no .env.test or start-*.bat tracked.
+
+## Full-stack e2e fix 2026-10-19
+
+Branch `fix/sweep-e2e-tenant`. Local `npm run test:e2e:full-stack` against the rebuilt stack on 127.0.0.1:18080: 128 passed. Jest `workforce-employees.spec.ts` 17 passed. Jest `work-order-evidence-governance.spec.ts` 10 passed. qa-reviewer could not be started (billing). `fix/sweep-approvals` stays unpushed.

@@ -48,11 +48,21 @@ function workOrderIdFrom(body: unknown): string {
   return String(wo.id || wo._id || "");
 }
 
+function versionFrom(body: unknown): number | undefined {
+  const version = (unwrapWorkOrder(body) as { version?: unknown }).version;
+  return typeof version === "number" ? version : undefined;
+}
+
+function tenantFrom(body: unknown): string {
+  const tenantId = (unwrapWorkOrder(body) as { tenantId?: unknown }).tenantId;
+  return typeof tenantId === "string" ? tenantId : "";
+}
+
 async function createApprovalPendingWorkOrder(
   browser: Browser,
   actor: "manager-a" | "admin-a" = "manager-a",
   titleSuffix = "pending"
-): Promise<{ id: string; title: string }> {
+): Promise<{ id: string; title: string; tenantId: string }> {
   const context = await browser.newContext();
   const page = await context.newPage();
   try {
@@ -71,7 +81,7 @@ async function createApprovalPendingWorkOrder(
     assertNoAccessTokensInBody(body);
     const id = workOrderIdFrom(body);
     expect(id.length).toBeGreaterThan(0);
-    return { id, title };
+    return { id, title, tenantId: tenantFrom(body) };
   } finally {
     await context.close();
   }
@@ -177,17 +187,35 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
     );
     expect(selfApprove.status()).toBe(403);
 
+    const owned = await authenticatedGet(page, `/api/backend/work-orders/${workOrderId}`);
+    expect(owned.status()).toBe(200);
+    const tenantId = tenantFrom(await owned.json());
+    expect(tenantId.length).toBeGreaterThan(0);
     const adminContext = await browser.newContext();
     const adminPage = await adminContext.newPage();
     try {
+      const tenantMe = adminPage.waitForResponse(
+        (res) => res.url().includes("/api/backend/tenants/me") && res.request().method() === "GET",
+        { timeout: 15_000 }
+      );
       await loginViaUi(adminPage, "admin-a");
+      await tenantMe;
+      // Approval is scoped to the caller's active tenant. admin-a is also a
+      // member of tenant B, so switch onto this work order's tenant first.
+      // Wait for the login tenant load first: it writes User.tenantId and can
+      // undo an earlier switch.
+      const switched = await authenticatedPost(adminPage, `/api/backend/tenants/${tenantId}/switch`, {
+        data: {}
+      });
+      expect([200, 201]).toContain(switched.status());
       const approve = await authenticatedPatch(
         adminPage,
         `/api/backend/work-orders/${workOrderId}/approve`,
-        { data: { notes: "E2E admin approval" } }
+        { data: { notes: "E2E admin approval" }, headers: { "x-tenant-id": tenantId } }
       );
-      expect(approve.status()).toBe(200);
-      const wo = unwrapWorkOrder(await approve.json());
+      const approveBody = await approve.text();
+      expect(approve.status(), approveBody.slice(0, 240)).toBe(200);
+      const wo = unwrapWorkOrder(JSON.parse(approveBody));
       expect(wo.approvalStatus).toBe("APPROVED");
     } finally {
       await adminContext.close();
@@ -236,12 +264,14 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
     const page = await context.newPage();
     try {
       await loginViaUi(page, "tech-a");
+      const detail = await authenticatedGet(page, `/api/backend/work-orders/${workOrderId}`);
+      const expectedVersion = detail.ok() ? versionFrom(await detail.json()) : undefined;
       let start = await authenticatedPost(page, `/api/backend/work-orders/${workOrderId}/start`, {
-        data: {}
+        data: { expectedVersion }
       });
       if (start.status() !== 200 && start.status() !== 201) {
         start = await authenticatedPatch(page, `/api/backend/work-orders/${workOrderId}/status`, {
-          data: { status: "IN_PROGRESS" }
+          data: { status: "IN_PROGRESS", expectedVersion }
         });
       }
       expect([200, 201]).toContain(start.status());
@@ -356,6 +386,8 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
     const page = await context.newPage();
     try {
       await loginViaUi(page, "tech-a");
+      const detail = await authenticatedGet(page, `/api/backend/work-orders/${workOrderId}`);
+      const expectedVersion = detail.ok() ? versionFrom(await detail.json()) : undefined;
       let complete = await authenticatedPost(
         page,
         `/api/backend/work-orders/${workOrderId}/complete-technician`,
@@ -364,7 +396,8 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
             completionNote: "E2E technician completion note",
             actualCost,
             actualHours,
-            overrideReason: "E2E evidence/QR waived for disposable fixture"
+            overrideReason: "E2E evidence/QR waived for disposable fixture",
+            expectedVersion
           }
         }
       );
@@ -375,12 +408,14 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
             completionNote: "E2E technician completion note",
             actualCost,
             actualHours,
-            overrideReason: "E2E evidence/QR waived for disposable fixture"
+            overrideReason: "E2E evidence/QR waived for disposable fixture",
+            expectedVersion
           }
         });
       }
-      expect([200, 201]).toContain(complete.status());
-      const wo = unwrapWorkOrder(await complete.json());
+      const completeBody = await complete.text();
+      expect([200, 201], completeBody.slice(0, 240)).toContain(complete.status());
+      const wo = unwrapWorkOrder(JSON.parse(completeBody));
       expect(wo.status).toBe("TECHNICIAN_COMPLETED");
     } finally {
       await context.close();
@@ -400,12 +435,15 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
     const page = await context.newPage();
     try {
       await loginViaUi(page, "admin-a");
+      const detail = await authenticatedGet(page, `/api/backend/work-orders/${workOrderId}`);
+      const expectedVersion = detail.ok() ? versionFrom(await detail.json()) : undefined;
       const verify = await authenticatedPost(
         page,
         `/api/backend/work-orders/${workOrderId}/verify-supervisor`,
-        { data: { verificationNote: "E2E supervisor verification" } }
+        { data: { verificationNote: "E2E supervisor verification", expectedVersion } }
       );
-      expect(verify.status()).toBe(200);
+      const verifyBody = await verify.text();
+      expect(verify.status(), verifyBody.slice(0, 240)).toBe(200);
     } finally {
       await context.close();
     }
@@ -459,6 +497,7 @@ test.describe.serial("E2E work-order lifecycle @full-stack @security @erp-contro
 
     // Bileeta owns stock, so the issue writes no local stock movement. The work-order linkage
     // is the PENDING ERP consumption, recorded in the part's stock-issue audit trail.
+    await page.context().clearCookies();
     await loginViaUi(page, "admin-a");
     const audit = await authenticatedGet(
       page,
@@ -504,7 +543,8 @@ test.describe("E2E work-order lifecycle negatives @full-stack @security @erp-con
       const start = await authenticatedPatch(page, `/api/backend/work-orders/${id}/status`, {
         data: { status: "IN_PROGRESS" }
       });
-      expect(start.status()).toBe(400);
+      // Unassigned technicians are forbidden before the approval rule runs.
+      expect(start.status()).toBe(403);
     } finally {
       await context.close();
     }
@@ -519,7 +559,8 @@ test.describe("E2E work-order lifecycle negatives @full-stack @security @erp-con
       const start = await authenticatedPatch(page, `/api/backend/work-orders/${id}/status`, {
         data: { status: "IN_PROGRESS" }
       });
-      expect(start.status()).toBe(400);
+      // Unassigned technicians are forbidden before the approval rule runs.
+      expect(start.status()).toBe(403);
     } finally {
       await context.close();
     }
@@ -573,23 +614,28 @@ test.describe("E2E work-order lifecycle negatives @full-stack @security @erp-con
     const techPage = await techContext.newPage();
     try {
       await loginViaUi(techPage, "tech-a");
+      const detail = await authenticatedGet(techPage, `/api/backend/work-orders/${id}`);
+      const expectedVersion = detail.ok() ? versionFrom(await detail.json()) : undefined;
       let start = await authenticatedPost(techPage, `/api/backend/work-orders/${id}/start`, {
-        data: {}
+        data: { expectedVersion }
       });
       if (start.status() !== 200 && start.status() !== 201) {
         start = await authenticatedPatch(techPage, `/api/backend/work-orders/${id}/status`, {
-          data: { status: "IN_PROGRESS" }
+          data: { status: "IN_PROGRESS", expectedVersion }
         });
       }
-      expect([200, 201]).toContain(start.status());
+      expect([200, 201], (await start.text()).slice(0, 400)).toContain(start.status());
 
+      const afterStart = await authenticatedGet(techPage, `/api/backend/work-orders/${id}`);
+      const completeVersion = afterStart.ok() ? versionFrom(await afterStart.json()) : expectedVersion;
       let techComplete = await authenticatedPost(
         techPage,
         `/api/backend/work-orders/${id}/complete-technician`,
         {
           data: {
             completionNote: "E2E neg verify setup",
-            overrideReason: "E2E evidence/QR waived for disposable fixture"
+            overrideReason: "E2E evidence/QR waived for disposable fixture",
+            expectedVersion: completeVersion
           }
         }
       );
@@ -598,11 +644,12 @@ test.describe("E2E work-order lifecycle negatives @full-stack @security @erp-con
           data: {
             status: "TECHNICIAN_COMPLETED",
             completionNote: "E2E neg verify setup",
-            overrideReason: "E2E evidence/QR waived for disposable fixture"
+            overrideReason: "E2E evidence/QR waived for disposable fixture",
+            expectedVersion: completeVersion
           }
         });
       }
-      expect([200, 201]).toContain(techComplete.status());
+      expect([200, 201], (await techComplete.text()).slice(0, 400)).toContain(techComplete.status());
 
       const verify = await authenticatedPost(techPage, `/api/backend/work-orders/${id}/verify-supervisor`, {
         data: { verificationNote: "tech attempt" }
@@ -630,15 +677,27 @@ test.describe("E2E work-order lifecycle negatives @full-stack @security @erp-con
     page,
     browser
   }) => {
-    const { id } = await createApprovalPendingWorkOrder(browser, "manager-a", "neg-csrf");
+    const { id, tenantId } = await createApprovalPendingWorkOrder(browser, "manager-a", "neg-csrf");
     const adminContext = await browser.newContext();
     const adminPage = await adminContext.newPage();
     try {
+      const tenantMe = adminPage.waitForResponse(
+        (res) => res.url().includes("/api/backend/tenants/me") && res.request().method() === "GET",
+        { timeout: 15_000 }
+      );
       await loginViaUi(adminPage, "admin-a");
-      const approve = await authenticatedPatch(adminPage, `/api/backend/work-orders/${id}/approve`, {
-        data: { notes: "approve for csrf test" }
+      await tenantMe;
+      expect(tenantId.length).toBeGreaterThan(0);
+      const switched = await authenticatedPost(adminPage, `/api/backend/tenants/${tenantId}/switch`, {
+        data: {}
       });
-      expect(approve.status()).toBe(200);
+      expect([200, 201]).toContain(switched.status());
+      const approve = await authenticatedPatch(adminPage, `/api/backend/work-orders/${id}/approve`, {
+        data: { notes: "approve for csrf test" },
+        headers: { "x-tenant-id": tenantId }
+      });
+      const approveBody = await approve.text();
+      expect(approve.status(), approveBody.slice(0, 240)).toBe(200);
     } finally {
       await adminContext.close();
     }
