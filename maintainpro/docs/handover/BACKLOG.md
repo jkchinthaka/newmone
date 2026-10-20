@@ -28,3 +28,4 @@ Plan:
 fleet 404: not reproduced
 
 Tenant switcher UI removed for phase 1. Restore from git history when a second company goes live.
+Restore archive/fix--ux-confirmed-defects and archive/test--playwright-qa-suite into develop after go-live (conflict review needed).
