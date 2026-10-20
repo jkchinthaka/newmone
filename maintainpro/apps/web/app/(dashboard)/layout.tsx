@@ -22,7 +22,7 @@ import { queryRetryDelay, shouldRetryQuery } from "@/lib/upstream-status";
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { state, memberships, error, selectTenant, refresh } = useTenantSession();
+  const { state, error, refresh } = useTenantSession();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -71,7 +71,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (state === "NO_MEMBERSHIP" || state === "ACCESS_DENIED" || state === "ERROR") {
+  if (state === "NO_MEMBERSHIP" || state === "SELECTION_REQUIRED" || state === "ACCESS_DENIED" || state === "ERROR") {
     return (
       <div className="grid min-h-screen place-items-center bg-slate-100 p-6">
         <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
@@ -98,35 +98,6 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
               Sign in again
             </button>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (state === "SELECTION_REQUIRED") {
-    return (
-      <div className="grid min-h-screen place-items-center bg-slate-100 p-6">
-        <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h1 className="text-lg font-semibold text-slate-900">Select a tenant</h1>
-          <p className="mt-2 text-sm text-slate-600">
-            Choose an active organization to continue. Business mutations stay blocked until a tenant
-            is selected.
-          </p>
-          <ul className="mt-4 space-y-2">
-            {memberships.map((membership) => (
-              <li key={membership.tenantId}>
-                <button
-                  type="button"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-left text-sm hover:border-slate-400"
-                  onClick={() => void selectTenant(membership.tenantId).catch(() => undefined)}
-                >
-                  <span className="font-medium text-slate-900">
-                    {membership.tenantName ?? membership.tenantId}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
         </div>
       </div>
     );
