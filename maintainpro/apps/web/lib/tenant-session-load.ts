@@ -70,19 +70,44 @@ export function normalizeMemberships(payload: unknown): TenantMembershipSummary[
   return out;
 }
 
+function profileRole(profile: unknown): string {
+  if (!profile || typeof profile !== "object") return "";
+  const row = profile as { role?: unknown; roleName?: unknown };
+  if (typeof row.roleName === "string") return row.roleName;
+  if (typeof row.role === "string") return row.role;
+  if (row.role && typeof row.role === "object") {
+    const name = (row.role as { name?: unknown }).name;
+    if (typeof name === "string") return name;
+  }
+  return "";
+}
+
+function profileTenantId(profile: unknown): string | null {
+  if (!profile || typeof profile !== "object") return null;
+  const tenantId = (profile as { tenantId?: unknown }).tenantId;
+  return typeof tenantId === "string" && tenantId.trim() ? tenantId : null;
+}
+
+/** REQUESTER has no tenant-list permission. Their tenant comes from `/auth/me`. */
+export function shouldFetchTenantMemberships(profile: unknown): boolean {
+  return profileRole(profile) !== "REQUESTER";
+}
+
 /**
- * `/auth/me` and `/tenants/me` both depend only on the session cookie.
- * They run together so a full document load waits for the slower call, not the sum.
+ * `/auth/me` is loaded first. `/tenants/me` runs only when the profile may list
+ * memberships. REQUESTER skips that call so a 403 does not fire on every page.
  * A failed session check still blocks tenant selection.
  */
 export async function loadTenantSession(
   client: SessionClient,
   preferredTenantId: string | null
 ): Promise<TenantSessionLoadResult> {
-  const [meOutcome, tenantOutcome] = await Promise.allSettled([
-    client.get("/auth/me"),
-    client.get("/tenants/me")
-  ]);
+  let meOutcome: PromiseSettledResult<{ data?: { data?: unknown } }>;
+  try {
+    meOutcome = { status: "fulfilled", value: await client.get("/auth/me") };
+  } catch (error) {
+    meOutcome = { status: "rejected", reason: error };
+  }
 
   if (meOutcome.status === "rejected") {
     if (statusOf(meOutcome.reason) === 401) {
@@ -92,6 +117,26 @@ export async function loadTenantSession(
   }
 
   const profile = meOutcome.value.data?.data;
+
+  if (!shouldFetchTenantMemberships(profile)) {
+    const tenantId = profileTenantId(profile);
+    if (!tenantId) {
+      return { kind: "no_membership", profile, memberships: [] };
+    }
+    return {
+      kind: "ready",
+      profile,
+      memberships: [{ tenantId, isActive: true, membershipActive: true }],
+      tenantId
+    };
+  }
+
+  let tenantOutcome: PromiseSettledResult<{ data?: { data?: unknown } }>;
+  try {
+    tenantOutcome = { status: "fulfilled", value: await client.get("/tenants/me") };
+  } catch (error) {
+    tenantOutcome = { status: "rejected", reason: error };
+  }
 
   if (tenantOutcome.status === "rejected") {
     const error = tenantOutcome.reason;

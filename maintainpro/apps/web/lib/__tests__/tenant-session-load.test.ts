@@ -1,31 +1,52 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { loadTenantSession } from "../tenant-session-load";
+import { loadTenantSession, shouldFetchTenantMemberships } from "../tenant-session-load";
 
 describe("loadTenantSession", () => {
-  it("starts the tenant membership read before the session read settles", async () => {
-    let releaseMe: (value: { data: { data: { id: string } } }) => void = () => undefined;
-    let tenantsStarted = false;
+  it("does not call /tenants/me for REQUESTER and uses the profile tenant", async () => {
+    const calls: string[] = [];
     const client = {
       get(url: string) {
+        calls.push(url);
+        return Promise.resolve({
+          data: {
+            data: {
+              id: "user-1",
+              role: { name: "REQUESTER" },
+              permissions: ["dashboard.view", "maintenance_requests.view_own"],
+              tenantId: "tenant-requester"
+            }
+          }
+        });
+      }
+    };
+
+    const result = await loadTenantSession(client, "some-other-tenant");
+    assert.deepEqual(calls, ["/auth/me"]);
+    assert.equal(shouldFetchTenantMemberships({ role: { name: "REQUESTER" } }), false);
+    assert.equal(result.kind, "ready");
+    if (result.kind === "ready") {
+      assert.equal(result.tenantId, "tenant-requester");
+    }
+  });
+
+  it("loads memberships after the session for roles that may list tenants", async () => {
+    const calls: string[] = [];
+    const client = {
+      get(url: string) {
+        calls.push(url);
         if (url === "/auth/me") {
-          return new Promise<{ data: { data: { id: string } } }>((resolve) => {
-            releaseMe = resolve;
-          });
+          return Promise.resolve({ data: { data: { id: "user-1", role: "MANAGER", tenantId: "tenant-1" } } });
         }
-        tenantsStarted = true;
         return Promise.resolve({
           data: { data: { memberships: [{ tenantId: "tenant-1", tenantName: "Plant" }] } }
         });
       }
     };
 
-    const pending = loadTenantSession(client, null);
-    await Promise.resolve();
-    assert.equal(tenantsStarted, true);
-    releaseMe({ data: { data: { id: "user-1" } } });
-    const result = await pending;
+    const result = await loadTenantSession(client, null);
+    assert.deepEqual(calls, ["/auth/me", "/tenants/me"]);
     assert.equal(result.kind, "ready");
     if (result.kind === "ready") {
       assert.equal(result.tenantId, "tenant-1");

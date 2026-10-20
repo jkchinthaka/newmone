@@ -9,6 +9,7 @@ import { PrismaClient } from "@prisma/client";
 import ExcelJS from "exceljs";
 
 import { AssetTagImportService } from "../src/modules/assets/asset-tag-import.service";
+import { deleteDisposableTenants } from "./disposable-tenant-cleanup";
 import { scannedValueMatchesAsset } from "../src/modules/evidence/scanned-identifier";
 import { UtilitiesService } from "../src/modules/utilities/utilities.service";
 
@@ -71,10 +72,11 @@ describeIfDisposable("navigation admin remediation on disposable SQL Server", ()
   });
 
   afterAll(async () => {
-    await prisma.meterReading.deleteMany({ where: { meterId } }).catch(() => undefined);
-    await prisma.utilityMeter.deleteMany({ where: { tenantId } }).catch(() => undefined);
-    await prisma.asset.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } }).catch(() => undefined);
-    await prisma.$disconnect();
+    try {
+      await deleteDisposableTenants(prisma, [tenantId, otherTenantId]);
+    } finally {
+      await prisma.$disconnect();
+    }
   });
 
   it("lets only one concurrent insert win for the same meter timestamp", async () => {

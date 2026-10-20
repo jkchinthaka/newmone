@@ -26,7 +26,9 @@ git log --oneline HEAD..origin/main   # has main moved?
 
 ## Current state
 
-**CURRENT (2026-10-19) — Block D validation done. No commit.** Waiting for commit approval. Details: `docs/handover/FINAL_HANDOVER_2026-10-19.md`.
+**CURRENT (2026-10-20) — disposable E2E audit tenants removed.** Branch `fix/test-tenant-cleanup` starts at `5d538f7b` because `deferred-audit-transactions.spec.ts` is not on `origin/main` until pull request #77 merges. Not pushed. Pull request not opened. `maintainpro_e2e_wo_verify` had 429 tenants named `E2E audit %` / `e2e-audit-%`; after one transaction the count is 0. `MaintainProDev` tenant count stayed 1 (Nelna Group). The audit immutability trigger was disabled only inside that transaction and is enabled again. `deferred-audit-transactions.spec.ts` passed twice on that database (11 tests, then 11 tests) and the same count stayed 0. `assignment-transaction.integration.spec.ts` 12 passed. `nav-admin-remediation.integration.spec.ts` 5 passed. Specs still leaking tenants are listed in `maintainpro/BACKLOG.md`. Next: after #77 merges, rebase this branch onto `main` and open the pull request. Do not push `release/maintainpro-final-consolidation-20261013`.
+
+**Previous (2026-10-19) — Block D validation done. No commit.** Waiting for commit approval. Details: `docs/handover/FINAL_HANDOVER_2026-10-19.md`.
 
 **Previous (2026-10-19) — Block E Tier 2 done. No commit.** Branch `fix/enterprise-remediation-20261015`, HEAD `a79859dc`. Canonical API `127.0.0.1:3040` and web `127.0.0.1:3041` left running. Full API Jest `--maxWorkers=2` `NODE_ENV=test` on `maintainpro_e2e_wo_verify`: 262 passed, 1 skipped, 2186 passed, 10 skipped, 0 failed, about 26s. Web unit 328 passed. API tsc and web tsc exit 0. DEFECT_STATUS: FIXED 48, STILL PRESENT 10, DEFERRED 1. Next is Block E Tier 3. No Docker. Progress: `docs/handover/CURSOR_MASTER_PROGRESS.md`.
 
