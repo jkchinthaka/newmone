@@ -2,6 +2,12 @@
 
 Recorded 2026-10-19. Neither item was coded in Block D. Each needs more than a one-hour safe change.
 
+## v1.0.2 (after go-live)
+
+- #100 remove `/admin/utilities`. The pull request is open into `develop`; it is not merged yet.
+- `fix/bulk-cancel-ux` (#99) is in progress.
+- Release steps: merge `develop` into `main` via a pull request, run the full gates, tag `v1.0.2`, fast-forward `qa`.
+
 ## My Jobs SQL pagination
 
 `listMyJobs` in `apps/api/src/modules/work-orders/work-order-queues.service.ts` loads at most 500 assigned rows, then filters, counts, and pages in memory. `assignedTotal` is a real SQL count. `capped` is true when the assignment count is above 500. Tab counts and `total` describe the capped set, so a technician with more than 500 jobs can miss rows and see short counts.
