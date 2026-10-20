@@ -33,29 +33,26 @@
 ## 2. Deploy the Build
 
 ```powershell
-# On the production server, from the release worktree
-cd C:\Users\chint\AppData\Local\MaintainPro\worktrees\release-final-20261013\maintainpro
+# On the production server, from the release checkout
+cd C:\MaintainPro\maintainpro
 
-# 1. Install deps (ci for reproducible lockfile)
+# 1. Install from the lockfile
 npm ci
 
-# 2. Build shared types first
-npm run build --workspace @maintainpro/shared-types
+# 2. Generate the Prisma client
+npx prisma generate --schema ./prisma/schema.prisma
 
-# 3. Build API (runs prisma generate + tsc)
-npm run build --workspace @maintainpro/api
+# 3. The three phase15 patch scripts (same three as npm run db:generate)
+node ./scripts/phase15-patch-prisma-enums.mjs
+node ./scripts/phase15-patch-prisma-types.mjs
+node ./scripts/phase15-loosen-types.mjs
 
-# 4. Build Web (production Next.js build)
+# 4. Build
+npm run build
+
+# 5. Start the web app with next start. Never next dev and never npm run dev.
 cd apps/web
-NEXT_PUBLIC_API_URL=https://api.maintainpro.local/api/backend \
-NEXT_PUBLIC_USE_BFF=true \
-NODE_ENV=production \
-npx next build
-cd ../..
-
-# 5. Verify builds
-test -f apps/api/dist/main.js && echo "API build OK"
-test -d apps/web/.next && echo "Web build OK"
+npx next start -p 3001
 ```
 
 **Output artifacts:**
@@ -261,28 +258,74 @@ nssm start MaintainProApi
 
 ## 11. Backup Scheduling (Windows Task Scheduler — No SQL Agent on Express)
 
-SQL Server Express has **no SQL Agent**. Schedule the nightly backup script via Windows Task Scheduler:
-
-```powershell
-# Run as Administrator. Creates a daily task at 02:00 AM.
-# Adjust -StartBoundary time as needed.
-schtasks /Create /TN "MaintainPro Nightly Backup" `
-  /TR "powershell.exe -ExecutionPolicy Bypass -File C:\Users\chint\AppData\Local\MaintainPro\worktrees\release-final-20261013\maintainpro\scripts\ops\backup-maintainpro.ps1 -DatabaseName MaintainProProd -BackupRoot C:\MaintainProData\backups -EvidenceSource C:\MaintainProData\evidence-prod -RetentionDays 14" `
-  /SC DAILY /ST 02:00 /RU "maintainpro-svc" /RP "<service-account-password>" /F /RL HIGHEST
-```
-
-**Verify:**
-```powershell
-schtasks /Query /TN "MaintainPro Nightly Backup" /V /FO LIST
-```
-
-**Monitor DB size (10 GB Express limit):**
-```powershell
-sqlcmd -E -C -Q "SELECT name, size*8.0/1024 AS size_mb FROM sys.database_files WHERE type=0"
-# Alert if > 8000 MB
-```
+Use section 14. Express has no SQL Agent, the per-database limit is 10 GB, and the task runs `scripts/ops/backup-maintainpro.ps1` with `sqlcmd -E -C` (Windows auth).
 
 ---
+
+## 12. IIS ARR reverse proxy (X-Real-IP)
+
+Copy of the IIS block in `DEPLOYMENT_RUNBOOK.md`. The proxy in front of Next.js must set `X-Real-IP` to the TCP client (`{REMOTE_ADDR}`), one address, not `{HTTP_X_FORWARDED_FOR}`. ARR "Enable X-Forwarded-For" does not count: the BFF does not read that header. The API trusts `X-Real-IP` only from a private hop (`127.0.0.1`, `::1`, or RFC1918).
+
+Allow the server variable once in `applicationHost.config`:
+
+```xml
+<system.webServer>
+  <rewrite>
+    <allowedServerVariables>
+      <add name="HTTP_X_REAL_IP" />
+    </allowedServerVariables>
+  </rewrite>
+</system.webServer>
+```
+
+Site `web.config` (rewrite to the Next.js site, not the API):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <system.webServer>
+    <rewrite>
+      <rules>
+        <rule name="MaintainPro client IP" stopProcessing="true">
+          <match url="(.*)" />
+          <serverVariables>
+            <set name="HTTP_X_REAL_IP" value="{REMOTE_ADDR}" />
+          </serverVariables>
+          <action type="Rewrite" url="http://127.0.0.1:3041/{R:1}" />
+        </rule>
+      </rules>
+    </rewrite>
+  </system.webServer>
+</configuration>
+```
+
+ARR proxy enabled: `appcmd set config -section:system.webServer/proxy /enabled:true`. Leave ARR X-Forwarded-For off.
+
+## 13. Post-deploy login burst
+
+After the proxy above is in place, sign in 8 times within 60 seconds from distinct client addresses. Expect **0 × 429**. Login/refresh stays capped at 5 requests per minute per `X-Real-IP`. Eight attempts that all arrive as `127.0.0.1` will share one bucket and will 429; that means the proxy is not setting `X-Real-IP`.
+
+## 14. SQL Server Express backups
+
+Express limit: **10 GB per database**. Express has **no SQL Agent**. Windows auth only (`sqlcmd -E`). Trust the server certificate with `-C`. Do not use `sa`.
+
+```powershell
+schtasks /Create /TN "MaintainPro Nightly Backup" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\MaintainPro\maintainpro\scripts\ops\backup-maintainpro.ps1 -DatabaseName MaintainProProd -BackupRoot C:\MaintainProData\backups -EvidenceSource C:\MaintainProData\evidence-prod -RetentionDays 14" /SC DAILY /ST 02:00 /RU "maintainpro-svc" /F /RL HIGHEST
+schtasks /Query /TN "MaintainPro Nightly Backup" /V /FO LIST
+sqlcmd -E -C -d MaintainProProd -Q "SELECT SUM(size)*8.0/1024 AS size_mb FROM sys.database_files WHERE type=0"
+```
+
+Alert as `size_mb` approaches 10240. Do not write this job at `MaintainProDev` or `nelna`.
+
+## 15. Production .env integration modes
+
+`apps/api/src/config/env.validation.ts`. Production rejects `mock` unless `ALLOW_MOCK_IN_PRODUCTION=true`. `live` requires the listed keys. `ERP_MODE=sandbox` requires `ERP_BASE_URL` and `ERP_API_KEY`.
+
+| Variable | Allowed | Default | Extra when live |
+| --- | --- | --- | --- |
+| ERP_MODE | disabled, mock, sandbox, live | mock | ERP_API_URL, ERP_API_KEY |
+| SMS_MODE | disabled, mock, live | disabled | SMS_API_URL, SMS_API_KEY, SMS_SENDER_ID |
+| PUSH_MODE | disabled, mock, live | disabled | PUSH_PROVIDER_API_URL, PUSH_PROVIDER_API_KEY |
 
 ## 10. Contacts & Escalation
 

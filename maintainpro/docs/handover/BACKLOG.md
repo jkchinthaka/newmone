@@ -24,3 +24,5 @@ Plan:
 2. Flush that outbox after commit. On failure, leave the row pending.
 3. Retry pending rows from a worker with a bounded attempt count. Do not drop a row on the first failure.
 4. Test: forced flush failure still leaves a pending outbox row, and a retry writes the audit once.
+
+fleet 404: not reproduced
