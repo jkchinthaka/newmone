@@ -11,6 +11,7 @@ import { WorkOrderAssigneesService } from "../src/modules/work-orders/work-order
 import { WorkOrdersService } from "../src/modules/work-orders/work-orders.service";
 import { WorkforceEmployeesService } from "../src/modules/workforce/workforce-employees.service";
 import { WorkforcePlanningService } from "../src/modules/workforce/workforce-planning.service";
+import { deleteDisposableTenants } from "./disposable-tenant-cleanup";
 
 function databaseName(url: string): string {
   const match = url.match(/(?:database|initial catalog)\s*=\s*([^;]+)/i);
@@ -54,7 +55,11 @@ describeIfDisposable("assignment transaction (disposable SQL Server)", () => {
 
   afterAll(async () => {
     if (!usable) return;
-    await prisma.$disconnect();
+    try {
+      await deleteDisposableTenants(prisma, createdTenantIds);
+    } finally {
+      await prisma.$disconnect();
+    }
   });
 
   async function fixture(label: string) {
