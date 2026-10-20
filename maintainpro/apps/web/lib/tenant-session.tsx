@@ -24,7 +24,6 @@ export type TenantSessionState =
   | "INITIALIZING"
   | "READY"
   | "NO_MEMBERSHIP"
-  | "SELECTION_REQUIRED"
   | "RECOVERING"
   | "ACCESS_DENIED"
   | "SESSION_EXPIRED"
@@ -88,12 +87,6 @@ export function TenantSessionProvider({ children }: { children: ReactNode }) {
       setActiveTenantId(null);
       setTenantId(null);
       setState("NO_MEMBERSHIP");
-      return;
-    }
-    if (result.kind === "selection_required") {
-      setActiveTenantId(null);
-      setTenantId(null);
-      setState("SELECTION_REQUIRED");
       return;
     }
 
