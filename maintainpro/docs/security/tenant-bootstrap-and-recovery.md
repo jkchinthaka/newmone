@@ -2,7 +2,7 @@
 
 ## Required states
 
-`INITIALIZING` → `READY` | `NO_MEMBERSHIP` | `SELECTION_REQUIRED` | `RECOVERING` | `ACCESS_DENIED` | `SESSION_EXPIRED` | `ERROR`
+`INITIALIZING` → `READY` | `NO_MEMBERSHIP` | `RECOVERING` | `ACCESS_DENIED` | `SESSION_EXPIRED` | `ERROR`
 
 ## Startup flow (target)
 
@@ -10,7 +10,7 @@
 2. Load memberships via `GET /tenants/me`.
 3. Validate preferred tenant from local preference store.
 4. Confirm membership active and tenant active.
-5. Auto-select if exactly one membership; otherwise prompt selection.
+5. Use the home tenant from `/auth/me`. If it is missing, use the first active membership. Zero active memberships stays `NO_MEMBERSHIP`.
 6. Block business mutations until state is `READY`.
 
 ## Recovery

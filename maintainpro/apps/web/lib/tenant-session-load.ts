@@ -14,7 +14,6 @@ type SessionClient = {
 export type TenantSessionLoadResult =
   | { kind: "ready"; profile: unknown; memberships: TenantMembershipSummary[]; tenantId: string }
   | { kind: "no_membership"; profile: unknown; memberships: TenantMembershipSummary[] }
-  | { kind: "selection_required"; profile: unknown; memberships: TenantMembershipSummary[] }
   | { kind: "session_expired" }
   | { kind: "access_denied"; message: string }
   | { kind: "error"; message: string };
@@ -101,7 +100,9 @@ export function staleTenantSelection(storedTenantId: string | null, homeTenantId
 /**
  * `/auth/me` is loaded first. `/tenants/me` runs only when the profile may list
  * memberships. REQUESTER skips that call so a 403 does not fire on every page.
- * The active tenant is always `profile.tenantId`. A stored selection is ignored.
+ * The active tenant is the home tenant from `/auth/me`. When that id is missing,
+ * the first active membership is used. An empty membership list is `no_membership`.
+ * A stored selection is ignored. There is no tenant-picker state.
  */
 export async function loadTenantSession(
   client: SessionClient,
@@ -159,9 +160,14 @@ export async function loadTenantSession(
     (item) => item.isActive !== false && item.membershipActive !== false
   );
 
-  if (!homeTenantId) {
+  if (memberships.length === 0) {
     return { kind: "no_membership", profile, memberships };
   }
 
-  return { kind: "ready", profile, memberships, tenantId: homeTenantId };
+  return {
+    kind: "ready",
+    profile,
+    memberships,
+    tenantId: homeTenantId ?? memberships[0].tenantId
+  };
 }

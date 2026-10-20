@@ -112,4 +112,90 @@ describe("loadTenantSession", () => {
     const result = await loadTenantSession(client, null);
     assert.equal(result.kind, "access_denied");
   });
+
+  it("is READY for one membership", async () => {
+    const client = {
+      get(url: string) {
+        if (url === "/auth/me") {
+          return Promise.resolve({ data: { data: { id: "user-1", role: "ADMIN", tenantId: "tenant-only" } } });
+        }
+        return Promise.resolve({
+          data: { data: { memberships: [{ tenantId: "tenant-only", tenantName: "Only" }] } }
+        });
+      }
+    };
+
+    const result = await loadTenantSession(client, null);
+    assert.equal(result.kind, "ready");
+    if (result.kind === "ready") {
+      assert.equal(result.tenantId, "tenant-only");
+    }
+  });
+
+  it("is READY on the home tenant when many memberships exist", async () => {
+    const client = {
+      get(url: string) {
+        if (url === "/auth/me") {
+          return Promise.resolve({ data: { data: { id: "user-1", role: "SUPER_ADMIN", tenantId: "tenant-home" } } });
+        }
+        return Promise.resolve({
+          data: {
+            data: {
+              memberships: [
+                { tenantId: "tenant-a", tenantName: "A" },
+                { tenantId: "tenant-home", tenantName: "Home" },
+                { tenantId: "tenant-b", tenantName: "B" }
+              ]
+            }
+          }
+        });
+      }
+    };
+
+    const result = await loadTenantSession(client, null);
+    assert.equal(result.kind, "ready");
+    if (result.kind === "ready") {
+      assert.equal(result.tenantId, "tenant-home");
+    }
+  });
+
+  it("uses the first active membership when the profile has no home tenant", async () => {
+    const client = {
+      get(url: string) {
+        if (url === "/auth/me") {
+          return Promise.resolve({ data: { data: { id: "user-1", role: "ADMIN" } } });
+        }
+        return Promise.resolve({
+          data: {
+            data: {
+              memberships: [
+                { tenantId: "tenant-first", tenantName: "First" },
+                { tenantId: "tenant-second", tenantName: "Second" }
+              ]
+            }
+          }
+        });
+      }
+    };
+
+    const result = await loadTenantSession(client, null);
+    assert.equal(result.kind, "ready");
+    if (result.kind === "ready") {
+      assert.equal(result.tenantId, "tenant-first");
+    }
+  });
+
+  it("is NO_MEMBERSHIP when there are zero active memberships", async () => {
+    const client = {
+      get(url: string) {
+        if (url === "/auth/me") {
+          return Promise.resolve({ data: { data: { id: "user-1", role: "ADMIN", tenantId: "tenant-stale" } } });
+        }
+        return Promise.resolve({ data: { data: { memberships: [] } } });
+      }
+    };
+
+    const result = await loadTenantSession(client, null);
+    assert.equal(result.kind, "no_membership");
+  });
 });

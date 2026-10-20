@@ -71,7 +71,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (state === "NO_MEMBERSHIP" || state === "SELECTION_REQUIRED" || state === "ACCESS_DENIED" || state === "ERROR") {
+  if (state === "NO_MEMBERSHIP" || state === "ACCESS_DENIED" || state === "ERROR") {
     return (
       <div className="grid min-h-screen place-items-center bg-slate-100 p-6">
         <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
