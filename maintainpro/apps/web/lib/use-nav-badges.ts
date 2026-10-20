@@ -24,6 +24,16 @@ const WORK_ORDER_QUEUE_SUMMARY_ROLES = new Set([
   "VIEWER", "FINANCE"
 ]);
 
+const APPROVAL_BADGE_PERMISSIONS = ["approvals.view", "approvals.decide", "approvals.rule.manage", "work_orders.manage"];
+
+export function canFetchApprovalBadge(
+  roleName: string | null | undefined,
+  permissions?: readonly string[] | null
+): boolean {
+  if (!roleName || !APPROVAL_BADGE_ROLES.has(roleName)) return false;
+  return (permissions ?? []).some((permission) => APPROVAL_BADGE_PERMISSIONS.includes(permission));
+}
+
 export function canRoleFetchNavBadges(roleName: string | null | undefined): boolean {
   return Boolean(roleName && WORK_ORDER_QUEUE_SUMMARY_ROLES.has(roleName));
 }
@@ -43,12 +53,12 @@ function mapQueueSummaryToBadges(summary: Awaited<ReturnType<typeof fetchWorkOrd
   };
 }
 
-export function useNavBadges(enabled: boolean, roleName?: string | null) {
+export function useNavBadges(enabled: boolean, roleName?: string | null, permissions?: readonly string[] | null) {
   const approvals = useQuery({
     queryKey: withTenantScope(["approvals", "inbox-count"]),
     queryFn: () => fetchApprovalInbox({ page: 1, pageSize: 1 }),
     select: (data) => data.meta.counts?.all ?? data.meta.total ?? 0,
-    enabled: enabled && Boolean(roleName && APPROVAL_BADGE_ROLES.has(roleName)),
+    enabled: enabled && canFetchApprovalBadge(roleName, permissions),
     staleTime: 30_000,
     retry: false
   });

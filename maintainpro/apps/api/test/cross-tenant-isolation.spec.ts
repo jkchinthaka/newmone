@@ -59,16 +59,32 @@ describe("Cross-tenant isolation", () => {
       await expect(buildGuard().canActivate(guardContext(request))).rejects.toThrow(ForbiddenException);
     });
 
-    it("Tenant A user cannot switch into Tenant B (no active membership)", async () => {
-      // Requested tenant supplied via header; membership lookup (which requires an
-      // active membership in an active tenant) returns nothing => denied.
+    it("returns 403 when a non-member sends X-Tenant-Id for tenant B", async () => {
       asRole(RoleName.MANAGER);
       prisma.tenantMembership.findFirst.mockResolvedValue(null);
       const request = {
         headers: { "x-tenant-id": TENANT_B },
         user: { sub: "u1", role: RoleName.MANAGER, tenantId: TENANT_A }
       };
-      await expect(buildGuard().canActivate(guardContext(request))).rejects.toThrow(/Tenant access denied/);
+
+      try {
+        await buildGuard().canActivate(guardContext(request));
+        throw new Error("expected tenant B header to be rejected");
+      } catch (error) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect((error as ForbiddenException).getStatus()).toBe(403);
+        expect((error as ForbiddenException).message).toBe("Tenant access denied");
+      }
+
+      expect(prisma.tenantMembership.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenantId: TENANT_B,
+            userId: "u1",
+            tenant: { isActive: true }
+          })
+        })
+      );
     });
 
     it("disabled membership / inactive tenant cannot be switched into", async () => {
