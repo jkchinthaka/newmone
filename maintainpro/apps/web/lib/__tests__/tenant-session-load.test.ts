@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { loadTenantSession, shouldFetchTenantMemberships } from "../tenant-session-load";
+import { loadTenantSession, shouldFetchTenantMemberships, staleTenantSelection } from "../tenant-session-load";
 
 describe("loadTenantSession", () => {
   it("does not call /tenants/me for REQUESTER and uses the profile tenant", async () => {
@@ -29,6 +29,36 @@ describe("loadTenantSession", () => {
     if (result.kind === "ready") {
       assert.equal(result.tenantId, "tenant-requester");
     }
+  });
+
+  it("ignores a stale stored tenant and keeps the home tenant from the profile", async () => {
+    const client = {
+      get(url: string) {
+        if (url === "/auth/me") {
+          return Promise.resolve({
+            data: { data: { id: "user-1", role: "MANAGER", tenantId: "tenant-home" } }
+          });
+        }
+        return Promise.resolve({
+          data: {
+            data: {
+              memberships: [
+                { tenantId: "tenant-home", tenantName: "Home" },
+                { tenantId: "tenant-other", tenantName: "Other" }
+              ]
+            }
+          }
+        });
+      }
+    };
+
+    const result = await loadTenantSession(client, "tenant-other");
+    assert.equal(result.kind, "ready");
+    if (result.kind === "ready") {
+      assert.equal(result.tenantId, "tenant-home");
+    }
+    assert.equal(staleTenantSelection("tenant-other", "tenant-home"), true);
+    assert.equal(staleTenantSelection("tenant-home", "tenant-home"), false);
   });
 
   it("loads memberships after the session for roles that may list tenants", async () => {

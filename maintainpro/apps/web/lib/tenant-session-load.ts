@@ -93,14 +93,19 @@ export function shouldFetchTenantMemberships(profile: unknown): boolean {
   return profileRole(profile) !== "REQUESTER";
 }
 
+/** A stored tenant is stale unless it is exactly the home tenant from `/auth/me`. */
+export function staleTenantSelection(storedTenantId: string | null, homeTenantId: string | null): boolean {
+  return Boolean(storedTenantId) && storedTenantId !== homeTenantId;
+}
+
 /**
  * `/auth/me` is loaded first. `/tenants/me` runs only when the profile may list
  * memberships. REQUESTER skips that call so a 403 does not fire on every page.
- * A failed session check still blocks tenant selection.
+ * The active tenant is always `profile.tenantId`. A stored selection is ignored.
  */
 export async function loadTenantSession(
   client: SessionClient,
-  preferredTenantId: string | null
+  storedTenantId: string | null
 ): Promise<TenantSessionLoadResult> {
   let meOutcome: PromiseSettledResult<{ data?: { data?: unknown } }>;
   try {
@@ -117,6 +122,8 @@ export async function loadTenantSession(
   }
 
   const profile = meOutcome.value.data?.data;
+  const homeTenantId = profileTenantId(profile);
+  void storedTenantId;
 
   if (!shouldFetchTenantMemberships(profile)) {
     const tenantId = profileTenantId(profile);
@@ -152,18 +159,9 @@ export async function loadTenantSession(
     (item) => item.isActive !== false && item.membershipActive !== false
   );
 
-  if (memberships.length === 0) {
+  if (!homeTenantId) {
     return { kind: "no_membership", profile, memberships };
   }
 
-  const preferredValid = preferredTenantId
-    ? memberships.find((item) => item.tenantId === preferredTenantId)
-    : null;
-  if (preferredValid) {
-    return { kind: "ready", profile, memberships, tenantId: preferredValid.tenantId };
-  }
-  if (memberships.length === 1) {
-    return { kind: "ready", profile, memberships, tenantId: memberships[0].tenantId };
-  }
-  return { kind: "selection_required", profile, memberships };
+  return { kind: "ready", profile, memberships, tenantId: homeTenantId };
 }

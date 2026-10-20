@@ -114,7 +114,7 @@ The only environment files are examples. Each changes `DATABASE_REPLICATION_ENAB
 
 ## Integration history
 
-All source worktrees were at `4d394657` with uncommitted work. The candidate was copied from the integration rehearsal, which already combined the UX, performance, and pilot readiness edits plus the later navigation, reports, work-order, and tenant-switcher fixes. Those other worktrees were not overwritten.
+All source worktrees were at `4d394657` with uncommitted work. The candidate was copied from the integration rehearsal, which already combined the UX, performance, and pilot readiness edits plus the later navigation, reports, and work-order fixes. Those other worktrees were not overwritten.
 
 Not included:
 
@@ -255,7 +255,6 @@ The Git gate in `AGENTS.md` is a binary PASS from `qa-reviewer` (`.cursor/agents
 - `maintainpro/apps/web/components/layout/nav-links.tsx`
 - `maintainpro/apps/web/components/layout/navigation-route-guard.tsx`
 - `maintainpro/apps/web/components/layout/role-landing-redirect.tsx`
-- `maintainpro/apps/web/components/layout/tenant-switcher.tsx`
 - `maintainpro/apps/web/components/layout/topbar.tsx`
 - `maintainpro/apps/web/components/maintenance/maintenance-dashboard-page.tsx`
 - `maintainpro/apps/web/components/maintenance/retired-forecast-redirect.tsx`

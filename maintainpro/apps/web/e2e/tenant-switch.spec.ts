@@ -118,29 +118,24 @@ async function mockMultiTenantShell(page: Page, state: { switchedTo: string; ten
   });
 }
 
-test.describe("tenant switching", () => {
-  test("clears the previous tenant after a successful organization switch", async ({ page }) => {
+test.describe("tenant header", () => {
+  test("sends the home tenant header and drops a stale stored tenant", async ({ page }) => {
     const state = { switchedTo: "", tenantHeaders: [] as string[] };
     await mockMultiTenantShell(page, state);
 
     await page.addInitScript((user) => {
       localStorage.setItem("maintainpro_user", JSON.stringify(user));
-      localStorage.setItem("maintainpro_active_tenant", "tenant-e2e-a");
+      localStorage.setItem("maintainpro_active_tenant", "tenant-e2e-b");
     }, adminUser);
 
     await page.setViewportSize({ width: 1400, height: 900 });
     await page.goto("/dashboard");
 
-    const switcher = page.getByLabel("Switch organization");
-    await expect(switcher).toBeVisible();
-    await expect(switcher).toHaveValue("tenant-e2e-a");
-
-    await switcher.selectOption("tenant-e2e-b");
-    await expect.poll(() => state.switchedTo).toBe("tenant-e2e-b");
+    await expect(page.getByLabel("Switch organization")).toHaveCount(0);
+    await expect.poll(() => state.tenantHeaders.includes("tenant-e2e-b")).toBe(false);
     await expect.poll(() => page.evaluate(() => localStorage.getItem("maintainpro_active_tenant"))).toBe(
-      "tenant-e2e-b"
+      "tenant-e2e-a"
     );
-    await expect.poll(() => state.tenantHeaders.includes("tenant-e2e-b")).toBe(true);
-    await expect(switcher).toHaveValue("tenant-e2e-b");
+    await expect.poll(() => state.tenantHeaders.includes("tenant-e2e-a")).toBe(true);
   });
 });

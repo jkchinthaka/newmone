@@ -9,12 +9,14 @@ import {
   useState,
   type ReactNode
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-
-import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { apiClient } from "@/lib/api-client";
 import { clearAuthSession, clearStoredTokens, mergeStoredPublicUserProfile } from "@/lib/auth-storage";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
-import { loadTenantSession, type TenantMembershipSummary } from "@/lib/tenant-session-load";
+import {
+  loadTenantSession,
+  staleTenantSelection,
+  type TenantMembershipSummary
+} from "@/lib/tenant-session-load";
 
 export type { TenantMembershipSummary };
 
@@ -44,7 +46,6 @@ const TenantSessionContext = createContext<TenantSessionContextValue | null>(nul
 let sessionProbe: Promise<void> | null = null;
 
 export function TenantSessionProvider({ children }: { children: ReactNode }) {
-  const queryClient = useQueryClient();
   const [state, setState] = useState<TenantSessionState>("INITIALIZING");
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [memberships, setMemberships] = useState<TenantMembershipSummary[]>([]);
@@ -59,7 +60,12 @@ export function TenantSessionProvider({ children }: { children: ReactNode }) {
     setError(null);
     setState((prev) => (prev === "READY" ? "RECOVERING" : "INITIALIZING"));
 
-    const result = await loadTenantSession(apiClient, getActiveTenantId());
+    const storedTenantId = getActiveTenantId();
+    if (staleTenantSelection(storedTenantId, null)) {
+      setActiveTenantId(null);
+    }
+
+    const result = await loadTenantSession(apiClient, null);
     if (result.kind === "session_expired") {
       clearAuthSession();
       setState("SESSION_EXPIRED");
@@ -97,19 +103,11 @@ export function TenantSessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const selectTenant = useCallback(async (nextTenantId: string) => {
-    setError(null);
-    try {
-      await apiClient.post(`/tenants/${nextTenantId}/switch`);
-      setActiveTenantId(nextTenantId);
-      setTenantId(nextTenantId);
-      queryClient.clear();
-      setState("READY");
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Unable to switch tenant"));
-      setState("ACCESS_DENIED");
-      throw err;
+    if (!tenantId || staleTenantSelection(nextTenantId, tenantId)) {
+      return;
     }
-  }, [queryClient]);
+    setActiveTenantId(tenantId);
+  }, [tenantId]);
 
   useEffect(() => {
     const probe = sessionProbe ?? refresh();

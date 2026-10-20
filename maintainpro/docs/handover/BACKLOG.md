@@ -26,3 +26,5 @@ Plan:
 4. Test: forced flush failure still leaves a pending outbox row, and a retry writes the audit once.
 
 fleet 404: not reproduced
+
+Tenant switcher UI removed for phase 1. Restore from git history when a second company goes live.

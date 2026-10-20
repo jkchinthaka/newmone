@@ -6,7 +6,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { NelnaLogo } from "@/components/brand/nelna-logo";
-import { TenantSwitcher } from "@/components/layout/tenant-switcher";
 import { PRODUCT_NAME } from "@/lib/branding";
 import { useNotificationsSocket } from "@/hooks/use-notifications-socket";
 import { clearAuthSession } from "@/lib/auth-storage";
@@ -158,7 +157,6 @@ export function Topbar({
           >
             {userLabel}
           </p>
-          <TenantSwitcher className="hidden sm:flex" />
           {canViewBilling ? (
             <Link
               href="/billing"
