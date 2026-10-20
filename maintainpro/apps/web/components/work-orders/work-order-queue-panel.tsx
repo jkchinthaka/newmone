@@ -56,6 +56,7 @@ type Props = {
   onRefreshLegacy?: () => void;
   selectedIds?: string[];
   onSelectedIdsChange?: (ids: string[]) => void;
+  onVisibleRows?: (rows: Array<{ id: string; status: string }>) => void;
   jobDomain?: string;
   technicians?: TechnicianOption[];
 };
@@ -117,6 +118,7 @@ export function WorkOrderQueuePanel({
   onRefreshLegacy,
   selectedIds = [],
   onSelectedIdsChange,
+  onVisibleRows,
   jobDomain,
   technicians = []
 }: Props) {
@@ -305,6 +307,10 @@ export function WorkOrderQueuePanel({
   const queueTabs = useMemo(() => splitQueueTabs(visibleQueues), [visibleQueues]);
 
   const rows = queueQuery.data?.data ?? [];
+
+  useEffect(() => {
+    onVisibleRows?.(rows.map((row) => ({ id: row.id, status: row.status })));
+  }, [onVisibleRows, rows]);
 
   const actionRequiredCount =
     summaryData.queues?.find((queue) => queue.key === "action-required")?.count ?? 0;
