@@ -2,8 +2,8 @@
 
 **Target go-live date:** 2026-10-21  
 **Code freeze:** 2026-10-20 18:00  
-**Branch:** `release/maintainpro-final-consolidation-20261013` (tagged `go-live-20261021`)  
-**Worktree:** `C:\Users\chint\AppData\Local\MaintainPro\worktrees\golive-ops` (this worktree)  
+**Go-live release:** tag `v1.0.1-golive` on `main` (`a1e80ed8`). `v1.0.0-golive` is not the go-live release.  
+**Checkout:** `git checkout v1.0.1-golive`  
 **Production database:** `MaintainProProd` on `localhost:1433` (Windows integrated auth)
 
 ---
@@ -33,7 +33,7 @@
 ## 2. Deploy the Build
 
 ```powershell
-# On the production server, from the release checkout
+# On the production server, from a checkout of tag v1.0.1-golive
 cd C:\MaintainPro\maintainpro
 
 # 1. Install from the lockfile

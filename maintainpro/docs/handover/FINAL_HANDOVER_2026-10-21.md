@@ -4,17 +4,13 @@ This note is for the server team and the next developer. It does not assume the 
 
 ## 1. Status
 
-`main` is `8be8deac` (merge of pull request **#77**). GitHub merged it after `validate-monorepo`, `release-validate`, `docker-build`, `full-stack-e2e`, and `fresh-sqlserver-migrate` passed.
+The go-live release is tag **`v1.0.1-golive`** (`a1e80ed8`, merge of pull request **#97** on `main`). `develop` and `qa` match that commit. **`v1.0.0-golive` (`f0eba613`) is not the go-live release.** Do not deploy it.
 
-These pull requests are **open**, not merged: [#88](https://github.com/jkchinthaka/newmone/pull/88) approval badge, [#89](https://github.com/jkchinthaka/newmone/pull/89) tenant 403 and completion photos, [#90](https://github.com/jkchinthaka/newmone/pull/90) disposable test tenants.
-
-**Tag `v1.0.0-golive` does not exist.** Do not tell operators that go-live is tagged. Cut that tag on `main` only after #88–#90 are merged or explicitly dropped, and after the server checklist below has been run on the production host.
-
-`chore/golive-final` holds the go-live runbook and master-data note. It is on GitHub. A later rebase onto `main` was not pushed, because that would have been a force-push. Use the GitHub copy of that branch until it is merged.
+The runbook and master-data note for this release are `maintainpro/docs/handover/GO_LIVE_RUNBOOK.md` and `GO_LIVE_MASTER_DATA.md` on `v1.0.1-golive`.
 
 ## 2. Server and IT checklist
 
-Do these in order. Steps point at `chore/golive-final`: `maintainpro/docs/handover/GO_LIVE_RUNBOOK.md` and `GO_LIVE_MASTER_DATA.md`. Production web is `next start`. Never `next dev`.
+Do these in order on tag `v1.0.1-golive`. Steps are in `maintainpro/docs/handover/GO_LIVE_RUNBOOK.md` and `GO_LIVE_MASTER_DATA.md`. Production web is `next start`. Never `next dev`.
 
 1. **Server.** Runbook §1. Windows host, SQL Server Express, Node, and the release checkout.
 2. **IIS ARR and `X-Real-IP`.** Runbook §12. The proxy in front of Next.js sets `X-Real-IP` to `{REMOTE_ADDR}` (one client address). Do not copy `X-Forwarded-For`. ARR’s forwarded-for option does not count. Allow server variable `HTTP_X_REAL_IP`. Same text is in `DEPLOYMENT_RUNBOOK.md` on that branch.
@@ -50,7 +46,7 @@ Rollback is runbook §9: previous build, and a database restore only if a migrat
 | Unused Prisma models. Confirm each model has no caller, then remove it in its own pull request. | — |
 | Prisma upgrade. Not before a stable release. | — |
 
-Open pull requests #88–#90 are the first code to finish. `chore/golive-final` still needs a non-force update onto `main`.
+Ship tag `v1.0.1-golive`. Do not cut another tag for a documentation-only change.
 
 ## 4. Run and test
 
