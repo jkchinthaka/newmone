@@ -49,8 +49,13 @@ test.describe("E2E RBAC and tenant isolation @full-stack @tenant @security", () 
     );
     test.skip(!other?.tenantId, "Tenant B membership not present for admin-a — product/seed gap");
     const cookies = await readCookieMap(page);
-    const csrf = cookies.get("maintainpro_csrf")?.value;
-    const headers = csrf ? { "x-csrf-token": csrf } : {};
+    const token = cookies.get("maintainpro_csrf")?.value;
+    expect(token).toBeTruthy();
+    if (!token) {
+      throw new Error("missing csrf token");
+    }
+    const csrfToken: string = token;
+    const headers: Record<string, string> = { "x-csrf-token": csrfToken };
     const response = await page.request.post(`/api/backend/tenants/${other.tenantId}/switch`, {
       headers
     });
