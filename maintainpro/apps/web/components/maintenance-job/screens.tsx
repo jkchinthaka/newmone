@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BarChart3, CalendarClock, CheckCircle2, ChevronRight, Clock3, Cog, Factory, PackagePlus, PlusCircle, Settings2, UserRound, Wrench } from "lucide-react";
 
 import { DepartmentSelect, type DepartmentOption } from "@/components/departments/department-select";
+import { DateField, TimeField } from "@/components/forms/date-fields";
 import { useMaintenanceJobApp } from "./provider";
 import type { Employee, MaintenanceJob, ModuleKey, RequestedItem } from "./types";
 
@@ -156,11 +157,11 @@ function DateTimePair(props: {
     <div className="grid gap-3 md:grid-cols-2">
       <label className="text-sm text-slate-600">
         <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{props.label} Date</span>
-        <input type="date" value={props.date} onChange={(event) => props.onDateChange(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" />
+        <DateField bare label={`${props.label} Date`} value={props.date} onChange={props.onDateChange} />
       </label>
       <label className="text-sm text-slate-600">
         <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{props.label} Time</span>
-        <input type="time" value={props.time} onChange={(event) => props.onTimeChange(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" />
+        <TimeField bare label={`${props.label} Time`} value={props.time} onChange={props.onTimeChange} />
       </label>
     </div>
   );
@@ -467,7 +468,7 @@ export function JobEditorScreen({ module, jobId }: { module: ModuleKey; jobId?: 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Job Type</span><select value={form.jobType} onChange={(event) => setForm((current) => current ? { ...current, jobType: event.target.value as MaintenanceJob["jobType"] } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400"><option>Internal</option><option>External</option></select></label>
             <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Job Segment</span><input value={form.jobSegment} onChange={(event) => setForm((current) => current ? { ...current, jobSegment: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
-            <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Job Date</span><input type="date" value={form.date} onChange={(event) => setForm((current) => current ? { ...current, date: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
+            <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Job Date</span><DateField bare label="Job Date" value={form.date} onChange={(date) => setForm((current) => current ? { ...current, date } : current)} /></label>
             <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Job ID</span><input readOnly value={form.jobId} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900" /></label>
             <label className="text-sm text-slate-600 md:col-span-2"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Asset / Vehicle No</span><input value={form.assetNumber} onChange={(event) => setForm((current) => current ? { ...current, assetNumber: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
             <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" checked={form.onlineOrdering} onChange={(event) => setForm((current) => current ? { ...current, onlineOrdering: event.target.checked } : current)} className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" /> Online Job Ordering</label>

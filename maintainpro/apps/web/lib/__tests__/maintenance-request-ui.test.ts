@@ -10,7 +10,9 @@ import {
   requestResultCountLabel,
   requestStageCards,
   requestStatusLabel,
+  requestTriageExplanation,
   requestValueLabel,
+  requesterFacingStatus,
   resolveRequestMenuActivation
 } from "../maintenance-request-ui";
 import { getVisibleNavigationItems, REQUEST_LIST_PERMISSIONS } from "../navigation";
@@ -19,6 +21,8 @@ describe("maintenance request labels", () => {
   it("uses business wording instead of raw codes", () => {
     assert.equal(requestStatusLabel("APPROVED"), "Accepted");
     assert.equal(requestStatusLabel("CONVERTED_TO_WO"), "Converted to Work Order");
+    assert.match(requestTriageExplanation(), /Needs Information/);
+    assert.match(requestTriageExplanation(), /Accepted requests stay on All requests/);
     assert.equal(requestHistoryActionLabel("START_REVIEW"), "Review started");
     assert.equal(requestHistoryActionLabel("CONVERTED_TO_WO"), "Work order created");
     assert.equal(requestValueLabel("VERY_URGENT"), "Very urgent");
@@ -77,7 +81,26 @@ describe("requestNextStep", () => {
     assert.equal(step.tone, "waiting");
   });
 
-  it("points to the work order once converted", () => {
+  it("does not call technician completion a resolved request", () => {
+    assert.equal(requesterFacingStatus("CONVERTED_TO_WO", "TECHNICIAN_COMPLETED"), "Work Done — Awaiting Verification");
+    assert.equal(requesterFacingStatus("CONVERTED_TO_WO", "IN_PROGRESS"), "Maintenance In Progress");
+    assert.equal(requesterFacingStatus("CONVERTED_TO_WO", "OPEN"), "Accepted / Scheduled");
+    assert.equal(requesterFacingStatus("CONVERTED_TO_WO", "VERIFIED"), "Resolved / Completed");
+    assert.equal(requesterFacingStatus("CLOSED"), "Closed Without Work");
+    assert.equal(requesterFacingStatus("CANCELLED"), "Cancelled");
+    assert.equal(requesterFacingStatus("NEW"), "Submitted");
+  });
+
+  it("tells the requester the linked work is still awaiting verification", () => {
+    const step = requestNextStep({
+      status: "CONVERTED_TO_WO",
+      isOwner: true,
+      workOrder: { woNumber: "WO-2026-0042", status: "TECHNICIAN_COMPLETED" }
+    });
+    assert.equal(step.title, "Work Done — Awaiting Verification");
+    assert.equal(step.tone, "waiting");
+  });
+  it("points a reviewer at the work order once converted", () => {
     const step = requestNextStep({
       status: "CONVERTED_TO_WO",
       isOwner: false,
@@ -120,11 +143,17 @@ describe("Requests navigation visibility", () => {
     assert.equal(hasRequests("ADMIN", []), true);
   });
 
-  it("hides Requests from roles the API would reject", () => {
-    // Seeded TECHNICIAN has no request permission: the list endpoint returns 403.
+  it("hides Requests when the account has no request permission", () => {
     assert.equal(hasRequests("TECHNICIAN", ["work_orders.view_own", "work_orders.update_status"]), false);
-    // SECURITY_OFFICER is not in the API read roles at all.
-    assert.equal(hasRequests("SECURITY_OFFICER", [...REQUEST_LIST_PERMISSIONS]), false);
+    assert.equal(hasRequests("FINANCE", ["reports.view"]), false);
+    assert.equal(hasRequests("SECURITY_OFFICER", []), false);
+  });
+
+  it("shows Requests to an authorized employee in any department role", () => {
+    assert.equal(hasRequests("FINANCE", ["maintenance_requests.view_own"]), true);
+    assert.equal(hasRequests("FARM_WORKER", ["maintenance_requests.view_own"]), true);
+    assert.equal(hasRequests("SALES", ["maintenance_requests.create", "maintenance_requests.view_own"]), true);
+    assert.equal(hasRequests("SECURITY_OFFICER", [...REQUEST_LIST_PERMISSIONS]), true);
   });
 });
 

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DateField } from "@/components/forms/date-fields";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
@@ -229,27 +230,27 @@ export default function AdminWarrantiesPage() {
               <label className="text-xs font-medium text-slate-500" htmlFor="startDate">
                 Start
               </label>
-              <input
+              <DateField
                 id="startDate"
-                type="date"
-                required
+                bare
+                label="Start"
                 value={form.startDate}
-                onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                onChange={(startDate) => setForm((f) => ({ ...f, startDate }))}
               />
+              <input required value={form.startDate} readOnly tabIndex={-1} aria-hidden="true" className="sr-only" />
             </div>
             <div>
               <label className="text-xs font-medium text-slate-500" htmlFor="endDate">
                 End
               </label>
-              <input
+              <DateField
                 id="endDate"
-                type="date"
-                required
+                bare
+                label="End"
                 value={form.endDate}
-                onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                onChange={(endDate) => setForm((f) => ({ ...f, endDate }))}
               />
+              <input required value={form.endDate} readOnly tabIndex={-1} aria-hidden="true" className="sr-only" />
             </div>
             <div className="md:col-span-2">
               <button

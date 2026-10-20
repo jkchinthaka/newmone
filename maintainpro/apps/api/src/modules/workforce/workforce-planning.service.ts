@@ -9,9 +9,9 @@ import {
 } from "@prisma/client";
 
 import { calculateSlaRisk } from "../../common/utils/work-order-validation";
-import { matchesWorkforceDesignation } from "../../common/utils/workforce-designation";
+import { matchesWorkforceDesignation, resolveEffectiveDesignation } from "../../common/utils/workforce-designation";
 import { PrismaService } from "../../database/prisma.service";
-import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { requireTenantId, tenantWhere } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
@@ -88,21 +88,26 @@ export class WorkforcePlanningService {
     estimatedHours?: number;
     leaveOverride?: boolean;
     actorRole?: string | null;
+    availabilityStatus?: string | null;
   }) {
     const rangeStart = input.plannedStartAt ?? new Date();
     const rangeEnd = input.plannedEndAt ?? input.plannedStartAt ?? new Date();
 
-    const onLeave = await this.hasApprovedLeave({
+    const approvedLeave = await this.hasApprovedLeave({
       tenantId: input.tenantId,
       employeeId: input.employeeId,
       from: startOfDayUtc(rangeStart),
       to: endOfDayUtc(rangeEnd)
     });
+    const markedOnLeave = String(input.availabilityStatus ?? "").trim().toUpperCase() === "ON_LEAVE";
+    const onLeave = approvedLeave || markedOnLeave;
 
     if (onLeave) {
       if (!input.leaveOverride) {
         throw new BadRequestException(
-          "Employee has approved leave during the planned assignment window. Use leave override with manager permission to proceed."
+          markedOnLeave && !approvedLeave
+            ? "Employee is on leave. Use leave override with manager permission to proceed."
+            : "Employee has approved leave during the planned assignment window. Use leave override with manager permission to proceed."
         );
       }
 
@@ -149,7 +154,7 @@ export class WorkforcePlanningService {
         active: true,
         canReceiveWorkOrders: true,
         availabilityStatus: EmployeeAvailabilityStatus.AVAILABLE,
-        ...(tenantId !== undefined && tenantId !== null ? { tenantId } : {})
+        ...(tenantWhere(tenantId)),
       },
       select: {
         id: true,
@@ -171,7 +176,10 @@ export class WorkforcePlanningService {
 
     const enriched = await Promise.all(
       rows.map(async (row) => {
-        const effectiveDesignation = row.designation;
+        const effectiveDesignation = resolveEffectiveDesignation({
+          designation: row.designation,
+          roleName: row.linkedUser?.role.name
+        });
         const todayAllocatedHours = await this.getAllocatedHoursForDay({
           tenantId,
           employeeId: row.id,
@@ -207,9 +215,25 @@ export class WorkforcePlanningService {
       })
     );
 
-    return enriched.filter((row) =>
-      matchesWorkforceDesignation({ designation: row.designation }, designation)
-    );
+    const executionRoles = new Set(["TECHNICIAN", "MECHANIC", "SUPERVISOR"]);
+    const executionDesignations = new Set([
+      "TECHNICIAN",
+      "ELECTRICIAN",
+      "MECHANIC",
+      "WELDER",
+      "HELPER",
+      "SUPERVISOR",
+      "MAINTENANCE_STAFF"
+    ]);
+    return enriched.filter((row) => {
+      const role = String(row.roleName ?? "").toUpperCase();
+      const label = String(row.effectiveDesignation ?? row.designation ?? "").toUpperCase();
+      if (!executionRoles.has(role) && !executionDesignations.has(label)) return false;
+      return matchesWorkforceDesignation(
+        { designation: row.designation, roleName: row.roleName },
+        designation
+      );
+    });
   }
 
   async previewAssignment(input: {

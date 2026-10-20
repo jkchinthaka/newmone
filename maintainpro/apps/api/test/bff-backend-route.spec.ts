@@ -539,18 +539,25 @@ describe("BFF backend route", () => {
     expect(response.status).toBe(409);
   });
 
-  it("BFF-502-012: connection refusal maps to controlled 502", async () => {
-    global.fetch = jest.fn(async () => {
+  it("BFF-502-012: connection refusal maps to a controlled 503 with Retry-After", async () => {
+    const fetchMock = jest.fn(async () => {
       throw new Error("fetch failed: ECONNREFUSED");
-    }) as unknown as typeof fetch;
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
 
     const response = await proxyBffRequest(
       requestFor("POST", ["auth", "login"], { body: { email: "a@b.c", password: "x" } }),
       ["auth", "login"]
     );
-    expect(response.status).toBe(502);
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("3");
+    // A mutation without an Idempotency-Key is never replayed.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     const json = (await response.json()) as { error: { code: string; requestId: string; message: string } };
     expect(json.error.code).toBe("UPSTREAM_UNAVAILABLE");
+    expect(json.error.message).toBe(
+      "Server is restarting or unreachable. Your change was not saved — please try again."
+    );
     expect(json.error.requestId).toBeTruthy();
     expect(JSON.stringify(json)).not.toContain("api:3000");
     expect(JSON.stringify(json)).not.toContain("ECONNREFUSED");
@@ -648,5 +655,31 @@ describe("BFF backend route", () => {
     expect([500, 502]).toContain(response.status);
     const json = (await response.json()) as { error: { code: string } };
     expect(["UPSTREAM_CONFIG", "UPSTREAM_UNAVAILABLE"]).toContain(json.error.code);
+  });
+
+  it("passes JPEG evidence bytes through without UTF-8 corruption", async () => {
+    const bytes = Uint8Array.from([0xff, 0xd8, 0xff, 0x00, 0x11]);
+    setSessionCookies({ access: "access-token", refresh: "refresh-token", csrf: "csrf-token" });
+    global.fetch = jest.fn(async () =>
+      new Response(bytes, {
+        status: 200,
+        headers: {
+          "content-type": "image/jpeg",
+          "content-disposition": 'attachment; filename="photo.jpg"',
+          "x-content-type-options": "nosniff"
+        }
+      })
+    ) as unknown as typeof fetch;
+
+    const response = await proxyBffRequest(
+      requestFor("GET", ["work-orders", "wo-1", "evidence", "ev-1", "content"]),
+      ["work-orders", "wo-1", "evidence", "ev-1", "content"]
+    );
+
+    expect(response.status).toBe(200);
+    expect(Array.from(new Uint8Array(await response.arrayBuffer()))).toEqual([0xff, 0xd8, 0xff, 0x00, 0x11]);
+    expect(response.headers.get("content-type")).toContain("image/jpeg");
+    expect(response.headers.get("content-disposition")).toContain("photo.jpg");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
   });
 });

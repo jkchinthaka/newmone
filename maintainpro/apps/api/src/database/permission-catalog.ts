@@ -77,6 +77,7 @@ export const PERMISSION_CATALOG = [
   "work_orders.resume",
   "work_orders.complete",
   "work_orders.verify",
+  "utilities.readings.create",
   "work_orders.close",
   "work_orders.cancel",
   "work_orders.reopen",

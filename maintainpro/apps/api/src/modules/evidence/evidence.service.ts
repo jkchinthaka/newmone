@@ -27,12 +27,14 @@ import {
   requiresQrVerification
 } from "../../common/utils/work-order-evidence-governance";
 import { PrismaService } from "../../database/prisma.service";
+import { scannedValueMatchesAsset, scannedValueMatchesVehicle } from "./scanned-identifier";
 import type { JwtPayload } from "../auth/auth.types";
 import {
   buildEvidenceStorageKey,
   EvidenceAttachmentPublic,
   EvidenceConfirmUploadResult,
   EvidenceUploadRequestResult,
+  evidenceBytesMatchMime,
   mapEvidenceAttachmentPublic,
   validateEvidenceUploadInput
 } from "./evidence-storage.mapper";
@@ -68,6 +70,8 @@ const EVIDENCE_SELECT = {
   fileName: true,
   mimeType: true,
   sizeBytes: true,
+  storageProvider: true,
+  storageKey: true,
   status: true,
   evidenceType: true,
   verificationStatus: true,
@@ -299,7 +303,7 @@ export class EvidenceService {
           status: "ready",
           mode: readiness.mode,
           attachmentId: existing.id,
-          uploadMethod: "mock",
+          uploadMethod: readiness.mode === "local" ? "direct" : "mock",
           message: "Evidence with this client ID was already synced."
         };
       }
@@ -410,6 +414,34 @@ export class EvidenceService {
       };
     }
 
+    if (readiness.mode !== "local") {
+      return {
+        ok: false,
+        status: "failed",
+        message: "Upload confirmation without stored file bytes is rejected."
+      };
+    }
+
+    let stored: Buffer;
+    try {
+      stored = await this.evidenceStorageProvider.readObject(attachment.storageKey);
+    } catch {
+      await this.prisma.evidenceAttachment.update({
+        where: { id: attachment.id },
+        data: { status: EvidenceAttachmentStatus.FAILED, syncError: "Stored evidence file was not found." }
+      });
+      return { ok: false, status: "failed", message: "Stored evidence file was not found." };
+    }
+
+    if (stored.length !== attachment.sizeBytes || !evidenceBytesMatchMime(stored, attachment.mimeType)) {
+      await this.evidenceStorageProvider.deleteObject(attachment.storageKey).catch(() => undefined);
+      await this.prisma.evidenceAttachment.update({
+        where: { id: attachment.id },
+        data: { status: EvidenceAttachmentStatus.FAILED, syncError: "Stored evidence failed integrity checks." }
+      });
+      return { ok: false, status: "failed", message: "Stored evidence failed integrity checks." };
+    }
+
     const updated = await this.prisma.evidenceAttachment.update({
       where: { id: attachment.id },
       data: {
@@ -433,8 +465,71 @@ export class EvidenceService {
       ok: true,
       status: "completed",
       attachment: this.toPublicAttachment(updated),
-      message: "Evidence attachment confirmed without storing file bytes in MongoDB."
+      message: "Evidence file stored and verified."
     };
+  }
+
+  async storeWorkOrderEvidenceBytes(workOrderId: string, evidenceId: string, bytes: Buffer, actor: Actor) {
+    this.assertCanUpload(actor);
+    const readiness = this.evidenceStorageProvider.checkReadiness();
+    if (readiness.mode !== "local" || readiness.state !== "configured") {
+      throw new BadRequestException("File upload storage is not configured.");
+    }
+    if (!bytes.length) {
+      throw new BadRequestException("Evidence file bytes are required.");
+    }
+
+    const workOrder = await this.findTenantScopedWorkOrder(workOrderId, actor);
+    await assertTechnicianAssignedToWorkOrder({ actor, workOrderId: workOrder.id, prisma: this.prisma });
+    const attachment = await this.findEvidenceOrThrow(workOrderId, evidenceId, actor);
+    if (attachment.status !== EvidenceAttachmentStatus.PENDING) {
+      throw new BadRequestException("Evidence attachment cannot accept file bytes in its current state.");
+    }
+    if (bytes.length !== attachment.sizeBytes) {
+      throw new BadRequestException("Uploaded file size does not match the declared size.");
+    }
+    if (!evidenceBytesMatchMime(bytes, attachment.mimeType)) {
+      throw new BadRequestException("File contents do not match the declared type.");
+    }
+
+    try {
+      await this.evidenceStorageProvider.putObject(attachment.storageKey, bytes);
+      const stored = await this.evidenceStorageProvider.readObject(attachment.storageKey);
+      if (!stored.equals(bytes)) {
+        throw new Error("stored bytes diverged");
+      }
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      await this.evidenceStorageProvider.deleteObject(attachment.storageKey).catch(() => undefined);
+      await this.prisma.evidenceAttachment.update({
+        where: { id: attachment.id },
+        data: { status: EvidenceAttachmentStatus.FAILED, syncError: "Evidence file could not be stored." }
+      });
+      throw new BadRequestException("Evidence file could not be stored.");
+    }
+
+    return { ok: true, attachmentId: attachment.id, status: attachment.status, message: "Evidence bytes stored. Confirm to finish." };
+  }
+
+  async readWorkOrderEvidenceBytes(workOrderId: string, evidenceId: string, actor: Actor) {
+    const workOrder = await this.findTenantScopedWorkOrder(workOrderId, actor);
+    await assertTechnicianAssignedToWorkOrder({ actor, workOrderId: workOrder.id, prisma: this.prisma });
+    const attachment = await this.findEvidenceOrThrow(workOrderId, evidenceId, actor);
+    if (attachment.status !== EvidenceAttachmentStatus.UPLOADED || attachment.storageProvider !== "local") {
+      throw new NotFoundException("Evidence file is not available.");
+    }
+    let bytes: Buffer;
+    try {
+      bytes = await this.evidenceStorageProvider.readObject(attachment.storageKey);
+    } catch {
+      throw new NotFoundException("Evidence file is not available.");
+    }
+    if (bytes.length !== attachment.sizeBytes || !evidenceBytesMatchMime(bytes, attachment.mimeType)) {
+      throw new NotFoundException("Evidence file is not available.");
+    }
+    return { bytes, mimeType: attachment.mimeType, fileName: attachment.fileName };
   }
 
   async patchWorkOrderEvidence(
@@ -585,6 +680,14 @@ export class EvidenceService {
     return this.toPublicAttachment(updated);
   }
 
+  private scannedValueMatchesAsset(tenantId: string | null | undefined, assetId: string | null, scanned: string | null) {
+    return scannedValueMatchesAsset(this.prisma as never, tenantId, assetId, scanned);
+  }
+
+  private scannedValueMatchesVehicle(tenantId: string | null | undefined, vehicleId: string | null, scanned: string | null) {
+    return scannedValueMatchesVehicle(this.prisma as never, tenantId, vehicleId, scanned);
+  }
+
   async verifyWorkOrderQr(
     workOrderId: string,
     body: { scannedAssetId?: string; scannedVehicleId?: string; overrideReason?: string },
@@ -593,6 +696,7 @@ export class EvidenceService {
     this.assertCanUpload(actor);
     const workOrder = await this.findTenantScopedWorkOrder(workOrderId, actor, {
       id: true,
+      tenantId: true,
       assetId: true,
       vehicleId: true,
       type: true,
@@ -614,8 +718,8 @@ export class EvidenceService {
     let qrStatus: QrVerificationStatus = QrVerificationStatus.VERIFIED;
     let auditEvent = "qr_verified";
 
-    const assetMatch = workOrder.assetId && scannedAssetId === workOrder.assetId;
-    const vehicleMatch = workOrder.vehicleId && scannedVehicleId === workOrder.vehicleId;
+    const assetMatch = await this.scannedValueMatchesAsset(workOrder.tenantId, workOrder.assetId, scannedAssetId);
+    const vehicleMatch = await this.scannedValueMatchesVehicle(workOrder.tenantId, workOrder.vehicleId, scannedVehicleId);
 
     if (!assetMatch && !vehicleMatch) {
       if (body.overrideReason?.trim() && canOverrideQrMismatch(actor.role)) {

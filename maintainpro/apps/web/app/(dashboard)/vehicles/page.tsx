@@ -1,5 +1,7 @@
 "use client";
 
+import { DateField } from "@/components/forms/date-fields";
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -30,7 +32,6 @@ import {
 import { toast } from "sonner";
 
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
-import { BulkImportButton } from "@/components/bulk-import/bulk-import-button";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { apiClient } from "@/lib/api-client";
 import {
@@ -614,16 +615,11 @@ export default function VehiclesPage() {
           <button type="button" onClick={refreshAll} className="btn-quiet">
             <RefreshCw size={14} /> Refresh
           </button>
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
-            disabled={!canCreate}
-            title={!canCreate ? "Your permissions do not allow vehicle registration" : undefined}
-            className="btn-primary disabled:cursor-not-allowed"
-          >
-            <Plus size={14} /> Register Vehicle
-          </button>
-          <BulkImportButton entity="vehicle" entityLabel="Vehicles" variant="dark" onImported={refreshAll} />
+          {(role === "SUPER_ADMIN" || role === "ADMIN") ? (
+            <Link href="/admin/vehicles/new" className="btn-quiet">
+              Register in Admin
+            </Link>
+          ) : null}
         </div>
       </header>
       {!canCreate && !canEdit ? (
@@ -758,7 +754,7 @@ export default function VehiclesPage() {
                 key={status}
                 type="button"
                 onClick={() => toggleStatus(status)}
-                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                className={`inline-flex min-h-11 items-center rounded-full border px-3 text-sm font-medium transition ${
                   active
                     ? "border-brand-300 bg-brand-50 text-brand-700"
                     : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -771,7 +767,7 @@ export default function VehiclesPage() {
           <button
             type="button"
             onClick={resetFilters}
-            className="ml-auto rounded-full border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            className="ml-auto inline-flex min-h-11 items-center rounded-full border border-slate-200 px-3 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
             Clear Filters
           </button>
@@ -1269,19 +1265,19 @@ function CreateVehicleModal({
             />
           </Field>
           <Field label="Acquisition Date">
-            <input
-              type="date"
+            <DateField
+              bare
+              label="Acquisition Date"
               value={form.acquisitionDate}
-              onChange={(event) => setForm({ ...form, acquisitionDate: event.target.value })}
-              className={inputCls}
+              onChange={(acquisitionDate) => setForm({ ...form, acquisitionDate })}
             />
           </Field>
           <Field label="Warranty Expiry">
-            <input
-              type="date"
+            <DateField
+              bare
+              label="Warranty Expiry"
               value={form.warrantyExpiry}
-              onChange={(event) => setForm({ ...form, warrantyExpiry: event.target.value })}
-              className={inputCls}
+              onChange={(warrantyExpiry) => setForm({ ...form, warrantyExpiry })}
             />
           </Field>
           <Field label="Cost Center">
@@ -1500,30 +1496,30 @@ function EditVehicleModal({
             />
           </Field>
           <Field label="Acquisition Date">
-            <input
-              type="date"
+            <DateField
+              bare
+              label="Acquisition Date"
               value={form.acquisitionDate}
               disabled={!canEdit}
-              onChange={(event) => setForm({ ...form, acquisitionDate: event.target.value })}
-              className={inputCls}
+              onChange={(acquisitionDate) => setForm({ ...form, acquisitionDate })}
             />
           </Field>
           <Field label="Warranty Expiry">
-            <input
-              type="date"
+            <DateField
+              bare
+              label="Warranty Expiry"
               value={form.warrantyExpiry}
               disabled={!canEdit}
-              onChange={(event) => setForm({ ...form, warrantyExpiry: event.target.value })}
-              className={inputCls}
+              onChange={(warrantyExpiry) => setForm({ ...form, warrantyExpiry })}
             />
           </Field>
           <Field label="Next Service Date">
-            <input
-              type="date"
+            <DateField
+              bare
+              label="Next Service Date"
               value={form.nextServiceDate}
               disabled={!canEdit}
-              onChange={(event) => setForm({ ...form, nextServiceDate: event.target.value })}
-              className={inputCls}
+              onChange={(nextServiceDate) => setForm({ ...form, nextServiceDate })}
             />
           </Field>
           <Field label="Service Interval Days">

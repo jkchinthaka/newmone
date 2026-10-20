@@ -9,6 +9,12 @@ import {
 import { e2eRunId } from "./helpers/env";
 import { buildValidWorkOrderPayload } from "./helpers/work-order-payload";
 
+async function expectedVersion(page: Parameters<typeof authenticatedGet>[0], workOrderId: string) {
+  const current = await authenticatedGet(page, `/api/backend/work-orders/${workOrderId}`);
+  const body = await current.json();
+  return Number((body.data || body).version);
+}
+
 /**
  * Focused work-order lifecycle gate fixture.
  * Safe console output: statuses and yes/no flags only.
@@ -101,12 +107,12 @@ async function runLifecycleGate(browser: Browser): Promise<{
     try {
       await loginViaUi(techPage, "tech-a");
       const start = await authenticatedPost(techPage, `/api/backend/work-orders/${workOrderId}/start`, {
-        data: {}
+        data: { expectedVersion: await expectedVersion(techPage, workOrderId) }
       });
       startStatus = start.status() === 200 || start.status() === 201 ? 200 : start.status();
       if (startStatus !== 200) {
         const startPatch = await authenticatedPatch(techPage, `/api/backend/work-orders/${workOrderId}/status`, {
-          data: { status: "IN_PROGRESS" }
+          data: { status: "IN_PROGRESS", expectedVersion: await expectedVersion(techPage, workOrderId) }
         });
         startStatus = startPatch.status();
       }
@@ -150,7 +156,8 @@ async function runLifecycleGate(browser: Browser): Promise<{
             completionNote: "gate technician completion",
             actualCost: 99,
             actualHours: 1.5,
-            overrideReason: "E2E gate evidence/QR waived for disposable fixture"
+            overrideReason: "E2E gate evidence/QR waived for disposable fixture",
+            expectedVersion: await expectedVersion(techPage, workOrderId)
           }
         }
       );
@@ -165,7 +172,8 @@ async function runLifecycleGate(browser: Browser): Promise<{
               completionNote: "gate technician completion",
               actualCost: 99,
               actualHours: 1.5,
-              overrideReason: "E2E gate evidence/QR waived for disposable fixture"
+              overrideReason: "E2E gate evidence/QR waived for disposable fixture",
+              expectedVersion: await expectedVersion(techPage, workOrderId)
             }
           }
         );
@@ -184,7 +192,7 @@ async function runLifecycleGate(browser: Browser): Promise<{
       const verify = await authenticatedPost(
         verifyPage,
         `/api/backend/work-orders/${workOrderId}/verify-supervisor`,
-        { data: { verificationNote: "gate supervisor verify" } }
+        { data: { verificationNote: "gate supervisor verify", expectedVersion: await expectedVersion(verifyPage, workOrderId) } }
       );
       supervisorVerificationStatus = verify.status() === 201 ? 200 : verify.status();
       if (supervisorVerificationStatus === 200) {

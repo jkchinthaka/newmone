@@ -84,8 +84,11 @@ export function assertInvoiceAttachment(evidenceAttachmentId?: string | null) {
 
 export function calculateCostVariance(approvedQuotation: number | null | undefined, invoiceTotal: number) {
   const approved = approvedQuotation ?? 0;
+  if (!(invoiceTotal > 0)) {
+    return { approvedQuotationTotal: approved, invoiceTotal: 0, varianceAmount: 0, variancePercentage: 0 };
+  }
   const varianceAmount = invoiceTotal - approved;
-  const variancePercentage = approved > 0 ? (varianceAmount / approved) * 100 : invoiceTotal > 0 ? 100 : 0;
+  const variancePercentage = approved > 0 ? (varianceAmount / approved) * 100 : 100;
   return { approvedQuotationTotal: approved, invoiceTotal, varianceAmount, variancePercentage };
 }
 

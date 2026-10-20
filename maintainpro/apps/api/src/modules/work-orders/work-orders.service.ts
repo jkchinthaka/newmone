@@ -20,6 +20,7 @@ import {
   WorkOrderVerificationStatus
 } from "@prisma/client";
 
+import { assertRequestWithinVerifiedStock, assertVerifiedIssueAllowed } from "../inventory/verified-stock-availability";
 import { requestContext } from "../../common/context/request-context";
 import { stringArrayToText, toStringArray } from "../../common/utils/json-text";
 import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
@@ -49,6 +50,7 @@ import { deriveActualCost } from "../../common/utils/work-order-cost.util";
 import { deriveReadiness, getValidWorkOrderActions } from "../../common/utils/work-order-actions";
 import {
   assertAllowedStatusTransition,
+  assertClosedRecordContentEditable,
   assertReasonProvided,
   assertRoleCanSetStatus,
   assertSensitiveFieldsUnlocked,
@@ -63,6 +65,7 @@ import {
 import {
   assertEvidenceForSupervisorVerification,
   assertEvidenceForTechnicianCompletion,
+  isStorageUploadsEnabled,
   requiresQrVerification
 } from "../../common/utils/work-order-evidence-governance";
 import { canOverrideCompletionBlock } from "../../common/utils/work-order-evidence-rbac";
@@ -70,6 +73,8 @@ import {
   assertValidEntityId,
   assertValidOptionalObjectId,
   assertWorkOrderAssetRules,
+  assertSuppliedTechnicianId,
+  assertSuppliedWorkOrderStatus,
   assertWorkOrderCostFields,
   assertWorkOrderScheduleDates,
   calculateSlaRisk,
@@ -133,7 +138,10 @@ export class WorkOrdersService {
   private readonly financeApprovalThreshold = Number(process.env.PHASE3_FINANCE_THRESHOLD ?? 5000);
 
   private resolveTenantId(actor?: Actor): string {
-    return requireTenantId(actor?.tenantId);
+    // TenantContextGuard stores the membership-checked tenant on the request.
+    // A controller-level JwtAuthGuard then replaces req.user, so actor.tenantId
+    // can still be the home tenant. Prefer the guard-resolved request tenant.
+    return requireTenantId(requestContext.getTenantId() ?? actor?.tenantId);
   }
 
   private async recordAudit(payload: {
@@ -145,13 +153,13 @@ export class WorkOrdersService {
     metadata?: Prisma.InputJsonValue;
     beforeData?: Prisma.InputJsonValue;
     afterData?: Prisma.InputJsonValue;
-  }) {
+  }, db: Prisma.TransactionClient | PrismaService = this.prisma) {
     const ctx = requestContext.get();
     const actorId = payload.actor?.sub ?? ctx?.actorId ?? null;
     const actorEmail = payload.actor?.email ?? ctx?.actorEmail ?? null;
     const actorRole = payload.actor?.role ?? ctx?.actorRole ?? null;
 
-    await this.prisma.auditLog.create({
+    await db.auditLog.create({
       data: {
         tenantId: payload.actor?.tenantId ?? ctx?.tenantId ?? null,
         actorId,
@@ -321,6 +329,30 @@ export class WorkOrdersService {
     if ((costSummary.unaccountedLines ?? 0) > 0) {
       throw new BadRequestException("All issued parts must be reconciled before completion.");
     }
+  }
+
+  private async supervisorHasExplicitVerifyPermission(userId: string | undefined) {
+    if (!userId || !this.prisma.user?.findUnique) {
+      return false;
+    }
+    const row = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        role: {
+          select: {
+            name: true,
+            permissionLinks: {
+              select: { permission: { select: { key: true } } }
+            }
+          }
+        }
+      }
+    });
+    if (row?.role?.name !== RoleName.SUPERVISOR) {
+      return false;
+    }
+    const keys = (row.role.permissionLinks ?? []).map((link) => link.permission?.key).filter(Boolean);
+    return keys.includes("work_orders.verify");
   }
 
   private async assertSegregationOfDuties(
@@ -733,6 +765,23 @@ export class WorkOrdersService {
       throw new NotFoundException("Work order not found");
     }
 
+    if (actor && (actor.role === RoleName.TECHNICIAN || actor.role === RoleName.MECHANIC)) {
+      const directlyAssigned = workOrder.technicianId === actor.sub || workOrder.createdById === actor.sub;
+      if (!directlyAssigned) {
+        const linked = await this.prisma.workOrderAssignee.findFirst({
+          where: {
+            workOrderId: workOrder.id,
+            assignmentStatus: { not: "REMOVED" },
+            employee: { linkedUserId: actor.sub }
+          },
+          select: { id: true }
+        });
+        if (!linked) {
+          throw new ForbiddenException("You can only open work orders assigned to you.");
+        }
+      }
+    }
+
     return workOrder;
   }
 
@@ -811,6 +860,25 @@ export class WorkOrdersService {
     });
 
     const tenantId = this.resolveTenantId(actor);
+    const suppliedCreate = data as { status?: unknown; technicianId?: unknown };
+    assertSuppliedWorkOrderStatus(suppliedCreate.status);
+    assertSuppliedTechnicianId(suppliedCreate.technicianId);
+    if (suppliedCreate.status !== undefined && suppliedCreate.status !== WorkOrderStatus.OPEN) {
+      throw new BadRequestException("Invalid status");
+    }
+    let createTechnicianId: string | undefined;
+    if (suppliedCreate.technicianId !== undefined) {
+      const technicianId = String(suppliedCreate.technicianId).trim();
+      const technician = await db.user.findFirst({
+        where: { id: technicianId, tenantId, isActive: true },
+        include: { role: true }
+      });
+      const execution = new Set(["TECHNICIAN", "MECHANIC", "SUPERVISOR"]);
+      if (!technician || !execution.has(technician.role.name)) {
+        throw new BadRequestException("Invalid technicianId");
+      }
+      createTechnicianId = technicianId;
+    }
     const actorId = actor?.sub;
     if (!actorId) {
       throw new ForbiddenException("Authenticated actor is required to create a work order.");
@@ -1065,6 +1133,7 @@ export class WorkOrdersService {
           failedAt,
           lastIdempotencyKey: data.idempotencyKey?.trim() || undefined,
           status: WorkOrderStatus.OPEN,
+          technicianId: createTechnicianId,
           approvalStatus,
           approvedAt: approvalStatus === WorkOrderApprovalStatus.APPROVED ? new Date() : undefined,
           approvedById:
@@ -1166,6 +1235,10 @@ export class WorkOrdersService {
     actor?: Actor
   ) {
     const existing = await this.findOne(id, actor);
+    assertClosedRecordContentEditable(existing.status, {
+      overrideReason: data.overrideReason,
+      actorRole: actor?.role as RoleName | undefined
+    });
     assertSensitiveFieldsUnlocked(
       existing.status,
       {
@@ -1192,6 +1265,37 @@ export class WorkOrdersService {
         ? parseWorkOrderDateField("expectedCompletionDate", data.expectedCompletionDate)
         : existing.expectedCompletionDate;
 
+    if (data.title !== undefined && !String(data.title).trim()) {
+      throw new BadRequestException("Title is required");
+    }
+    const supplied = data as { status?: unknown; technicianId?: unknown };
+    assertSuppliedWorkOrderStatus(supplied.status);
+    assertSuppliedTechnicianId(supplied.technicianId);
+    if (supplied.status !== undefined) {
+      throw new BadRequestException("status is not accepted on this update");
+    }
+    let validatedTechnicianId: string | undefined;
+    if (supplied.technicianId !== undefined) {
+      const technicianId = String(supplied.technicianId).trim();
+      const technician = await this.prisma.user.findFirst({
+        where: { id: technicianId, tenantId: this.resolveTenantId(actor), isActive: true },
+        include: { role: true }
+      });
+      const execution = new Set(["TECHNICIAN", "MECHANIC", "SUPERVISOR"]);
+      if (!technician || !execution.has(technician.role.name)) {
+        throw new BadRequestException("Invalid technicianId");
+      }
+      validatedTechnicianId = technicianId;
+    }
+    assertWorkOrderScheduleDates(
+      {
+        plannedStartAt: data.plannedStartAt !== undefined ? plannedStartAt : undefined,
+        plannedEndAt: data.plannedEndAt !== undefined ? plannedEndAt : undefined,
+        dueDate: data.dueDate !== undefined ? dueDate : undefined,
+        expectedCompletionDate: data.expectedCompletionDate !== undefined ? expectedCompletionDate : undefined
+      },
+      { rejectPastDates: true }
+    );
     assertWorkOrderScheduleDates({
       plannedStartAt,
       plannedEndAt,
@@ -1225,6 +1329,7 @@ export class WorkOrdersService {
         plannedEndAt: data.plannedEndAt !== undefined ? plannedEndAt : undefined,
         estimatedCost: data.estimatedCost !== undefined ? estimatedCost : undefined,
         estimatedHours: data.estimatedHours,
+        technicianId: validatedTechnicianId,
         version: { increment: 1 }
       }
     });
@@ -1314,12 +1419,15 @@ export class WorkOrdersService {
     const expectedCompletionDate = data.expectedCompletionDate
       ? parseWorkOrderDateField("expectedCompletionDate", data.expectedCompletionDate)
       : current.expectedCompletionDate;
-    assertWorkOrderScheduleDates({
-      plannedStartAt,
-      plannedEndAt: current.plannedEndAt,
-      dueDate,
-      expectedCompletionDate
-    });
+    assertWorkOrderScheduleDates(
+      {
+        plannedStartAt,
+        plannedEndAt: current.plannedEndAt,
+        dueDate,
+        expectedCompletionDate
+      },
+      { rejectPastDates: true }
+    );
     if (data.vendorSupplierId && data.vendorSupplierId !== current.vendorSupplierId) {
       await this.assertVendorAssignable(data.vendorSupplierId, actor);
     }
@@ -1452,6 +1560,10 @@ export class WorkOrdersService {
         ? (actorOrOptions as AssignOptions)
         : (maybeOptions as AssignOptions | undefined);
     const current = await this.findOne(id, actor);
+    // Version and technicianId change together. A request that still holds the previous
+    // version must be a conflict, including when the winner already stored a technician
+    // and this caller has no reassignment reason.
+    const where = this.assertOptimisticVersion(current, options?.expectedVersion);
     if (current.status !== WorkOrderStatus.PLANNED && current.status !== WorkOrderStatus.ASSIGNED) {
       throw new BadRequestException("Work orders can only be assigned from PLANNED or ASSIGNED status.");
     }
@@ -1488,62 +1600,188 @@ export class WorkOrdersService {
       throw new BadRequestException("Reassignment reason is required when changing technician.");
     }
 
-    const where = this.assertOptimisticVersion(current, options?.expectedVersion);
     const assignmentData = {
       technicianId,
       status: WorkOrderStatus.ASSIGNED,
       version: { increment: 1 as const }
     };
 
-    if (options?.expectedVersion != null) {
-      const updatedCount = await this.prisma.workOrder.updateMany({
-        where,
-        data: assignmentData
-      });
-      if (updatedCount.count !== 1) {
-        throw new ConflictException("Work order was updated by someone else. Refresh and retry.");
-      }
-    } else {
-      await this.prisma.workOrder.update({
-        where: { id },
-        data: assignmentData
-      });
-    }
-
-    const updated = await this.findOneWithRelations(id, actor);
-
-    // Canonical assignee model: sync WorkOrderAssignee from legacy technicianId when a linked employee exists.
     let employee = await this.prisma.employee.findFirst({
       where: { linkedUserId: technicianId, tenantId, active: true }
     });
-    if (!employee) {
-      employee = await this.prisma.employee.create({
-        data: {
-          tenantId,
-          fullName: `${technician.firstName} ${technician.lastName}`.trim() || technician.email,
-          email: technician.email,
-          designation: "Technician",
-          linkedUserId: technicianId,
-          canReceiveWorkOrders: true,
-          canLogin: true,
-          active: true,
-          skills: stringArrayToText([]),
-          workCategories: stringArrayToText(["CORRECTIVE"])
+    let alreadyAssigned = false;
+    if (employee) {
+      try {
+        await this.workOrderAssigneesService.prepareAssignee(
+          id,
+          { employeeId: employee.id, isPrimary: true },
+          actor
+        );
+      } catch (error) {
+        if (!(error instanceof BadRequestException && String(error.message).includes("already assigned"))) {
+          throw error;
         }
-      });
-    }
-
-    try {
-      await this.workOrderAssigneesService.addAssignee(
-        id,
-        { employeeId: employee.id, isPrimary: true },
-        actor
-      );
-    } catch (error) {
-      if (!(error instanceof BadRequestException && String(error.message).includes("already assigned"))) {
-        throw error;
+        alreadyAssigned = true;
       }
     }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Lock the technician, then the work order. Same order on every assignment avoids a lock cycle.
+      const lockedUsers = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT [id] FROM [User] WITH (UPDLOCK, ROWLOCK)
+        WHERE [id] = ${technicianId} AND [tenantId] = ${tenantId}
+      `;
+      if (!lockedUsers.length) {
+        throw new NotFoundException("Technician user not found");
+      }
+      const lockedWorkOrders = await tx.$queryRaw<Array<{ id: string; version: number | null }>>`
+        SELECT [id], [version] FROM [WorkOrder] WITH (UPDLOCK, ROWLOCK)
+        WHERE [id] = ${id} AND [tenantId] = ${tenantId}
+      `;
+      if (!lockedWorkOrders.length) {
+        throw new NotFoundException("Work order not found");
+      }
+      if (
+        options?.expectedVersion != null &&
+        Number(lockedWorkOrders[0].version) !== Number(options.expectedVersion)
+      ) {
+        throw new ConflictException("Work order was updated by someone else. Refresh and retry.");
+      }
+
+      if (!employee) {
+        employee = await tx.employee.findFirst({
+          where: { linkedUserId: technicianId, tenantId, active: true }
+        });
+      }
+      if (!employee) {
+        employee = await tx.employee.create({
+          data: {
+            tenantId,
+            fullName: `${technician.firstName} ${technician.lastName}`.trim() || technician.email,
+            email: technician.email,
+            designation: "Technician",
+            linkedUserId: technicianId,
+            availabilityStatus: "AVAILABLE",
+            canReceiveWorkOrders: true,
+            canLogin: true,
+            active: true,
+            skills: stringArrayToText([]),
+            workCategories: stringArrayToText(["CORRECTIVE"])
+          }
+        });
+      }
+
+      const lockedEmployees = await tx.$queryRaw<
+        Array<{ active: boolean | number; canReceiveWorkOrders: boolean | number; availabilityStatus: string | null }>
+      >`
+        SELECT [active], [canReceiveWorkOrders], [availabilityStatus]
+        FROM [Employee] WITH (UPDLOCK, ROWLOCK)
+        WHERE [id] = ${employee.id} AND [tenantId] = ${tenantId}
+      `;
+      const lockedEmployee = lockedEmployees[0];
+      if (!lockedEmployee) {
+        throw new NotFoundException("Employee not found");
+      }
+      const stillActive = lockedEmployee.active === true || lockedEmployee.active === 1;
+      const canReceive = lockedEmployee.canReceiveWorkOrders === true || lockedEmployee.canReceiveWorkOrders === 1;
+      const availabilityNow = String(lockedEmployee.availabilityStatus ?? "").trim().toUpperCase();
+      if (!stillActive) {
+        throw new BadRequestException("Inactive employees cannot be assigned");
+      }
+      if (!canReceive) {
+        throw new BadRequestException("Employee cannot receive work orders");
+      }
+      if (availabilityNow !== "AVAILABLE" && availabilityNow !== "ON_LEAVE") {
+        throw new BadRequestException(
+          availabilityNow
+            ? `Employee is not available for assignment (${availabilityNow}).`
+            : "Employee availability is unknown and cannot be assigned."
+        );
+      }
+      if (availabilityNow === "ON_LEAVE" && !alreadyAssigned) {
+        throw new BadRequestException(
+          "Employee is on leave. Use leave override with manager permission to proceed."
+        );
+      }
+
+      if (!alreadyAssigned) {
+        await this.workOrderAssigneesService.persistAssignee(
+          tx,
+          {
+            workOrder: {
+              id,
+              tenantId,
+              technicianId: current.technicianId ?? null
+            },
+            employee: {
+              id: employee.id,
+              designation: employee.designation,
+              linkedUserId: employee.linkedUserId ?? technicianId
+            },
+            input: { employeeId: employee.id, isPrimary: true },
+            plannedStartAt: null,
+            plannedEndAt: null
+          },
+          actor,
+          { deferTechnicianLink: true }
+        );
+      }
+
+      if (options?.expectedVersion != null) {
+        const updatedCount = await tx.workOrder.updateMany({
+          where,
+          data: assignmentData
+        });
+        if (updatedCount.count !== 1) {
+          throw new ConflictException("Work order was updated by someone else. Refresh and retry.");
+        }
+      } else {
+        await tx.workOrder.update({
+          where: { id },
+          data: assignmentData
+        });
+      }
+
+      await this.recordAudit(
+        {
+          entity: "WorkOrder",
+          entityId: id,
+          action: AuditAction.UPDATE,
+          actor,
+          reason: trimmedReason ?? "Technician assigned",
+          metadata: {
+            event: isReassignment ? "work_order_reassigned" : "work_order_assigned",
+            woNumber: current.woNumber,
+            technicianId,
+            employeeId: employee.id,
+            previousTechnicianId: current.technicianId ?? null
+          },
+          beforeData: { technicianId: current.technicianId ?? null },
+          afterData: { technicianId, employeeId: employee.id }
+        },
+        tx
+      );
+
+      await tx.workOrderStatusHistory.create({
+        data: {
+          tenantId,
+          workOrderId: id,
+          fromStatus: current.status,
+          toStatus: WorkOrderStatus.ASSIGNED,
+          action: isReassignment ? "REASSIGNED" : "ASSIGNED",
+          actorId: actor?.sub,
+          reason: trimmedReason,
+          metadata:
+            JSON.stringify({
+              previousTechnicianId: current.technicianId ?? null,
+              technicianId,
+              employeeId: employee.id
+            })
+        }
+      });
+    }, { maxWait: 5_000, timeout: 15_000 });
+
+    const updated = await this.findOneWithRelations(id, actor);
 
     await this.notificationsService.createNotification({
       userId: technicianId,
@@ -1559,36 +1797,6 @@ export class WorkOrdersService {
         woNumber: updated.woNumber,
         status: updated.status,
         priority: updated.priority
-      }
-    });
-
-    await this.recordAudit({
-      entity: "WorkOrder",
-      entityId: id,
-      action: AuditAction.UPDATE,
-      actor,
-      reason: trimmedReason ?? "Technician assigned",
-      metadata: {
-        event: isReassignment ? "work_order_reassigned" : "work_order_assigned",
-        woNumber: updated.woNumber,
-        technicianId,
-        employeeId: employee.id,
-        previousTechnicianId: current.technicianId ?? null
-      },
-      beforeData: { technicianId: current.technicianId ?? null },
-      afterData: { technicianId: updated.technicianId ?? null, employeeId: employee.id }
-    });
-
-    await this.appendStatusHistory(current.tenantId, id, {
-      fromStatus: current.status,
-      toStatus: WorkOrderStatus.ASSIGNED,
-      action: isReassignment ? "REASSIGNED" : "ASSIGNED",
-      actorId: actor?.sub,
-      reason: trimmedReason,
-      metadata: {
-        previousTechnicianId: current.technicianId ?? null,
-        technicianId,
-        employeeId: employee.id
       }
     });
 
@@ -1790,11 +1998,11 @@ export class WorkOrdersService {
       return this.findOneWithRelations(id, actor);
     }
 
-    this.assertOptimisticVersion(current, data.expectedVersion);
     assertAllowedStatusTransition(current.status, targetStatus);
     assertRoleCanSetStatus(actor?.role as RoleName | undefined, current.status, targetStatus, {
       emergencyCloseReason: data.emergencyCloseReason
     });
+    this.assertOptimisticVersion(current, data.expectedVersion);
     if (
       actor &&
       TECHNICIAN_EXECUTION_ROLES.has(actor.role as RoleName) &&
@@ -1805,6 +2013,13 @@ export class WorkOrdersService {
       )
     ) {
       await this.assertAssignedExecutor(id, tenantId, actor.sub);
+    }
+
+    if (current.status === targetStatus) {
+      if (current.status === WorkOrderStatus.IN_PROGRESS && targetStatus === WorkOrderStatus.IN_PROGRESS) {
+        throw new ConflictException("Work is already in progress. Resume is not a no-op.");
+      }
+      return this.findOneWithRelations(id, actor);
     }
 
     if (targetStatus === WorkOrderStatus.IN_PROGRESS) {
@@ -1915,6 +2130,9 @@ export class WorkOrdersService {
       }
       if (!labourActorId) {
         throw new BadRequestException("Cannot start work without a technician labour actor.");
+      }
+      if (data.expectedVersion == null || !Number.isFinite(Number(data.expectedVersion))) {
+        throw new BadRequestException("expectedVersion is required");
       }
       await this.startLabourSession(id, labourActorId, tenantId);
     }
@@ -2041,7 +2259,7 @@ export class WorkOrdersService {
         const evidenceCount = await this.prisma.evidenceAttachment.count({
           where: { workOrderId: id, status: "UPLOADED" }
         });
-        const storageEnabled = /^(1|true|yes)$/i.test((process.env.STORAGE_UPLOADS_ENABLED ?? "").trim());
+        const storageEnabled = isStorageUploadsEnabled();
         const isProduction = String(process.env.NODE_ENV ?? "").toLowerCase() === "production";
         if (!storageEnabled && isProduction) {
           throw new BadRequestException(
@@ -2239,19 +2457,16 @@ export class WorkOrdersService {
       version: { increment: 1 as const }
     };
 
-    if (data.expectedVersion != null) {
-      const updatedCount = await this.prisma.workOrder.updateMany({
-        where: { id, version: data.expectedVersion },
-        data: mutationData
-      });
-      if (updatedCount.count !== 1) {
-        throw new ConflictException("Work order was updated by someone else. Refresh and retry.");
-      }
-    } else {
-      await this.prisma.workOrder.update({
-        where: { id },
-        data: mutationData
-      });
+    // Missing input (400) stays distinguishable from a real concurrent change (409).
+    if (data.expectedVersion == null || !Number.isFinite(Number(data.expectedVersion))) {
+      throw new BadRequestException("expectedVersion is required");
+    }
+    const updatedCount = await this.prisma.workOrder.updateMany({
+      where: { id, version: Number(data.expectedVersion) },
+      data: mutationData
+    });
+    if (updatedCount.count !== 1) {
+      throw new ConflictException("Work order was updated by someone else. Refresh and retry.");
     }
 
     const updated = await this.findOneWithRelations(id, actor);
@@ -2379,8 +2594,15 @@ export class WorkOrdersService {
     },
     actor?: Actor
   ) {
-    if (!canVerifySupervisor(actor?.role as RoleName)) {
-      throw new BadRequestException("Supervisor verification requires manager or admin role.");
+    if (actor?.role === RoleName.SUPERVISOR) {
+      const explicit = await this.supervisorHasExplicitVerifyPermission(actor.sub);
+      if (!explicit) {
+        throw new ForbiddenException(
+          "Supervisor verification requires the explicit work_orders.verify permission."
+        );
+      }
+    } else if (!canVerifySupervisor(actor?.role as RoleName)) {
+      throw new ForbiddenException("Supervisor verification requires manager or admin role.");
     }
 
     const current = await this.findOne(id, actor);
@@ -2388,7 +2610,8 @@ export class WorkOrdersService {
       throw new BadRequestException("Only technician-completed work orders can be supervisor verified.");
     }
 
-    await this.assertSegregationOfDuties(current, actor, data.sodOverrideReason);
+    const sodOverrideReason = actor?.role === RoleName.SUPERVISOR ? undefined : data.sodOverrideReason;
+    await this.assertSegregationOfDuties(current, actor, sodOverrideReason);
     // Client actualCost/actualHours are ignored — server labour/parts are authoritative.
     const authoritative = await this.computeAuthoritativeHoursAndCost(id, actor);
     const actualCost =
@@ -2436,49 +2659,30 @@ export class WorkOrdersService {
     const requesterConfirmationDueAt = new Date(
       now.getTime() + requesterConfirmationPolicyHours * 60 * 60 * 1000
     );
-    if (data.expectedVersion != null) {
-      const updatedCount = await this.prisma.workOrder.updateMany({
-        where: { id, version: data.expectedVersion },
-        data: {
-          status: WorkOrderStatus.VERIFIED,
-          verificationStatus: WorkOrderVerificationStatus.VERIFIED,
-          verifiedById: approver.sub,
-          verifiedAt: now,
-          verificationNote: data.verificationNote?.trim() || null,
-          verificationRejectionReason: null,
-          actualCost,
-          actualHours,
-          completedDate: current.completedDate ?? now,
-          delayReason: data.delayReason?.trim() || current.delayReason,
-          requesterConfirmationStatus: "PENDING",
-          requesterConfirmationDueAt,
-          requesterConfirmationPolicyHours,
-          version: { increment: 1 }
-        } as any
-      });
-      if (updatedCount.count !== 1) {
-        throw new ConflictException("Work order was updated by someone else. Refresh and retry.");
-      }
-    } else {
-      await this.prisma.workOrder.update({
-        where: { id },
-        data: {
-          status: WorkOrderStatus.VERIFIED,
-          verificationStatus: WorkOrderVerificationStatus.VERIFIED,
-          verifiedById: approver.sub,
-          verifiedAt: now,
-          verificationNote: data.verificationNote?.trim() || null,
-          verificationRejectionReason: null,
-          actualCost,
-          actualHours,
-          completedDate: current.completedDate ?? now,
-          delayReason: data.delayReason?.trim() || current.delayReason,
-          requesterConfirmationStatus: "PENDING",
-          requesterConfirmationDueAt,
-          requesterConfirmationPolicyHours,
-          version: { increment: 1 }
-        } as any
-      });
+    if (data.expectedVersion == null || !Number.isFinite(Number(data.expectedVersion))) {
+      throw new BadRequestException("expectedVersion is required");
+    }
+    const updatedCount = await this.prisma.workOrder.updateMany({
+      where: { id, version: data.expectedVersion },
+      data: {
+        status: WorkOrderStatus.VERIFIED,
+        verificationStatus: WorkOrderVerificationStatus.VERIFIED,
+        verifiedById: approver.sub,
+        verifiedAt: now,
+        verificationNote: data.verificationNote?.trim() || null,
+        verificationRejectionReason: null,
+        actualCost,
+        actualHours,
+        completedDate: current.completedDate ?? now,
+        delayReason: data.delayReason?.trim() || current.delayReason,
+        requesterConfirmationStatus: "PENDING",
+        requesterConfirmationDueAt,
+        requesterConfirmationPolicyHours,
+        version: { increment: 1 }
+      } as any
+    });
+    if (updatedCount.count !== 1) {
+      throw new ConflictException("Work order was updated by someone else. Refresh and retry.");
     }
     const updated = await this.findOneWithRelations(id, actor);
 
@@ -2604,6 +2808,9 @@ export class WorkOrdersService {
       afterData: { status: updated.status, closedAt: updated.closedAt }
     });
     await this.completePmOccurrenceForClosedWorkOrder(current);
+    if (this.workOrderDomain) {
+      await this.workOrderDomain.releaseTargetIfLastOpenWorkOrder(id, actor);
+    }
     await this.syncNormalizedExtensions(id, this.resolveTenantId(actor));
     return this.findOneWithRelations(id, actor);
   }
@@ -3234,6 +3441,11 @@ export class WorkOrdersService {
     const issuer = this.assertActor(actor);
 
     const createdPart = await this.prisma.$transaction(async (tx) => {
+      await assertVerifiedIssueAllowed(tx, {
+        tenantId,
+        partId: data.partId,
+        quantity: data.quantity
+      });
       const line = await tx.workOrderPart.create({
         data: {
           tenantId,
@@ -3394,6 +3606,11 @@ export class WorkOrdersService {
     const procurementRequired = requiresProcurement(part.quantityInStock, data.quantity);
 
     const created = await this.prisma.$transaction(async (tx) => {
+      await assertRequestWithinVerifiedStock(tx, {
+        tenantId,
+        partId: data.partId,
+        quantity: data.quantity
+      });
       const partRequest = await tx.partRequest.create({
         data: {
           tenantId,
@@ -3834,6 +4051,11 @@ export class WorkOrdersService {
     const unitCost = Number(request.unitCostSnapshot ?? request.part.unitCost ?? 0);
 
     const result = await this.prisma.$transaction(async (tx) => {
+      await assertVerifiedIssueAllowed(tx, {
+        tenantId,
+        partId: request.partId,
+        quantity: issueQuantity
+      });
       const fresh = await tx.partRequest.findFirst({
         where: { id: request.id, tenantId, workOrderId }
       });
@@ -3895,6 +4117,41 @@ export class WorkOrdersService {
         }
       });
 
+      await this.recordAudit(
+        {
+          entity: "PART_ISSUE",
+          entityId: issue.id,
+          action: AuditAction.UPDATE,
+          actor,
+          reason: data.notes,
+          metadata: {
+            event: FRAUD_AUDIT_EVENTS.PARTS_ISSUED_AGAINST_WORK_ORDER,
+            partRequestId: request.id,
+            workOrderId: request.workOrderId,
+            partId: request.partId,
+            quantity: issueQuantity,
+            remainingAfterIssue: freshRemaining - issueQuantity,
+            stockQuantityOwner: "BILEETA",
+            quantityInStockMutated: false,
+            erpReconciliationStatus: "PENDING",
+            erpIssueReference: `PENDING:part-issue:${issue.id}`
+          }
+        },
+        tx
+      );
+
+      await tx.workOrderStatusHistory.create({
+        data: {
+          tenantId: this.resolveTenantId(actor),
+          workOrderId,
+          toStatus: "IN_PROGRESS",
+          action: "PART_ISSUED",
+          actorId: issuer.sub,
+          reason: data.notes?.trim() || `Issued ${issueQuantity}`,
+          metadata: JSON.stringify({ partRequestId: request.id, quantity: issueQuantity })
+        }
+      });
+
       return issue;
     });
 
@@ -3905,26 +4162,6 @@ export class WorkOrdersService {
       issueNote: data.notes,
       storeLocation: data.storeLocation,
       actor
-    });
-
-    await this.recordAudit({
-      entity: "PART_ISSUE",
-      entityId: result.id,
-      action: AuditAction.UPDATE,
-      actor,
-      reason: data.notes,
-      metadata: {
-        event: FRAUD_AUDIT_EVENTS.PARTS_ISSUED_AGAINST_WORK_ORDER,
-        partRequestId: request.id,
-        workOrderId: request.workOrderId,
-        partId: request.partId,
-        quantity: issueQuantity,
-        remainingAfterIssue: remaining - issueQuantity,
-        stockQuantityOwner: "BILEETA",
-        quantityInStockMutated: false,
-        erpReconciliationStatus: "PENDING",
-        erpIssueReference: `PENDING:part-issue:${result.id}`
-      }
     });
 
     await this.notificationsService.createNotification({
@@ -4268,7 +4505,7 @@ export class WorkOrdersService {
 
   async bulkStatus(
     input: {
-      workOrderIds: string[];
+      items: Array<{ id: string; expectedVersion: number }>;
       targetStatus: WorkOrderStatus;
       reason?: string;
       cancelReason?: string;
@@ -4277,8 +4514,20 @@ export class WorkOrdersService {
   ) {
     this.assertBulkOperationalPermission(actor);
 
-    if (!Array.isArray(input.workOrderIds) || input.workOrderIds.length === 0) {
-      throw new BadRequestException("workOrderIds is required");
+    // Every row carries the version the user saw; ids alone would fail every row on concurrency.
+    const items = Array.isArray(input.items) ? input.items : [];
+    const itemsValid =
+      items.length > 0 &&
+      items.every(
+        (item) =>
+          item &&
+          typeof item.id === "string" &&
+          item.id.trim().length > 0 &&
+          item.expectedVersion != null &&
+          Number.isFinite(Number(item.expectedVersion))
+      );
+    if (!itemsValid) {
+      throw new BadRequestException("items with id and expectedVersion are required");
     }
 
     if (
@@ -4290,33 +4539,46 @@ export class WorkOrdersService {
       );
     }
 
+    if (input.targetStatus === WorkOrderStatus.VERIFIED || input.targetStatus === WorkOrderStatus.CLOSED) {
+      throw new BadRequestException(
+        "Bulk verify and close are not allowed. Use the dedicated verification and close actions."
+      );
+    }
+
     if (input.targetStatus === WorkOrderStatus.CANCELLED) {
       assertReasonProvided("Cancel reason", input.cancelReason ?? input.reason);
     }
 
     const success: string[] = [];
     const failed: Array<{ workOrderId: string; reason: string }> = [];
+    const results: Array<{ id: string; outcome: "ok" | "conflict" | "error"; message?: string }> = [];
 
-    for (const workOrderId of input.workOrderIds) {
+    for (const item of items) {
+      const workOrderId = item.id.trim();
       try {
         await this.updateStatus(
           workOrderId,
           {
             status: input.targetStatus,
-            cancelReason: input.cancelReason ?? input.reason
+            cancelReason: input.cancelReason ?? input.reason,
+            expectedVersion: Number(item.expectedVersion)
           },
           actor
         );
         success.push(workOrderId);
+        results.push({ id: workOrderId, outcome: "ok" });
       } catch (error) {
-        failed.push({
-          workOrderId,
-          reason: error instanceof Error ? error.message : "Bulk status update failed"
+        const message = error instanceof Error ? error.message : "Bulk status update failed";
+        failed.push({ workOrderId, reason: message });
+        results.push({
+          id: workOrderId,
+          outcome: error instanceof ConflictException ? "conflict" : "error",
+          message
         });
       }
     }
 
-    return { success, failed };
+    return { results, success, failed };
   }
 
   private async reserveApprovedPartRequest(workOrderId: string, requestId: string, quantity: number, actor?: Actor) {

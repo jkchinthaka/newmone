@@ -73,6 +73,34 @@ export function dateTimeLocalToIso(value: string): string | undefined {
   return parsed.toISOString();
 }
 
+export function designationChoices(
+  employees: readonly { designation?: string | null; effectiveDesignation?: string | null }[]
+): string[] {
+  const values = new Set<string>();
+  for (const employee of employees) {
+    const value = (employee.effectiveDesignation || employee.designation || "").trim();
+    if (value) values.add(value.toUpperCase());
+  }
+  return [...values].sort((left, right) => left.localeCompare(right));
+}
+
+/** Always sends designation so the API uses the uncapped eligible-employee list. */
+export function assignmentEmployeeListParams(designation: string): { designation: string } {
+  return { designation };
+}
+
+export function employeesMatchingDesignation<T extends { designation?: string | null; effectiveDesignation?: string | null }>(
+  employees: readonly T[],
+  designation: string
+): T[] {
+  const wanted = designation.trim().toUpperCase();
+  if (!wanted) return [...employees];
+  return employees.filter((employee) => {
+    const value = (employee.effectiveDesignation || employee.designation || "").trim().toUpperCase();
+    return value === wanted;
+  });
+}
+
 export function formatEmployeeOptionLabel(input: {
   fullName: string;
   effectiveDesignation?: string | null;
@@ -81,10 +109,9 @@ export function formatEmployeeOptionLabel(input: {
   availabilityLabel?: string | null;
   workloadPercentage?: number | null;
 }): string {
-  const designation = input.effectiveDesignation ?? "Unspecified";
-  const location = [input.branchName, input.departmentName].filter(Boolean).join(" / ") || "—";
-  const availability = input.availabilityLabel ?? "Available";
-  const workload =
-    typeof input.workloadPercentage === "number" ? `${input.workloadPercentage}% load` : "— load";
-  return `${input.fullName} — ${designation} — ${location} — ${availability} — ${workload}`;
+  const designation = input.effectiveDesignation?.trim() || "Unspecified";
+  const location = [input.branchName, input.departmentName].filter((part) => Boolean(part && String(part).trim())).join(" / ");
+  const availability = input.availabilityLabel?.trim() || "Availability unknown";
+  const workload = typeof input.workloadPercentage === "number" ? `${input.workloadPercentage}% load` : "";
+  return [input.fullName.trim(), designation, location, availability, workload].filter(Boolean).join(" — ");
 }

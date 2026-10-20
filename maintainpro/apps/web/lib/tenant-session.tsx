@@ -14,6 +14,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { clearAuthSession, clearStoredTokens, mergeStoredPublicUserProfile } from "@/lib/auth-storage";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
+import { loadTenantSession, type TenantMembershipSummary } from "@/lib/tenant-session-load";
+
+export type { TenantMembershipSummary };
 
 export type TenantSessionState =
   | "INITIALIZING"
@@ -24,13 +27,6 @@ export type TenantSessionState =
   | "ACCESS_DENIED"
   | "SESSION_EXPIRED"
   | "ERROR";
-
-export type TenantMembershipSummary = {
-  tenantId: string;
-  tenantName?: string | null;
-  isActive?: boolean;
-  membershipActive?: boolean;
-};
 
 type TenantSessionContextValue = {
   state: TenantSessionState;
@@ -46,47 +42,6 @@ const TenantSessionContext = createContext<TenantSessionContextValue | null>(nul
 
 /** Share one /auth/me probe across React strict-mode's double mount. */
 let sessionProbe: Promise<void> | null = null;
-
-function normalizeMemberships(payload: unknown): TenantMembershipSummary[] {
-  if (!payload || typeof payload !== "object") {
-    return [];
-  }
-  const root = payload as {
-    memberships?: unknown;
-    tenants?: unknown;
-    items?: unknown;
-  };
-  const list = (root.memberships ?? root.tenants ?? root.items ?? payload) as unknown;
-  if (!Array.isArray(list)) {
-    return [];
-  }
-
-  const out: TenantMembershipSummary[] = [];
-  for (const item of list) {
-    if (!item || typeof item !== "object") continue;
-    const row = item as Record<string, unknown>;
-    const tenantFromNested =
-      row.tenant && typeof row.tenant === "object"
-        ? (row.tenant as { id?: string; name?: string; isActive?: boolean })
-        : null;
-    const tenantId =
-      (typeof row.tenantId === "string" && row.tenantId) ||
-      (typeof row.id === "string" && row.id) ||
-      (typeof tenantFromNested?.id === "string" ? tenantFromNested.id : null);
-    if (!tenantId) continue;
-
-    out.push({
-      tenantId,
-      tenantName:
-        (typeof row.tenantName === "string" && row.tenantName) ||
-        (typeof tenantFromNested?.name === "string" ? tenantFromNested.name : null),
-      isActive: row.isActive !== false && tenantFromNested?.isActive !== false,
-      membershipActive:
-        row.membershipActive !== false && row.active !== false && row.status !== "DISABLED"
-    });
-  }
-  return out;
-}
 
 export function TenantSessionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
@@ -104,72 +59,41 @@ export function TenantSessionProvider({ children }: { children: ReactNode }) {
     setError(null);
     setState((prev) => (prev === "READY" ? "RECOVERING" : "INITIALIZING"));
 
-    try {
-      const meResponse = await apiClient.get("/auth/me");
-      const meData = (meResponse.data as { data?: unknown } | undefined)?.data;
-      mergeStoredPublicUserProfile(meData);
-    } catch (err) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 401) {
-        clearAuthSession();
-        setState("SESSION_EXPIRED");
-        return;
-      }
-      setError(getApiErrorMessage(err, "Unable to verify session"));
+    const result = await loadTenantSession(apiClient, getActiveTenantId());
+    if (result.kind === "session_expired") {
+      clearAuthSession();
+      setState("SESSION_EXPIRED");
+      return;
+    }
+    if (result.kind === "error") {
+      setError(result.message);
       setState("ERROR");
       return;
     }
+    if (result.kind === "access_denied") {
+      setError(result.message);
+      setState("ACCESS_DENIED");
+      return;
+    }
 
-    try {
-      const response = await apiClient.get("/tenants/me");
-      const nextMemberships = normalizeMemberships(response.data?.data).filter(
-        (item) => item.isActive !== false && item.membershipActive !== false
-      );
-      setMemberships(nextMemberships);
-
-      if (nextMemberships.length === 0) {
-        setActiveTenantId(null);
-        setTenantId(null);
-        setState("NO_MEMBERSHIP");
-        return;
-      }
-
-      const preferred = getActiveTenantId();
-      const preferredValid = preferred
-        ? nextMemberships.find((item) => item.tenantId === preferred)
-        : null;
-
-      if (preferredValid) {
-        setActiveTenantId(preferredValid.tenantId);
-        setTenantId(preferredValid.tenantId);
-        setState("READY");
-        return;
-      }
-
-      if (nextMemberships.length === 1) {
-        const only = nextMemberships[0];
-        setActiveTenantId(only.tenantId);
-        setTenantId(only.tenantId);
-        setState("READY");
-        return;
-      }
-
+    mergeStoredPublicUserProfile(result.profile);
+    setMemberships(result.memberships);
+    if (result.kind === "no_membership") {
+      setActiveTenantId(null);
+      setTenantId(null);
+      setState("NO_MEMBERSHIP");
+      return;
+    }
+    if (result.kind === "selection_required") {
       setActiveTenantId(null);
       setTenantId(null);
       setState("SELECTION_REQUIRED");
-    } catch (err) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      const code = String(
-        (err as { response?: { data?: { error?: { code?: string } } } })?.response?.data?.error?.code ?? ""
-      ).toUpperCase();
-      if (status === 403 || code.includes("TENANT") || code.includes("MEMBERSHIP")) {
-        setState("ACCESS_DENIED");
-        setError(getApiErrorMessage(err, "Tenant access denied"));
-        return;
-      }
-      setError(getApiErrorMessage(err, "Unable to load tenant memberships"));
-      setState("ERROR");
+      return;
     }
+
+    setActiveTenantId(result.tenantId);
+    setTenantId(result.tenantId);
+    setState("READY");
   }, []);
 
   const selectTenant = useCallback(async (nextTenantId: string) => {

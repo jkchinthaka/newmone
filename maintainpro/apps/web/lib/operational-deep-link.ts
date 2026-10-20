@@ -35,6 +35,7 @@ export function parseWorkOrderRecordLink(params: {
 }
 
 export const PM_DUE_SOON_HREF = "/maintenance/plans?due=soon";
+export const PM_OVERDUE_HREF = "/maintenance/plans?due=overdue";
 
 /**
  * Activity and evidence files render on Evidence.

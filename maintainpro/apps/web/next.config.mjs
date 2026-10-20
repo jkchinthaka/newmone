@@ -1,6 +1,8 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { ensureIsolatedTsconfig } from "./next-dist-isolation.mjs";
+
 /** @type {import('next').NextConfig} */
 const apiOrigin =
   process.env.NEXT_PUBLIC_API_ORIGIN?.replace(/\/+$/, "") ?? "https://newmone.onrender.com";
@@ -9,6 +11,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** Monorepo root (`maintainpro/`) — required so standalone tracing includes workspace packages. */
 const monorepoRoot = path.join(__dirname, "..", "..");
 const isCpanelDeployment = process.env.DEPLOYMENT_TARGET === "cpanel";
+const distDir = process.env.NEXT_DIST_DIR || ".next";
+const tsconfigPath = ensureIsolatedTsconfig(__dirname, distDir);
 
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -40,7 +44,16 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  distDir,
+  typescript: { tsconfigPath },
   ...(isCpanelDeployment ? { output: "standalone" } : {}),
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...(config.resolve.alias ?? {}),
+      "@tanstack/react-query": path.join(monorepoRoot, "node_modules", "@tanstack", "react-query")
+    };
+    return config;
+  },
   experimental: {
     typedRoutes: true,
     // Next.js 14: keep tracing root under experimental so monorepo workspace deps are included.

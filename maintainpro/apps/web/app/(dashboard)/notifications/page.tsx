@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { DateField } from "@/components/forms/date-fields";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ActiveFilterChips } from "@/components/operational";
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
@@ -15,6 +16,7 @@ import {
   inboxSearchParams,
   inboxStateFromSearch,
   notificationContextHref,
+  notificationContextIsLinked,
   notificationNextAction,
   notificationStateLabel,
   type InboxUrlState
@@ -171,14 +173,18 @@ function NotificationsInbox() {
         <span><span className="font-semibold text-rose-700">{summary?.critical ?? "–"}</span> critical</span>
         <span><span className="font-semibold">{summary?.overdue ?? "–"}</span> overdue</span>
       </p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn-quiet min-h-11" aria-pressed={state.status === "UNREAD"} onClick={() => replaceState({ ...state, status: state.status === "UNREAD" ? "" : "UNREAD", page: 1 })}>Unread</button>
+        <button type="button" className="btn-quiet min-h-11" aria-pressed={state.priority === "CRITICAL"} onClick={() => replaceState({ ...state, priority: state.priority === "CRITICAL" ? "" : "CRITICAL", page: 1 })}>Critical</button>
+      </div>
 
       <form className="toolbar" onSubmit={submitSearch}>
-        <label className="text-sm text-slate-700">
+        <label className="w-full text-sm text-slate-700 sm:w-auto">
           Search
           <input
             value={draftQuery}
             onChange={(event) => setDraftQuery(event.target.value)}
-            className="field w-56"
+            className="field w-full sm:w-56"
             placeholder="Title, message, or record"
           />
         </label>
@@ -265,11 +271,11 @@ function NotificationsInbox() {
           </label>
           <label className="text-sm text-slate-700">
             From
-            <input aria-label="From date" type="date" value={state.from} onChange={(event) => replaceState({ ...state, from: event.target.value, page: 1 })} className="field" />
+            <DateField bare label="From date" value={state.from} onChange={(from) => replaceState({ ...state, from, page: 1 })} />
           </label>
           <label className="text-sm text-slate-700">
             To
-            <input aria-label="To date" type="date" value={state.to} onChange={(event) => replaceState({ ...state, to: event.target.value, page: 1 })} className="field" />
+            <DateField bare label="To date" value={state.to} onChange={(to) => replaceState({ ...state, to, page: 1 })} />
           </label>
         </div>
       ) : null}
@@ -327,18 +333,22 @@ function NotificationsInbox() {
                   {item.module} · {ageLabel(item.createdAt)} · {notificationNextAction(item)}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Link href={href as never} className="btn-primary h-8 px-2 text-xs">
-                  Open context
-                </Link>
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                {notificationContextIsLinked(href) ? (
+                  <Link href={href as never} className="btn-primary min-h-11 flex-1 justify-center px-3 text-sm sm:flex-none">
+                    {notificationNextAction(item)}
+                  </Link>
+                ) : (
+                  <span className="inline-flex min-h-11 items-center px-2 text-sm text-slate-500">No linked record</span>
+                )}
                 {item.isRead ? null : (
-                  <button type="button" className="btn-quiet h-8 px-2 text-xs" onClick={() => markRead.mutate(item.id)}>
-                    Mark read
+                  <button type="button" className="btn-quiet min-h-11 flex-1 justify-center px-3 text-sm sm:flex-none" aria-busy={markRead.isPending} disabled={markRead.isPending} onClick={() => markRead.mutate(item.id)}>
+                    {markRead.isPending ? "Marking read…" : "Mark read"}
                   </button>
                 )}
                 {item.acknowledgedAt ? null : (
-                  <button type="button" className="btn-quiet h-8 px-2 text-xs" onClick={() => acknowledge.mutate(item.id)}>
-                    Acknowledge
+                  <button type="button" className="btn-quiet min-h-11 flex-1 justify-center px-3 text-sm sm:flex-none" aria-busy={acknowledge.isPending} disabled={acknowledge.isPending} onClick={() => acknowledge.mutate(item.id)}>
+                    {acknowledge.isPending ? "Acknowledging…" : "Acknowledge"}
                   </button>
                 )}
               </div>

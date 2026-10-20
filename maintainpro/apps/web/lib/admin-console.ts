@@ -168,7 +168,7 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
       description: "Configurable multi-level approval policies.",
       status: "available",
       statusLabel: "Control",
-      href: "/admin/approvals"
+      href: "/admin/approval-rules"
     },
     {
       id: "asset-masters",

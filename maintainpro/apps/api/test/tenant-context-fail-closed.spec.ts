@@ -1,4 +1,4 @@
-import { ForbiddenException } from "@nestjs/common";
+import { ForbiddenException, UnauthorizedException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { RoleName } from "@prisma/client";
 
@@ -21,6 +21,7 @@ function mockContext(request: Record<string, unknown>) {
 
 describe("TenantContextGuard fail-closed", () => {
   const prisma = {
+    user: { findUnique: jest.fn() },
     tenantMembership: {
       findFirst: jest.fn(),
       findUnique: jest.fn()
@@ -29,6 +30,10 @@ describe("TenantContextGuard fail-closed", () => {
       findUnique: jest.fn()
     }
   };
+
+  function asRole(role: RoleName, isActive = true) {
+    prisma.user.findUnique.mockResolvedValue(isActive ? { isActive: true, role: { name: role } } : null);
+  }
 
   function buildGuard(meta: Record<string, boolean | undefined> = {}) {
     const reflector = {
@@ -42,6 +47,7 @@ describe("TenantContextGuard fail-closed", () => {
   });
 
   it("rejects authenticated tenant-scoped requests without resolvable tenant", async () => {
+    asRole(RoleName.TECHNICIAN);
     prisma.tenantMembership.findFirst.mockResolvedValue(null);
     const guard = buildGuard({});
     const request = {
@@ -59,6 +65,7 @@ describe("TenantContextGuard fail-closed", () => {
   });
 
   it("allows platform-scoped SUPER_ADMIN without tenant", async () => {
+    asRole(RoleName.SUPER_ADMIN);
     const guard = buildGuard({ [PLATFORM_SCOPED_KEY]: true });
     const request = {
       headers: {},
@@ -69,6 +76,7 @@ describe("TenantContextGuard fail-closed", () => {
   });
 
   it("rejects platform-scoped non-super-admin", async () => {
+    asRole(RoleName.ADMIN);
     const guard = buildGuard({ [PLATFORM_SCOPED_KEY]: true });
     const request = {
       headers: {},
@@ -78,6 +86,7 @@ describe("TenantContextGuard fail-closed", () => {
   });
 
   it("SkipTenantContext still requires tenant for non-super-admin", async () => {
+    asRole(RoleName.MANAGER);
     prisma.tenantMembership.findFirst.mockResolvedValue(null);
     const guard = buildGuard({ [SKIP_TENANT_CONTEXT_KEY]: true });
     const request = {
@@ -85,6 +94,30 @@ describe("TenantContextGuard fail-closed", () => {
       user: { sub: "u1", role: RoleName.MANAGER, tenantId: null }
     };
     await expect(guard.canActivate(mockContext(request))).rejects.toThrow(ForbiddenException);
+  });
+
+  it("denies a stale SUPER_ADMIN token after the account is demoted", async () => {
+    asRole(RoleName.TECHNICIAN);
+    prisma.tenantMembership.findFirst.mockResolvedValue(null);
+    const guard = buildGuard({});
+    const request = {
+      headers: { "x-tenant-id": "tenant-b" },
+      user: { sub: "u1", role: RoleName.SUPER_ADMIN, tenantId: "tenant-a" }
+    };
+
+    await expect(guard.canActivate(mockContext(request))).rejects.toThrow(/Tenant access denied/);
+    expect(request.user.role).toBe(RoleName.TECHNICIAN);
+  });
+
+  it("rejects a disabled account before tenant access", async () => {
+    asRole(RoleName.SUPER_ADMIN, false);
+    const guard = buildGuard({});
+    const request = {
+      headers: { "x-tenant-id": "tenant-a" },
+      user: { sub: "u1", role: RoleName.SUPER_ADMIN, tenantId: "tenant-a" }
+    };
+
+    await expect(guard.canActivate(mockContext(request))).rejects.toThrow(UnauthorizedException);
   });
 });
 

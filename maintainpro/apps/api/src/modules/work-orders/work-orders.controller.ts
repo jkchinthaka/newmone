@@ -1,5 +1,6 @@
-import { Body, BadRequestException, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, BadRequestException, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
+import type { Response } from "express";
 import { PartReturnCondition, Priority, WorkOrderStatus } from "@prisma/client";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
@@ -20,6 +21,15 @@ import { VendorRepairService } from "./vendor-repair.service";
 import { WorkOrderTaxonomyService } from "../work-order-taxonomy/work-order-taxonomy.service";
 import { MaintenanceConfigService } from "../maintenance-config/maintenance-config.service";
 import { parseWorkOrderListQuery } from "./work-order-list-query.util";
+import {
+  PART_REQUEST_APPROVE_FINANCE_ROLES,
+  PART_REQUEST_APPROVE_OPERATIONAL_ROLES,
+  PART_REQUEST_CREATE_ROLES,
+  PART_REQUEST_ISSUE_ROLES,
+  PART_REQUEST_REJECT_ROLES,
+  PART_REQUEST_VIEW_ROLES,
+  PART_RETURN_CONFIRM_ROLES
+} from "./part-request-access";
 
 type AuthedRequest = {
   user: JwtPayload;
@@ -74,7 +84,6 @@ export class WorkOrdersController {
     "TECHNICIAN",
     "SUPERVISOR",
     "INVENTORY_KEEPER",
-    "SECURITY_OFFICER",
     // Action Center (Home) read-only signals: viewers get the same summary counts
     // as management roles, and finance gets its finance-vendor-pending queue.
     "VIEWER",
@@ -102,8 +111,7 @@ export class WorkOrdersController {
     "MECHANIC",
     "TECHNICIAN",
     "SUPERVISOR",
-    "INVENTORY_KEEPER",
-    "SECURITY_OFFICER"
+    "INVENTORY_KEEPER"
   )
   async smartViews(@Req() req: AuthedRequest) {
     const data = await this.workOrderQueuesService.getSmartViews(req.user);
@@ -120,8 +128,7 @@ export class WorkOrdersController {
     "MECHANIC",
     "TECHNICIAN",
     "SUPERVISOR",
-    "INVENTORY_KEEPER",
-    "SECURITY_OFFICER"
+    "INVENTORY_KEEPER"
   )
   async actionRequired(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
     const data = await this.workOrderQueuesService.getActionRequired(req.user, query);
@@ -138,8 +145,7 @@ export class WorkOrdersController {
     "MECHANIC",
     "TECHNICIAN",
     "SUPERVISOR",
-    "INVENTORY_KEEPER",
-    "SECURITY_OFFICER"
+    "INVENTORY_KEEPER"
   )
   async queueItems(@Req() req: AuthedRequest, @Param("queueKey") queueKey: string, @Query() query: Record<string, string>) {
     const data = await this.workOrderQueuesService.getQueue(req.user, queueKey, query);
@@ -228,7 +234,6 @@ export class WorkOrdersController {
     "TECHNICIAN",
     "SUPERVISOR",
     "INVENTORY_KEEPER",
-    "SECURITY_OFFICER",
     "VIEWER",
     "DRIVER"
   )
@@ -248,7 +253,6 @@ export class WorkOrdersController {
     "TECHNICIAN",
     "SUPERVISOR",
     "INVENTORY_KEEPER",
-    "SECURITY_OFFICER",
     "VIEWER",
     "DRIVER"
   )
@@ -267,8 +271,7 @@ export class WorkOrdersController {
     "MECHANIC",
     "TECHNICIAN",
     "SUPERVISOR",
-    "INVENTORY_KEEPER",
-    "SECURITY_OFFICER"
+    "INVENTORY_KEEPER"
   )
   async findAll(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
     const parsed = parseWorkOrderListQuery(query);
@@ -290,7 +293,6 @@ export class WorkOrdersController {
     "TECHNICIAN",
     "SUPERVISOR",
     "INVENTORY_KEEPER",
-    "SECURITY_OFFICER",
     "FLEET_MANAGER",
     "FACILITY_MANAGER",
     "BUILDING_SUPERVISOR"
@@ -324,7 +326,7 @@ export class WorkOrdersController {
     @Req() req: AuthedRequest,
     @Body()
     body: {
-      workOrderIds: string[];
+      items: Array<{ id: string; expectedVersion: number }>;
       targetStatus: WorkOrderStatus;
       reason?: string;
       cancelReason?: string;
@@ -493,8 +495,51 @@ export class WorkOrdersController {
     return { data, message: "Evidence upload request processed" };
   }
 
+  @Post(":id/evidence/:evidenceId/content")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  async storeEvidenceContent(
+    @Req() req: AuthedRequest & AsyncIterable<Uint8Array>,
+    @Param("id") id: string,
+    @Param("evidenceId") evidenceId: string
+  ) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    const data = await this.evidenceService.storeWorkOrderEvidenceBytes(id, evidenceId, Buffer.concat(chunks), req.user);
+    return { data, message: "Evidence bytes stored" };
+  }
+
+  @Get(":id/evidence/:evidenceId/content")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "MECHANIC",
+    "TECHNICIAN",
+    "FACILITY_MANAGER",
+    "SUPERVISOR"
+  )
+  async downloadEvidenceContent(
+    @Req() req: AuthedRequest,
+    @Res() res: Response,
+    @Param("id") id: string,
+    @Param("evidenceId") evidenceId: string
+  ) {
+    const file = await this.evidenceService.readWorkOrderEvidenceBytes(id, evidenceId, req.user);
+    const safeName = file.fileName.replace(/["\r\n]/g, "");
+    res.setHeader("Content-Type", file.mimeType);
+    res.setHeader("Content-Length", String(file.bytes.length));
+    res.setHeader("Content-Disposition", `attachment; filename="${safeName}"`);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.send(file.bytes);
+  }
+
   @Post(":id/evidence/confirm")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
   async confirmEvidenceUpload(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -902,7 +947,7 @@ export class WorkOrdersController {
   @Post(":id/verify-supervisor")
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Work order supervisor verified (Phase 6 VERIFIED)" })
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
   @Permissions("work_orders.verify")
   async verifySupervisor(
     @Req() req: AuthedRequest,
@@ -1041,7 +1086,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/parts/:lineId/confirm-return")
-  @Roles("SUPER_ADMIN", "ADMIN", "INVENTORY_KEEPER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Roles(...PART_RETURN_CONFIRM_ROLES)
   @Permissions("inventory.stock_issue")
   async confirmPartReturn(
     @Req() req: AuthedRequest,
@@ -1070,7 +1115,7 @@ export class WorkOrdersController {
   }
 
   @Get(":id/part-requests")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "INVENTORY_KEEPER", "SUPERVISOR")
+  @Roles(...PART_REQUEST_VIEW_ROLES)
   @Permissions("part_requests.view")
   async listPartRequests(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrdersService.listPartRequests(id, req.user);
@@ -1078,7 +1123,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/part-requests")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
+  @Roles(...PART_REQUEST_CREATE_ROLES)
   @Permissions("part_requests.create")
   async createPartRequest(
     @Req() req: AuthedRequest,
@@ -1090,7 +1135,7 @@ export class WorkOrdersController {
   }
 
   @Patch(":id/part-requests/:requestId/approve-operational")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "INVENTORY_KEEPER", "OPERATIONS_MANAGER")
+  @Roles(...PART_REQUEST_APPROVE_OPERATIONAL_ROLES)
   @Permissions("part_requests.approve_operational")
   async approvePartRequestOperational(
     @Req() req: AuthedRequest,
@@ -1103,7 +1148,7 @@ export class WorkOrdersController {
   }
 
   @Patch(":id/part-requests/:requestId/approve-finance")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
+  @Roles(...PART_REQUEST_APPROVE_FINANCE_ROLES)
   @Permissions("part_requests.approve_finance")
   async approvePartRequestFinance(
     @Req() req: AuthedRequest,
@@ -1116,7 +1161,7 @@ export class WorkOrdersController {
   }
 
   @Patch(":id/part-requests/:requestId/reject")
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "INVENTORY_KEEPER", "OPERATIONS_MANAGER")
+  @Roles(...PART_REQUEST_REJECT_ROLES)
   @Permissions("part_requests.reject")
   async rejectPartRequest(
     @Req() req: AuthedRequest,
@@ -1129,7 +1174,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/part-requests/:requestId/issue")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "OPERATIONS_MANAGER")
+  @Roles(...PART_REQUEST_ISSUE_ROLES)
   @Permissions("part_requests.issue", "inventory.stock_issue")
   async issuePartRequest(
     @Req() req: AuthedRequest,

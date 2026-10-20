@@ -81,7 +81,7 @@ jobs:
       - name: Idempotent seed re-run
         run: npm run db:seed
       - name: API typecheck
-        run: npm run typecheck --workspace @maintainpro/api
+        run: npm run build --workspace @maintainpro/shared-types && npm run typecheck --workspace @maintainpro/api
       - name: Focused integrity tests
         env:
           # Cold ts-jest compile against the generated Prisma types needs >2 GB (see pr-validation.yml).

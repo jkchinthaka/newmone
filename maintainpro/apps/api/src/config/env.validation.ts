@@ -3,6 +3,8 @@ import Joi from "joi";
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid("development", "test", "production").default("development"),
   PORT: Joi.number().default(3000),
+  HTTP_KEEP_ALIVE_TIMEOUT_MS: Joi.number().integer().min(1000).default(65000),
+  HTTP_HEADERS_TIMEOUT_MS: Joi.number().integer().min(1000).default(66000),
   CORS_ORIGIN: Joi.string().default("http://localhost:3001"),
   FRONTEND_URL: Joi.string().uri().default("http://localhost:3001"),
   DATABASE_PROVIDER: Joi.string().valid("sqlserver", "mongodb").default("sqlserver"),
@@ -12,7 +14,7 @@ export const envValidationSchema = Joi.object({
   BACKUP_DATABASE_NAME: Joi.string().allow("").default("bileeta_db"),
   DATABASE_SERVER_SELECTION_TIMEOUT_MS: Joi.number().integer().min(500).default(5000),
   DATABASE_CONNECT_TIMEOUT_MS: Joi.number().integer().min(500).default(5000),
-  DATABASE_REPLICATION_ENABLED: Joi.boolean().default(true),
+  DATABASE_REPLICATION_ENABLED: Joi.boolean().default(false),
   DATABASE_REPLICATION_MODE: Joi.string()
     .valid("async_outbox", "strict_dual_write", "disabled")
     .default("async_outbox"),
@@ -56,6 +58,7 @@ export const envValidationSchema = Joi.object({
     .valid("disabled", "mock", "local", "azure_blob", "r2", "s3", "minio", "cloudinary")
     .default("local"),
   STORAGE_UPLOADS_ENABLED: Joi.boolean().default(false),
+  STORAGE_LOCAL_ROOT: Joi.string().allow("").default(""),
   STORAGE_MAX_FILE_SIZE_MB: Joi.number().integer().min(1).max(100).default(10),
   STORAGE_ALLOWED_MIME_TYPES: Joi.string()
     .allow("")
@@ -249,6 +252,12 @@ export const envValidationSchema = Joi.object({
 
     const storageUploadsEnabled = Boolean(value.STORAGE_UPLOADS_ENABLED);
     const storageMode = String(value.STORAGE_MODE ?? "local");
+    if (storageUploadsEnabled && storageMode === "local" && nodeEnv === "production") {
+      return helpers.error("any.invalid", {
+        message: "STORAGE_MODE=local cannot serve evidence uploads in production. Use minio or s3."
+      });
+    }
+
     if (storageUploadsEnabled && storageMode === "mock" && nodeEnv === "production" && !allowMockInProduction) {
       return helpers.error("any.invalid", {
         message:

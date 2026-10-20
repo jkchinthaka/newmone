@@ -6,7 +6,13 @@
 /** Archived legacy FMS pending-requests workspace. Not a post-login destination. */
 export const LEGACY_FMS_HOME_PATH = "/home";
 
-export const DEFAULT_POST_LOGIN_REDIRECT = "/action-center";
+/** Retired product surface. Bookmarks redirect; it is never a landing destination. */
+export const RETIRED_ACTION_CENTER_PATH = "/action-center";
+
+/** Retired branded entry screen. Bookmarks use the same auth-aware entry as `/`. */
+export const RETIRED_SPLASH_PATH = "/splash";
+
+export const DEFAULT_POST_LOGIN_REDIRECT = "/notifications";
 
 /** App Router paths confirmed to exist today (2026-06-12 audit). */
 export const EXISTING_POST_LOGIN_ROUTES = new Set<string>([
@@ -25,9 +31,14 @@ export const EXISTING_POST_LOGIN_ROUTES = new Set<string>([
   "/utilities",
   "/notifications",
   "/settings",
+  "/work-orders/my",
+  "/maintenance",
+  "/maintenance/jobs",
   "/qr/report-issue",
   "/requests",
-  "/maintenance/forecast"
+  "/maintenance/forecast",
+  "/vendor-portal",
+  "/utilities/readings"
 ]);
 
 export type PostLoginUserLike =
@@ -43,41 +54,57 @@ export type PostLoginUserLike =
  * Phase 1: CMMS/fleet focused — no farm/cleaning/billing landings.
  */
 export const ROLE_POST_LOGIN_PREFERENCES: Record<string, readonly string[]> = {
-  SUPER_ADMIN: ["/action-center", "/admin", "/system-health"],
-  ADMIN: ["/action-center", "/admin"],
-  MANAGER: ["/action-center", "/reports", "/work-orders"],
-  OPERATIONS_MANAGER: ["/action-center", "/work-orders", "/reports"],
-  FACILITY_MANAGER: ["/action-center", "/facilities", "/assets"],
-  BUILDING_SUPERVISOR: ["/action-center", "/facilities", "/work-orders"],
-  MAINTENANCE_SUPERVISOR: ["/action-center", "/work-orders"],
-  TECHNICIAN: ["/action-center", "/work-orders"],
-  MECHANIC: ["/action-center", "/work-orders"],
-  CLEANER: ["/action-center"],
-  SECURITY_OFFICER: ["/action-center", "/fleet/gate"],
-  INVENTORY_KEEPER: ["/action-center", "/inventory"],
-  STOREKEEPER: ["/action-center", "/inventory"],
-  PROCUREMENT_OFFICER: ["/action-center", "/inventory"],
-  FINANCE_APPROVER: ["/action-center", "/reports"],
-  FINANCE: ["/action-center", "/reports"],
-  VENDOR: ["/action-center"],
-  REQUESTER: ["/action-center", "/requests"],
-  VIEWER: ["/action-center", "/reports"],
-  AUDITOR: ["/action-center", "/reports"],
-  FLEET_MANAGER: ["/action-center", "/fleet"],
-  COMPLIANCE_MANAGER: ["/action-center", "/compliance"],
-  ASSET_MANAGER: ["/action-center", "/assets"],
-  SUPERVISOR: ["/action-center", "/work-orders"],
-  DRIVER: ["/action-center", "/fleet"],
-  // Farm ops retired from product surface — land on Home; farm infrastructure via Assets later.
-  FARM_OWNER: ["/action-center", "/assets"],
-  FARM_MANAGER: ["/action-center", "/assets"],
-  FIELD_SUPERVISOR: ["/action-center"],
-  AGRONOMIST: ["/action-center"],
-  VETERINARIAN: ["/action-center"],
-  FARM_WORKER: ["/action-center"],
-  IRRIGATION_OPERATOR: ["/action-center"],
-  HARVEST_CREW: ["/action-center"]
+  SUPER_ADMIN: ["/admin", "/system-health", "/notifications"],
+  ADMIN: ["/admin", "/notifications"],
+  MANAGER: ["/maintenance", "/reports", "/work-orders", "/notifications"],
+  OPERATIONS_MANAGER: ["/maintenance", "/work-orders", "/reports", "/notifications"],
+  FACILITY_MANAGER: ["/facilities", "/assets", "/notifications"],
+  BUILDING_SUPERVISOR: ["/facilities", "/work-orders", "/notifications"],
+  MAINTENANCE_SUPERVISOR: ["/maintenance", "/work-orders", "/notifications"],
+  TECHNICIAN: ["/work-orders/my", "/work-orders", "/notifications"],
+  MECHANIC: ["/work-orders/my", "/work-orders", "/notifications"],
+  CLEANER: ["/notifications"],
+  SECURITY_OFFICER: ["/fleet/gate", "/notifications"],
+  INVENTORY_KEEPER: ["/inventory", "/notifications"],
+  STOREKEEPER: ["/inventory", "/notifications"],
+  PROCUREMENT_OFFICER: ["/inventory", "/notifications"],
+  FINANCE_APPROVER: ["/reports", "/notifications"],
+  FINANCE: ["/reports", "/notifications"],
+  VENDOR: ["/vendor-portal", "/notifications"],
+  REQUESTER: ["/requests", "/notifications"],
+  VIEWER: ["/reports", "/notifications"],
+  AUDITOR: ["/reports", "/notifications"],
+  FLEET_MANAGER: ["/fleet", "/notifications"],
+  COMPLIANCE_MANAGER: ["/compliance", "/notifications"],
+  ASSET_MANAGER: ["/assets", "/notifications"],
+  SUPERVISOR: ["/maintenance", "/maintenance/jobs", "/notifications"],
+  DRIVER: ["/fleet", "/notifications"],
+  // Farm ops retired from product surface — land on Assets, then notifications.
+  FARM_OWNER: ["/assets", "/notifications"],
+  FARM_MANAGER: ["/assets", "/notifications"],
+  FIELD_SUPERVISOR: ["/notifications"],
+  AGRONOMIST: ["/notifications"],
+  VETERINARIAN: ["/notifications"],
+  FARM_WORKER: ["/notifications"],
+  IRRIGATION_OPERATOR: ["/notifications"],
+  HARVEST_CREW: ["/notifications"]
 };
+
+function pathOnly(value: string): string {
+  return value.split("?")[0]?.split("#")[0] ?? "";
+}
+
+export function isRetiredActionCenterPath(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const path = pathOnly(value);
+  return path === RETIRED_ACTION_CENTER_PATH || path.startsWith(`${RETIRED_ACTION_CENTER_PATH}/`);
+}
+
+export function isRetiredSplashPath(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const path = pathOnly(value);
+  return path === RETIRED_SPLASH_PATH || path.startsWith(`${RETIRED_SPLASH_PATH}/`);
+}
 
 export function extractRoleName(userOrRole: PostLoginUserLike): string | null {
   if (userOrRole == null) {
@@ -109,6 +136,9 @@ export function extractRoleName(userOrRole: PostLoginUserLike): string | null {
 
 export function resolvePostLoginPath(preferredPaths: readonly string[]): string {
   for (const path of preferredPaths) {
+    if (isRetiredActionCenterPath(path) || isRetiredSplashPath(path)) {
+      continue;
+    }
     if (EXISTING_POST_LOGIN_ROUTES.has(path)) {
       return path;
     }
@@ -125,7 +155,7 @@ export function getPostLoginRedirect(userOrRole: PostLoginUserLike): string {
   }
 
   const preferences =
-    ROLE_POST_LOGIN_PREFERENCES[roleName] ?? [DEFAULT_POST_LOGIN_REDIRECT];
+    ROLE_POST_LOGIN_PREFERENCES[roleName] ?? ["/requests", DEFAULT_POST_LOGIN_REDIRECT];
 
   return resolvePostLoginPath(preferences);
 }
@@ -160,8 +190,9 @@ export function safeInternalReturnPath(value: string | null | undefined): string
 
   const path = decoded.split("?")[0]?.split("#")[0] ?? "";
   if (!path || path.includes("..")) return null;
+  if (path === "/" || isRetiredActionCenterPath(path) || isRetiredSplashPath(path)) return null;
 
-  const blocked = ["/login", "/forgot-password", "/reset-password", "/register", "/splash"];
+  const blocked = ["/login", "/forgot-password", "/reset-password", "/register", "/accept-invite"];
   if (blocked.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
     return null;
   }

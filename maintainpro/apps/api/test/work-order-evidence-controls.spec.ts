@@ -26,8 +26,9 @@ describe("work order evidence controls", () => {
     const provider = new EvidenceStorageProviderService(
       configService({
         NODE_ENV: "development",
-        STORAGE_MODE: "mock",
+        STORAGE_MODE: "local",
         STORAGE_UPLOADS_ENABLED: true,
+        STORAGE_LOCAL_ROOT: "C:\\MaintainPro\\evidence-objects",
         ...overrides
       })
     );
@@ -62,7 +63,9 @@ describe("work order evidence controls", () => {
         findFirst: jest.fn(),
         findMany: jest.fn().mockResolvedValue([])
       },
-      auditLog: { create: jest.fn().mockResolvedValue({}) }
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+      asset: { findFirst: jest.fn().mockResolvedValue(null) },
+      vehicle: { findFirst: jest.fn().mockResolvedValue(null) }
     } as unknown as ConstructorParameters<typeof EvidenceService>[0];
     return { service: new EvidenceService(prisma, provider), prisma };
   }
@@ -85,6 +88,16 @@ describe("work order evidence controls", () => {
     const result = await service.verifyWorkOrderQr("wo-1", { scannedAssetId: "asset-1" }, technician);
     expect(result.qrVerificationStatus).toBe(QrVerificationStatus.VERIFIED);
     expect(result.message).toContain("QR verification completed");
+  });
+
+  it("accepts the work order asset tag as a QR match", async () => {
+    const { service, prisma } = buildService();
+    (prisma.asset.findFirst as jest.Mock).mockResolvedValue({ id: "asset-1" });
+    const result = await service.verifyWorkOrderQr("wo-1", { scannedAssetId: "AST-ABCD" }, technician);
+    expect(result.qrVerificationStatus).toBe(QrVerificationStatus.VERIFIED);
+    expect(prisma.asset.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "asset-1", tenantId: "tenant-a" })
+    }));
   });
 
   it("blocks QR mismatch without override", async () => {

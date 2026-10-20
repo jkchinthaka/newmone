@@ -3,6 +3,8 @@ import { apiBaseUrl } from "@/lib/api-url";
 import { clearAuthSession } from "@/lib/auth-storage";
 import { safeInternalReturnPath } from "@/lib/role-redirect";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
+import { shareAccessTokenRefresh } from "@/lib/access-token-refresh";
+import { isUpstreamUnavailableError, markUpstreamDegraded, markUpstreamHealthy } from "@/lib/upstream-status";
 
 const DEFAULT_API_TIMEOUT_MS = 60_000;
 const CSRF_COOKIE_KEY = "maintainpro_csrf";
@@ -34,10 +36,12 @@ export function isDatabaseUnavailableError(error: unknown): boolean {
     };
   };
 
-  return (
-    candidate.response?.status === 503 ||
-    candidate.response?.data?.error?.code === "DATABASE_UNAVAILABLE"
-  );
+  const code = candidate.response?.data?.error?.code;
+  // A BFF 503 for a restarting API is transient, not a database outage.
+  if (code === "UPSTREAM_UNAVAILABLE" || code === "UPSTREAM_TIMEOUT") {
+    return false;
+  }
+  return candidate.response?.status === 503 || code === "DATABASE_UNAVAILABLE";
 }
 
 export function getApiErrorMessage(error: unknown, fallback: string): string {
@@ -204,14 +208,8 @@ type RetriableRequestConfig = InternalAxiosRequestConfig & {
   _retry?: boolean;
 };
 
-let refreshInFlight: Promise<boolean> | null = null;
-
 async function attemptAccessTokenRefresh(): Promise<boolean> {
-  if (refreshInFlight) {
-    return refreshInFlight;
-  }
-
-  refreshInFlight = (async () => {
+  return shareAccessTokenRefresh(async () => {
     const csrfToken = getCsrfTokenFromCookie();
     if (!csrfToken) {
       return false;
@@ -235,11 +233,7 @@ async function attemptAccessTokenRefresh(): Promise<boolean> {
       // A sibling request already rotated this token and stored the new cookies.
       return code === "REFRESH_TOKEN_ROTATED";
     }
-  })().finally(() => {
-    refreshInFlight = null;
   });
-
-  return refreshInFlight;
 }
 
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
@@ -265,9 +259,19 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 });
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    markUpstreamHealthy();
+    return response;
+  },
   async (error: AxiosError) => {
     const status = error?.response?.status;
+    const requestMethod = (error.config?.method ?? "get").toUpperCase();
+    if (isUpstreamUnavailableError(error)) {
+      // Only reads drive the banner; a failed mutation reports its own error to the user.
+      if (requestMethod === "GET") markUpstreamDegraded();
+    } else if (error.response) {
+      markUpstreamHealthy();
+    }
     const errorPayload = error.response?.data as
       | { error?: { message?: string; code?: string } }
       | undefined;

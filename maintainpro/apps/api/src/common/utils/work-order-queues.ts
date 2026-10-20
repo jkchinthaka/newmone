@@ -107,7 +107,7 @@ export type WorkOrderActionRequiredItem = {
 };
 
 const TECHNICIAN_ROLES = new Set<RoleName>([RoleName.TECHNICIAN, RoleName.MECHANIC]);
-const SUPERVISOR_ROLES = new Set<RoleName>([RoleName.SUPERVISOR, RoleName.SECURITY_OFFICER]);
+const SUPERVISOR_ROLES = new Set<RoleName>([RoleName.SUPERVISOR]);
 const MANAGER_ROLES = new Set<RoleName>([
   RoleName.MANAGER,
   RoleName.OPERATIONS_MANAGER,
@@ -131,6 +131,7 @@ export function resolveDefaultQueueForRole(role: RoleName | string | undefined):
 
 export function roleCanAccessQueue(role: RoleName | string | undefined, queue: WorkOrderQueueKey): boolean {
   const r = role as RoleName;
+  if (r === RoleName.SECURITY_OFFICER) return false;
   if (ADMIN_ROLES.has(r) || MANAGER_ROLES.has(r) || SUPERVISOR_ROLES.has(r)) return true;
   if (INVENTORY_ROLES.has(r)) {
     return ["waiting-parts", "my-tasks", "action-required", "assigned", "in-progress", "unassigned", "open-load"].includes(queue);
@@ -185,6 +186,11 @@ export function severityWeight(severity: RiskSeverity | undefined): number {
     default:
       return 1;
   }
+}
+
+/** In Progress queue includes jobs on hold. Dashboard cards must use this same filter. */
+export function inProgressQueueWhere(): Prisma.WorkOrderWhereInput {
+  return { status: { in: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD] } };
 }
 
 /** OPEN or PLANNED work with no technician. Assignment moves a job to ASSIGNED. */

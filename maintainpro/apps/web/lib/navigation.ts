@@ -9,7 +9,13 @@
  * FG Digital Records integration was removed from MaintainPro entirely.
  */
 
-import { LEGACY_FMS_HOME_PATH } from "./role-redirect";
+import {
+  extractRoleName,
+  getPostLoginRedirect,
+  LEGACY_FMS_HOME_PATH,
+  safeInternalReturnPath,
+  type PostLoginUserLike
+} from "./role-redirect";
 
 export type NavActiveMatch = "exact" | "startsWith";
 
@@ -29,7 +35,6 @@ export type NavCategory =
   | "legacy";
 
 export type NavBadgeKey =
-  | "action-center"
   | "my-tasks"
   | "waiting-parts"
   | "waiting-evidence"
@@ -37,7 +42,8 @@ export type NavBadgeKey =
   | "high-risk"
   | "triage"
   | "overdue"
-  | "system-health";
+  | "system-health"
+  | "approvals";
 
 export interface NavigationItem {
   id: string;
@@ -265,6 +271,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/admin/people",
   "/admin/invitations",
   "/admin/approvals",
+  "/admin/approval-rules",
   "/admin/bulk-imports",
   "/approvals",
   "/vendor-portal",
@@ -282,6 +289,10 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/traffic-fines",
   "/facilities",
   "/utilities",
+  "/utilities/readings",
+  "/admin/assets/new",
+  "/admin/vehicles/new",
+  "/admin/asset-tags",
   "/operations/exceptions",
   LEGACY_FMS_HOME_PATH
 ]);
@@ -303,21 +314,21 @@ export const NAV_CATEGORY_LABELS: Record<NavCategory, string> = {
 };
 
 export const ROLE_DEFAULT_FAVORITE_NAV_IDS: Record<string, readonly string[]> = {
-  TECHNICIAN: ["home", "all-jobs", "my-jobs"],
-  MECHANIC: ["home", "all-jobs", "my-jobs"],
-  INVENTORY_KEEPER: ["home", "spare-parts"],
-  STOREKEEPER: ["home", "spare-parts"],
-  SUPERVISOR: ["home", "all-jobs", "requests"],
-  MAINTENANCE_SUPERVISOR: ["home", "all-jobs", "preventive-maintenance"],
-  MANAGER: ["home", "reports", "all-jobs", "my-jobs"],
-  OPERATIONS_MANAGER: ["home", "reports", "all-jobs", "my-jobs"],
-  SUPER_ADMIN: ["home", "admin", "system-health"],
-  ADMIN: ["home", "admin"],
-  SECURITY_OFFICER: ["home", "fleet"],
-  FLEET_MANAGER: ["home", "fleet", "vehicle-jobs"],
-  DRIVER: ["home", "fleet"],
-  VIEWER: ["home", "reports"],
-  ASSET_MANAGER: ["home", "assets", "preventive-maintenance"]
+  TECHNICIAN: ["all-jobs", "my-jobs"],
+  MECHANIC: ["all-jobs", "my-jobs"],
+  INVENTORY_KEEPER: ["spare-parts"],
+  STOREKEEPER: ["spare-parts"],
+  SUPERVISOR: ["all-jobs", "requests"],
+  MAINTENANCE_SUPERVISOR: ["all-jobs", "preventive-maintenance"],
+  MANAGER: ["reports", "all-jobs", "my-jobs"],
+  OPERATIONS_MANAGER: ["reports", "all-jobs", "my-jobs"],
+  SUPER_ADMIN: ["admin", "system-health"],
+  ADMIN: ["admin"],
+  SECURITY_OFFICER: ["fleet"],
+  FLEET_MANAGER: ["fleet", "vehicle-jobs"],
+  DRIVER: ["fleet"],
+  VIEWER: ["reports"],
+  ASSET_MANAGER: ["assets", "preventive-maintenance"]
 };
 
 export const FULL_NAVIGATION_ROLES = new Set<string>(["SUPER_ADMIN", "ADMIN"]);
@@ -327,19 +338,6 @@ export const FULL_NAVIGATION_ROLES = new Set<string>(["SUPER_ADMIN", "ADMIN"]);
  * Domain job lanes share the unified Work Order engine (jobDomain filter).
  */
 export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
-  {
-    id: "home",
-    label: "Action Center",
-    href: "/action-center",
-    icon: "Home",
-    allowedRoles: HOME_ROLES,
-    category: "workspace",
-    description: "Role-aware priorities and actionable items",
-    badgeKey: "action-center",
-    mobilePriority: true,
-    pinByDefaultForRoles: HOME_ROLES,
-    activeMatch: "exact"
-  },
   {
     id: "maintenance-dashboard",
     label: "Maintenance Dashboard",
@@ -407,16 +405,6 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "exact"
   },
   {
-    id: "planning",
-    label: "Maintenance Forecast",
-    href: "/maintenance/planning",
-    icon: "CalendarClock",
-    allowedRoles: PM_ROLES,
-    category: "advanced",
-    description: "Advanced forecast. Needs meter, usage, and preventive maintenance history.",
-    activeMatch: "startsWith"
-  },
-  {
     id: "inspections",
     label: "Inspections",
     href: "/maintenance/inspections",
@@ -424,6 +412,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     allowedRoles: WO_ROLES,
     category: "advanced",
     description: "Phase 2. Overlaps with preventive maintenance, requests, and work orders.",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "meter-readings",
+    label: "Meter Readings",
+    href: "/utilities/readings",
+    icon: "Gauge",
+    allowedRoles: mergeRoles(ADMIN_ROLES, ["ASSET_MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC"]),
+    category: "advanced",
+    description: "Record utility meter readings",
     activeMatch: "startsWith"
   },
   {
@@ -443,6 +441,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     icon: "ClipboardCheck",
     allowedRoles: mergeRoles(SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN", "OPERATIONS_MANAGER", "FINANCE", "FACILITY_MANAGER"]),
     requiredPermissions: ["approvals.view"],
+    badgeKey: "approvals",
     category: "advanced",
     description: "Secondary inbox. Decide inside the work order, parts, vendor, request, or PM record.",
     activeMatch: "startsWith"
@@ -479,16 +478,6 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
-    id: "maintenance-costs",
-    label: "Costs",
-    href: "/maintenance/costs",
-    icon: "BarChart3",
-    allowedRoles: REPORT_ROLES,
-    category: "operations",
-    description: "Job costing and spend views",
-    activeMatch: "startsWith"
-  },
-  {
     id: "maintenance-history",
     label: "Maintenance History",
     href: "/maintenance/history",
@@ -500,7 +489,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "reports",
-    label: "Reports & Analytics",
+    label: "Reports",
     href: "/reports",
     icon: "BarChart3",
     allowedRoles: REPORT_ROLES,
@@ -591,6 +580,36 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
+    id: "admin-asset-register",
+    label: "Register asset",
+    href: "/admin/assets/new",
+    icon: "Package",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "Create an asset from the admin register",
+    activeMatch: "exact"
+  },
+  {
+    id: "admin-vehicle-register",
+    label: "Register vehicle",
+    href: "/admin/vehicles/new",
+    icon: "Truck",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "Create a vehicle from the admin register",
+    activeMatch: "exact"
+  },
+  {
+    id: "admin-asset-tags",
+    label: "Asset tag upload",
+    href: "/admin/asset-tags",
+    icon: "QrCode",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "Preview and apply asset tags",
+    activeMatch: "exact"
+  },
+  {
     id: "system-health",
     label: "System Health",
     href: "/system-health",
@@ -662,10 +681,9 @@ const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/admin/integrations": ["/admin"],
   "/admin/security": ["/admin"],
   "/admin/approvals": ["/admin"],
+  "/admin/approval-rules": ["/admin"],
   "/admin/data-quality": ["/admin"],
   "/admin/audit": ["/admin"],
-  "/workspace": ["/action-center"],
-  "/dashboard": ["/action-center"],
   "/work-orders": ["/maintenance/jobs"],
   "/maintenance/job-codes": ["/maintenance"],
   "/maintenance/forecast": ["/maintenance/planning"],
@@ -688,7 +706,6 @@ const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/insurance-claims": ["/fleet"],
   "/traffic-fines": ["/fleet"],
   "/facilities": ["/assets"],
-  "/utilities": ["/assets"],
   "/operations/exceptions": ["/reports"]
 };
 
@@ -725,11 +742,15 @@ export function isNavigationItemVisible(
   const normalized = normalizeNavigationRole(roleName);
 
   if (!normalized) {
-    return item.id === "home";
+    return item.id === "notifications" || item.id === "settings";
   }
 
   if (!item.allowedRoles.includes(normalized)) {
-    return false;
+    // Requests are granted by permission, not by department role. An authorized
+    // Finance, Farm, or other employee must see the entry the API will allow.
+    if (item.id !== "requests") {
+      return false;
+    }
   }
 
   if (item.requiredFeature && enabledFeatures != null && enabledFeatures.length > 0) {
@@ -752,7 +773,7 @@ export function isNavigationItemVisible(
 export function getDefaultFavoriteNavIds(roleName: string | null | undefined): string[] {
   const normalized = normalizeNavigationRole(roleName);
   if (!normalized) {
-    return ["home"];
+    return ["notifications"];
   }
 
   const configured = ROLE_DEFAULT_FAVORITE_NAV_IDS[normalized];
@@ -764,7 +785,7 @@ export function getDefaultFavoriteNavIds(roleName: string | null | undefined): s
     item.pinByDefaultForRoles?.includes(normalized)
   ).map((item) => item.id);
 
-  return pinned.length > 0 ? pinned : ["home"];
+  return pinned.length > 0 ? pinned : ["notifications"];
 }
 
 export function getVisibleNavigationItems(
@@ -791,7 +812,7 @@ export function getVisibleNavigationItems(
     return visible;
   }
 
-  const fallback = NAVIGATION_ITEMS.find((item) => item.id === "home");
+  const fallback = NAVIGATION_ITEMS.find((item) => item.id === "notifications");
   return fallback ? [fallback] : [];
 }
 
@@ -844,6 +865,14 @@ export function canAccessNavigationPath(
 
   if (normalizedPath === "/system-health" || normalizedPath.startsWith("/system-health/")) {
     return normalized === "SUPER_ADMIN";
+  }
+
+  if (
+    normalizedPath === "/action-center" ||
+    normalizedPath === "/dashboard" ||
+    normalizedPath === "/workspace"
+  ) {
+    return true;
   }
 
   const visible = getVisibleNavigationItems(roleName, { permissions });
@@ -909,32 +938,43 @@ export function getMobileBottomNavItems(
   );
   const hasRequests = visible.some((item) => item.id === "requests");
   const hasAssets = visible.some((item) => item.id === "assets");
+  const hasFleet = visible.some((item) => item.id === "fleet");
+  const hasParts = visible.some((item) => item.id === "spare-parts");
+  const hasReports = visible.some((item) => item.id === "reports");
+  const hasAdmin = visible.some((item) => item.id === "admin");
   const hasSettings = visible.some((item) => item.id === "settings");
-  const homeHref = visible.find((item) => item.id === "home")?.href ?? "/action-center";
+  const notifications = visible.find((item) => item.id === "notifications");
   const requestsHref = visible.find((item) => item.id === "requests")?.href ?? "/requests";
   const jobsHref =
     visible.find((item) => item.id === "all-jobs")?.href ??
     visible.find((item) => item.id === "my-jobs")?.href ??
     "/maintenance/jobs";
 
-  const items: MobileBottomNavItem[] = [
-    { id: "home", label: "Home", href: homeHref, icon: "Home" }
-  ];
+  const items: MobileBottomNavItem[] = [];
 
-  // Requester-heavy roles: surface Requests; technicians/supervisors: Work Orders.
   if (hasRequests && !hasWorkOrders) {
     items.push({ id: "requests", label: "Requests", href: requestsHref, icon: "AlertTriangle" });
   } else if (hasWorkOrders) {
     items.push({ id: "work-orders", label: "Work Orders", href: jobsHref, icon: "ClipboardList" });
   } else if (hasAssets) {
     items.push({ id: "assets", label: "Assets", href: "/assets", icon: "Boxes" });
+  } else if (hasFleet) {
+    items.push({ id: "fleet", label: "Fleet", href: "/fleet", icon: "Truck" });
+  } else if (hasParts) {
+    items.push({ id: "spare-parts", label: "Parts", href: "/inventory", icon: "Layers" });
+  } else if (hasReports) {
+    items.push({ id: "reports", label: "Reports", href: "/reports", icon: "BarChart3" });
+  } else if (hasAdmin) {
+    items.push({ id: "admin", label: "Admin", href: "/admin", icon: "ShieldCheck" });
+  } else if (notifications) {
+    items.push({ id: "notifications", label: "Alerts", href: notifications.href, icon: "Bell" });
   }
 
   items.push({ id: "search", label: "Search", href: "#", icon: "Search", action: "search" });
   items.push({
     id: "profile",
     label: "Profile",
-    href: hasSettings ? "/settings" : homeHref,
+    href: hasSettings ? "/settings" : notifications?.href ?? "/notifications",
     icon: "UserCircle2"
   });
 
@@ -968,8 +1008,8 @@ export function isNavItemActive(pathname: string, item: NavigationItem, search =
 }
 
 /**
- * True only when legacy `/home` appears as a primary Home destination.
- * Phase 1 Home is `/action-center` (label "Home") — that must not trip this check.
+ * True only when legacy `/home` appears as a primary destination.
+ * Action Center is retired and must not be reintroduced as Home.
  */
 export function hasPrimaryHomeNavItem(items: readonly NavigationItem[]): boolean {
   return items.some(
@@ -977,4 +1017,23 @@ export function hasPrimaryHomeNavItem(items: readonly NavigationItem[]): boolean
       item.href === LEGACY_FMS_HOME_PATH ||
       (item.label === "Home" && item.href === LEGACY_FMS_HOME_PATH)
   );
+}
+
+/**
+ * Safe return path when this role can open it; otherwise the role landing.
+ * Never returns login, splash, or Action Center.
+ */
+export function resolveAuthorizedDestination(
+  user: PostLoginUserLike,
+  returnTo: string | null | undefined,
+  permissions: readonly string[] = []
+): string {
+  const landing = getPostLoginRedirect(user);
+  const safe = safeInternalReturnPath(returnTo);
+  if (!safe) return landing;
+  const path = safe.split("?")[0]?.split("#")[0] ?? "";
+  if (!canAccessNavigationPath(path, extractRoleName(user), permissions)) {
+    return landing;
+  }
+  return safe;
 }

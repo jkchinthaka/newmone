@@ -1,9 +1,6 @@
-import { redirect } from "next/navigation";
+import { RoleLandingRedirect } from "@/components/layout/role-landing-redirect";
 
-/**
- * Phase 1: Dashboard top-level nav retired; Home is `/action-center`.
- * RoleDashboard component retained for later Home KPI embedding (do not delete).
- */
+/** Legacy /dashboard bookmark. Lands on the role module, not Action Center. */
 export default function DashboardRedirectPage() {
-  redirect("/action-center");
+  return <RoleLandingRedirect />;
 }

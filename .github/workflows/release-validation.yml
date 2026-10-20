@@ -71,6 +71,11 @@ jobs:
         env:
           CI: true
 
+      - name: Web unit tests
+        run: npm run test --workspace @maintainpro/web
+        env:
+          CI: true
+
       - name: Phase 3 release self-tests
         run: npm run test:release
 

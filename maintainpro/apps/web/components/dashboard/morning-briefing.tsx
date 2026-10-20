@@ -52,10 +52,10 @@ export function MorningBriefing() {
       description="A compact snapshot of what needs attention today from live operational data."
       action={
         <Link
-          href={"/action-center" as Route}
+          href={"/notifications" as Route}
           className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800"
         >
-          Open Action Center <ArrowRight size={14} aria-hidden="true" />
+          Open notifications <ArrowRight size={14} aria-hidden="true" />
         </Link>
       }
     >

@@ -86,8 +86,27 @@ describe("WorkOrdersService tenant isolation", () => {
       technicianId: "tech-1"
     });
     (prisma as any).workOrderStatusHistory = { create: jest.fn() };
+    let lockRead = 0;
+    (prisma as any).$queryRaw = jest.fn(async () => {
+      lockRead += 1;
+      if (lockRead === 3) {
+        return [{ active: true, canReceiveWorkOrders: true, availabilityStatus: "AVAILABLE" }];
+      }
+      return [{ id: "locked-row" }];
+    });
+    (prisma as any).$transaction = jest.fn(async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma));
     const notificationsService = { createNotification: jest.fn() };
-    const service = new WorkOrdersService(prisma as any, notificationsService as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
+    const service = new WorkOrdersService(
+      prisma as any,
+      notificationsService as any,
+      createWorkOrderPartsServiceMock() as any,
+      createWorkOrderTaxonomyServiceMock() as any,
+      {
+        prepareAssignee: jest.fn().mockResolvedValue(undefined),
+        persistAssignee: jest.fn().mockResolvedValue({ id: "assignee-1" }),
+        addAssignee: jest.fn()
+      } as any
+    );
 
     await requestContext.run(
       {

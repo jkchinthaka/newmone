@@ -48,7 +48,7 @@ export class UsersController {
     @Body()
     body: InviteUserDto
   ) {
-    const user = await this.usersService.invite(body);
+    const user = await this.usersService.invite();
     return { data: user, message: "User invited" };
   }
 

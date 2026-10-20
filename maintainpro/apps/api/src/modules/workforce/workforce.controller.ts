@@ -4,6 +4,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
+import { isAssignmentEmployeeListQuery } from "../../common/utils/workforce-designation";
 import { CreateWorkforceEmployeeDto, UpdateWorkforceEmployeeDto } from "./dto/workforce-employee.dto";
 import { WorkforceEmployeesService } from "./workforce-employees.service";
 import { WorkforcePlanningService } from "./workforce-planning.service";
@@ -17,7 +18,7 @@ const WORKFORCE_EMPLOYEE_MANAGERS = [
   "OPERATIONS_MANAGER"
 ] as const;
 
-const WORKFORCE_EMPLOYEE_READERS = [
+export const WORKFORCE_EMPLOYEE_READERS = [
   ...WORKFORCE_EMPLOYEE_MANAGERS,
   "ASSET_MANAGER",
   "MECHANIC"
@@ -44,9 +45,7 @@ export class WorkforceController {
     @Query("active") active?: string,
     @Query("pageSize") pageSize?: string
   ) {
-    const forAssignment = designation !== undefined && !q && !departmentId && !branchName && active === undefined;
-
-    if (forAssignment) {
+    if (isAssignmentEmployeeListQuery({ designation, q, departmentId, branchName, active })) {
       const data = await this.workforcePlanning.listEmployeesByDesignation(req.user.tenantId, designation);
       return { data, message: "Workforce employees fetched" };
     }

@@ -78,6 +78,7 @@ model Tenant {
   maintenanceReasonCodes       MaintenanceReasonCode[]
   configChangeHistories        ConfigChangeHistory[]
   tenantFeatureFlags           TenantFeatureFlag[]
+  tenantMaintenanceSetting     TenantMaintenanceSetting?
   maintenanceTemplates         MaintenanceTemplate[]
   entityWarranties             EntityWarranty[]
   warrantyClaims               WarrantyClaim[]
@@ -2358,6 +2359,9 @@ model VendorQuotation {
   quotationNo           String
   quotationDate         DateTime
   quotedAmount          Decimal               @db.Decimal(18, 2)
+  taxRatePercent        Decimal?              @db.Decimal(5, 2)
+  taxAmount             Decimal?              @db.Decimal(18, 2)
+  totalAmount           Decimal?              @db.Decimal(18, 2)
   currency              String           @default("LKR")
   validityDate          DateTime?
   evidenceAttachmentId  String?          @db.NVarChar(36)
@@ -2389,6 +2393,7 @@ model VendorInvoice {
   invoiceNo              String
   invoiceDate            DateTime
   invoiceAmount          Decimal          @db.Decimal(18, 2)
+  taxRatePercent         Decimal?         @db.Decimal(5, 2)
   taxAmount              Decimal          @default(0) @db.Decimal(18, 2)
   totalAmount            Decimal          @db.Decimal(18, 2)
   currency               String           @default("LKR")
@@ -2694,7 +2699,7 @@ model MeterReading {
   notes        String?
   createdAt    DateTime     @default(now())
 
-  @@index([meterId, readingDate])
+  @@unique([meterId, readingDate])
 }
 
 model UtilityBill {
@@ -3349,6 +3354,18 @@ model TenantFeatureFlag {
 
   @@unique([tenantId, code])
   @@index([tenantId, enabled])
+}
+
+/// Tenant operational defaults edited from Admin → Maintenance config.
+/// defaultTaxRatePercent is stored data. Application code reads it and does not substitute a built-in rate.
+model TenantMaintenanceSetting {
+  id                    String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId              String   @unique @db.NVarChar(36)
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  defaultTaxRatePercent Decimal  @db.Decimal(5, 2)
+  updatedById           String?  @db.NVarChar(36)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 /// Versioned reusable maintenance work template (not the same as ChecklistTemplate).

@@ -1,5 +1,9 @@
 export const INVENTORY_EMPTY = "No inventory items match these filters.";
 
+/** Shown beside snapshot counts. Does not create or change stock. */
+export const INVENTORY_QUANTITY_CAPTION =
+  "Advisory available is the ERP snapshot minus maintenance reservations. Bileeta remains the stock authority.";
+
 export type InventoryControlState = {
   q: string;
   stock: "" | "out";
@@ -52,6 +56,17 @@ export function inventoryControlSearch(state: InventoryControlState): string {
   if (state.page > 1) params.set("page", String(state.page));
   if (state.pageSize !== 25) params.set("pageSize", String(state.pageSize));
   return params.toString();
+}
+
+export function inventoryFreshnessLabel(
+  input: { updatedAt?: string | null; lastMovementAt?: string | null },
+  format: (value: Date) => string = (value) => value.toLocaleString()
+): string {
+  const movement = input.lastMovementAt ? new Date(input.lastMovementAt) : null;
+  if (movement && !Number.isNaN(movement.getTime())) return `Last movement ${format(movement)}`;
+  const updated = input.updatedAt ? new Date(input.updatedAt) : null;
+  if (updated && !Number.isNaN(updated.getTime())) return `Record updated ${format(updated)}`;
+  return "No movement time on this row";
 }
 
 export function inventoryNextAction(part: {

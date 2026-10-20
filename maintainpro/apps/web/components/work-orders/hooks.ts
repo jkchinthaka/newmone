@@ -387,15 +387,11 @@ export function useBulkUpdateWorkOrderStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      ids,
-      status,
-      payload
-    }: {
-      ids: string[];
+    mutationFn: (input: {
+      items: Array<{ id: string; expectedVersion: number }>;
       status: WorkOrderStatus;
-      payload?: { actualCost?: number; actualHours?: number };
-    }) => bulkUpdateStatus(ids, status, payload),
+      payload?: { cancelReason?: string };
+    }) => bulkUpdateStatus(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: WORK_ORDERS_QUERY_KEY });
     }

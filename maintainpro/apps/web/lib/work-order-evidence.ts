@@ -36,6 +36,7 @@ export type WorkOrderEvidenceItem = {
 export type WorkOrderEvidenceRequirements = {
   required: boolean;
   storageEnabled: boolean;
+  waived?: boolean;
   hasBefore: boolean;
   hasAfter: boolean;
   beforeCount: number;
@@ -61,7 +62,7 @@ export type EvidenceUploadRequestResult = {
   status: string;
   mode: string;
   attachmentId?: string;
-  uploadMethod?: "mock" | "presigned";
+  uploadMethod?: "mock" | "presigned" | "direct";
   uploadUrl?: string | null;
   expiresAt?: string | null;
   message: string;
@@ -112,7 +113,14 @@ export function canReviewWorkOrderEvidence(role?: string | null): boolean {
 }
 
 export function isEvidenceUploadEnabled(readiness: EvidenceStorageReadiness | null | undefined): boolean {
-  return readiness?.state === "configured" && readiness.uploadsEnabled === true;
+  return readiness?.state === "configured" && readiness.uploadsEnabled === true && readiness.mode === "local";
+}
+
+export function offlineEvidenceRetryBlock(): { ok: false; message: string } {
+  return {
+    ok: false,
+    message: "The original file was not kept on this device. Choose the file again to upload."
+  };
 }
 
 export function formatAllowedEvidenceMimeTypes(mimeTypes: string[]): string {

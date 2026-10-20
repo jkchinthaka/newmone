@@ -21,11 +21,15 @@ describe("safeInternalReturnPath", () => {
     assert.equal(safeInternalReturnPath("/login"), null);
     assert.equal(safeInternalReturnPath("/forgot-password"), null);
     assert.equal(safeInternalReturnPath("/splash"), null);
+    assert.equal(safeInternalReturnPath("/"), null);
+    assert.equal(safeInternalReturnPath("javascript:alert(1)"), null);
   });
 
   it("uses a safe return path before the role landing", () => {
     assert.equal(resolveSplashDestination({ role: "ADMIN" }, "/requests"), "/requests");
-    assert.equal(resolveSplashDestination({ role: "ADMIN" }, "https://evil.example"), "/action-center");
+    assert.equal(resolveSplashDestination({ role: "ADMIN" }, "https://evil.example"), "/admin");
+    assert.equal(resolveSplashDestination({ role: "ADMIN" }, "/action-center"), "/admin");
+    assert.equal(safeInternalReturnPath("/action-center"), null);
     assert.equal(resolveSplashDestination({ role: "ADMIN" }, null), getPostLoginRedirect({ role: "ADMIN" }));
   });
 

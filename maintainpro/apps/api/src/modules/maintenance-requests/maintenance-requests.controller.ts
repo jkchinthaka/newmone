@@ -14,6 +14,8 @@ import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import {
+  AssetLookupQueryDto,
+  VehicleLookupQueryDto,
   CancelMaintenanceRequestDto,
   ConvertToWorkOrderDto,
   CreateMaintenanceRequestDto,
@@ -37,34 +39,12 @@ interface AuthedRequest {
   };
 }
 
-const READ_ROLES = [
-  "SUPER_ADMIN",
-  "ADMIN",
-  "MANAGER",
-  "SUPERVISOR",
-  "ASSET_MANAGER",
-  "TECHNICIAN",
-  "MECHANIC",
-  "FACILITY_MANAGER",
-  "BUILDING_SUPERVISOR",
-  "VIEWER",
-  "DRIVER"
-] as const;
-
-const WRITE_ROLES = [
-  "SUPER_ADMIN",
-  "ADMIN",
-  "MANAGER",
-  "SUPERVISOR",
-  "ASSET_MANAGER",
-  "TECHNICIAN",
-  "MECHANIC",
-  "FACILITY_MANAGER",
-  "BUILDING_SUPERVISOR",
-  "DRIVER",
-  "VIEWER"
-] as const;
-
+/**
+ * Review, approval, and conversion stay on the maintenance roles.
+ * Create, list, detail, respond, and cancel use the permission guard only, so an
+ * authorized employee in Finance, Farms, or any other department role is not
+ * rejected for being absent from this list.
+ */
 const TRIAGE_ROLES = [
   "SUPER_ADMIN",
   "ADMIN",
@@ -83,7 +63,7 @@ export class MaintenanceRequestsController {
   constructor(private readonly requests: MaintenanceRequestsService) {}
 
   @Get("problem-categories")
-  @Roles(...READ_ROLES)
+  @Permissions("maintenance_requests.view_own")
   async problemCategories(@Req() req: AuthedRequest) {
     const data = await this.requests.listProblemCategories(req.user?.tenantId ?? null);
     return { data, message: "Problem categories fetched" };
@@ -97,7 +77,6 @@ export class MaintenanceRequestsController {
   }
 
   @Get()
-  @Roles(...READ_ROLES)
   @Permissions("maintenance_requests.view_own")
   async list(@Req() req: AuthedRequest, @Query() query: MaintenanceRequestListQueryDto) {
     const data = await this.requests.list(req.user?.tenantId ?? null, req.user!, query);
@@ -105,7 +84,6 @@ export class MaintenanceRequestsController {
   }
 
   @Get("summary")
-  @Roles(...READ_ROLES)
   @Permissions("maintenance_requests.view_own")
   async summary(@Req() req: AuthedRequest, @Query("mine") mine?: string) {
     const data = await this.requests.summary(req.user?.tenantId ?? null, req.user!, {
@@ -114,8 +92,30 @@ export class MaintenanceRequestsController {
     return { data, message: "Maintenance request summary" };
   }
 
+  @Get("asset-lookup")
+  @Permissions("maintenance_requests.create")
+  async assetLookup(@Req() req: AuthedRequest, @Query() query: AssetLookupQueryDto) {
+    const data = await this.requests.lookupSelectableAssets(
+      req.user?.tenantId ?? null,
+      query.q ?? "",
+      query.limit,
+      query.assetId
+    );
+    return { data, message: "Machines matched" };
+  }
+
+  @Get("vehicle-lookup")
+  @Permissions("maintenance_requests.create")
+  async vehicleLookup(@Req() req: AuthedRequest, @Query() query: VehicleLookupQueryDto) {
+    const data = await this.requests.lookupSelectableVehicles(
+      req.user?.tenantId ?? null,
+      query.q ?? "",
+      query.limit
+    );
+    return { data, message: "Vehicles matched" };
+  }
+
   @Post()
-  @Roles(...WRITE_ROLES)
   @Permissions("maintenance_requests.create")
   async create(@Req() req: AuthedRequest, @Body() body: CreateMaintenanceRequestDto) {
     const data = await this.requests.create(req.user?.tenantId ?? null, req.user!, body);
@@ -123,14 +123,14 @@ export class MaintenanceRequestsController {
   }
 
   @Get(":id")
-  @Roles(...READ_ROLES)
+  @Permissions("maintenance_requests.view_own")
   async detail(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.requests.findOne(req.user?.tenantId ?? null, id, req.user!);
     return { data, message: "Maintenance request fetched" };
   }
 
   @Get(":id/history")
-  @Roles(...READ_ROLES)
+  @Permissions("maintenance_requests.view_own")
   async history(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.requests.history(req.user?.tenantId ?? null, id, req.user!);
     return { data, message: "Request history fetched" };
@@ -202,7 +202,6 @@ export class MaintenanceRequestsController {
   }
 
   @Post(":id/respond")
-  @Roles(...WRITE_ROLES)
   @Permissions("maintenance_requests.create")
   async respond(
     @Req() req: AuthedRequest,
@@ -243,7 +242,6 @@ export class MaintenanceRequestsController {
   }
 
   @Post(":id/cancel")
-  @Roles(...WRITE_ROLES)
   @Permissions("maintenance_requests.cancel_own")
   async cancel(
     @Req() req: AuthedRequest,

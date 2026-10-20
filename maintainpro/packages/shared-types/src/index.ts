@@ -40,6 +40,15 @@ export interface ApiResponse<T> {
   data: T;
 }
 
+export {
+  EXPECTED_COMPLETION_AFTER_DUE,
+  createScheduleIssues,
+  expectedCompletionIsAfterDue,
+  scheduleOrderMessage,
+  schedulePastMessage,
+  utcCalendarDay
+} from "./work-order-schedule.js";
+
 export interface DashboardKpis {
   openWorkOrders: number;
   mttrHours: number;

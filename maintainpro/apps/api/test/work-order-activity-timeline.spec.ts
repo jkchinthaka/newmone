@@ -26,6 +26,12 @@ const ISSUE_ID = "issue-1";
 const createPrismaMock = () => ({
   workOrder: {
     findFirst: jest.fn()
+  },
+  workOrderStatusHistory: {
+    findMany: jest.fn().mockResolvedValue([])
+  },
+  user: {
+    findMany: jest.fn().mockResolvedValue([])
   }
 });
 

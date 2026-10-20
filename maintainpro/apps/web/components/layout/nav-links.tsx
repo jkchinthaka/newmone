@@ -56,7 +56,6 @@ import {
 } from "lucide-react";
 
 import {
-  FULL_NAVIGATION_ROLES,
   getNavigationGroups,
   isNavItemActive,
   type NavBadgeKey,
@@ -69,13 +68,17 @@ import {
   readCollapsedNavGroups,
   readFavoritePreference,
   hydrateFavoriteIds,
-  readFullNavigationMode,
   toggleFavoriteNavId,
-  writeCollapsedNavGroups,
-  writeFullNavigationMode
+  writeCollapsedNavGroups
 } from "@/lib/nav-favorites";
 import { toNavAriaCurrent } from "@/lib/accessibility";
 import { extractRoleName } from "@/lib/role-redirect";
+import {
+  readReportPins,
+  reportModuleHref,
+  RETAINED_REPORTS,
+  visiblePinnedReports
+} from "@/lib/report-workspace";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { useNavBadges } from "@/lib/use-nav-badges";
 
@@ -292,12 +295,10 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
   const search = searchParams.toString();
   const user = useCurrentUser();
   const roleName = extractRoleName({ role: user.role });
-  const [fullNavigation, setFullNavigation] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    setFullNavigation(readFullNavigationMode());
     setFavoriteIds(hydrateFavoriteIds(readFavoritePreference(user.id)));
     setCollapsedGroups(readCollapsedNavGroups(user.id));
 
@@ -316,11 +317,10 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
   const groups = useMemo(
     () =>
       getNavigationGroups(roleName, {
-        fullNavigation,
         permissions: user.permissions,
         enabledFeatures: user.enabledFeatures
       }),
-    [fullNavigation, roleName, user.permissions, user.enabledFeatures]
+    [roleName, user.permissions, user.enabledFeatures]
   );
 
   const allItems = useMemo(() => groups.flatMap((group) => group.items), [groups]);
@@ -352,30 +352,8 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
     setFavoriteIds(next);
   };
 
-  const canToggleFullNavigation = FULL_NAVIGATION_ROLES.has(roleName ?? "");
-
   return (
     <nav aria-label="Main navigation" className={`space-y-4 ${className}`.trim()}>
-      {canToggleFullNavigation ? (
-        <button
-          type="button"
-          onClick={() => {
-            const next = !fullNavigation;
-            setFullNavigation(next);
-            writeFullNavigationMode(next);
-          }}
-          className={`min-h-11 rounded-lg border text-left text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500 ${
-          tone === "inverse"
-            ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
-            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-brand-600"
-        } ${compact ? "flex w-11 items-center justify-center px-0" : "w-full px-3 py-2"}`}
-          aria-pressed={fullNavigation}
-          aria-label={fullNavigation ? "Simplified navigation" : "Full navigation mode"}
-        >
-          {compact ? <Layers aria-hidden size={16} /> : fullNavigation ? "Simplified navigation" : "Full navigation mode"}
-        </button>
-      ) : null}
-
       {favoriteItems.length > 0 ? (
         <div>
           <p className={`px-2 text-xs font-semibold uppercase tracking-[0.14em] ${tone === "inverse" ? "text-accent-500" : "text-slate-500"} ${compact ? "sr-only" : ""}`}>Favorites</p>
@@ -428,6 +406,7 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
             {!collapsed ? (
               <div className="mt-1 space-y-1">
                 {group.items.map((item) => (
+                  <div key={item.id}>
                   <NavItemLink
                     key={item.id}
                     item={item}
@@ -441,6 +420,15 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
                 compact={compact}
                 tone={tone}
                   />
+                  {item.id === "reports" ? (
+                    <PinnedReportLinks
+                      compact={compact}
+                      idleClass={surface.idle}
+                      activeClass={surface.active}
+                      onNavigate={onNavigate}
+                    />
+                  ) : null}
+                  </div>
                 ))}
               </div>
             ) : null}
@@ -448,5 +436,55 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
         );
       })}
     </nav>
+  );
+}
+
+function PinnedReportLinks({
+  compact,
+  idleClass,
+  activeClass,
+  onNavigate
+}: {
+  compact?: boolean;
+  idleClass: string;
+  activeClass: string;
+  onNavigate?: () => void;
+}) {
+  const pathname = usePathname();
+  const search = useSearchParams().toString();
+  const user = useCurrentUser();
+  const [pins, setPins] = useState<string[]>([]);
+
+  useEffect(() => {
+    const load = () => {
+      setPins(visiblePinnedReports(readReportPins(user.id, user.tenantId, window.localStorage), user.role, user.permissions));
+    };
+    load();
+    window.addEventListener("maintainpro-report-pins-changed", load);
+    return () => window.removeEventListener("maintainpro-report-pins-changed", load);
+  }, [user.id, user.tenantId, user.role, user.permissions]);
+
+  if (pins.length === 0) return null;
+
+  return (
+    <div className={compact ? "mt-1 space-y-1" : "ml-3 mt-1 space-y-1"}>
+      {pins.map((slug) => {
+        const item = RETAINED_REPORTS.find((report) => report.slug === slug);
+        if (!item) return null;
+        const href = reportModuleHref(item.slug);
+        const active = pathname === "/reports" && new URLSearchParams(search).get("module") === item.slug;
+        return (
+          <Link
+            key={item.slug}
+            href={href as Route}
+            aria-current={active ? "page" : undefined}
+            className={`flex min-h-11 items-center rounded-lg px-3 text-sm ${active ? activeClass : idleClass}`}
+            onClick={onNavigate}
+          >
+            {compact ? <span className="sr-only">{item.label}</span> : item.label}
+          </Link>
+        );
+      })}
+    </div>
   );
 }

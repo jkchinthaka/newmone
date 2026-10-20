@@ -8,8 +8,10 @@ import { ActiveFilterChips, JobsEmptyState, JobsLoadingSkeleton, JobsPagination,
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import {
   INVENTORY_EMPTY,
+  INVENTORY_QUANTITY_CAPTION,
   inventoryControlFromSearch,
   inventoryControlSearch,
+  inventoryFreshnessLabel,
   inventoryNextAction,
   type InventoryControlState
 } from "@/lib/inventory-control";
@@ -26,6 +28,7 @@ type PartRow = {
   location?: string | null;
   supplier?: { id?: string; name?: string | null } | null;
   stockMovements?: Array<{ createdAt?: string; type?: string }>;
+  updatedAt?: string | null;
 };
 
 type Dashboard = {
@@ -166,9 +169,26 @@ export function InventoryControlPage() {
       {summaryError ? (
         <p className="text-sm text-rose-700" role="alert">{summaryError}</p>
       ) : (
-        <p className="text-sm text-slate-700" aria-label="Inventory summary">
-          Total parts {summary?.totalItems ?? "–"} | ERP snapshot {summary?.onHand ?? "–"} | Reserved {summary?.reserved ?? "–"} | Advisory {summary?.available ?? "–"} | Snapshot zero {summary?.outOfStock ?? "–"} | Pending imports {summary?.pendingImports ?? "–"}
-        </p>
+        <>
+          <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:grid-cols-6" aria-label="Inventory summary">
+            {(
+              [
+                ["Total parts", summary?.totalItems],
+                ["ERP snapshot", summary?.onHand],
+                ["Reserved", summary?.reserved],
+                ["Advisory", summary?.available],
+                ["Snapshot zero", summary?.outOfStock],
+                ["Pending imports", summary?.pendingImports]
+              ] as Array<[string, number | undefined]>
+            ).map(([label, value]) => (
+              <div key={label} className="rounded-md border border-slate-200 bg-white px-3 py-2">
+                <dt className="text-xs text-slate-500">{label}</dt>
+                <dd className="font-semibold tabular-nums text-slate-900">{value ?? "–"}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="text-sm text-slate-600">{INVENTORY_QUANTITY_CAPTION}</p>
+        </>
       )}
       <div className="flex flex-wrap gap-3 text-sm">
         <button type="button" className="text-brand-800" onClick={() => write({ ...inventoryControlFromSearch(new URLSearchParams()), stock: "out", pageSize: state.pageSize })}>Show snapshot zero</button>
@@ -215,7 +235,26 @@ export function InventoryControlPage() {
         {!loading && error ? <div className="px-4 py-8 text-center text-sm"><p>{error}</p><button type="button" className="mt-2 font-medium text-brand-700" onClick={() => setReloadKey((value) => value + 1)}>Retry</button></div> : null}
         {!loading && !error && rows.length === 0 ? <JobsEmptyState title={INVENTORY_EMPTY} /> : null}
         {!loading && !error && rows.length > 0 ? (
-          <div className="overflow-x-auto">
+          <>
+          <ul className="space-y-2 p-3 md:hidden">
+            {rows.map((row) => {
+              const last = row.stockMovements?.[0]?.createdAt ?? null;
+              const action = inventoryNextAction({ erpCode: row.erpCode, quantityInStock: row.quantityInStock, lastMovementAt: last });
+              return (
+                <li key={row.id}>
+                  <article className={`rounded-lg border p-3 ${row.id === state.partId ? "border-brand-300 bg-brand-50" : "border-slate-200 bg-white"}`}>
+                    <button type="button" className="min-h-11 text-left font-medium text-slate-900" onClick={() => write({ ...state, partId: row.id })}>{row.name}</button>
+                    <p className="text-xs text-slate-500">{row.partNumber}</p>
+                    <p className="mt-1 text-xs text-slate-600">Snapshot {row.quantityInStock ?? 0} · Reserved {row.reservedQuantity ?? 0} · Advisory {row.availableQuantity ?? 0}</p>
+                    <p className="mt-1 text-xs text-slate-500">{inventoryFreshnessLabel({ updatedAt: row.updatedAt, lastMovementAt: last })}</p>
+                    <p className="mt-1 text-sm text-slate-700">{action}</p>
+                    <button type="button" className="mt-2 text-sm text-brand-800" onClick={() => { write({ ...state, partId: row.id }); void loadMovements(row.id); }}>View usage</button>
+                  </article>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden overflow-x-auto md:block">
             <table className="min-w-full text-sm">
               <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
@@ -223,7 +262,7 @@ export function InventoryControlPage() {
                   <th className="px-3 py-2">ERP</th>
                   <th className="px-3 py-2">Availability</th>
                   <th className="hidden px-3 py-2 md:table-cell">Reserved</th>
-                  <th className="hidden px-3 py-2 lg:table-cell">Advisory</th>
+                  <th className="hidden px-3 py-2 md:table-cell">Advisory</th>
                   <th className="px-3 py-2">Next</th>
                   <th className="px-3 py-2"><span className="sr-only">Actions</span></th>
                 </tr>
@@ -237,11 +276,12 @@ export function InventoryControlPage() {
                       <td className="px-3 py-2">
                         <button type="button" className="font-medium text-slate-900" onClick={() => write({ ...state, partId: row.id })}>{row.name}</button>
                         <p className="text-xs text-slate-500">{row.partNumber}</p>
+                        <p className="text-xs text-slate-500">{inventoryFreshnessLabel({ updatedAt: row.updatedAt, lastMovementAt: last })}</p>
                       </td>
                       <td className="px-3 py-2">{row.erpCode?.trim() ? row.erpCode : "Unmapped"}</td>
                       <td className="px-3 py-2">Snapshot {row.quantityInStock ?? 0}</td>
                       <td className="hidden px-3 py-2 md:table-cell">{row.reservedQuantity ?? 0}</td>
-                      <td className="hidden px-3 py-2 lg:table-cell">{row.availableQuantity ?? 0}</td>
+                      <td className="hidden px-3 py-2 md:table-cell">{row.availableQuantity ?? 0}</td>
                       <td className={`px-3 py-2 ${action === "Ready" ? "text-slate-600" : "font-medium"}`}>{action}</td>
                       <td className="relative px-3 py-2">
                         <button type="button" aria-label={`Actions for ${row.partNumber}`} aria-expanded={menuId === row.id} className="h-8 w-8 rounded-md hover:bg-slate-100" onClick={() => setMenuId(menuId === row.id ? null : row.id)}>⋯</button>
@@ -259,6 +299,7 @@ export function InventoryControlPage() {
               </tbody>
             </table>
           </div>
+          </>
         ) : null}
         {!loading && !error ? <JobsPagination page={meta.page} totalPages={meta.totalPages} total={meta.total} pageSize={state.pageSize} onPageChange={(page) => write({ ...state, page })} onPageSizeChange={(pageSize) => write({ ...state, pageSize, page: 1 })} /> : null}
       </section>
@@ -267,6 +308,7 @@ export function InventoryControlPage() {
           <h2 className="font-semibold">{selected.name}</h2>
           <p className="text-slate-600">{selected.partNumber} · {selected.erpCode?.trim() ? `ERP ${selected.erpCode}` : "Unmapped"} · {selected.supplier?.name || "No supplier"} · {selected.location || "No location"}</p>
           <p className="mt-2">Snapshot {selected.quantityInStock ?? 0}. Reserved {selected.reservedQuantity ?? 0}. Advisory available {selected.availableQuantity ?? 0}. These quantities follow the ERP snapshot and maintenance reservations. They are not a second stock ledger.</p>
+          <p className="mt-1 text-slate-600">{inventoryFreshnessLabel({ updatedAt: selected.updatedAt, lastMovementAt: selected.stockMovements?.[0]?.createdAt ?? null })}</p>
           {movements ? (
             <ul className="mt-2 space-y-1 text-xs text-slate-600">
               {movements.length === 0 ? <li>No movements loaded.</li> : movements.slice(0, 8).map((row) => <li key={row.id}>{row.type} · {row.quantity} · {row.createdAt ? new Date(row.createdAt).toLocaleString() : ""}</li>)}

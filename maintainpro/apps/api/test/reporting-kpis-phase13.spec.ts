@@ -692,20 +692,18 @@ describe("RBAC permission catalog", () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 23. Navigation — shared Home is /action-center
+// 23. Navigation — Action Center is retired
 // ──────────────────────────────────────────────────────────────────────────────
 
 describe("Navigation shared home", () => {
-  it("Home nav item href is /action-center (single Home entry)", () => {
-    const homeItem = NAVIGATION_ITEMS.find((item) => item.id === "home");
-    expect(homeItem).toBeDefined();
-    expect(homeItem!.href).toBe("/action-center");
-    expect(homeItem!.label).toBe("Action Center");
+  it("does not expose an Action Center nav item", () => {
+    const homeItem = NAVIGATION_ITEMS.find((item) => item.id === "home" || item.href === "/action-center");
+    expect(homeItem).toBeUndefined();
   });
 
-  it("there is exactly one primary nav item with id=home", () => {
+  it("there is no primary nav item with id=home", () => {
     const homeItems = NAVIGATION_ITEMS.filter((item) => item.id === "home");
-    expect(homeItems).toHaveLength(1);
+    expect(homeItems).toHaveLength(0);
   });
 
   it("no competing Dashboard or Workspace primary nav items exist", () => {

@@ -78,11 +78,17 @@ describe("fraud control (UAT-020)", () => {
       sparePart: {
         findFirst: jest.fn(),
         findFirstOrThrow: jest.fn(),
+        update: jest.fn(),
         updateMany: jest.fn()
       },
       workOrder: { findFirst: jest.fn() },
       stockMovement: { create: jest.fn() },
-      domainEventOutbox: { create: jest.fn().mockResolvedValue({ id: "outbox-1" }) },
+      domainEventOutbox: {
+        create: jest.fn().mockResolvedValue({ id: "outbox-1" }),
+        findMany: jest.fn().mockResolvedValue([])
+      },
+      warehouse: { findMany: jest.fn(), findFirst: jest.fn() },
+      warehouseItemBalance: { findFirst: jest.fn() },
       inventoryStockIssueIdempotency: {
         findUnique: jest.fn(),
         create: jest.fn()
@@ -105,6 +111,21 @@ describe("fraud control (UAT-020)", () => {
         isActive: true
       });
       prisma.inventoryStockIssueIdempotency.findUnique.mockResolvedValue(null);
+      prisma.warehouse.findMany.mockResolvedValue([
+        {
+          id: "wh-1",
+          erpWarehouseCode: "MAIN",
+          lastErpValidatedAt: new Date("2026-10-01T00:00:00Z"),
+          isDefault: true
+        }
+      ]);
+      prisma.warehouseItemBalance.findFirst.mockResolvedValue({
+        id: "bal-1",
+        onHand: 10,
+        reserved: 0,
+        available: 10
+      });
+      prisma.domainEventOutbox.findMany.mockResolvedValue([]);
       prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma));
     });
 
@@ -118,23 +139,21 @@ describe("fraud control (UAT-020)", () => {
       expect(prisma.auditLog.create).toHaveBeenCalled();
     });
 
-    it("does not lower the ERP mirror when stock would have gone negative", async () => {
+    it("rejects an issue above verified stock and does not write an outbox row", async () => {
       prisma.workOrder.findFirst.mockResolvedValue({ id: "wo-1", status: "IN_PROGRESS", woNumber: "WO-1" });
 
-      const result = await service.stockOut(
-        "part-1",
-        20,
-        { workOrderId: "wo-1" },
-        { sub: "u1", email: "u1@test.com", role: RoleName.INVENTORY_KEEPER, tenantId: "tenant-1" }
-      );
+      await expect(
+        service.stockOut(
+          "part-1",
+          20,
+          { workOrderId: "wo-1", idempotencyKey: "avail-1" },
+          { sub: "u1", email: "u1@test.com", role: RoleName.INVENTORY_KEEPER, tenantId: "tenant-1" }
+        )
+      ).rejects.toThrow("Insufficient verified stock. Available: 10, Requested: 20.");
 
-      expect(result.quantityInStock).toBe(10);
       expect(stockEngine.issue).not.toHaveBeenCalled();
-      expect(prisma.domainEventOutbox.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ status: "PENDING", eventType: "WORK_ORDER_PART_CONSUMPTION" })
-        })
-      );
+      expect(prisma.domainEventOutbox.create).not.toHaveBeenCalled();
+      expect(prisma.sparePart.update).not.toHaveBeenCalled();
     });
 
     it("replays identical idempotent stock-out without a second deduction", async () => {
@@ -159,6 +178,31 @@ describe("fraud control (UAT-020)", () => {
 
       expect(result.quantityInStock).toBe(8);
       expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("requires an idempotency key before creating an ERP stock request", async () => {
+      prisma.workOrder.findFirst.mockResolvedValue({ id: "wo-1", status: "IN_PROGRESS", woNumber: "WO-1" });
+      await expect(
+        service.stockOut(
+          "part-1",
+          1,
+          { workOrderId: "wo-1" },
+          { sub: "u1", email: "u1@test.com", role: RoleName.INVENTORY_KEEPER, tenantId: "tenant-1" }
+        )
+      ).rejects.toThrow("Idempotency-Key is required");
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("rejects stock issue against a closed work order without an override", async () => {
+      prisma.workOrder.findFirst.mockResolvedValue({ id: "wo-1", status: "CLOSED", woNumber: "WO-1" });
+      await expect(
+        service.stockOut(
+          "part-1",
+          1,
+          { workOrderId: "wo-1", idempotencyKey: "closed-1" },
+          { sub: "u1", email: "u1@test.com", role: RoleName.INVENTORY_KEEPER, tenantId: "tenant-1" }
+        )
+      ).rejects.toThrow("closed work order");
     });
   });
 

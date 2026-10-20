@@ -180,24 +180,30 @@ export function assertRoleCanSetStatus(
   to: WorkOrderStatus,
   options?: { emergencyCloseReason?: string }
 ) {
-  if (to === WorkOrderStatus.VERIFIED || to === WorkOrderStatus.CLOSED || to === WorkOrderStatus.COMPLETED) {
-    if (from === WorkOrderStatus.TECHNICIAN_COMPLETED && canVerifySupervisor(role)) {
+  if (to === WorkOrderStatus.VERIFIED || to === WorkOrderStatus.CLOSED) {
+    throw new ForbiddenException(
+      "Use the dedicated supervisor verification or close action. Generic status updates cannot verify or close a work order."
+    );
+  }
+
+  if (to === WorkOrderStatus.COMPLETED) {
+    if (
+      from === WorkOrderStatus.TECHNICIAN_COMPLETED &&
+      canDirectlyCloseWorkOrder(role) &&
+      options?.emergencyCloseReason?.trim()
+    ) {
       return;
-    }
-    if (from === WorkOrderStatus.VERIFIED && to === WorkOrderStatus.CLOSED && canVerifySupervisor(role)) {
-      return;
-    }
-    if (canDirectlyCloseWorkOrder(role) && options?.emergencyCloseReason?.trim()) {
-      return;
-    }
-    if (to === WorkOrderStatus.VERIFIED || to === WorkOrderStatus.CLOSED) {
-      throw new ForbiddenException(
-        "Supervisor verification / close is required. Technicians must mark jobs as Completed first."
-      );
     }
     throw new ForbiddenException(
       "Technicians must mark jobs as Technician Completed. Supervisor verification is required before closing."
     );
+  }
+
+  if (to === WorkOrderStatus.CANCELLED) {
+    if (canVerifySupervisor(role)) {
+      return;
+    }
+    throw new ForbiddenException("Work order cancellation requires an authorized management role.");
   }
 
   if (
@@ -209,14 +215,6 @@ export function assertRoleCanSetStatus(
     throw new ForbiddenException("Only technicians or supervisors can mark technician completion.");
   }
 
-  if (
-    to === WorkOrderStatus.CANCELLED &&
-    !canVerifySupervisor(role) &&
-    role !== RoleName.TECHNICIAN &&
-    role !== RoleName.MECHANIC
-  ) {
-    return;
-  }
 }
 
 export type SensitiveWorkOrderFields = {
@@ -229,6 +227,26 @@ export type SensitiveWorkOrderFields = {
   plannedStartAt?: string | Date | null;
   plannedEndAt?: string | Date | null;
 };
+
+export function assertClosedRecordContentEditable(
+  status: WorkOrderStatus,
+  options?: { overrideReason?: string; actorRole?: RoleName | null }
+) {
+  if (
+    status !== WorkOrderStatus.CLOSED &&
+    status !== WorkOrderStatus.COMPLETED &&
+    status !== WorkOrderStatus.CANCELLED
+  ) {
+    return;
+  }
+  const reason = options?.overrideReason?.trim() ?? "";
+  if (canVerifySupervisor(options?.actorRole) && reason.length >= GOVERNANCE_MIN_REASON_LENGTH) {
+    return;
+  }
+  throw new ForbiddenException(
+    "Closed work orders cannot be edited without an authorized correction reason."
+  );
+}
 
 export function assertSensitiveFieldsUnlocked(
   status: WorkOrderStatus,

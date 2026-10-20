@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from "@/components/forms/date-fields";
 import { ArrowDown, ArrowUp, Download, FileSpreadsheet, FileText, Loader2, Printer, RefreshCw, Search } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -64,6 +65,13 @@ export function ReportHeader({
             Reports Dashboard
           </Link>
         ) : null}
+        <div className="mb-3 hidden items-center justify-between border-b-2 border-[#216E39] pb-3 print:flex">
+          <img alt="Nelna Group" className="h-16 w-auto bg-white object-contain" src="/brand/nelna-group-logo.jpg" />
+          <div className="text-right text-sm text-[#233044]">
+            <p className="font-semibold">Nelna Farm (Pvt) Ltd</p>
+            <p>MaintainPro</p>
+          </div>
+        </div>
         <h1 className="mt-1 page-title">{title}</h1>
         <p className="mt-1 max-w-3xl text-sm text-slate-600">{description}</p>
       </div>
@@ -110,11 +118,11 @@ export function ReportFiltersBar({
       <div className={`grid gap-2 ${compact ? "md:grid-cols-3 xl:grid-cols-6" : "md:grid-cols-4 xl:grid-cols-10"}`}>
         <label className="space-y-1 text-xs font-medium text-slate-600">
           Start
-          <input type="date" value={filters.startDate} onChange={(event) => patch({ startDate: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800" />
+          <DateField bare label="Start" value={filters.startDate} onChange={(startDate) => patch({ startDate })} />
         </label>
         <label className="space-y-1 text-xs font-medium text-slate-600">
           End
-          <input type="date" value={filters.endDate} onChange={(event) => patch({ endDate: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800" />
+          <DateField bare label="End" value={filters.endDate} onChange={(endDate) => patch({ endDate })} />
         </label>
         <DepartmentMultiSelect value={filters.departmentIds} onChange={(value) => patch({ departmentIds: value, departmentId: value[0] ?? "" })} options={options?.departments ?? []} label="Departments" />
         {!compact ? <SelectFilter label="User" value={filters.userId} onChange={(value) => patch({ userId: value })} options={options?.users ?? []} /> : null}

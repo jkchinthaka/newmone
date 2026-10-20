@@ -27,6 +27,12 @@ import type { JwtPayload } from "../auth/auth.types";
 
 type Actor = Pick<JwtPayload, "sub" | "tenantId" | "role">;
 
+export function lastOpenReleaseDecision(otherOpenCount: number, currentStatus: string) {
+  if (otherOpenCount > 0) return "stay" as const;
+  if (currentStatus === "UNDER_MAINTENANCE") return "return" as const;
+  return "unchanged" as const;
+}
+
 const OPEN_CRITICAL_STATUSES: WorkOrderStatus[] = [
   WorkOrderStatus.OPEN,
   WorkOrderStatus.PLANNED,
@@ -244,6 +250,97 @@ export class WorkOrderDomainService {
         AND: [{ OR: targetClauses }]
       }
     });
+  }
+
+  /**
+   * After close: the last open job returns the asset or vehicle to service.
+   * Any other open job keeps it under maintenance.
+   */
+  async releaseTargetIfLastOpenWorkOrder(workOrderId: string, actor?: Actor) {
+    const tenantId = this.tenantId(actor);
+    const wo = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      include: {
+        asset: { select: { id: true, status: true } },
+        vehicle: { select: { id: true, status: true } }
+      }
+    });
+    if (!wo) return;
+
+    const stillOpen: WorkOrderStatus[] = [
+      WorkOrderStatus.OPEN,
+      WorkOrderStatus.PLANNED,
+      WorkOrderStatus.ASSIGNED,
+      WorkOrderStatus.IN_PROGRESS,
+      WorkOrderStatus.ON_HOLD,
+      WorkOrderStatus.TECHNICIAN_COMPLETED,
+      WorkOrderStatus.REWORK_REQUIRED,
+      WorkOrderStatus.OVERDUE,
+      WorkOrderStatus.VERIFIED
+    ];
+
+    if (wo.assetId && wo.asset) {
+      const others = await this.prisma.workOrder.count({
+        where: { tenantId, assetId: wo.assetId, id: { not: wo.id }, status: { in: stillOpen } }
+      });
+      if (lastOpenReleaseDecision(others, wo.asset.status) === "return") {
+        await this.prisma.asset.update({ where: { id: wo.assetId }, data: { status: AssetStatus.ACTIVE } });
+        await this.auditTargetStatusChange({
+          tenantId,
+          workOrderId: wo.id,
+          entity: "Asset",
+          entityId: wo.assetId,
+          before: wo.asset.status,
+          after: AssetStatus.ACTIVE,
+          actor,
+          reason: `Returned to service after ${wo.woNumber} closed`
+        });
+      } else if (others > 0) {
+        await this.auditTargetStatusChange({
+          tenantId,
+          workOrderId: wo.id,
+          entity: "Asset",
+          entityId: wo.assetId,
+          before: wo.asset.status,
+          after: wo.asset.status,
+          actor,
+          reason: `Stays under maintenance. ${others} other open work order(s) remain.`
+        });
+      }
+    }
+
+    if (wo.vehicleId && wo.vehicle) {
+      const others = await this.prisma.workOrder.count({
+        where: { tenantId, vehicleId: wo.vehicleId, id: { not: wo.id }, status: { in: stillOpen } }
+      });
+      if (lastOpenReleaseDecision(others, wo.vehicle.status) === "return") {
+        await this.prisma.vehicle.update({
+          where: { id: wo.vehicleId },
+          data: { status: VehicleStatus.AVAILABLE }
+        });
+        await this.auditTargetStatusChange({
+          tenantId,
+          workOrderId: wo.id,
+          entity: "Vehicle",
+          entityId: wo.vehicleId,
+          before: wo.vehicle.status,
+          after: VehicleStatus.AVAILABLE,
+          actor,
+          reason: `Returned to service after ${wo.woNumber} closed`
+        });
+      } else if (lastOpenReleaseDecision(others, wo.vehicle.status) === "stay") {
+        await this.auditTargetStatusChange({
+          tenantId,
+          workOrderId: wo.id,
+          entity: "Vehicle",
+          entityId: wo.vehicleId,
+          before: wo.vehicle.status,
+          after: wo.vehicle.status,
+          actor,
+          reason: `Stays under maintenance. ${others} other open work order(s) remain.`
+        });
+      }
+    }
   }
 
   /**

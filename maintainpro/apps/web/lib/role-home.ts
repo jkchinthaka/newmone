@@ -38,7 +38,7 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
     roleKey: "REQUESTER",
     title: "Home",
     cards: [
-      { id: "report-issue", title: "Report Issue", href: "/qr/report-issue", description: "Raise a maintenance request" },
+      { id: "report-issue", title: "Report a Maintenance Issue", href: "/requests/new", description: "Report a physical maintenance issue" },
       { id: "new-request", title: "New Request", href: "/requests/new", description: "Submit a structured request" },
       { id: "my-requests", title: "My Requests", href: "/requests", description: "Track your requests" }
     ]

@@ -8,6 +8,7 @@ import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { ErrorState, InlineLoadingState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { formatRemainingDays } from "@/lib/work-order-queue-nav";
 import {
   convertProcurementRecommendation,
   evaluateProcurementRecommendations,
@@ -41,6 +42,14 @@ type QueueKind =
   | "assets"
   | "vendors"
   | "mappings";
+
+function recordLabel(row: Record<string, unknown>): string {
+  for (const key of ["registrationNo", "woNumber", "name", "ruleCode", "vehicleId", "id"]) {
+    const value = row[key];
+    if (value != null && String(value).trim()) return String(value);
+  }
+  return "Open record";
+}
 
 function asText(value: unknown): string {
   if (value == null) return "—";
@@ -100,7 +109,7 @@ export function EnterpriseQueuePage({
       return [
         { id: "coverage", header: "Coverage", cell: (row) => asText(row.coverage) },
         { id: "estimatedDueDate", header: "Estimated due", cell: (row) => asText(row.estimatedDueDate) },
-        { id: "remainingDays", header: "Remaining days", cell: (row) => asText(row.remainingDays) },
+        { id: "remainingDays", header: "Remaining days", cell: (row) => formatRemainingDays(row.remainingDays) },
         { id: "confidence", header: "Confidence", cell: (row) => asText(row.confidence) }
       ];
     }
@@ -210,7 +219,7 @@ export function EnterpriseQueuePage({
       <PageBreadcrumbs />
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="page-title">{title}</h2>
+          <h1 className="page-title">{title}</h1>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">{description}</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -225,7 +234,7 @@ export function EnterpriseQueuePage({
           {kind === "exceptions" || kind === "forecasts" || kind === "procurement" ? (
             <button
               type="button"
-              className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+              className="min-h-11 rounded-md bg-slate-900 px-3 text-sm font-medium text-white"
               onClick={() => mutation.mutate()}
             >
               {kind === "exceptions" ? "Resolve selected" : kind === "forecasts" ? "Refresh forecasts" : selectedId ? "Create purchase order" : "Evaluate"}
@@ -234,7 +243,7 @@ export function EnterpriseQueuePage({
           {kind === "procurement" && selectedId ? (
             <button
               type="button"
-              className="rounded-md border px-3 py-1.5 text-sm"
+              className="min-h-11 rounded-md border px-3 text-sm"
               onClick={() => {
                 void reviewProcurementRecommendation(selectedId).then(() => {
                   toast.success("Marked reviewed");
@@ -263,8 +272,10 @@ export function EnterpriseQueuePage({
           rows={rows}
           columns={columns}
           getRowId={(row) => String(row.id ?? row.snapshotId ?? row.vehicleId ?? Math.random())}
+          getRowLabel={recordLabel}
           ariaLabel={title}
-          onRowClick={(row) => setSelectedId(String(row.id ?? ""))}
+          onRowClick={(row) => setSelectedId(String(row.id ?? row.vehicleId ?? ""))}
+          rowClassName={(row) => String(row.id ?? row.vehicleId ?? "") === selectedId ? "bg-brand-50" : undefined}
           emptyTitle={`No ${title.toLowerCase()}`}
           emptyDescription="No live records matched the current filters."
         />

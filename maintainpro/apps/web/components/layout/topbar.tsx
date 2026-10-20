@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Bell, CreditCard, Menu, Search, UserCircle2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -61,7 +60,6 @@ export function Topbar({
   mobileNavOpen = false,
   mobileNavId = MOBILE_NAV_DRAWER_ID
 }: TopbarProps) {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const currentUser = useCurrentUser();
   const roleName = extractRoleName({ role: currentUser.role });
@@ -105,7 +103,7 @@ export function Topbar({
     } finally {
       clearAuthSession();
       queryClient.clear();
-      router.replace("/login");
+      window.location.replace("/login");
     }
   }
 
@@ -177,7 +175,7 @@ export function Topbar({
           >
             <Bell size={18} />
             {!unreadQuery.isError && (unreadQuery.data ?? 0) > 0 ? (
-              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-500 px-1.5 text-center text-[10px] font-semibold text-white">
+              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-700 px-1.5 text-center text-[10px] font-bold text-white">
                 {(unreadQuery.data ?? 0) > 99 ? "99+" : unreadQuery.data}
               </span>
             ) : null}

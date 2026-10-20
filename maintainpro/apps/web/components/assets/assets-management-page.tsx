@@ -4,10 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+
+import { DateField } from "@/components/forms/date-fields";
 import {
   AlertTriangle,
   ChevronDown,
@@ -37,7 +39,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { formatDate as formatDateLk, formatDateTime as formatDateTimeLk } from "@/lib/localization";
 import { USER_KEY } from "@/lib/auth-storage";
-import { BulkImportButton } from "@/components/bulk-import/bulk-import-button";
 import { DepartmentSelect, type DepartmentOption } from "@/components/departments/department-select";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ActiveFilterChips } from "@/components/operational/active-filter-chips";
@@ -1413,24 +1414,10 @@ export default function AssetsManagementPage() {
                 </div>
               )}
 
-              <BulkImportButton
-                entity="asset"
-                entityLabel="Assets"
-                className="inline-flex h-10 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"
-                onImported={() => queryClient.invalidateQueries({ queryKey: ["assets-list"] })}
-              />
-
-              {canCreate && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingAsset(null);
-                    setShowFormModal(true);
-                  }}
-                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-900 px-3 text-sm font-medium text-white"
-                >
-                  <Plus size={16} /> Create Asset
-                </button>
+              {(currentUser.role === "SUPER_ADMIN" || currentUser.role === "ADMIN") && (
+                <Link href="/admin/assets/new" className="inline-flex h-10 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700">
+                  Register in Admin
+                </Link>
               )}
             </>
           }
@@ -1827,9 +1814,10 @@ export default function AssetsManagementPage() {
                 Showing {meta.total === 0 ? 0 : (meta.page - 1) * meta.limit + 1}-{Math.min(meta.page * meta.limit, meta.total)} of {meta.total} assets
               </span>
               <select
+                aria-label="Rows per page"
                 value={filters.pageSize}
                 onChange={(event) => setPageSize(Number(event.target.value))}
-                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
+                className="min-h-11 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
               >
                 {PAGE_SIZE_OPTIONS.map((size) => (
                   <option key={size} value={size}>
@@ -1841,17 +1829,22 @@ export default function AssetsManagementPage() {
 
             <div className="flex items-center gap-1">
               <button
+                type="button"
                 onClick={() => setPage(Math.max(1, meta.page - 1))}
                 disabled={meta.page <= 1}
+                aria-label="Previous page"
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-700 disabled:opacity-40"
               >
-                <ChevronLeft size={15} />
+                <ChevronLeft size={15} aria-hidden />
               </button>
 
               {pageNumbers.map((page) => (
                 <button
                   key={page}
+                  type="button"
                   onClick={() => setPage(page)}
+                  aria-label={`Page ${page}`}
+                  aria-current={page === meta.page ? "page" : undefined}
                   className={`h-8 min-w-8 rounded-full border px-2 text-sm ${
                     page === meta.page
                       ? "border-slate-900 bg-slate-900 text-white"
@@ -1863,11 +1856,13 @@ export default function AssetsManagementPage() {
               ))}
 
               <button
+                type="button"
                 onClick={() => setPage(Math.min(meta.totalPages, meta.page + 1))}
                 disabled={meta.page >= meta.totalPages}
+                aria-label="Next page"
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-700 disabled:opacity-40"
               >
-                <ChevronRight size={15} />
+                <ChevronRight size={15} aria-hidden />
               </button>
             </div>
           </div>
@@ -2082,10 +2077,11 @@ function QrModal({
         </div>
 
         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
-          <div className="qr-print-only inline-block rounded-xl bg-white p-3 shadow-sm">
+            <div className="qr-print-only inline-block rounded-xl bg-white p-4 text-center shadow-sm">
+            <img alt="" className="mx-auto h-10 w-auto bg-white object-contain" src="/brand/nelna-group-logo.jpg" />
             {qrCodeUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={qrCodeUrl} alt={`QR for ${asset.assetTag}`} className="h-52 w-52" />
+              <img src={qrCodeUrl} alt={`QR for ${asset.assetTag}`} className="mx-auto mt-2 h-52 w-52 bg-white p-2" />
             ) : (
               <div className="grid h-52 w-52 place-items-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-500">
                 QR is missing for this asset.
@@ -2300,18 +2296,22 @@ function AssetFormModal({
             </Field>
 
             <Field label="Purchase Date">
-              <input
-                type="date"
-                {...form.register("purchaseDate")}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              <Controller
+                control={form.control}
+                name="purchaseDate"
+                render={({ field }) => (
+                  <DateField bare label="Purchase Date" value={field.value ?? ""} onChange={field.onChange} />
+                )}
               />
             </Field>
 
             <Field label="Warranty Expiry">
-              <input
-                type="date"
-                {...form.register("warrantyExpiry")}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              <Controller
+                control={form.control}
+                name="warrantyExpiry"
+                render={({ field }) => (
+                  <DateField bare label="Warranty Expiry" value={field.value ?? ""} onChange={field.onChange} />
+                )}
               />
             </Field>
 
@@ -2359,18 +2359,22 @@ function AssetFormModal({
             </Field>
 
             <Field label="Last Service Date">
-              <input
-                type="date"
-                {...form.register("lastServiceDate")}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              <Controller
+                control={form.control}
+                name="lastServiceDate"
+                render={({ field }) => (
+                  <DateField bare label="Last Service Date" value={field.value ?? ""} onChange={field.onChange} />
+                )}
               />
             </Field>
 
             <Field label="Next Service Due">
-              <input
-                type="date"
-                {...form.register("nextServiceDate")}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+              <Controller
+                control={form.control}
+                name="nextServiceDate"
+                render={({ field }) => (
+                  <DateField bare label="Next Service Due" value={field.value ?? ""} onChange={field.onChange} />
+                )}
               />
             </Field>
           </div>

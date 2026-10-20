@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useRef } from "react";
 import { X } from "lucide-react";
 
 import { AppBrandLockup } from "@/components/brand/app-brand-lockup";
@@ -12,28 +12,20 @@ import { useFocusTrap } from "@/lib/use-focus-trap";
 type MobileNavProps = {
   open: boolean;
   onClose: () => void;
+  onEscape?: () => void;
   id?: string;
 };
 
-export function MobileNav({ open, onClose, id = MOBILE_NAV_DRAWER_ID }: MobileNavProps) {
+export function MobileNav({ open, onClose, onEscape, id = MOBILE_NAV_DRAWER_ID }: MobileNavProps) {
   const panelRef = useRef<HTMLElement>(null);
-  useFocusTrap(open, panelRef, { onEscape: onClose });
-
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [open]);
+  useFocusTrap(open, panelRef, { onEscape: onEscape ?? onClose });
 
   if (!open) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 z-40 xl:hidden" role="presentation">
+    <div className="fixed inset-0 z-50 xl:hidden" role="presentation">
       <button
         type="button"
         aria-label="Close navigation menu"

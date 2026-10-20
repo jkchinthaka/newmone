@@ -30,13 +30,13 @@ describe("command palette helpers (Phase 1 CMMS scope)", () => {
     const adminCommands = getCommandPaletteItems("ADMIN");
     const technicianCommands = getCommandPaletteItems("TECHNICIAN");
 
-    expect(adminCommands.some((item) => item.href === "/action-center")).toBe(true);
+    expect(adminCommands.some((item) => item.href === "/action-center")).toBe(false);
     expect(adminCommands.some((item) => item.href === "/inventory")).toBe(true);
     expect(technicianCommands.some((item) => item.href === "/maintenance/jobs" || item.href === "/work-orders")).toBe(true);
     expect(technicianCommands.some((item) => item.href === "/admin")).toBe(false);
   });
 
-  it("returns action-center commands for unknown roles", () => {
+  it("returns notifications for unknown roles", () => {
     const commands = getCommandPaletteItems("UNKNOWN_ROLE");
 
     expect(commands.length).toBeGreaterThan(0);
@@ -48,8 +48,7 @@ describe("command palette helpers (Phase 1 CMMS scope)", () => {
     const home = adminCommands.find((item) => item.id === "home");
     const legacy = adminCommands.find((item) => item.href === LEGACY_FMS_HOME_PATH);
 
-    expect(home?.href).toBe("/action-center");
-    expect(home?.label).toBe("Action Center");
+    expect(home).toBeUndefined();
     expect(usesLegacyHomeAsDashboard(adminCommands)).toBe(false);
     expect(legacy).toBeUndefined();
   });

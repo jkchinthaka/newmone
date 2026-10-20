@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { RoleName } from "@prisma/client";
+import { AuditAction, RoleName } from "@prisma/client";
 
+import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 
@@ -144,16 +145,59 @@ export class RolesService {
   private async syncRolePermissions(roleId: string, permissionIds: string[]): Promise<void> {
     const uniquePermissionIds = [...new Set(permissionIds.filter(Boolean))];
 
-    await this.prisma.$transaction([
-      this.prisma.rolePermission.deleteMany({ where: { roleId } }),
-      ...(uniquePermissionIds.length > 0
-        ? [
-            this.prisma.rolePermission.createMany({
-              data: uniquePermissionIds.map((permissionId) => ({ roleId, permissionId }))
+    await this.prisma.$transaction(async (tx) => {
+      const role = await tx.role.findUnique({
+        where: { id: roleId },
+        select: { tenantId: true }
+      });
+      const existing = await tx.rolePermission.findMany({
+        where: { roleId },
+        select: { id: true, roleId: true, permissionId: true }
+      });
+      const nextIds = new Set(uniquePermissionIds);
+      const existingIds = new Set(existing.map((row) => row.permissionId));
+      const removed = existing.filter((row) => !nextIds.has(row.permissionId));
+      const addedIds = uniquePermissionIds.filter((permissionId) => !existingIds.has(permissionId));
+
+      if (removed.length > 0) {
+        await tx.rolePermission.deleteMany({
+          where: { id: { in: removed.map((row) => row.id) } }
+        });
+      }
+      if (addedIds.length > 0) {
+        await tx.rolePermission.createMany({
+          data: addedIds.map((permissionId) => ({ roleId, permissionId }))
+        });
+      }
+      const created =
+        addedIds.length > 0
+          ? await tx.rolePermission.findMany({
+              where: { roleId, permissionId: { in: addedIds } },
+              select: { id: true, roleId: true, permissionId: true }
             })
-          ]
-        : [])
-    ]);
+          : [];
+
+      for (const row of removed) {
+        await writeAuditTrail(tx, {
+          entity: "RolePermission",
+          entityId: row.id,
+          action: AuditAction.DELETE,
+          module: "roles",
+          tenantId: role?.tenantId ?? null,
+          beforeData: { roleId: row.roleId, permissionId: row.permissionId }
+        });
+      }
+      for (const row of created) {
+        await writeAuditTrail(tx, {
+          entity: "RolePermission",
+          entityId: row.id,
+          action: AuditAction.CREATE,
+          module: "roles",
+          tenantId: role?.tenantId ?? null,
+          afterData: { roleId: row.roleId, permissionId: row.permissionId }
+        });
+      }
+    });
   }
 
   private async findRoleForPublicResponse(id: string): Promise<PublicRoleResponse> {

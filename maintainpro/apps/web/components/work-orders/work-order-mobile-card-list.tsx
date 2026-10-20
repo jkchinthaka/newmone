@@ -32,6 +32,7 @@ export function WorkOrderMobileCardList({ rows, onOpen, jobDomain }: Props) {
           <button
             key={row.id}
             type="button"
+            aria-label={`Open ${row.woNumber}`}
             onClick={() => onOpen(row)}
             className="w-full rounded-lg border border-slate-200 bg-white p-3 text-left hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >

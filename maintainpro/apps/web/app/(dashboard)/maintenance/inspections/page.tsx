@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
+import { DateTimeField } from "@/components/forms/date-fields";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage, apiClient } from "@/lib/api-client";
@@ -443,9 +444,9 @@ function CreateInspectionWizard({
         </div>
       ) : null}
       {step === 5 ? (
-        <label className="mt-3 block text-sm">Due
-          <input type="datetime-local" className="mt-1 min-h-11 w-full rounded-lg border px-3" value={due} onChange={(event) => setDue(event.target.value)} />
-        </label>
+        <div className="mt-3">
+          <DateTimeField label="Due" value={due} onChange={setDue} />
+        </div>
       ) : null}
       {step === 6 ? (
         <dl className="mt-3 space-y-1 text-sm">

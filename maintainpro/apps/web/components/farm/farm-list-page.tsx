@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { farmGet, farmPost } from "@/lib/farm-api";
 import { getActiveTenantId } from "@/lib/tenant-context";
+import { DateField, DateTimeField } from "@/components/forms/date-fields";
 import { EmptyState, PageHeader, Section } from "@/components/farm/farm-ui";
 
 export type FarmField = {
@@ -149,6 +150,20 @@ export function FarmListPage<T extends { id: string }>({
                       </option>
                     ))}
                   </select>
+                ) : f.type === "date" ? (
+                  <DateField
+                    bare
+                    label={f.label}
+                    value={form[f.name] ?? ""}
+                    onChange={(value) => setForm((s) => ({ ...s, [f.name]: value }))}
+                  />
+                ) : f.type === "datetime-local" ? (
+                  <DateTimeField
+                    bare
+                    label={f.label}
+                    value={form[f.name] ?? ""}
+                    onChange={(value) => setForm((s) => ({ ...s, [f.name]: value }))}
+                  />
                 ) : (
                   <input
                     type={f.type ?? "text"}

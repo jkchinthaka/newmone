@@ -17,6 +17,8 @@ import {
   useTenantSession
 } from "@/lib/tenant-session";
 import { safeInternalReturnPath } from "@/lib/role-redirect";
+import { stackedOverlayEscape } from "@/lib/overlay-dismiss";
+import { queryRetryDelay, shouldRetryQuery } from "@/lib/upstream-status";
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -24,6 +26,16 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   useEffect(() => {
     if (state === "SESSION_EXPIRED") {
@@ -131,7 +143,17 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       <NetworkStatusBanner />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar collapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed((current) => !current)} />
-        <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
+        <MobileNav
+          open={mobileNavOpen}
+          onClose={() => setMobileNavOpen(false)}
+          onEscape={() => {
+            if (stackedOverlayEscape({ paletteOpen: commandPaletteOpen, drawerOpen: true }) === "close-palette") {
+              setCommandPaletteOpen(false);
+              return;
+            }
+            setMobileNavOpen(false);
+          }}
+        />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <Topbar
             mobileNavOpen={mobileNavOpen}
@@ -161,8 +183,12 @@ export default function DashboardLayout({
         defaultOptions: {
           queries: {
             staleTime: 30_000,
-            refetchOnWindowFocus: false
-          }
+            refetchOnWindowFocus: false,
+            retry: shouldRetryQuery,
+            retryDelay: queryRetryDelay
+          },
+          // A mutation is never replayed automatically; the user retries it.
+          mutations: { retry: false }
         }
       })
   );

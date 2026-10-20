@@ -153,7 +153,7 @@ export class PermissionsGuard implements CanActivate {
       if (user.role === "SUPER_ADMIN") {
         return true;
       }
-      return this.assertHasPermissions(this.toPermissionSet(user.permissions), requiredPermissions);
+      return this.assertHasPermissions(this.toPermissionSet(user.permissions), requiredPermissions, user.role);
     }
 
     // Authoritative DB lookup. JWT permission lists are ignored in production
@@ -179,7 +179,8 @@ export class PermissionsGuard implements CanActivate {
 
     return this.assertHasPermissions(
       this.toPermissionSet(rolePermissionKeys(dbUser.role)),
-      requiredPermissions
+      requiredPermissions,
+      dbUser.role.name
     );
   }
 
@@ -212,10 +213,11 @@ export class PermissionsGuard implements CanActivate {
 
   private assertHasPermissions(
     userPermissions: Set<string>,
-    requiredPermissions: string[]
+    requiredPermissions: string[],
+    role?: string | null
   ): boolean {
     const missingPermissions = requiredPermissions.filter(
-      (permission) => !this.hasPermission(userPermissions, permission)
+      (permission) => !this.hasPermission(userPermissions, permission, role)
     );
 
     if (missingPermissions.length > 0) {
@@ -235,8 +237,12 @@ export class PermissionsGuard implements CanActivate {
     return new Set(permissions.map((permission) => permission.trim()).filter(Boolean));
   }
 
-  private hasPermission(userPermissions: Set<string>, requiredPermission: string): boolean {
-    return hasCompatiblePermission(userPermissions, requiredPermission);
+  private hasPermission(
+    userPermissions: Set<string>,
+    requiredPermission: string,
+    role?: string | null
+  ): boolean {
+    return hasCompatiblePermission(userPermissions, requiredPermission, role);
   }
 }
 
@@ -246,10 +252,16 @@ export class PermissionsGuard implements CanActivate {
  */
 export function hasCompatiblePermission(
   userPermissions: ReadonlySet<string>,
-  requiredPermission: string
+  requiredPermission: string,
+  role?: string | null
 ): boolean {
   if (userPermissions.has(requiredPermission)) {
     return true;
+  }
+
+  // SUPERVISOR verification is an explicit grant. work_orders.manage must not satisfy it.
+  if (role === "SUPERVISOR" && requiredPermission === "work_orders.verify") {
+    return false;
   }
 
   return (COMPATIBLE_PERMISSION_ALIASES[requiredPermission] ?? []).some((permission) =>

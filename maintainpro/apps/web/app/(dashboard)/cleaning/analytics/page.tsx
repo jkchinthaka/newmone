@@ -1,6 +1,8 @@
 "use client";
 
 import { type ReactNode, useMemo, useState } from "react";
+
+import { DateField } from "@/components/forms/date-fields";
 import { BarChart3, Medal, Timer, TrendingUp, UserCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -141,21 +143,11 @@ export default function CleaningAnalyticsPage() {
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <label className="text-sm text-slate-600">
             <span className="mb-1 block">From</span>
-            <input
-              type="date"
-              value={filters.from}
-              onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value }))}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-            />
+            <DateField bare label="From" value={filters.from} onChange={(from) => setFilters((current) => ({ ...current, from }))} />
           </label>
           <label className="text-sm text-slate-600">
             <span className="mb-1 block">To</span>
-            <input
-              type="date"
-              value={filters.to}
-              onChange={(event) => setFilters((current) => ({ ...current, to: event.target.value }))}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-            />
+            <DateField bare label="To" value={filters.to} onChange={(to) => setFilters((current) => ({ ...current, to }))} />
           </label>
           <label className="text-sm text-slate-600">
             <span className="mb-1 block">Location</span>

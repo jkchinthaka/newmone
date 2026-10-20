@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
+import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { withTenantScope } from "@/lib/tenant-query";
 
@@ -45,6 +46,7 @@ const ITEM_TYPES = [
 
 export default function AdminChecklistTemplatesPage() {
   const qc = useQueryClient();
+  const { prompt, dialog } = usePromptDialog();
   const [form, setForm] = useState({
     code: "",
     name: "",
@@ -94,12 +96,8 @@ export default function AdminChecklistTemplatesPage() {
   });
 
   const reviseMutation = useMutation({
-    mutationFn: async (tpl: ChecklistTemplate) => {
-      const reason = window.prompt(
-        `Reason for revising ${tpl.code} v${tpl.version}?`,
-        "Template content update"
-      );
-      if (!reason) return;
+    mutationFn: async (input: { tpl: ChecklistTemplate; reason: string }) => {
+      const { tpl, reason } = input;
       await apiClient.put(`/planning/checklist-templates/${tpl.id}/revise`, {
         changeReason: reason,
         items: tpl.items.map((item) => ({
@@ -138,6 +136,7 @@ export default function AdminChecklistTemplatesPage() {
 
   return (
     <div className="space-y-6">
+      {dialog}
       <PageBreadcrumbs
         items={[
           { label: "Admin", href: "/admin" },
@@ -287,7 +286,16 @@ export default function AdminChecklistTemplatesPage() {
                         type="button"
                         className="text-brand-700 underline"
                         disabled={reviseMutation.isPending}
-                        onClick={() => reviseMutation.mutate(row)}
+                        onClick={() => {
+                          void prompt({
+                            title: `Revise ${row.code}`,
+                            label: "Reason",
+                            defaultValue: "Template content update",
+                            required: true
+                          }).then((reason) => {
+                            if (reason) reviseMutation.mutate({ tpl: row, reason });
+                          });
+                        }}
                       >
                         Revise
                       </button>

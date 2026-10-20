@@ -15,40 +15,54 @@ describe("role-redirect helper", () => {
     ).toBe("TECHNICIAN");
   });
 
-  it("maps technician to action center first", () => {
-    expect(getPostLoginRedirect({ role: { name: "TECHNICIAN" } })).toBe("/action-center");
+  it("maps technician to my jobs", () => {
+    expect(getPostLoginRedirect({ role: { name: "TECHNICIAN" } })).toBe("/work-orders/my");
   });
 
-  it("maps cleaner to action center first", () => {
-    expect(getPostLoginRedirect({ role: { name: "CLEANER" } })).toBe("/action-center");
+  it("maps cleaner to notifications", () => {
+    expect(getPostLoginRedirect({ role: { name: "CLEANER" } })).toBe("/notifications");
   });
 
-  it("maps inventory keeper to action center first", () => {
-    expect(getPostLoginRedirect({ role: { name: "INVENTORY_KEEPER" } })).toBe("/action-center");
+  it("maps inventory keeper to inventory", () => {
+    expect(getPostLoginRedirect({ role: { name: "INVENTORY_KEEPER" } })).toBe("/inventory");
   });
 
-  it("maps super admin to action center first", () => {
-    expect(getPostLoginRedirect({ role: { name: "SUPER_ADMIN" } })).toBe("/action-center");
+  it("maps super admin to admin", () => {
+    expect(getPostLoginRedirect({ role: { name: "SUPER_ADMIN" } })).toBe("/admin");
   });
 
-  it("maps admin to action center first", () => {
-    expect(getPostLoginRedirect({ role: { name: "ADMIN" } })).toBe("/action-center");
+  it("maps admin to admin", () => {
+    expect(getPostLoginRedirect({ role: { name: "ADMIN" } })).toBe("/admin");
   });
 
-  it("falls back to action center for unknown roles", () => {
-    expect(getPostLoginRedirect({ role: { name: "UNKNOWN_ROLE" } })).toBe(
-      DEFAULT_POST_LOGIN_REDIRECT
-    );
+  it("sends an unknown department role to maintenance requests", () => {
+    expect(getPostLoginRedirect({ role: { name: "UNKNOWN_ROLE" } })).toBe("/requests");
   });
 
-  it("falls back to action center when role is missing", () => {
+  it("falls back to notifications when role is missing", () => {
     expect(getPostLoginRedirect({})).toBe(DEFAULT_POST_LOGIN_REDIRECT);
     expect(getPostLoginRedirect(null)).toBe(DEFAULT_POST_LOGIN_REDIRECT);
   });
 
-  it("maps facility manager to action center first", () => {
-    expect(getPostLoginRedirect({ role: { name: "FACILITY_MANAGER" } })).toBe("/action-center");
-    expect(getPostLoginRedirect({ role: { name: "BUILDING_SUPERVISOR" } })).toBe("/action-center");
+  it("maps facility roles to facilities", () => {
+    expect(getPostLoginRedirect({ role: { name: "FACILITY_MANAGER" } })).toBe("/facilities");
+    expect(getPostLoginRedirect({ role: { name: "BUILDING_SUPERVISOR" } })).toBe("/facilities");
+  });
+
+  it("maps supervisor, vendor, asset manager, and mechanic to their workspaces", () => {
+    expect(getPostLoginRedirect("SUPERVISOR")).toBe("/maintenance");
+    expect(getPostLoginRedirect("VENDOR")).toBe("/vendor-portal");
+    expect(getPostLoginRedirect("ASSET_MANAGER")).toBe("/assets");
+    expect(getPostLoginRedirect("MECHANIC")).toBe("/work-orders/my");
+    expect(getPostLoginRedirect("OPERATIONS_MANAGER")).toBe("/maintenance");
+    expect(getPostLoginRedirect("STOREKEEPER")).toBe("/inventory");
+  });
+
+  it("never lands on the retired Action Center or splash route", () => {
+    for (const role of ["ADMIN", "TECHNICIAN", "DRIVER", "FINANCE", "CLEANER", "VENDOR", "UNKNOWN_ROLE"]) {
+      expect(getPostLoginRedirect(role)).not.toBe("/action-center");
+      expect(getPostLoginRedirect(role)).not.toBe("/splash");
+    }
   });
 
   it("never resolves to legacy /home", () => {

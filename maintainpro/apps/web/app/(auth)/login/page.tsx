@@ -9,7 +9,8 @@ import { AppBrandLockup } from "@/components/brand/app-brand-lockup";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { setAuthSession } from "@/lib/auth-storage";
 import { resolveLoginEmail, validateWorkEmail } from "@/lib/login-identifier";
-import { getPostLoginRedirect, safeInternalReturnPath } from "@/lib/role-redirect";
+import { resolveAuthorizedDestination } from "@/lib/navigation";
+import { safeInternalReturnPath, type PostLoginUserLike } from "@/lib/role-redirect";
 import { setActiveTenantId } from "@/lib/tenant-context";
 
 type LoginForm = {
@@ -51,6 +52,7 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
+  const [sessionCheck, setSessionCheck] = useState<"checking" | "form">("checking");
   const {
     register,
     handleSubmit,
@@ -67,7 +69,27 @@ export default function LoginPage() {
     if (params.get("reason") === "session_expired") {
       setSessionNotice("Your session has expired. Please sign in again.");
     }
-    setReturnTo(safeInternalReturnPath(params.get("returnTo")));
+    const nextReturn = safeInternalReturnPath(params.get("returnTo"));
+    setReturnTo(nextReturn);
+    let cancelled = false;
+    apiClient
+      .get<{ data?: PostLoginUserLike }>("/auth/me")
+      .then((response) => {
+        if (cancelled) return;
+        const user = response.data?.data;
+        const permissions = Array.isArray((user as { permissions?: unknown } | undefined)?.permissions)
+          ? ((user as { permissions?: unknown }).permissions as unknown[]).filter(
+              (item): item is string => typeof item === "string"
+            )
+          : [];
+        window.location.replace(resolveAuthorizedDestination(user, nextReturn, permissions));
+      })
+      .catch(() => {
+        if (!cancelled) setSessionCheck("form");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const passwordField = register("password", {
@@ -104,7 +126,10 @@ export default function LoginPage() {
 
       setActiveTenantId(typeof tenantIdCandidate === "string" ? tenantIdCandidate : null);
 
-      window.location.replace(returnTo ?? getPostLoginRedirect(payload.user));
+      const permissions = Array.isArray(payload.user?.permissions)
+        ? (payload.user.permissions as unknown[]).filter((item): item is string => typeof item === "string")
+        : [];
+      window.location.replace(resolveAuthorizedDestination(payload.user, returnTo, permissions));
     } catch (e) {
       setError(mapLoginError(e));
     } finally {
@@ -132,6 +157,12 @@ export default function LoginPage() {
             <p className="mt-1 text-sm text-slate-600">Sign in to MaintainPro</p>
           </header>
 
+          {sessionCheck === "checking" ? (
+            <p className="mt-6 text-sm text-slate-600" role="status">
+              Checking your session...
+            </p>
+          ) : (
+            <>
           {sessionNotice ? (
             <p
               className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
@@ -258,6 +289,8 @@ export default function LoginPage() {
           <p className="mt-6 text-center text-sm text-slate-500">
             Access is by invitation. Contact your system administrator if you need an account.
           </p>
+            </>
+          )}
         </div>
       </section>
     </main>

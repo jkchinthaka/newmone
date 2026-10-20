@@ -1,5 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
 import { WorkOrderType } from "@prisma/client";
+import { createScheduleIssues, EXPECTED_COMPLETION_AFTER_DUE } from "@maintainpro/shared-types";
 
 import {
   assertWorkOrderAssetRules,
@@ -126,12 +127,19 @@ describe("work order validation", () => {
   });
 
   it("rejects expected completion later than due date", () => {
+    expect(
+      createScheduleIssues({
+        dueDate: "2026-10-10",
+        expectedCompletionDate: "2026-10-20",
+        today: "2026-10-01"
+      }).expectedCompletionDate
+    ).toBe(EXPECTED_COMPLETION_AFTER_DUE);
     expect(() =>
       assertWorkOrderScheduleDates({
         dueDate: new Date("2026-10-10T00:00:00.000Z"),
         expectedCompletionDate: new Date("2026-10-20T00:00:00.000Z")
       })
-    ).toThrow(new BadRequestException("Due date must not be earlier than expected completion"));
+    ).toThrow(new BadRequestException(EXPECTED_COMPLETION_AFTER_DUE));
   });
 
   it("allows equal due and expected completion dates", () => {

@@ -46,7 +46,8 @@ export function UserAccessTable({
       emptyTitle="No users found"
       getRowId={(row) => row.id}
       getRowLabel={(row) => row.displayName || row.email}
-      minWidth="960px"
+      minWidth="720px"
+      pinActions
       renderActions={
         showActions
           ? (row) => {

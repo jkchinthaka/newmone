@@ -16,6 +16,7 @@ import { workOrderCreatePreset } from "@/lib/asset-list";
 import { parseWorkOrderRecordLink } from "@/lib/operational-deep-link";
 import { USER_KEY } from "@/lib/auth-storage";
 import { canCreateWorkOrder } from "@/lib/user-role";
+import { buildBulkStatusItems, remainingBulkSelection, summarizeBulkStatusResults } from "@/lib/work-order-bulk-status";
 import {
   ALLOWED_STATUS_TRANSITIONS,
   getValidWorkOrderActions,
@@ -274,7 +275,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     try {
       await statusMutation.mutateAsync({
         id: workOrder.id,
-        payload: { status }
+        payload: { status, expectedVersion: workOrder.version }
       });
       toast.success(
         status === "IN_PROGRESS"
@@ -388,15 +389,30 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       return;
     }
 
+    const rows = workOrdersQuery.sourceRows.length > 0 ? workOrdersQuery.sourceRows : workOrdersQuery.workOrders;
+    const { items, missing } = buildBulkStatusItems(selectedIds, rows);
+    if (missing.length > 0) {
+      toast.error("Some selected jobs have no loaded version. Refresh the list before updating them.");
+    }
+    if (items.length === 0) {
+      return;
+    }
+
     try {
-      const result = await bulkStatusMutation.mutateAsync({ ids: selectedIds, status });
-      if (result.success.length > 0) {
-        toast.success(`Updated ${result.success.length} work order(s) to ${status.replaceAll("_", " ")}`);
+      const result = await bulkStatusMutation.mutateAsync({ items, status });
+      const labels = Object.fromEntries(rows.map((row) => [row.id, row.woNumber || row.id]));
+      const summary = summarizeBulkStatusResults(result.results ?? [], labels);
+      if (summary.ok > 0) {
+        toast.success(`Updated ${summary.ok} work order(s) to ${status.replaceAll("_", " ")}`);
       }
-      if (result.failed.length > 0) {
-        toast.error(`${result.failed.length} failed: ${result.failed[0]?.reason ?? "Bulk status blocked"}`);
+      if (summary.conflict > 0) {
+        toast.error(`${summary.conflict} work order(s) changed elsewhere. The list was refreshed.`);
+        void workOrdersQuery.refetch();
       }
-      setSelectedIds([]);
+      if (summary.error > 0) {
+        toast.error(summary.lines.filter((line) => !line.includes("changed by someone else")).join(" ") || "Some work orders could not be updated.");
+      }
+      setSelectedIds(remainingBulkSelection(selectedIds, result.results ?? []));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -543,7 +559,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             <button
               type="button"
               onClick={openCreateModal}
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
             >
               <Plus size={16} aria-hidden /> Create Work Order
             </button>
@@ -684,7 +700,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             });
         }}
         onEdit={(values) => {
-          if (!editorState.workOrder) {
+          if (!editorState.workOrder || updateMutation.isPending) {
             return;
           }
 
@@ -721,6 +737,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
                 // COMPLETED→TECHNICIAN_COMPLETED for tech roles; always send the
                 // canonical tech-complete status so supervisors aren't stuck.
                 status: "TECHNICIAN_COMPLETED",
+                expectedVersion: completionTarget.version,
                 delayReason: payload.delayReason,
                 completionNote: payload.completionNote,
                 failureCode: payload.failureCode,
@@ -761,6 +778,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
               id: holdTarget.id,
               payload: {
                 status: "ON_HOLD",
+                expectedVersion: holdTarget.version,
                 delayReason: payload.delayReason
               }
             })

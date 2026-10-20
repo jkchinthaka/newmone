@@ -9,7 +9,7 @@ import { humanWorkOrderStatusLabel } from "@/components/work-orders/helpers";
 import { EmptyState, ErrorState, LoadingCardSkeleton, LoadingState } from "@/components/ui/page-state";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { jobDomainLabel } from "@/lib/job-domain";
-import { PM_DUE_SOON_HREF } from "@/lib/operational-deep-link";
+import { PM_DUE_SOON_HREF, PM_OVERDUE_HREF } from "@/lib/operational-deep-link";
 import {
   actionCardTone,
   dashboardCardsForRole,
@@ -18,6 +18,7 @@ import {
   TECHNICIAN_ACTION_CARDS,
   WORKLOAD_CARDS
 } from "@/lib/maintenance-dashboard-view";
+import { maintenanceRefetchInterval, shouldRetryMaintenanceQuery } from "@/lib/maintenance-dashboard-query";
 import { withTenantScope } from "@/lib/tenant-query";
 import { useCurrentUser } from "@/lib/use-current-user";
 
@@ -42,6 +43,7 @@ type MaintenanceDashboard = {
   waitingParts: number;
   pendingApprovals: number | null;
   pmDueSoon: number;
+  pmOverdue?: number;
   lowStock: number | null;
   requestsOpen: number;
   unassignedJobs: number;
@@ -141,14 +143,16 @@ export function MaintenanceDashboardPage() {
     queryFn: fetchDashboard,
     enabled: !technicianView,
     staleTime: 30_000,
-    refetchInterval: 60_000
+    retry: shouldRetryMaintenanceQuery,
+    refetchInterval: maintenanceRefetchInterval
   });
   const myJobsQuery = useQuery({
     queryKey: withTenantScope(["maintenance", "dashboard", "my-jobs", user.id]),
     queryFn: fetchMyJobCounts,
     enabled: technicianView,
     staleTime: 30_000,
-    refetchInterval: 60_000
+    retry: shouldRetryMaintenanceQuery,
+    refetchInterval: maintenanceRefetchInterval
   });
 
   const query = technicianView ? myJobsQuery : dashboardQuery;
@@ -173,7 +177,7 @@ export function MaintenanceDashboardPage() {
 
   return (
     <div className="ops-page">
-      <PageBreadcrumbs items={[{ label: "Home", href: "/action-center" }, { label: "Maintenance" }]} />
+      <PageBreadcrumbs items={[{ label: "Maintenance" }]} />
       <div>
         <h1 className="page-title">Maintenance Dashboard</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-600">
@@ -216,12 +220,6 @@ function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: st
     onHoldJobs: data.onHoldJobs
   };
   const priority = data.priorityWorkList ?? [];
-  const diagnostics = [
-    ["MTTR", data.notAvailable?.mttr ?? "Not Configured"],
-    ["MTBF", data.notAvailable?.mtbf ?? "Not Configured"],
-    ["ERP exceptions", data.notAvailable?.erpExceptions ?? "Not Available"],
-    ["Gate / availability blocks", data.notAvailable?.gateBlocks ?? "Not Available"]
-  ];
 
   return (
     <>
@@ -330,6 +328,7 @@ function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: st
         <div className="summary-strip">
           <ActionCard label="Requests awaiting action" value={data.requestsOpen} href="/requests?stage=open" tone={actionCardTone(data.requestsOpen)} />
           <ActionCard label="PM due soon" value={data.pmDueSoon} href={PM_DUE_SOON_HREF} tone={actionCardTone(data.pmDueSoon)} />
+          <ActionCard label="PM overdue" value={data.pmOverdue ?? 0} href={PM_OVERDUE_HREF} tone={actionCardTone(data.pmOverdue ?? 0)} />
           {data.availability.approvals && data.pendingApprovals != null ? (
             <ActionCard
               label="Approvals pending"
@@ -340,21 +339,6 @@ function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: st
           ) : null}
         </div>
       </Section>
-
-      <details className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-        <summary className="cursor-pointer font-medium text-slate-900">Setup and diagnostics</summary>
-        <ul className="mt-3 space-y-1">
-          {diagnostics.map(([label, value]) => (
-            <li key={label}>
-              {label}: {value}
-            </li>
-          ))}
-          <li>
-            Low stock is not shown here. Bileeta owns stock; the local spare-part quantity is not the operational
-            balance.
-          </li>
-        </ul>
-      </details>
     </>
   );
 }

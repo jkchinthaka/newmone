@@ -47,7 +47,7 @@ export function WorkOrderGovernanceBanner({ workOrder }: Props) {
   }
 
   return (
-    <section className="space-y-2 rounded-xl border border-brand-100 bg-brand-50 p-3">
+    <section className="space-y-3 rounded-xl border border-brand-100 bg-brand-50 p-4">
       <div>
         <h4 className="text-sm font-semibold text-ink">Governance and lifecycle</h4>
         <dl className="mt-2 grid gap-x-4 gap-y-2 text-sm text-ink sm:grid-cols-2">
@@ -81,6 +81,11 @@ export function WorkOrderGovernanceBanner({ workOrder }: Props) {
           </div>
         </dl>
       </div>
+      {workOrder.status === "CANCELLED" ? (
+        <p className="text-sm text-slate-800">
+          Lifecycle is Cancelled. Approval stays as the historical decision and is not a reason to reopen this job.
+        </p>
+      ) : null}
 
       {warnings.length > 0 ? (
         <ul className="space-y-2">

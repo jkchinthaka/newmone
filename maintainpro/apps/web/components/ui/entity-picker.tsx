@@ -157,7 +157,9 @@ export function EntityPicker<T extends Record<string, unknown>>(props: EntityPic
         event.preventDefault();
         onCreateNew(query.trim());
       }
-    } else if (event.key === "Escape") {
+    } else if (event.key === "Escape" && open) {
+      event.preventDefault();
+      event.stopPropagation();
       setOpen(false);
     }
   };
@@ -235,6 +237,8 @@ export function EntityPicker<T extends Record<string, unknown>>(props: EntityPic
             const id = String(entity[idField] ?? index);
             const primary = String(entity[displayField] ?? "");
             const secondary = secondaryField ? String(entity[secondaryField] ?? "") : "";
+            const statusLabel =
+              entity.status === "UNDER_MAINTENANCE" ? "Under maintenance" : "";
             const isActive = index === activeIndex;
             return (
               <li
@@ -253,6 +257,7 @@ export function EntityPicker<T extends Record<string, unknown>>(props: EntityPic
               >
                 <span className="truncate font-medium">{primary || "(unnamed)"}</span>
                 {secondary && <span className="truncate text-xs text-slate-500">{secondary}</span>}
+                {statusLabel ? <span className="shrink-0 text-xs text-amber-800">{statusLabel}</span> : null}
               </li>
             );
           })}

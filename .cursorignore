@@ -30,6 +30,8 @@ node_modules/
 **/build/
 **/coverage/
 *.tsbuildinfo
+.cache/
+**/.next-*/
 
 # Generated test output, Playwright reports and traces
 **/test-results/
@@ -42,5 +44,13 @@ maintainpro/artifacts/
 
 # Logs and local data
 *.log
+test-results/
+playwright-report/
+e2e-real-report/
+e2e-real-results/
+docs/handover/*.png
+docs/handover/baseline-*
+docs/handover/evidence-*/
+maintainpro/systems/fg-digital-recording/
 uploads/
 **/uploads/

@@ -54,15 +54,15 @@ test.describe("staging browser UAT (UAT-001)", () => {
     await expect(page.getByText("Administration modules")).toBeVisible();
   });
 
-  test("action center loads without crash", async ({ page }) => {
+  test("retired action center bookmark leaves the page without crashing", async ({ page }) => {
     await page.goto(`${stagingWeb}/login`);
     await page.locator('input[name="email"]').fill(smokeEmail);
     await page.locator('input[name="password"]').fill(smokePassword);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await page.waitForURL(/\/(dashboard|admin|work-orders)/, { timeout: 60_000 });
+    await page.waitForURL(/\/(dashboard|admin|work-orders|reports|notifications)/, { timeout: 60_000 });
 
     await page.goto(`${stagingWeb}/action-center`);
-    await expect(page.getByRole("heading", { name: /Home/i })).toBeVisible({ timeout: 30_000 });
+    await expect(page).not.toHaveURL(/\/action-center/, { timeout: 30_000 });
     await expect(page.getByText(/Minified React error/i)).toHaveCount(0);
   });
 

@@ -37,7 +37,7 @@ describe("evidence storage readiness", () => {
     expect(readiness.missingKeys.length).toBeGreaterThan(0);
   });
 
-  it("enables mock readiness outside production", () => {
+  it("does not enable mock storage for real file uploads", () => {
     const provider = new EvidenceStorageProviderService(
       configService({
         NODE_ENV: "development",
@@ -48,6 +48,24 @@ describe("evidence storage readiness", () => {
 
     expect(provider.checkReadiness()).toMatchObject({
       mode: "mock",
+      state: "disabled",
+      indicator: "DISABLED",
+      uploadsEnabled: false
+    });
+  });
+
+  it("enables local file storage when the private root is set", () => {
+    const provider = new EvidenceStorageProviderService(
+      configService({
+        NODE_ENV: "development",
+        STORAGE_MODE: "local",
+        STORAGE_UPLOADS_ENABLED: true,
+        STORAGE_LOCAL_ROOT: "C:\\MaintainPro\\evidence-objects"
+      })
+    );
+
+    expect(provider.checkReadiness()).toMatchObject({
+      mode: "local",
       state: "configured",
       indicator: "ENABLED",
       uploadsEnabled: true

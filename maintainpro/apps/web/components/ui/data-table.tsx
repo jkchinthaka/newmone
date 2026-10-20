@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/page-state";
 import { toSortAriaSort } from "@/lib/accessibility";
-import { getVisibleMobileColumns } from "@/lib/data-table-mobile";
+import { getVisibleMobileColumns, dataTableRowIsKeyboardTarget } from "@/lib/data-table-mobile";
 import { getPaginationMeta, type SortDirection } from "@/lib/client-table";
 
 export type { SortDirection };
@@ -45,6 +45,7 @@ export type DataTableProps<T> = {
   leadingHeader?: ReactNode;
   renderLeadingCell?: (row: T) => ReactNode;
   renderActions?: (row: T) => ReactNode;
+  pinActions?: boolean;
   actionsHeader?: ReactNode;
   onRowClick?: (row: T) => void;
   getRowLabel?: (row: T) => string;
@@ -131,6 +132,7 @@ export function DataTable<T>({
   leadingHeader,
   renderLeadingCell,
   renderActions,
+  pinActions = false,
   actionsHeader = "Actions",
   onRowClick,
   getRowLabel,
@@ -156,7 +158,7 @@ export function DataTable<T>({
     <div className={`min-w-0 max-w-full overflow-x-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${className}`.trim()}>
       {/* Desktop table — contain:paint keeps wide minWidth tables from expanding document scrollWidth */}
       <div className="hidden min-w-0 md:block">
-        <div className="max-w-full overflow-x-auto [contain:paint]">
+        <div className="max-w-full overflow-x-auto">
           <table
             aria-label={ariaLabel}
             className="w-full text-left text-sm"
@@ -196,7 +198,7 @@ export function DataTable<T>({
                   </th>
                 ))}
                 {hasActions ? (
-                  <th scope="col" className="px-3 py-3">
+                  <th scope="col" className={pinActions ? "sticky right-0 z-10 bg-slate-50 px-3 py-3" : "px-3 py-3"}>
                     {actionsHeader}
                   </th>
                 ) : null}
@@ -212,7 +214,7 @@ export function DataTable<T>({
               ) : (
                 rows.map((row) => {
                   const rowLabel = onRowClick && getRowLabel ? getRowLabel(row) : undefined;
-                  const rowIsKeyboardTarget = Boolean(onRowClick) && !hasActions;
+                  const rowIsKeyboardTarget = dataTableRowIsKeyboardTarget(Boolean(onRowClick), hasActions);
 
                   return (
                   <tr
@@ -243,7 +245,10 @@ export function DataTable<T>({
                       </td>
                     ))}
                     {renderActions ? (
-                      <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
+                      <td
+                        className={pinActions ? "sticky right-0 z-10 bg-white px-3 py-3" : "px-3 py-3"}
+                        onClick={(event) => event.stopPropagation()}
+                      >
                         {renderActions(row)}
                       </td>
                     ) : null}
@@ -264,13 +269,26 @@ export function DataTable<T>({
           <ul className="divide-y divide-slate-200">
             {rows.map((row) => {
               const rowLabel = onRowClick && getRowLabel ? getRowLabel(row) : undefined;
+              const rowIsKeyboardTarget = dataTableRowIsKeyboardTarget(Boolean(onRowClick), hasActions);
 
               return (
               <li key={getRowId(row)} className="overflow-visible">
                 <div
                   aria-label={rowLabel}
+                  role={rowIsKeyboardTarget ? "button" : undefined}
+                  tabIndex={rowIsKeyboardTarget ? 0 : undefined}
                   className={`space-y-3 overflow-visible p-4 ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) ?? ""}`.trim()}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onKeyDown={
+                    rowIsKeyboardTarget
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onRowClick?.(row);
+                          }
+                        }
+                      : undefined
+                  }
                 >
                   {renderLeadingCell ? (
                     <div className="flex min-h-11 items-center" onClick={(event) => event.stopPropagation()}>

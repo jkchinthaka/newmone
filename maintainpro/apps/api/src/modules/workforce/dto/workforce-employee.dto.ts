@@ -1,4 +1,6 @@
-import { IsArray, IsBoolean, IsEmail, IsNumber, IsOptional, IsString, Min } from "class-validator";
+import { IsArray, IsBoolean, IsEmail, IsIn, IsNumber, IsOptional, IsString, Min } from "class-validator";
+
+import { WORKFORCE_AVAILABILITY_STATUSES } from "../../../common/utils/workforce-availability";
 
 export class CreateWorkforceEmployeeDto {
   @IsString()
@@ -44,6 +46,16 @@ export class CreateWorkforceEmployeeDto {
   @IsOptional()
   @IsBoolean()
   canLogin?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  canReceiveWorkOrders?: boolean;
+
+  /** Explicit operator choice. Omitted uses the People creation rule. Blank is rejected. */
+  @IsOptional()
+  @IsString()
+  @IsIn([...WORKFORCE_AVAILABILITY_STATUSES])
+  availabilityStatus?: string;
 }
 
 export class UpdateWorkforceEmployeeDto {
@@ -92,4 +104,14 @@ export class UpdateWorkforceEmployeeDto {
   @IsOptional()
   @IsBoolean()
   canLogin?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  canReceiveWorkOrders?: boolean;
+
+  /** Explicit operator choice. Omitted uses the People creation rule. Blank is rejected. */
+  @IsOptional()
+  @IsString()
+  @IsIn([...WORKFORCE_AVAILABILITY_STATUSES])
+  availabilityStatus?: string;
 }

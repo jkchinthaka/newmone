@@ -12,9 +12,12 @@ import {
   SparePartClassification,
   VendorContractStatus,
   VendorContractType,
-  WorkOrderExecutionMode
+  WorkOrderExecutionMode,
+  WorkOrderStatus
 } from "@prisma/client";
 
+import { assertCostSnapshotValues } from "../../common/utils/cost-snapshot-values";
+import { assertClosedRecordContentEditable } from "../../common/utils/work-order-governance";
 import { stringArrayToText } from "../../common/utils/json-text";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { evaluateVendorEligibility } from "../policies/governance-policies";
@@ -195,6 +198,11 @@ export class MaintenanceSupplyService {
     if (!wo) {
       throw new NotFoundException("Work order not found");
     }
+    assertClosedRecordContentEditable(wo.status as WorkOrderStatus, {
+      overrideReason: notes,
+      actorRole: (actor as { role?: string }).role as never
+    });
+    assertCostSnapshotValues(breakdown);
 
     const existing = await this.prisma.workOrderCostSnapshot.findUnique({
       where: { workOrderId }

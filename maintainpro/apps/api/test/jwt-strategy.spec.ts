@@ -21,15 +21,37 @@ describe("JwtStrategy validate()", () => {
     return new JwtStrategy(configService, prisma);
   };
 
-  it("returns the payload for an active user", async () => {
-    const findUnique = jest.fn().mockResolvedValue({ isActive: true });
+  it("returns the current database role for an active user", async () => {
+    const findUnique = jest.fn().mockResolvedValue({
+      isActive: true,
+      tenantId: "tenant-a",
+      role: { name: RoleName.TECHNICIAN }
+    });
     const strategy = buildStrategy(findUnique);
 
     await expect(strategy.validate(payload)).resolves.toEqual(payload);
     expect(findUnique).toHaveBeenCalledWith({
       where: { id: payload.sub },
-      select: { isActive: true, lockedUntil: true }
+      select: {
+        isActive: true,
+        lockedUntil: true,
+        tenantId: true,
+        role: { select: { name: true } }
+      }
     });
+  });
+
+  it("replaces a stale SUPER_ADMIN claim with the current database role", async () => {
+    const findUnique = jest.fn().mockResolvedValue({
+      isActive: true,
+      tenantId: "tenant-a",
+      role: { name: RoleName.TECHNICIAN }
+    });
+    const strategy = buildStrategy(findUnique);
+
+    await expect(
+      strategy.validate({ ...payload, role: RoleName.SUPER_ADMIN })
+    ).resolves.toEqual({ ...payload, role: RoleName.TECHNICIAN, tenantId: "tenant-a" });
   });
 
   it("rejects when the user is deactivated", async () => {

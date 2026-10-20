@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from "@/components/forms/date-fields";
 import {
   useCallback,
   useEffect,
@@ -800,16 +801,16 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                   />
                 </Field>
                 <Field label="Service Date *">
-                  <input
-                    type="date"
-                    required
+                  <DateField
+                    bare
+                    label="Service Date"
                     value={maintenanceForm.performedAt}
                     disabled={!canEdit}
-                    onChange={(event) =>
-                      setMaintenanceForm((current) => ({ ...current, performedAt: event.target.value }))
+                    onChange={(performedAt) =>
+                      setMaintenanceForm((current) => ({ ...current, performedAt }))
                     }
-                    className={inputCls}
                   />
+                  <input required value={maintenanceForm.performedAt} readOnly tabIndex={-1} aria-hidden="true" className="sr-only" disabled={!canEdit} />
                 </Field>
                 <Field label="Cost">
                   <input

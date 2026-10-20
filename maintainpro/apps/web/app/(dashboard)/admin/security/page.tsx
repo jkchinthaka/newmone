@@ -3,8 +3,13 @@
 import Link from "next/link";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { extractRoleName } from "@/lib/role-redirect";
+import { useCurrentUser } from "@/lib/use-current-user";
 
 export default function AdminSecurityPage() {
+  const roleName = extractRoleName(useCurrentUser());
+  const isSuperAdmin = roleName === "SUPER_ADMIN";
+
   return (
     <div className="space-y-6">
       <PageBreadcrumbs items={[{ label: "Admin", href: "/admin" }, { label: "Security Settings" }]} />
@@ -28,10 +33,17 @@ export default function AdminSecurityPage() {
           <h2 className="font-semibold">Audit Log</h2>
           <p className="mt-1 text-sm text-slate-600">Security-relevant admin and override actions.</p>
         </Link>
-        <Link href="/system-health" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="font-semibold">System Health</h2>
-          <p className="mt-1 text-sm text-slate-600">API, database, Redis, and queue readiness.</p>
-        </Link>
+        {isSuperAdmin ? (
+          <Link href="/system-health" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="font-semibold">System Health</h2>
+            <p className="mt-1 text-sm text-slate-600">API, database, Redis, and queue readiness.</p>
+          </Link>
+        ) : (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <h2 className="font-semibold">System Health</h2>
+            <p className="mt-1 text-sm text-slate-600">SUPER_ADMIN only</p>
+          </div>
+        )}
       </div>
     </div>
   );

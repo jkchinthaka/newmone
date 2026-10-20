@@ -296,18 +296,26 @@ export async function bulkDeleteWorkOrders(ids: string[]): Promise<void> {
   await Promise.all(ids.map((id) => deleteWorkOrder(id)));
 }
 
-export async function bulkUpdateStatus(
-  ids: string[],
-  status: WorkOrderStatus,
-  payload?: { actualCost?: number; actualHours?: number; cancelReason?: string }
-): Promise<{ success: string[]; failed: Array<{ workOrderId: string; reason: string }> }> {
+export async function bulkUpdateStatus(input: {
+  items: Array<{ id: string; expectedVersion: number }>;
+  status: WorkOrderStatus;
+  payload?: { cancelReason?: string };
+}): Promise<{
+  results: Array<{ id: string; outcome: "ok" | "conflict" | "error"; message?: string }>;
+  success: string[];
+  failed: Array<{ workOrderId: string; reason: string }>;
+}> {
   const response = await apiClient.post<
-    ApiEnvelope<{ success: string[]; failed: Array<{ workOrderId: string; reason: string }> }>
+    ApiEnvelope<{
+      results: Array<{ id: string; outcome: "ok" | "conflict" | "error"; message?: string }>;
+      success: string[];
+      failed: Array<{ workOrderId: string; reason: string }>;
+    }>
   >("/work-orders/bulk/status", {
-    workOrderIds: ids,
-    targetStatus: status,
-    cancelReason: payload?.cancelReason,
-    reason: payload?.cancelReason
+    items: input.items,
+    targetStatus: input.status,
+    cancelReason: input.payload?.cancelReason,
+    reason: input.payload?.cancelReason
   });
   return unwrapData(response.data);
 }

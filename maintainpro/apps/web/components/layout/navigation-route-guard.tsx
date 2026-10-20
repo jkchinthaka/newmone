@@ -1,10 +1,11 @@
 "use client";
 
+import type { Route } from "next";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { canAccessNavigationPath } from "@/lib/navigation";
-import { extractRoleName } from "@/lib/role-redirect";
+import { extractRoleName, getPostLoginRedirect } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
 
 type Props = {
@@ -19,14 +20,16 @@ export function NavigationRouteGuard({ children }: Props) {
   const [checked, setChecked] = useState(false);
 
   const allowed = !pathname || canAccessNavigationPath(pathname, roleName, user.permissions);
+  const landing = getPostLoginRedirect({ role: user.role });
 
   useEffect(() => {
     setChecked(true);
     if (!pathname || allowed) {
       return;
     }
-    router.replace("/action-center?reason=access_denied");
-  }, [allowed, pathname, router]);
+    const target = landing && landing !== pathname ? landing : "/notifications";
+    router.replace(target as Route);
+  }, [allowed, landing, pathname, router]);
 
   if (!checked) {
     return (

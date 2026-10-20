@@ -10,9 +10,10 @@ import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 
-import { defaultReportFilters, getReportModule, isReportModuleSlug, REPORT_MODULES } from "./api";
-import { ExportActions, InsightsPanel, ReportCharts, ReportFiltersBar, ReportHeader, ReportTableView, StatePanel, SummaryCards } from "./report-ui";
+import { defaultReportFilters, getReportModule, isReportModuleSlug } from "./api";
+import { ExportActions, ReportFiltersBar, ReportHeader, ReportTableView, StatePanel } from "./report-ui";
 import { ReportFilters, ReportModuleSlug } from "./types";
+import { isRetainedReportSlug, reportModuleHref, RETAINED_REPORTS } from "@/lib/report-workspace";
 
 export function ReportModulePage({ module }: { module: string }) {
   const searchParams = useSearchParams();
@@ -23,17 +24,18 @@ export function ReportModulePage({ module }: { module: string }) {
     return initial;
   });
   const [isExporting, setIsExporting] = useState(false);
-  const moduleSlug = isReportModuleSlug(module) ? module : "operations";
-  const definition = REPORT_MODULES.find((item) => item.slug === moduleSlug) ?? REPORT_MODULES[0];
+  const moduleSlug = isRetainedReportSlug(module) ? module : null;
+  const definition = RETAINED_REPORTS.find((item) => item.slug === moduleSlug) ?? RETAINED_REPORTS[0];
 
   const query = useQuery({
     queryKey: ["reports", moduleSlug, filters],
-    queryFn: () => getReportModule(moduleSlug, filters),
+    queryFn: () => getReportModule(moduleSlug as ReportModuleSlug, filters),
+    enabled: moduleSlug != null,
     refetchInterval: 60_000
   });
 
   const report = query.data;
-  const tabs = useMemo(() => REPORT_MODULES, []);
+  const tabs = useMemo(() => RETAINED_REPORTS, []);
 
   function updateFilters(next: ReportFilters) {
     setFilters(next);
@@ -43,7 +45,7 @@ export function ReportModulePage({ module }: { module: string }) {
     setFilters(defaultReportFilters());
   }
 
-  if (!isReportModuleSlug(module)) {
+  if (!moduleSlug || !isReportModuleSlug(module)) {
     return (
       <StatePanel
         type="empty"
@@ -58,14 +60,20 @@ export function ReportModulePage({ module }: { module: string }) {
       <PageBreadcrumbs />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <ReportHeader title={report?.title ?? definition.label} description={report?.description ?? definition.description} generatedAt={report?.generatedAt} backHref="/reports" />
-        <ExportActions module={moduleSlug as ReportModuleSlug} filters={filters} isExporting={isExporting} setIsExporting={setIsExporting} />
+        <ExportActions module={moduleSlug} filters={filters} isExporting={isExporting} setIsExporting={setIsExporting} />
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1 print:hidden">
         {tabs.map((item) => (
           <Link
             key={item.slug}
-            href={`/reports/${item.slug}` as Route}
+            href={reportModuleHref(item.slug, {
+              search: filters.search,
+              status: filters.status,
+              category: filters.category,
+              from: filters.startDate,
+              to: filters.endDate
+            }) as Route}
             className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${item.slug === moduleSlug ? "bg-brand-600 text-white shadow-sm" : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"}`}
           >
             {item.label}
@@ -76,7 +84,7 @@ export function ReportModulePage({ module }: { module: string }) {
       <ReportFiltersBar filters={filters} options={report?.filterOptions} onChange={updateFilters} onReset={resetFilters} />
 
       {query.isLoading ? (
-        <StatePanel type="loading" title="Loading report" message="Aggregating live report metrics from operations, inventory, assets, finance, and audit records." />
+        <StatePanel type="loading" title="Loading report" message="Loading verified records for this report." />
       ) : query.isError ? (
         <StatePanel
           type="error"
@@ -88,9 +96,6 @@ export function ReportModulePage({ module }: { module: string }) {
         />
       ) : report ? (
         <>
-          <SummaryCards cards={report.summaryCards} />
-          <InsightsPanel insights={report.insights} notes={report.coverageNotes} />
-          <ReportCharts charts={report.charts} />
           <ReportTableView table={report.table} filters={filters} onChange={updateFilters} />
         </>
       ) : (

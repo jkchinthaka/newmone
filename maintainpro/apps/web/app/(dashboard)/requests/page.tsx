@@ -8,6 +8,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, MoreHorizontal, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { DateField } from "@/components/forms/date-fields";
+import { requestMenuPosition } from "@/lib/request-row-menu";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState } from "@/components/ui/page-state";
 import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
@@ -30,7 +32,9 @@ import {
   requestResultCountLabel,
   requestStageCards,
   requestStatusLabel,
+  requestTriageExplanation,
   requestValueLabel,
+  requesterFacingStatus,
   resolveRequestMenuActivation
 } from "@/lib/maintenance-request-ui";
 
@@ -92,10 +96,10 @@ function PriorityBadge({ priority }: { priority: string }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, workOrderStatus, ownOnly }: { status: string; workOrderStatus?: string | null; ownOnly?: boolean }) {
   return (
     <span className="inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-800">
-      {requestStatusLabel(status)}
+      {ownOnly ? requesterFacingStatus(status, workOrderStatus) : requestStatusLabel(status)}
     </span>
   );
 }
@@ -126,12 +130,7 @@ function ActionMenu({
     if (!open || !buttonRef.current) return;
     const place = () => {
       const rect = buttonRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const width = 240;
-      setPosition({
-        top: rect.bottom + 4,
-        left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))
-      });
+      setPosition(requestMenuPosition(rect, window.innerWidth));
     };
     place();
     window.addEventListener("resize", place);
@@ -291,10 +290,11 @@ export default function RequestsPage() {
     setLoading(true);
     setError(null);
     try {
-      const triage = view === "triage";
+      const ownScope = capabilities != null && !canViewAll;
+      const triage = view === "triage" && !ownScope;
       const [result, counts] = await Promise.all([
         listMaintenanceRequests({
-          mine: view === "mine" || undefined,
+          mine: view === "mine" || ownScope || undefined,
           triageQueue: triage || undefined,
           stage: triage ? undefined : stage ?? undefined,
           status: triage || stage ? undefined : status || undefined,
@@ -309,17 +309,22 @@ export default function RequestsPage() {
           page,
           limit
         }),
-        getMaintenanceRequestSummary({ mine: view === "mine" })
+        getMaintenanceRequestSummary({ mine: view === "mine" || ownScope })
       ]);
       setItems(result.items);
       setTotal(Number(result.meta?.total ?? result.items.length));
       setSummary(counts);
     } catch (err) {
-      setError(getApiErrorMessage(err, "We couldn't load maintenance requests."));
+      const message = getApiErrorMessage(err, "We couldn't load maintenance requests.");
+      if (view === "triage" && /triage permission/i.test(message)) {
+        writeQuery({ view: "mine", stage: null, status: null });
+        return;
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }
-  }, [assetQuery, converted, from, page, priority, queryText, reporter, sortBy, sortDirection, stage, status, view]);
+  }, [assetQuery, canViewAll, converted, from, page, priority, queryText, reporter, sortBy, sortDirection, stage, status, view, writeQuery]);
 
   useEffect(() => {
     void refresh();
@@ -343,7 +348,7 @@ export default function RequestsPage() {
   const actionsFor = (item: MaintenanceRequestListItem): RowAction[] => {
     const allowed = item.allowedActions;
     const actions: RowAction[] = [{ id: "view", label: "Open request", href: `/requests/${item.id}` }];
-    if (item.workOrder?.id) {
+    if (item.workOrder?.id && canViewAll) {
       actions.push({
         id: "wo",
         label: `Open work order ${item.workOrder.woNumber}`,
@@ -441,14 +446,18 @@ export default function RequestsPage() {
       ]
     : [];
 
+  const ownOnly = capabilities != null && !canViewAll;
+
   return (
     <div className="ops-page">
       <PageBreadcrumbs />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="page-title">Maintenance Requests</h1>
+          <h1 className="page-title">{ownOnly ? "My Requests" : "Maintenance Requests"}</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Report issues, then triage and accept them before a work order is created.
+            {ownOnly
+              ? "Report a maintenance issue and follow your own requests."
+              : "Report issues, then triage and accept them before a work order is created."}
           </p>
         </div>
         {canReport ? (
@@ -511,6 +520,7 @@ export default function RequestsPage() {
         ))}
       </div>
       ) : null}
+      {view === "triage" ? <p className="text-sm text-slate-600">{requestTriageExplanation()}</p> : null}
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-3" aria-label="Filters">
         <div className="grid gap-2 lg:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,0.7fr))_auto]">
@@ -578,12 +588,7 @@ export default function RequestsPage() {
             />
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <span className="whitespace-nowrap">Reported from</span>
-              <input
-                type="date"
-                value={from}
-                onChange={(event) => writeQuery({ from: event.target.value || null })}
-                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm"
-              />
+              <DateField bare label="Reported from" value={from} onChange={(value) => writeQuery({ from: value || null })} />
             </label>
             <select
               aria-label="Work order link"
@@ -707,7 +712,7 @@ export default function RequestsPage() {
                     {place.code ? <p className="text-xs text-slate-500">{place.code}</p> : null}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <PriorityBadge priority={item.priority} />
-                      <StatusBadge status={item.status} />
+                      <StatusBadge status={item.status} workOrderStatus={item.workOrder?.status} ownOnly={ownOnly} />
                       {item.workOrder ? (
                         <span className="text-xs font-medium text-brand-700">{item.workOrder.woNumber}</span>
                       ) : null}
@@ -772,7 +777,7 @@ export default function RequestsPage() {
                         <PriorityBadge priority={item.priority} />
                       </td>
                       <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
-                        <StatusBadge status={item.status} />
+                        <StatusBadge status={item.status} workOrderStatus={item.workOrder?.status} ownOnly={ownOnly} />
                         {item.workOrder ? (
                           <Link
                             href={`/work-orders?wo=${item.workOrder.id}` as Route}

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 
+import { DateField } from "@/components/forms/date-fields";
 import { apiClient } from "@/lib/api-client";
 
 interface LocationOption {
@@ -170,12 +171,7 @@ export default function CleaningVisitsPage() {
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <label className="text-sm text-slate-600">
             <span className="mb-1 block">Date</span>
-            <input
-              type="date"
-              value={filters.date}
-              onChange={(event) => setFilters((current) => ({ ...current, date: event.target.value }))}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-            />
+            <DateField bare label="Date" value={filters.date} onChange={(date) => setFilters((current) => ({ ...current, date }))} />
           </label>
 
           <label className="text-sm text-slate-600">

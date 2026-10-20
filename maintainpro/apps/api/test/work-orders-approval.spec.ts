@@ -18,6 +18,7 @@ const createPrismaMock = () => ({
     count: jest.fn().mockResolvedValue(1),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     delete: jest.fn()
   },
   workOrderLabourEntry: {
@@ -53,7 +54,7 @@ const createPrismaMock = () => ({
     findMany: jest.fn(),
     create: jest.fn()
   },
-  workOrderAssignee: { count: jest.fn().mockResolvedValue(1) },
+  workOrderAssignee: { count: jest.fn().mockResolvedValue(1), findFirst: jest.fn().mockResolvedValue({ id: "assignee-1" }) },
   asset: { findFirst: jest.fn().mockResolvedValue({ id: "507f1f77bcf86cd799439012", tenantId: "tenant-a" }) },
   workOrderStatusHistory: {
     create: jest.fn().mockResolvedValue({}),
@@ -261,7 +262,8 @@ describe("WorkOrdersService approval and audit", () => {
       verificationStatus: "NOT_REQUIRED",
       delayReason: null,
       cancelledReason: null,
-      technicianCompletionNote: null
+      technicianCompletionNote: null,
+      version: 1
     });
     prisma.workOrder.update.mockResolvedValue({
       id: "wo-1",
@@ -279,6 +281,7 @@ describe("WorkOrdersService approval and audit", () => {
       "wo-1",
       {
         status: WorkOrderStatus.COMPLETED,
+        expectedVersion: 1,
         actualCost: 100,
         actualHours: 2,
         completionNote: "Completed pump seal replacement"

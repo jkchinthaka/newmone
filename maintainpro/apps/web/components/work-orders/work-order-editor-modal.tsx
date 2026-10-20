@@ -1,13 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Loader2, MoreHorizontal, X, AlertTriangle } from "lucide-react";
 
+import { DateField } from "@/components/forms/date-fields";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { EXPECTED_COMPLETION_AFTER_DUE } from "@maintainpro/shared-types";
 import { visibleWorkOrderTab, workOrderTabLoads } from "@/lib/operational-deep-link";
+import { dialogTabTrapDecision, workOrderDrawerEscapeDecision } from "@/lib/overlay-dismiss";
+import { disableSubmitControl } from "@/lib/submit-lock";
 import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
+import { canVerifyWorkOrder, isWorkOrderStarted, workOrderStatusBadgeClass } from "@/lib/work-order-governance";
+import { overviewDraftDirty, overviewSaveDecision, type OverviewDraft } from "@/lib/work-order-overview-edit";
 import type { WorkOrderActivityTimelineResponse } from "@/lib/work-order-activity";
 import { workOrderActivityUnavailableMessage } from "@/lib/work-order-activity";
 import type {
@@ -86,6 +93,8 @@ export function WorkOrderEditorModal({
   onEdit
 }: WorkOrderEditorModalProps) {
   const isCreateMode = mode === "create";
+  const reduceMotion = useReducedMotion();
+  const drawerMotion = reduceMotion ? { duration: 0 } : { duration: 0.18 };
 
   const initialState = useMemo(
     () => ({
@@ -107,10 +116,13 @@ export function WorkOrderEditorModal({
   const currentUser = useCurrentUser();
   const showAuditTab = canViewAuditHistoryForUser(currentUser);
   const [formState, setFormState] = useState(initialState);
+  const [editingOverview, setEditingOverview] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const sectionCache = useRef({ id: "", requirements: false, evidence: false, activity: false });
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<WorkOrderDetailTab>(() => visibleWorkOrderTab(initialTab, showAuditTab));
   const panelRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
   const [activityTimeline, setActivityTimeline] = useState<WorkOrderActivityTimelineResponse | null>(null);
@@ -126,9 +138,76 @@ export function WorkOrderEditorModal({
     }
 
     setFormState(initialState);
+    setEditingOverview(false);
     setFormError(null);
     setActiveTab(visibleWorkOrderTab(initialTab, showAuditTab));
   }, [initialState, initialTab, open, showAuditTab]);
+
+  useEffect(() => {
+    if (!open) return;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => {
+      const previous = returnFocusRef.current;
+      if (previous && document.contains(previous)) previous.focus();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const nestedOverlayOpen = Array.from(document.querySelectorAll("[role='dialog'], [role='alertdialog']")).some(
+        (node) => node !== panelRef.current && !panelRef.current?.contains(node)
+      );
+      if (event.key === "Tab" && !nestedOverlayOpen && panelRef.current) {
+        const focusable = Array.from(
+          panelRef.current.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((node) => !node.hasAttribute("disabled") && node.getClientRects().length > 0);
+        const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const decision = dialogTabTrapDecision({
+          key: event.key,
+          shiftKey: event.shiftKey,
+          activeInside: Boolean(active && panelRef.current.contains(active)),
+          activeIsFirst: active === focusable[0],
+          activeIsLast: active === focusable[focusable.length - 1],
+          focusableCount: focusable.length
+        });
+        if (decision === "focus-first") {
+          event.preventDefault();
+          focusable[0]?.focus();
+          return;
+        }
+        if (decision === "focus-last") {
+          event.preventDefault();
+          focusable[focusable.length - 1]?.focus();
+          return;
+        }
+      }
+      const decision = workOrderDrawerEscapeDecision({
+        key: event.key,
+        defaultPrevented: event.defaultPrevented,
+        submitting,
+        menuOpen,
+        nestedOverlayOpen
+      });
+      if (decision === "ignore") return;
+      event.preventDefault();
+      if (decision === "close-menu") {
+        setMenuOpen(false);
+        return;
+      }
+      if (editingOverview) {
+        setEditingOverview(false);
+        setFormState(initialState);
+        setFormError(null);
+        return;
+      }
+      onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [editingOverview, initialState, menuOpen, onClose, open, submitting]);
 
   useEffect(() => {
     if (!open) return;
@@ -138,6 +217,7 @@ export function WorkOrderEditorModal({
 
   useEffect(() => {
     if (!open || isCreateMode || !workOrder?.id) {
+      sectionCache.current = { id: "", requirements: false, evidence: false, activity: false };
       setActivityTimeline(null);
       setActivityError(null);
       setActivityLoading(false);
@@ -167,6 +247,7 @@ export function WorkOrderEditorModal({
             | { requirements?: WorkOrderEvidenceRequirements }
             | undefined;
           setEvidenceRequirements(evidenceData?.requirements ?? null);
+          sectionCache.current.requirements = true;
         }
       } catch {
         if (!cancelled) setEvidenceRequirements(null);
@@ -187,6 +268,8 @@ export function WorkOrderEditorModal({
               | { items?: WorkOrderEvidenceItem[]; requirements?: WorkOrderEvidenceRequirements }
               | undefined
           );
+          sectionCache.current.evidence = true;
+          sectionCache.current.requirements = true;
         }
       } catch {
         if (!cancelled) {
@@ -210,6 +293,7 @@ export function WorkOrderEditorModal({
 
         if (!cancelled) {
           setActivityTimeline(payload ?? null);
+          sectionCache.current.activity = true;
         }
       } catch (error) {
         if (!cancelled) {
@@ -223,10 +307,13 @@ export function WorkOrderEditorModal({
       }
     };
 
+    if (sectionCache.current.id !== workOrder.id) {
+      sectionCache.current = { id: workOrder.id, requirements: false, evidence: false, activity: false };
+    }
     const loads = workOrderTabLoads(activeTab);
-    if (loads.activity) void loadActivity();
-    if (loads.evidence) void loadEvidence();
-    else if (loads.requirements) void loadRequirements();
+    if (loads.activity && !sectionCache.current.activity) void loadActivity();
+    if (loads.evidence && !sectionCache.current.evidence) void loadEvidence();
+    else if (loads.requirements && !sectionCache.current.requirements) void loadRequirements();
 
     return () => {
       cancelled = true;
@@ -234,15 +321,60 @@ export function WorkOrderEditorModal({
   }, [open, isCreateMode, workOrder?.id, activeTab]);
 
   const assetRequired = isCreateMode && requiresAssetOrVehicle(formState.type);
+  const overviewEditable = isCreateMode || editingOverview;
+  const scheduleLocked = !isCreateMode && Boolean(workOrder && isWorkOrderStarted(workOrder.status));
+  const overviewBaseline: OverviewDraft = {
+    title: initialState.title,
+    description: initialState.description,
+    dueDate: initialState.dueDate ?? "",
+    expectedCompletionDate: initialState.expectedCompletionDate ?? "",
+    estimatedCost: initialState.estimatedCost ?? "",
+    estimatedHours: initialState.estimatedHours ?? ""
+  };
+  const overviewDirty = overviewDraftDirty(
+    {
+      title: formState.title,
+      description: formState.description,
+      dueDate: formState.dueDate ?? "",
+      expectedCompletionDate: formState.expectedCompletionDate ?? "",
+      estimatedCost: formState.estimatedCost ?? "",
+      estimatedHours: formState.estimatedHours ?? ""
+    },
+    overviewBaseline
+  );
+  const saveDecision = overviewSaveDecision({
+    mode: isCreateMode ? "create" : editingOverview ? "edit" : "view",
+    tab: activeTab,
+    dirty: overviewDirty,
+    title: formState.title,
+    description: formState.description,
+    submitting
+  });
 
-  return (
+  function cancelOverviewEdit() {
+    setEditingOverview(false);
+    setFormState(initialState);
+    setFormError(null);
+  }
+
+  function requestClose() {
+    if (editingOverview && overviewDirty) {
+      setActiveTab("overview");
+      setFormError("Save or cancel the overview changes before closing.");
+      return;
+    }
+    onClose();
+  }
+
+  const drawer = (
     <AnimatePresence>
       {open ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex justify-end bg-[#104D2B]/45"
+          transition={drawerMotion}
+          className="fixed inset-0 z-[80] flex justify-end bg-[#104D2B]/45"
         >
           <motion.div
             ref={panelRef}
@@ -253,20 +385,20 @@ export function WorkOrderEditorModal({
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 24 }}
-            transition={{ duration: 0.18 }}
-            className="flex h-[100dvh] w-full max-w-4xl flex-col bg-white shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
+            transition={drawerMotion}
+            className="flex h-dvh w-full max-w-full flex-col overflow-hidden bg-white shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600 sm:max-w-xl lg:max-w-3xl"
           >
             <header className="flex shrink-0 items-start justify-between gap-3 border-b border-brand-100 px-4 py-3">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-brand-800">
                   {isCreateMode ? "New work order" : workOrder?.woNumber || "Work order"}
                 </p>
-                <h3 id="work-order-editor-title" className="page-title truncate">
+                <h3 id="work-order-editor-title" className="page-title break-words">
                   {isCreateMode ? "Create an open job" : workOrder?.title || "Work order"}
                 </h3>
                 {!isCreateMode && workOrder ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink">
-                    <span className="rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 font-medium">
+                    <span className={`inline-flex min-h-7 items-center rounded-full border px-2.5 py-0.5 font-medium ${workOrderStatusBadgeClass(workOrder.status)}`}>
                       {toTitleCase(workOrder.status)}
                     </span>
                     <span
@@ -283,7 +415,7 @@ export function WorkOrderEditorModal({
                         SLA breached
                       </span>
                     ) : null}
-                    <span className="min-w-0 truncate">
+                    <span className="min-w-0 break-words">
                       {workOrder.asset?.name || workOrder.vehicle?.registrationNo || "No asset linked"}
                       {workOrder.asset?.assetTag ? ` · ${workOrder.asset.assetTag}` : ""}
                     </span>
@@ -310,7 +442,9 @@ export function WorkOrderEditorModal({
                           [
                             ["history", "Open history"],
                             ["evidence", "Open evidence"],
-                            ["assignment", "Open assignment"]
+                            ...(currentUser.role === "TECHNICIAN" || currentUser.role === "MECHANIC"
+                              ? []
+                              : ([["assignment", "Open assignment"]] as const))
                           ] as const
                         ).map(([tab, label]) => (
                           <button
@@ -332,7 +466,7 @@ export function WorkOrderEditorModal({
                 ) : null}
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={requestClose}
                   className="btn-quiet h-10 px-2"
                   aria-label="Close"
                 >
@@ -342,7 +476,12 @@ export function WorkOrderEditorModal({
             </header>
 
             {!isCreateMode && workOrder?.id ? (
-              <WorkOrderDetailTabs activeTab={activeTab} onChange={setActiveTab} showAudit={showAuditTab} />
+              <WorkOrderDetailTabs
+                activeTab={activeTab}
+                onChange={setActiveTab}
+                showAudit={showAuditTab}
+                showAssignment={currentUser.role !== "TECHNICIAN" && currentUser.role !== "MECHANIC"}
+              />
             ) : null}
 
             {isCreateMode ? (
@@ -380,15 +519,24 @@ export function WorkOrderEditorModal({
                 />
               </div>
             ) : (
-            <form
+              <form
               onSubmit={(event) => {
                 event.preventDefault();
+                disableSubmitControl(event.currentTarget);
 
-                if (!formState.title.trim() || !formState.description.trim()) {
+                const release = () => {
+                  const button = event.currentTarget.querySelector<HTMLButtonElement>('button[type="submit"]');
+                  if (button) button.disabled = false;
+                };
+                if (submitting || !formState.title.trim() || !formState.description.trim() || !editingOverview) {
+                  release();
                   return;
                 }
 
+                const scheduleLocked = Boolean(workOrder && isWorkOrderStarted(workOrder.status));
+
                 if (isCreateMode) {
+                  release();
                   return;
                 }
 
@@ -396,7 +544,8 @@ export function WorkOrderEditorModal({
                   const due = new Date(`${formState.dueDate}T00:00:00.000Z`);
                   const expected = new Date(`${formState.expectedCompletionDate}T00:00:00.000Z`);
                   if (due.getTime() < expected.getTime()) {
-                    setFormError("Expected completion must not be later than due date.");
+                    setFormError(EXPECTED_COMPLETION_AFTER_DUE);
+                    release();
                     return;
                   }
                 }
@@ -404,6 +553,7 @@ export function WorkOrderEditorModal({
                   const cost = Number(formState.estimatedCost);
                   if (!Number.isFinite(cost) || cost < 0) {
                     setFormError("Estimated cost cannot be negative.");
+                    release();
                     return;
                   }
                 }
@@ -411,6 +561,7 @@ export function WorkOrderEditorModal({
                   const hours = Number(formState.estimatedHours);
                   if (!Number.isFinite(hours) || hours <= 0) {
                     setFormError("Estimated hours must be greater than 0.");
+                    release();
                     return;
                   }
                 }
@@ -419,10 +570,14 @@ export function WorkOrderEditorModal({
                 onEdit({
                   title: formState.title.trim(),
                   description: formState.description.trim(),
-                  dueDate: formState.dueDate ? new Date(`${formState.dueDate}T00:00:00.000Z`).toISOString() : undefined,
-                  expectedCompletionDate: formState.expectedCompletionDate
-                    ? new Date(`${formState.expectedCompletionDate}T00:00:00.000Z`).toISOString()
-                    : undefined,
+                  dueDate:
+                    scheduleLocked || !formState.dueDate
+                      ? undefined
+                      : new Date(`${formState.dueDate}T00:00:00.000Z`).toISOString(),
+                  expectedCompletionDate:
+                    scheduleLocked || !formState.expectedCompletionDate
+                      ? undefined
+                      : new Date(`${formState.expectedCompletionDate}T00:00:00.000Z`).toISOString(),
                   estimatedCost:
                     formState.estimatedCost.trim() === ""
                       ? undefined
@@ -433,21 +588,30 @@ export function WorkOrderEditorModal({
                       : Number(formState.estimatedHours)
                 });
               }}
-              className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3"
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
             >
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
               {formError ? (
                 <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">
                   {formError}
                 </p>
               ) : null}
               {!isCreateMode && activeTab !== "overview" ? null : (
-              <section className="space-y-3 rounded-xl border border-brand-100 bg-white p-3">
+              <section className="space-y-4 rounded-xl border border-brand-100 bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
                 <h4 className="text-sm font-semibold text-ink">Details</h4>
-              <div className="grid gap-3 sm:grid-cols-2">
+                {!isCreateMode && activeTab === "overview" && !editingOverview ? (
+                  <button type="button" className="btn-quiet" onClick={() => setEditingOverview(true)}>
+                    Edit details
+                  </button>
+                ) : null}
+                </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
                   <span className="font-medium">Title</span>
                   <input
                     required
+                    readOnly={!overviewEditable}
                     value={formState.title}
                     onChange={(event) => setFormState((current) => ({ ...current, title: event.target.value }))}
                     className="field w-full"
@@ -458,10 +622,11 @@ export function WorkOrderEditorModal({
                   <span className="font-medium">Description</span>
                   <textarea
                     required
+                    readOnly={!overviewEditable}
                     value={formState.description}
                     onChange={(event) => setFormState((current) => ({ ...current, description: event.target.value }))}
                     rows={3}
-                    className="field h-auto min-h-24 w-full py-2"
+                    className="field field-multiline w-full"
                   />
                 </label>
 
@@ -516,6 +681,7 @@ export function WorkOrderEditorModal({
                         min="0"
                         step="0.01"
                         value={formState.estimatedCost}
+                        readOnly={!overviewEditable}
                         onChange={(event) =>
                           setFormState((current) => ({ ...current, estimatedCost: event.target.value }))
                         }
@@ -530,6 +696,7 @@ export function WorkOrderEditorModal({
                         min="0"
                         step="0.1"
                         value={formState.estimatedHours}
+                        readOnly={!overviewEditable}
                         onChange={(event) =>
                           setFormState((current) => ({ ...current, estimatedHours: event.target.value }))
                         }
@@ -539,27 +706,41 @@ export function WorkOrderEditorModal({
                   </>
                 )}
 
-                <label className="space-y-1 text-sm text-slate-700">
+                <label className="min-w-0 space-y-1 text-sm text-slate-700">
                   <span className="font-medium">Due Date</span>
-                  <input
-                    type="date"
+                  <DateField
+                    bare
+                    label="Due Date"
                     value={formState.dueDate}
-                    onChange={(event) => setFormState((current) => ({ ...current, dueDate: event.target.value }))}
-                    className="field w-full"
+                    disabled={!overviewEditable || scheduleLocked}
+                    describedBy={scheduleLocked ? "overview-date-lock" : undefined}
+                    onChange={(dueDate) => setFormState((current) => ({ ...current, dueDate }))}
                   />
                 </label>
 
-                <label className="space-y-1 text-sm text-slate-700">
+                <label className="min-w-0 space-y-1 text-sm text-slate-700">
                   <span className="font-medium">Expected completion (requester)</span>
-                  <input
-                    type="date"
+                  <DateField
+                    bare
+                    label="Expected completion (requester)"
                     value={formState.expectedCompletionDate}
-                    onChange={(event) =>
-                      setFormState((current) => ({ ...current, expectedCompletionDate: event.target.value }))
+                    disabled={!overviewEditable || scheduleLocked}
+                    describedBy={scheduleLocked ? "overview-date-lock" : undefined}
+                    onChange={(expectedCompletionDate) =>
+                      setFormState((current) => ({ ...current, expectedCompletionDate }))
                     }
-                    className="field w-full"
                   />
                 </label>
+                {workOrder?.status === "CANCELLED" ? (
+                  <p className="text-sm text-slate-700 sm:col-span-2">
+                    This work order is cancelled. Its approval record stays as history. This screen does not reopen it or change that approval.
+                  </p>
+                ) : null}
+                {scheduleLocked ? (
+                  <p id="overview-date-lock" className="text-sm text-slate-600 sm:col-span-2">
+                    Due date and expected completion stay locked after work starts. Title, description, estimated cost, and estimated hours can still be edited.
+                  </p>
+                ) : null}
 
                 {isCreateMode ? (
                   <>
@@ -633,12 +814,17 @@ export function WorkOrderEditorModal({
                         ].includes(String(currentUser.role))
                     )}
                   />
-                  <SupervisorVerificationPanel
-                    workOrderId={workOrder.id}
-                    status={workOrder.status}
-                    evidenceRequirements={evidenceRequirements}
-                    onUpdated={onClose}
-                  />
+                  {canVerifyWorkOrder({ role: currentUser.role, permissions: currentUser.permissions }) &&
+                  typeof workOrder.version === "number" ? (
+                    <SupervisorVerificationPanel
+                      workOrderId={workOrder.id}
+                      status={workOrder.status}
+                      expectedVersion={workOrder.version}
+                      evidenceRequirements={evidenceRequirements}
+                      canRequestRework={currentUser.role !== "SUPERVISOR"}
+                      onUpdated={onClose}
+                    />
+                  ) : null}
                 </div>
               ) : null}
 
@@ -710,23 +896,32 @@ export function WorkOrderEditorModal({
               {!isCreateMode && workOrder?.id && activeTab === "audit" && showAuditTab ? (
                 <WorkOrderAuditPanel workOrderId={workOrder.id} />
               ) : null}
+              </div>
 
-              <div className="sticky bottom-0 z-10 -mx-4 flex items-center justify-end gap-2 border-t border-brand-100 bg-white px-4 py-3">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="btn-quiet"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting || (!isCreateMode && activeTab !== "overview")}
-                  className="btn-primary disabled:opacity-70"
-                >
-                  {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
-                  {isCreateMode ? "Create" : "Save Overview"}
-                </button>
+              <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-brand-100 bg-white px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                {saveDecision.reason ? (
+                  <p id="overview-save-reason" className="text-sm text-slate-700 sm:mr-auto" role="status">{saveDecision.reason}</p>
+                ) : null}
+                {editingOverview ? (
+                  <button type="button" onClick={cancelOverviewEdit} className="btn-quiet w-full justify-center sm:w-auto">
+                    Cancel
+                  </button>
+                ) : (
+                  <button type="button" onClick={requestClose} className="btn-quiet w-full justify-center sm:w-auto">
+                    Close
+                  </button>
+                )}
+                {saveDecision.showSave ? (
+                  <button
+                    type="submit"
+                    disabled={!saveDecision.enabled}
+                    className="btn-primary w-full justify-center disabled:opacity-70 sm:w-auto"
+                    aria-describedby={saveDecision.reason ? "overview-save-reason" : undefined}
+                  >
+                    {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {saveDecision.label}
+                  </button>
+                ) : null}
               </div>
             </form>
             )}
@@ -735,4 +930,10 @@ export function WorkOrderEditorModal({
       ) : null}
     </AnimatePresence>
   );
+
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(drawer, document.body);
 }

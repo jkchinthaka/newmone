@@ -44,7 +44,8 @@ export default function ApprovalDetailPage() {
       return;
     }
     try {
-      await decideApproval(params.id, decision, reason.trim() || undefined);
+      const version = data?.updatedAt ? new Date(String(data.updatedAt)).getTime() : undefined;
+      await decideApproval(params.id, decision, reason.trim() || undefined, version, crypto.randomUUID());
       toast.success(decision === "APPROVED" ? "Approved" : "Rejected");
       await refresh();
     } catch (err) {

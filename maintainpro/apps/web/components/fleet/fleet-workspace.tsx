@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ActiveFilterChips, JobsEmptyState, JobsLoadingSkeleton, JobsPagination, OperationalJobsHeader } from "@/components/operational";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { useCurrentUser } from "@/lib/use-current-user";
 import { getFleetOverview, type FleetOverviewSummary } from "@/lib/fleet-lifecycle-api";
 import {
   FLEET_EMPTY,
@@ -66,6 +67,8 @@ function soonestDoc(row: VehicleRow) {
 
 export function FleetWorkspace() {
   const router = useRouter();
+  const currentUser = useCurrentUser();
+  const canRegisterVehicle = currentUser.role === "SUPER_ADMIN" || currentUser.role === "ADMIN";
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const state = useMemo(() => fleetStateFromSearch(new URLSearchParams(searchParams.toString())), [searchParams]);
@@ -216,7 +219,7 @@ export function FleetWorkspace() {
   ] as const;
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       <OperationalJobsHeader
         eyebrow="Fleet"
         title="Fleet"
@@ -226,14 +229,16 @@ export function FleetWorkspace() {
             <button type="button" className="h-9 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>
               Refresh
             </button>
-            <Link href={"/vehicles" as never} className="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white">
-              Add Vehicle
-            </Link>
+            {canRegisterVehicle ? (
+              <Link href={"/admin/vehicles/new" as never} className="inline-flex h-9 items-center rounded-md border border-slate-300 px-3 text-sm">
+                Register in Admin
+              </Link>
+            ) : null}
           </>
         }
       />
 
-      <div className="flex gap-1 overflow-x-auto" role="tablist" aria-label="Fleet sections">
+      <div className="flex max-w-full gap-1 overflow-x-auto [contain:paint]" role="tablist" aria-label="Fleet sections">
         {FLEET_VIEWS.map((view) => (
           <button
             key={view}
@@ -261,7 +266,7 @@ export function FleetWorkspace() {
         ))}
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white">
+      <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
           <label className="sr-only" htmlFor="fleet-search">Search</label>
           <input
@@ -324,7 +329,7 @@ export function FleetWorkspace() {
           onClearAll={() => write({ ...fleetStateFromSearch(new URLSearchParams()), view: state.view })}
         />
 
-        <div id="fleet-results">
+        <div id="fleet-results" className="max-w-full overflow-x-auto [contain:paint]">
           {loading ? <JobsLoadingSkeleton label="Loading fleet records" /> : null}
           {!loading && error ? (
             <div className="px-4 py-8 text-center text-sm">
@@ -358,7 +363,7 @@ export function FleetWorkspace() {
 function VehicleTable({ rows, menuId, setMenuId }: { rows: VehicleRow[]; menuId: string | null; setMenuId: (id: string | null) => void }) {
   if (!rows.length) return null;
   return (
-    <div className="overflow-x-auto">
+    <div className="max-w-full overflow-x-auto [contain:paint]">
       <table className="min-w-full text-sm">
         <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
           <tr>

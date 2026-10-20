@@ -78,6 +78,7 @@ test.describe.serial("E2E management info controls @management-info-gate", () =>
     const aData = unwrapData(aDash.body);
     const aTotal = findCard(aData.cards as Array<{ key?: string; value?: unknown }>, "wo.total_created")?.value;
 
+    await page.context().clearCookies();
     await loginViaUi(page, "admin-b");
     const bDash = await fetchDashboard(page);
     expect(bDash.res.status()).toBe(200);

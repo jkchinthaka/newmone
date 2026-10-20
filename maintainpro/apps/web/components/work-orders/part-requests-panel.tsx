@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { erpReconciliationLabel } from "@/lib/erp-reconciliation-label";
 import { useCurrentUser } from "@/lib/use-current-user";
 import {
   approvePartRequestFinance,
@@ -169,9 +170,9 @@ export function PartRequestsPanel({ workOrderId }: Props) {
     if (!selectedPart || !quantity) return null;
     const qty = Number(quantity);
     if (!Number.isFinite(qty) || qty <= 0) return null;
-    const stock = selectedPart.quantityInStock ?? 0;
-    if (stock < qty) {
-      return "Insufficient stock. Request approval/procurement required.";
+    const snapshot = selectedPart.quantityInStock ?? 0;
+    if (snapshot < qty) {
+      return "ERP snapshot is not verified available stock. The server rejects an issue above the verified balance.";
     }
     return null;
   }, [quantity, selectedPart]);
@@ -276,12 +277,7 @@ export function PartRequestsPanel({ workOrderId }: Props) {
               </select>
             </>
           ) : (
-            <input
-              value={partId}
-              onChange={(event) => setPartId(event.target.value)}
-              placeholder="Spare part ID (inventory search unavailable)"
-              className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
-            />
+            <p className="text-xs text-amber-800">Part search is unavailable. Choose a part from the list when search returns.</p>
           )}
 
           {stockWarning ? (
@@ -289,6 +285,7 @@ export function PartRequestsPanel({ workOrderId }: Props) {
               <AlertTriangle size={12} /> {stockWarning}
             </p>
           ) : null}
+          <p className="text-xs text-slate-600">{erpReconciliationLabel("PENDING")}. A pending outbox is not ERP Posted.</p>
 
           <div className="grid gap-2 md:grid-cols-[120px_1fr_auto]">
             <input

@@ -1,5 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
-import { WorkOrderType } from "@prisma/client";
+import { WorkOrderStatus, WorkOrderType } from "@prisma/client";
+import { scheduleOrderMessage, schedulePastMessage, utcCalendarDay } from "@maintainpro/shared-types";
 
 /** Work order types that must link to an asset or vehicle (machine-specific maintenance). */
 export const ASSET_OR_VEHICLE_REQUIRED_TYPES = new Set<WorkOrderType>([
@@ -125,12 +126,12 @@ export function parseWorkOrderDateField(field: string, value?: string | null): D
 }
 
 function utcDayStartMs(value: Date): number {
-  return Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate());
+  return utcCalendarDay(value);
 }
 
 function assertNotEarlier(laterLabel: string, later: Date | null | undefined, earlierLabel: string, earlier: Date | null | undefined) {
   if (later && earlier && later.getTime() < earlier.getTime()) {
-    throw new BadRequestException(`${laterLabel} must not be earlier than ${earlierLabel}`);
+    throw new BadRequestException(scheduleOrderMessage(laterLabel, earlierLabel));
   }
 }
 
@@ -163,7 +164,7 @@ export function assertWorkOrderScheduleDates(
     ];
     for (const { label, value } of pastChecks) {
       if (value && utcDayStartMs(value) < today) {
-        throw new BadRequestException(`${label} cannot be in the past`);
+        throw new BadRequestException(schedulePastMessage(label));
       }
     }
   }
@@ -207,4 +208,23 @@ export function assertWorkOrderCostFields(input: {
     }
   }
   return { estimatedCost };
+}
+
+const WORK_ORDER_STATUSES = new Set<string>(Object.values(WorkOrderStatus));
+
+/** A supplied status must be a real work-order status. Omitted means "not in this request". */
+export function assertSuppliedWorkOrderStatus(status: unknown) {
+  if (status === undefined) return;
+  if (typeof status !== "string" || !WORK_ORDER_STATUSES.has(status)) {
+    throw new BadRequestException("Invalid status");
+  }
+}
+
+/** A supplied technician id must be a real entity id. Blank or malformed is 400, not dropped. */
+export function assertSuppliedTechnicianId(technicianId: unknown) {
+  if (technicianId === undefined) return;
+  if (typeof technicianId !== "string" || !technicianId.trim()) {
+    throw new BadRequestException("Invalid technicianId");
+  }
+  assertValidEntityId("technicianId", technicianId);
 }

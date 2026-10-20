@@ -5,6 +5,7 @@ import { Download, Loader2, RefreshCw, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
 
+import { DateField } from "@/components/forms/date-fields";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { fetchAdminOverrides, severityClass, type AdminOverrideRow } from "@/lib/fraud-control-api";
 
@@ -83,11 +84,11 @@ export function AdminOverridesReportPage() {
       <section className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
         <label className="text-xs font-medium text-slate-600">
           From
-          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="mt-1 block rounded-lg border border-slate-200 px-2 py-1.5 text-sm" />
+          <DateField bare label="From" value={dateFrom} onChange={setDateFrom} />
         </label>
         <label className="text-xs font-medium text-slate-600">
           To
-          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="mt-1 block rounded-lg border border-slate-200 px-2 py-1.5 text-sm" />
+          <DateField bare label="To" value={dateTo} onChange={setDateTo} />
         </label>
         <button type="button" onClick={() => void load()} className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white">
           <RefreshCw size={14} /> Apply

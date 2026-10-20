@@ -7,6 +7,7 @@ import { RoleName, TenantMembershipRole } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 
+import { workforceMasterAvailability } from "../../common/utils/workforce-availability";
 import {
   isAssignableWorkforceDesignation,
   matchesWorkforceDesignation
@@ -14,6 +15,7 @@ import {
 import { stringArrayToText, toStringArray } from "../../common/utils/json-text";
 import { syncUserSkills } from "../../common/utils/user-skills.util";
 import { PrismaService } from "../../database/prisma.service";
+import { tenantWhere } from "../../common/utils/tenant-scope.util";
 import type { CreateWorkforceEmployeeDto, UpdateWorkforceEmployeeDto } from "./dto/workforce-employee.dto";
 
 function designationToRoleName(designation: string): RoleName {
@@ -117,7 +119,7 @@ export class WorkforceEmployeesService {
 
     const rows = await this.prisma.employee.findMany({
       where: {
-        ...(tenantId !== undefined && tenantId !== null ? { tenantId } : {}),
+        ...tenantWhere(tenantId),
         ...(filters.active !== undefined ? { active: filters.active } : {}),
         ...(filters.departmentId?.trim() ? { departmentId: filters.departmentId.trim() } : {}),
         ...(filters.branchName?.trim()
@@ -144,7 +146,10 @@ export class WorkforceEmployeesService {
 
     if (filters.designation?.trim()) {
       return rows.filter((row) =>
-        matchesWorkforceDesignation({ designation: row.designation }, filters.designation)
+        matchesWorkforceDesignation(
+          { designation: row.designation, roleName: row.linkedUser?.role?.name },
+          filters.designation
+        )
       );
     }
 
@@ -155,7 +160,7 @@ export class WorkforceEmployeesService {
     const employee = await this.prisma.employee.findFirst({
       where: {
         id,
-        ...(tenantId !== undefined && tenantId !== null ? { tenantId } : {})
+        ...tenantWhere(tenantId)
       },
       include: {
         department: { select: { id: true, name: true, code: true } },
@@ -280,6 +285,8 @@ export class WorkforceEmployeesService {
         dailyCapacityHours,
         active: input.active !== false,
         canLogin,
+        canReceiveWorkOrders: input.canReceiveWorkOrders ?? true,
+        availabilityStatus: workforceMasterAvailability(input.availabilityStatus),
         linkedUserId
       },
       include: {
@@ -435,8 +442,7 @@ export class WorkforceEmployeesService {
    * Resolve workforce employee by Employee id, with legacy fallback when assignee rows still store User ids.
    */
   async resolveAssignableEmployee(employeeId: string, tenantId?: string | null) {
-    const scopedWhere =
-      tenantId !== undefined && tenantId !== null ? { tenantId } : {};
+    const scopedWhere = tenantWhere(tenantId);
 
     const direct = await this.prisma.employee.findFirst({
       where: { id: employeeId, active: true, ...scopedWhere },
@@ -451,17 +457,67 @@ export class WorkforceEmployeesService {
     }
 
     const linked = await this.prisma.employee.findFirst({
-      where: { linkedUserId: employeeId },
+      where: { linkedUserId: employeeId, ...scopedWhere },
       include: {
         linkedUser: { select: { id: true, role: { select: { name: true } } } },
         department: { select: { id: true, name: true, code: true } }
       }
     });
 
-    if (linked?.active && (tenantId === undefined || tenantId === null || linked.tenantId === tenantId)) {
+    if (linked?.active) {
       return linked;
     }
 
     return null;
+  }
+
+  /**
+   * Assignment boundary. Inactive, non-receiving, unknown, and unavailable employees are rejected.
+   * Approved-leave override stays in workforce planning and is not granted here.
+   */
+  async assertEligibleForAssignment(
+    employeeId: string,
+    tenantId: string | null | undefined,
+    designation?: string | null
+  ) {
+    const employee = await this.resolveAssignableEmployee(employeeId, tenantId);
+    if (!employee) {
+      const inactive = await this.prisma.employee.findFirst({
+        where: { OR: [{ id: employeeId }, { linkedUserId: employeeId }], ...tenantWhere(tenantId) },
+        select: { active: true, tenantId: true }
+      });
+      if (inactive && !inactive.active) {
+        throw new BadRequestException("Inactive employees cannot be assigned");
+      }
+      throw new NotFoundException("Employee not found");
+    }
+
+    if (employee.canReceiveWorkOrders !== true) {
+      throw new BadRequestException("Employee cannot receive work orders");
+    }
+
+    const availability = String(employee.availabilityStatus ?? "").trim().toUpperCase();
+    if (availability !== "AVAILABLE" && availability !== "ON_LEAVE") {
+      throw new BadRequestException(
+        availability
+          ? `Employee is not available for assignment (${availability}).`
+          : "Employee availability is unknown and cannot be assigned."
+      );
+    }
+
+    if (designation?.trim()) {
+      const matches = matchesWorkforceDesignation(
+        { designation: employee.designation, roleName: employee.linkedUser?.role?.name },
+        designation
+      );
+      if (!matches) {
+        const shown = employee.designation?.trim() || employee.linkedUser?.role?.name || "unspecified";
+        throw new BadRequestException(
+          `Employee designation "${shown}" does not match required "${designation.trim()}"`
+        );
+      }
+    }
+
+    return employee;
   }
 }

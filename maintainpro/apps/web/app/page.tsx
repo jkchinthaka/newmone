@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
+import { SessionEntry } from "@/components/auth/session-entry";
 
 export default function HomePage() {
-  redirect("/splash");
+  return <SessionEntry />;
 }
-

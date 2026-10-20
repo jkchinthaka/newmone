@@ -142,9 +142,9 @@ export function workOrderActivityUnavailableMessage(): string {
 }
 
 export function workOrderActivityHasUploadActions(
-  readiness?: { state?: string; uploadsEnabled?: boolean } | null
+  readiness?: { state?: string; mode?: string; uploadsEnabled?: boolean } | null
 ): boolean {
-  return readiness?.state === "configured" && readiness?.uploadsEnabled === true;
+  return readiness?.state === "configured" && readiness?.uploadsEnabled === true && readiness?.mode === "local";
 }
 
 export function workOrderActivityAllowsContinueWhenUnavailable(): boolean {

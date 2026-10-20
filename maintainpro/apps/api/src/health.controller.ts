@@ -6,6 +6,7 @@ import {
 import { SkipThrottle } from "@nestjs/throttler";
 import type { Response } from "express";
 
+import { healthBodyForEnvironment, minimalLiveness } from "./bootstrap/production-surface";
 import { Public } from "./common/decorators/public.decorator";
 import { Roles } from "./common/decorators/roles.decorator";
 import { HealthService } from "./health.service";
@@ -22,9 +23,11 @@ export class HealthController {
   @Public()
   @Get()
   async health() {
+    const isProd = process.env.NODE_ENV === "production";
+    const detailed = isProd ? null : await this.healthService.getPublicHealth();
     return {
-      data: await this.healthService.getPublicHealth(),
-      message: "Health check passed"
+      data: healthBodyForEnvironment(isProd, detailed),
+      message: isProd ? "Liveness check passed" : "Health check passed"
     };
   }
 
@@ -36,8 +39,9 @@ export class HealthController {
   @SkipThrottle()
   @Get("live")
   live() {
+    const isProd = process.env.NODE_ENV === "production";
     return {
-      data: this.healthService.getLiveness(),
+      data: isProd ? minimalLiveness() : this.healthService.getLiveness(),
       message: "Liveness check passed"
     };
   }

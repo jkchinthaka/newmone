@@ -16,7 +16,7 @@ export type CommandPaletteItem = {
 };
 
 const EXTRA_KEYWORDS: Record<string, readonly string[]> = {
-  home: ["priorities", "attention", "operations", "briefing", "action center", "dashboard", "workspace"],
+  notifications: ["alerts", "inbox", "attention"],
   "work-orders": ["wo", "maintenance jobs", "jobs"],
   requests: ["report issue", "maintenance request"],
   "preventive-maintenance": ["pm", "forecast", "scheduled"],
@@ -125,7 +125,6 @@ export function filterCommandPaletteItems(
 }
 
 export function usesLegacyHomeAsDashboard(items: readonly CommandPaletteItem[]): boolean {
-  // Phase 1: primary "Home" is /action-center — only treat legacy /home as dashboard misuse.
   return items.some((item) => !item.legacy && item.href === LEGACY_FMS_HOME_PATH);
 }
 

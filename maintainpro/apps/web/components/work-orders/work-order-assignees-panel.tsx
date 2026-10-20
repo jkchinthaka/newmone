@@ -6,14 +6,17 @@ import type { Route } from "next";
 import { AlertTriangle, Loader2, UserMinus, UserPlus, Star } from "lucide-react";
 import { toast } from "sonner";
 
+import { DateTimeField } from "@/components/forms/date-fields";
+import { visibleFieldMessage } from "@/lib/form-feedback";
 import { apiClient, getApiErrorMessageForRoute } from "@/lib/api-client";
 import {
-  ASSIGNABLE_WORKFORCE_DESIGNATIONS,
   canManageWorkforceEmployees,
   canOverrideLeaveConflict,
   canViewWorkforceEmployees,
   canViewWorkOrderAssignees,
   dateTimeLocalToIso,
+  assignmentEmployeeListParams,
+  designationChoices,
   DESIGNATION_FALLBACK_NOTE,
   formatEmployeeOptionLabel,
   toDateTimeLocalValue
@@ -75,6 +78,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
   const currentUser = useCurrentUser();
   const [assignees, setAssignees] = useState<AssigneeRow[]>([]);
   const [employees, setEmployees] = useState<WorkforceEmployee[]>([]);
+  const [designationCatalog, setDesignationCatalog] = useState<WorkforceEmployee[]>([]);
   const [loadingAssignees, setLoadingAssignees] = useState(true);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
   const [assigneesError, setAssigneesError] = useState<string | null>(null);
@@ -87,6 +91,8 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
   const [plannedStartAt, setPlannedStartAt] = useState("");
   const [plannedEndAt, setPlannedEndAt] = useState("");
   const [estimatedHours, setEstimatedHours] = useState("");
+  const [hoursTouched, setHoursTouched] = useState(false);
+  const [assignmentSubmitAttempted, setAssignmentSubmitAttempted] = useState(false);
   const [leaveOverride, setLeaveOverride] = useState(false);
   const [leaveOverrideReason, setLeaveOverrideReason] = useState("");
   const [assignmentPreview, setAssignmentPreview] = useState<AssignmentPreview | null>(null);
@@ -95,6 +101,11 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
   const [removeReason, setRemoveReason] = useState("");
 
   const assignedIds = useMemo(() => new Set(assignees.map((a) => a.employeeId)), [assignees]);
+
+  const designationOptions = useMemo(
+    () => designationChoices(designationCatalog.length > 0 ? designationCatalog : employees),
+    [designationCatalog, employees]
+  );
 
   const selectableEmployees = useMemo(
     () => employees.filter((employee) => !assignedIds.has(employee.id)),
@@ -158,10 +169,14 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
     setEmployeesError(null);
     try {
       const employeeRes = await apiClient.get<{ data: WorkforceEmployee[] }>("/workforce/employees", {
-        params: designationFilter.trim() ? { designation: designationFilter.trim() } : undefined
+        params: assignmentEmployeeListParams(designationFilter)
       });
       const rows = employeeRes.data.data;
-      setEmployees(Array.isArray(rows) ? rows : []);
+      const list = Array.isArray(rows) ? rows : [];
+      setEmployees(list);
+      if (!designationFilter.trim()) {
+        setDesignationCatalog(list);
+      }
     } catch (err) {
       const message = getApiErrorMessageForRoute(err, "workforce", "Failed to load employees.");
       setEmployeesError(message);
@@ -169,7 +184,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
     } finally {
       setLoadingEmployees(false);
     }
-  }, [designationFilter, canSeeEmployees]);
+  }, [canSeeEmployees, designationFilter]);
 
   useEffect(() => {
     void loadAssignees();
@@ -224,6 +239,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
   }, [employeeId, parsedEstimatedHours, plannedEndAt, plannedStartAt]);
 
   async function handleAdd() {
+    setAssignmentSubmitAttempted(true);
     if (!canSubmit) {
       return;
     }
@@ -248,6 +264,8 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
       setPlannedStartAt("");
       setPlannedEndAt("");
       setEstimatedHours("");
+      setHoursTouched(false);
+      setAssignmentSubmitAttempted(false);
       setLeaveOverride(false);
       setLeaveOverrideReason("");
       setAssignmentPreview(null);
@@ -403,8 +421,20 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
       >
         <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
           <span className="font-medium">Filter by designation</span>
+          {loadingEmployees ? (
+            <p className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500" role="status">
+              <Loader2 size={14} className="animate-spin" /> Loading designations...
+            </p>
+          ) : employeesError ? (
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{employeesError}</p>
+          ) : designationOptions.length === 0 ? (
+            <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+              No designations are available for this tenant.
+            </p>
+          ) : (
           <select
-            value={designationFilter}
+            aria-label="Filter by designation"
+            value={designationOptions.includes(designationFilter) ? designationFilter : ""}
             onChange={(event) => {
               setDesignationFilter(event.target.value);
               setEmployeeId("");
@@ -412,12 +442,13 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
             <option value="">All designations</option>
-            {ASSIGNABLE_WORKFORCE_DESIGNATIONS.map((designation) => (
+            {designationOptions.map((designation) => (
               <option key={designation} value={designation}>
                 {designation.replaceAll("_", " ")}
               </option>
             ))}
           </select>
+          )}
         </label>
 
         <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
@@ -493,38 +524,28 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
             step="0.5"
             required
             value={estimatedHours}
-            onChange={(event) => setEstimatedHours(event.target.value)}
+            onChange={(event) => {
+              setHoursTouched(true);
+              setEstimatedHours(event.target.value);
+            }}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
-          {Number.isFinite(parsedEstimatedHours) && parsedEstimatedHours <= 0 ? (
-            <span className="text-xs text-rose-600">Estimated hours must be greater than 0.</span>
+          {visibleFieldMessage(
+            Number.isFinite(parsedEstimatedHours) && parsedEstimatedHours <= 0 ? "Estimated hours must be greater than 0." : "",
+            { touched: hoursTouched, submitAttempted: assignmentSubmitAttempted }
+          ) ? (
+            <span className="text-xs text-rose-600" role="alert">Estimated hours must be greater than 0.</span>
           ) : null}
         </label>
 
-        <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Planned start</span>
-          <input
-            type="datetime-local"
-            required
-            value={plannedStartAt}
-            onChange={(event) => setPlannedStartAt(event.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-        </label>
+        <DateTimeField label="Planned start" value={plannedStartAt} onChange={setPlannedStartAt} />
 
-        <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Planned end</span>
-          <input
-            type="datetime-local"
-            required
-            value={plannedEndAt}
-            onChange={(event) => setPlannedEndAt(event.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
+        <div className="space-y-1">
+          <DateTimeField label="Planned end" value={plannedEndAt} onChange={setPlannedEndAt} />
           {plannedStartAt && plannedEndAt && !plannedRangeValid ? (
             <span className="text-xs text-rose-600">Planned end must be after planned start.</span>
           ) : null}
-        </label>
+        </div>
 
         {previewLoading ? (
           <p className="inline-flex items-center gap-2 text-xs text-slate-500 sm:col-span-2">
@@ -581,8 +602,11 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
         <div className="sm:col-span-2">
           <button
             type="button"
-            onClick={() => void handleAdd()}
-            disabled={busy || !canSubmit}
+            onClick={(event) => {
+              event.currentTarget.disabled = true;
+              void handleAdd();
+            }}
+            disabled={busy}
             className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
           >
             {busy ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} aria-hidden />}

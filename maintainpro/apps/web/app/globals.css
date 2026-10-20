@@ -21,6 +21,11 @@ body {
   @apply antialiased;
 }
 
+/* slate-500 (#64748b) is 4.26:1 on brand-50 (#eaf5ed). #475569 is 6.78:1. */
+main .text-slate-500 {
+  color: #475569;
+}
+
 html,
 body {
   max-width: 100%;
@@ -96,7 +101,8 @@ html:has([data-app-shell]) body {
 .field {
   margin-top: 0.25rem;
   display: block;
-  height: 2.5rem;
+  min-height: 2.75rem;
+  height: auto;
   border-radius: 0.375rem;
   border: 1px solid #b7dcc2;
   background: #fff;
@@ -105,9 +111,24 @@ html:has([data-app-shell]) body {
   color: var(--nelna-charcoal);
 }
 
+.field.field-multiline {
+  min-height: 7rem;
+  height: auto;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.field:focus-visible,
+.btn-primary:focus-visible,
+.btn-quiet:focus-visible {
+  outline: 2px solid var(--nelna-green-dark);
+  outline-offset: 2px;
+}
+
 .btn-primary {
   display: inline-flex;
-  height: 2.5rem;
+  min-height: 2.75rem;
+  height: auto;
   align-items: center;
   gap: 0.25rem;
   border-radius: 0.375rem;
@@ -128,7 +149,8 @@ html:has([data-app-shell]) body {
 
 .btn-quiet {
   display: inline-flex;
-  height: 2.5rem;
+  min-height: 2.75rem;
+  height: auto;
   align-items: center;
   gap: 0.25rem;
   border-radius: 0.375rem;
@@ -165,4 +187,38 @@ main th {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--nelna-green-dark);
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  aside,
+  nav,
+  header,
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+
+  main {
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

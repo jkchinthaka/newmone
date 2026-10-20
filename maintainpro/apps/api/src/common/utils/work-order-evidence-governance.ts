@@ -33,7 +33,14 @@ export function requiresQrVerification(type: WorkOrderType, assetId?: string | n
 }
 
 export function isStorageUploadsEnabled(): boolean {
-  return /^(1|true|yes)$/i.test((process.env.STORAGE_UPLOADS_ENABLED ?? "").trim());
+  const enabled = /^(1|true|yes)$/i.test((process.env.STORAGE_UPLOADS_ENABLED ?? "").trim());
+  if (!enabled) return false;
+  const mode = (process.env.STORAGE_MODE ?? "").trim().toLowerCase();
+  // MinIO and S3 credentials can be present while live byte transfer is still
+  // unimplemented. Treat those modes as uploads disabled so completion is not
+  // blocked on photos the provider refuses to store.
+  if (mode === "minio" || mode === "s3") return false;
+  return true;
 }
 
 export function evaluateEvidenceRequirements(
@@ -58,18 +65,20 @@ export function evaluateEvidenceRequirements(
   // Non-production may proceed with completion note only when storage is explicitly disabled.
   const storageBlocksCompletion = required && !storageEnabled && isProduction;
   const photoComplete = hasBefore && hasAfter;
-  const evidenceSatisfied = storageEnabled ? photoComplete : !isProduction;
+  const waived = required && !storageEnabled && !isProduction;
+  const evidenceSatisfied = storageEnabled ? photoComplete : waived;
   const complete = required && evidenceSatisfied && !storageBlocksCompletion;
 
   return {
     required,
     storageEnabled,
+    waived,
     hasBefore,
     hasAfter,
     beforeCount: accepted.filter((item) => item.evidenceType === EvidenceType.BEFORE_PHOTO).length,
     afterCount: accepted.filter((item) => item.evidenceType === EvidenceType.AFTER_PHOTO).length,
-    missingBefore: required && storageEnabled && !hasBefore,
-    missingAfter: required && storageEnabled && !hasAfter,
+    missingBefore: required && storageEnabled && !waived && !hasBefore,
+    missingAfter: required && storageEnabled && !waived && !hasAfter,
     storageUnavailableBlocking: storageBlocksCompletion,
     complete,
     rejectedCount: active.filter((item) => item.verificationStatus === EvidenceVerificationStatus.REJECTED).length

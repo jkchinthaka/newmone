@@ -4,7 +4,8 @@ import { EvidenceType, EvidenceVerificationStatus, QrVerificationStatus, WorkOrd
 import {
   assertEvidenceForSupervisorVerification,
   assertEvidenceForTechnicianCompletion,
-  evaluateEvidenceRequirements
+  evaluateEvidenceRequirements,
+  isStorageUploadsEnabled
 } from "../src/common/utils/work-order-evidence-governance";
 import { calculateWorkOrderRiskScore } from "../src/common/utils/maintenance-risk-score";
 
@@ -124,5 +125,23 @@ describe("work order evidence governance", () => {
       offlineSyncFailed: true
     });
     expect(score).toBe(20 + 15 + 10 + 5);
+  });
+
+  it("does not require photos when MinIO byte transfer is not implemented", () => {
+    const previous = process.env.STORAGE_MODE;
+    process.env.STORAGE_MODE = "minio";
+    try {
+      expect(isStorageUploadsEnabled()).toBe(false);
+      expect(() =>
+        assertEvidenceForTechnicianCompletion({
+          workOrderType: WorkOrderType.CORRECTIVE,
+          items: [],
+          completionNote: "note only"
+        })
+      ).not.toThrow();
+    } finally {
+      if (previous === undefined) delete process.env.STORAGE_MODE;
+      else process.env.STORAGE_MODE = previous;
+    }
   });
 });

@@ -156,8 +156,7 @@ export class AdminAccessController {
   }
 
   @Patch("users/:id/status")
-  @Roles(RoleName.SUPER_ADMIN)
-  @UseGuards(SuperAdminGuard)
+  @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)
   async updateUserStatus(@Param("id") id: string, @Body() body: UpdateUserStatusDto) {
     const user = await this.usersService.updateAdminUserStatus(id, body.isActive);
     return { data: user, message: "User status updated" };

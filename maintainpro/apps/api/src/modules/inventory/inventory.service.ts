@@ -42,6 +42,11 @@ import { Optional } from "@nestjs/common";
 import { ErpSyncProviderService } from "./erp-sync-provider.service";
 import { InventoryTransactionEngine } from "./inventory-transaction.engine";
 import { shouldPromotePoStatusToOrdered } from "./purchase-order-status.util";
+import {
+  assertVerifiedIssueAllowed,
+  MISSING_ERP_PROVENANCE_MESSAGE,
+  MISSING_ERP_SNAPSHOT_MESSAGE
+} from "./verified-stock-availability";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
@@ -89,13 +94,13 @@ export class InventoryService {
     metadata?: Prisma.InputJsonValue;
     beforeData?: Prisma.InputJsonValue;
     afterData?: Prisma.InputJsonValue;
-  }) {
+  }, db: Pick<Prisma.TransactionClient, "auditLog"> = this.prisma) {
     const ctx = requestContext.get();
     const actorId = payload.actor?.sub ?? ctx?.actorId ?? null;
     const actorEmail = payload.actor?.email ?? ctx?.actorEmail ?? null;
     const actorRole = payload.actor?.role ?? ctx?.actorRole ?? null;
 
-    await this.prisma.auditLog.create({
+    await db.auditLog.create({
       data: {
         tenantId: payload.actor?.tenantId ?? ctx?.tenantId ?? null,
         actorId,
@@ -430,6 +435,12 @@ export class InventoryService {
       );
     }
 
+    if (!idempotencyKey) {
+      throw new BadRequestException(
+        "Idempotency-Key is required for stock issue so a retry cannot create a second ERP request."
+      );
+    }
+
     if (idempotencyKey) {
       const existing = await this.prisma.inventoryStockIssueIdempotency.findUnique({
         where: {
@@ -462,7 +473,7 @@ export class InventoryService {
       throw new BadRequestException("Work order not found for stock issue.");
     }
 
-    if (workOrder.status === "COMPLETED" || workOrder.status === "CANCELLED") {
+    if (workOrder.status === "COMPLETED" || workOrder.status === "CLOSED" || workOrder.status === "CANCELLED") {
       if (!options.overrideReason?.trim()) {
         throw new BadRequestException("Cannot issue parts against a closed work order without override reason.");
       }
@@ -473,77 +484,89 @@ export class InventoryService {
     }
 
     const unitCost = Number(part.unitCost ?? 0);
-    const eventId = `stock-out:${workOrder.id}:${id}:${idempotencyKey ?? Date.now()}`;
-    const outbox = await this.prisma.domainEventOutbox.create({
-      data: {
-        tenantId,
-        eventId,
-        eventType: "WORK_ORDER_PART_CONSUMPTION",
-        aggregateType: "WorkOrder",
-        aggregateId: workOrder.id,
-        payloadVersion: 1,
-        status: "PENDING",
-        payload: JSON.stringify({
-          owner: "BILEETA",
-          quantityInStockMutated: false,
-          source: "inventory.stockOut",
-          workOrderId: workOrder.id,
-          partId: id,
-          erpCode: part.erpCode ?? null,
-          quantity,
-          unitCost,
-          lineCost: quantity * unitCost
-        })
-      }
-    });
-
-    if (idempotencyKey) {
+    const eventId = `stock-out:${workOrder.id}:${id}:${idempotencyKey}`;
+    const outbox = await this.prisma.$transaction(async (tx) => {
       try {
-        await this.prisma.inventoryStockIssueIdempotency.create({
-          data: {
-            tenantId,
-            key: idempotencyKey,
-            partId: id,
-            movementId: outbox.id,
-            workOrderId: workOrder.id,
-            quantity
-          }
-        });
+        await assertVerifiedIssueAllowed(tx, { tenantId, partId: id, quantity });
       } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-          const raced = await this.prisma.inventoryStockIssueIdempotency.findUnique({
-            where: { tenantId_key: { tenantId, key: idempotencyKey } }
+        const message = error instanceof BadRequestException ? error.message : "";
+        const unverified =
+          message === MISSING_ERP_PROVENANCE_MESSAGE || message === MISSING_ERP_SNAPSHOT_MESSAGE;
+        if (!unverified) throw error;
+      }
+      const created = await tx.domainEventOutbox.create({
+        data: {
+          tenantId,
+          eventId,
+          eventType: "WORK_ORDER_PART_CONSUMPTION",
+          aggregateType: "WorkOrder",
+          aggregateId: workOrder.id,
+          payloadVersion: 1,
+          status: "PENDING",
+          payload: JSON.stringify({
+            owner: "BILEETA",
+            quantityInStockMutated: false,
+            source: "inventory.stockOut",
+            workOrderId: workOrder.id,
+            partId: id,
+            erpCode: part.erpCode ?? null,
+            quantity,
+            unitCost,
+            lineCost: quantity * unitCost
+          })
+        }
+      });
+      if (idempotencyKey) {
+        try {
+          await tx.inventoryStockIssueIdempotency.create({
+            data: {
+              tenantId,
+              key: idempotencyKey,
+              partId: id,
+              movementId: created.id,
+              workOrderId: workOrder.id,
+              quantity
+            }
           });
-          if (raced && (raced.partId !== id || raced.quantity !== quantity || raced.workOrderId !== workOrder.id)) {
-            throw new BadRequestException(
-              "Idempotency key was already used with a different stock-out payload for this tenant."
-            );
+        } catch (error) {
+          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+            const raced = await tx.inventoryStockIssueIdempotency.findUnique({
+              where: { tenantId_key: { tenantId, key: idempotencyKey } }
+            });
+            if (raced && (raced.partId !== id || raced.quantity !== quantity || raced.workOrderId !== workOrder.id)) {
+              throw new BadRequestException(
+                "Idempotency key was already used with a different stock-out payload for this tenant."
+              );
+            }
+          } else {
+            throw error;
           }
-        } else {
-          throw error;
         }
       }
-    }
-
-    await this.recordAudit({
-      entity: "PART_STOCK_ISSUE",
-      entityId: id,
-      action: AuditAction.UPDATE,
-      actor,
-      reason: options.overrideReason ?? options.notes,
-      metadata: {
-        quantity,
-        workOrderId: workOrder.id,
-        woNumber: workOrder.woNumber,
-        source: "inventory.stockOut",
-        event: "parts_consumption_pending_erp",
-        quantityInStockMutated: false,
-        erpReconciliationStatus: "PENDING",
-        outboxId: outbox.id,
-        overrideFlag: Boolean(options.overrideReason?.trim()),
-        idempotencyKey: idempotencyKey ?? null
-      }
-    });
+      await this.recordAudit(
+        {
+          entity: "PART_STOCK_ISSUE",
+          entityId: id,
+          action: AuditAction.UPDATE,
+          actor,
+          reason: options.overrideReason ?? options.notes,
+          metadata: {
+            quantity,
+            workOrderId: workOrder.id,
+            woNumber: workOrder.woNumber,
+            source: "inventory.stockOut",
+            event: "parts_consumption_pending_erp",
+            quantityInStockMutated: false,
+            erpReconciliationStatus: "PENDING",
+            outboxId: created.id,
+            overrideFlag: Boolean(options.overrideReason?.trim()),
+            idempotencyKey
+          }
+        },
+        tx
+      );
+      return created;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     return this.part(id, actor);
   }

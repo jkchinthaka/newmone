@@ -304,7 +304,7 @@ describe("admin-console sections Phase 12", () => {
   it("keeps Phase 1 hrefs unchanged", () => {
     expect(sections.find((s) => s.id === "organization")?.href).toBe("/admin/organization");
     expect(sections.find((s) => s.id === "asset-masters")?.href).toBe("/admin/asset-masters");
-    expect(sections.find((s) => s.id === "approvals")?.href).toBe("/admin/approvals");
+    expect(sections.find((s) => s.id === "approvals")?.href).toBe("/admin/approval-rules");
     expect(sections.find((s) => s.id === "users-access")?.href).toBe("/admin/users");
     expect(sections.find((s) => s.id === "invitations-onboarding")?.href).toBe("/admin/invitations");
   });

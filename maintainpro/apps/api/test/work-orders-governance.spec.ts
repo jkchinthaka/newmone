@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import {
   AuditAction,
   RoleName,
@@ -10,6 +10,7 @@ import {
 import { createWorkOrderPartsServiceMock } from "./helpers/work-order-parts-service.mock";
 import { createWorkOrderTaxonomyServiceMock } from "./helpers/work-order-taxonomy-service.mock";
 
+import { assertClosedRecordContentEditable } from "../src/common/utils/work-order-governance";
 import { WorkOrdersService } from "../src/modules/work-orders/work-orders.service";
 
 const createPrismaMock = () => ({
@@ -19,6 +20,7 @@ const createPrismaMock = () => ({
     count: jest.fn().mockResolvedValue(1),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     delete: jest.fn()
   },
   workOrderLabourEntry: {
@@ -44,7 +46,7 @@ const createPrismaMock = () => ({
   workOrderPart: { findFirst: jest.fn(), create: jest.fn() },
   stockMovement: { create: jest.fn() },
   partRequest: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn() },
-  workOrderAssignee: { count: jest.fn().mockResolvedValue(1) },
+  workOrderAssignee: { count: jest.fn().mockResolvedValue(1), findFirst: jest.fn().mockResolvedValue({ id: "assignee-1" }) },
   evidenceAttachment: {
     count: jest.fn().mockResolvedValue(0),
     findMany: jest.fn().mockResolvedValue([
@@ -89,6 +91,7 @@ describe("WorkOrdersService governance (UAT-009)", () => {
 
   const baseWorkOrder = {
     id: "wo-1",
+    version: 1,
     tenantId: "tenant-a",
     woNumber: "WO-2026-0001",
     approvalStatus: WorkOrderApprovalStatus.APPROVED,
@@ -139,6 +142,104 @@ describe("WorkOrdersService governance (UAT-009)", () => {
     await expect(
       service.updateStatus("wo-1", { status: WorkOrderStatus.OPEN }, admin)
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("blocks generic technician-completed to verified status updates", async () => {
+    const prisma = createPrismaMock();
+    prisma.workOrder.findFirst.mockResolvedValue({
+      ...baseWorkOrder,
+      status: WorkOrderStatus.TECHNICIAN_COMPLETED
+    });
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
+
+    await expect(
+      service.updateStatus("wo-1", { status: WorkOrderStatus.VERIFIED }, manager)
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.updateStatus("wo-1", { status: WorkOrderStatus.VERIFIED }, technician)
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.workOrder.update).not.toHaveBeenCalled();
+  });
+
+  it("blocks generic verified to closed status updates", async () => {
+    const prisma = createPrismaMock();
+    prisma.workOrder.findFirst.mockResolvedValue({
+      ...baseWorkOrder,
+      status: WorkOrderStatus.VERIFIED,
+      verificationStatus: WorkOrderVerificationStatus.VERIFIED
+    });
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
+
+    await expect(
+      service.updateStatus("wo-1", { status: WorkOrderStatus.CLOSED }, manager)
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.bulkStatus({ items: [{ id: "wo-1", expectedVersion: 1 }], targetStatus: WorkOrderStatus.CLOSED }, manager)
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.bulkStatus({ items: [{ id: "wo-1", expectedVersion: 1 }], targetStatus: WorkOrderStatus.VERIFIED }, manager)
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.workOrder.update).not.toHaveBeenCalled();
+  });
+
+  it("blocks technician and mechanic cancellation and keeps management cancellation", async () => {
+    const prisma = createPrismaMock();
+    prisma.workOrder.findFirst.mockResolvedValue({
+      ...baseWorkOrder,
+      status: WorkOrderStatus.IN_PROGRESS
+    });
+    prisma.workOrder.update.mockResolvedValue({
+      ...baseWorkOrder,
+      status: WorkOrderStatus.CANCELLED
+    });
+    prisma.auditLog.create.mockResolvedValue({ id: "audit-cancel" });
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
+    const mechanic = { ...technician, sub: "mechanic-1", role: RoleName.MECHANIC };
+
+    await expect(
+      service.updateStatus("wo-1", { status: WorkOrderStatus.CANCELLED, cancelReason: "No longer required" }, technician)
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.updateStatus("wo-1", { status: WorkOrderStatus.CANCELLED, cancelReason: "No longer required" }, mechanic)
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.bulkStatus(
+        { items: [{ id: "wo-1", expectedVersion: 1 }], targetStatus: WorkOrderStatus.CANCELLED, cancelReason: "No longer required" },
+        technician
+      )
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    await service.updateStatus(
+      "wo-1",
+      { status: WorkOrderStatus.CANCELLED, cancelReason: "No longer required", expectedVersion: 1 },
+      manager
+    );
+    expect(prisma.workOrder.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "wo-1", version: 1 },
+        data: expect.objectContaining({
+          status: WorkOrderStatus.CANCELLED,
+          cancelledReason: "No longer required"
+        })
+      })
+    );
+  });
+
+  it("does not cancel a work order from another tenant", async () => {
+    const prisma = createPrismaMock();
+    prisma.workOrder.findFirst.mockResolvedValue(null);
+    const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
+
+    await expect(
+      service.updateStatus(
+        "wo-1",
+        { status: WorkOrderStatus.CANCELLED, cancelReason: "No longer required" },
+        { ...manager, tenantId: "tenant-b" }
+      )
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.workOrder.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: "wo-1", tenantId: "tenant-b" }) })
+    );
   });
 
   it("requires cancel reason", async () => {
@@ -198,13 +299,15 @@ describe("WorkOrdersService governance (UAT-009)", () => {
         status: WorkOrderStatus.COMPLETED,
         actualCost: 100,
         actualHours: 2,
-        completionNote: "Replaced belt and tested operation"
+        completionNote: "Replaced belt and tested operation",
+        expectedVersion: 1
       },
       technician
     );
 
-    expect(prisma.workOrder.update).toHaveBeenCalledWith(
+    expect(prisma.workOrder.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: { id: "wo-1", version: 1 },
         data: expect.objectContaining({ status: WorkOrderStatus.TECHNICIAN_COMPLETED })
       })
     );
@@ -271,7 +374,11 @@ describe("WorkOrdersService governance (UAT-009)", () => {
     prisma.auditLog.create.mockResolvedValue({ id: "audit-2" });
 
     const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
-    await service.verifySupervisor("wo-1", { verificationNote: "Work verified on site" }, manager);
+    await service.verifySupervisor(
+      "wo-1",
+      { verificationNote: "Work verified on site", expectedVersion: baseWorkOrder.version },
+      manager
+    );
 
     expect(prisma.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -375,5 +482,33 @@ describe("WorkOrdersService governance (UAT-009)", () => {
     await expect(
       service.addPart("wo-1", { partId: "part-1", quantity: 0, unitCost: 10 }, manager)
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe("closed work order content", () => {
+  it("blocks ordinary edits of closed and legacy completed records", () => {
+    expect(() => assertClosedRecordContentEditable(WorkOrderStatus.CLOSED)).toThrow(ForbiddenException);
+    expect(() => assertClosedRecordContentEditable(WorkOrderStatus.COMPLETED, { actorRole: RoleName.TECHNICIAN })).toThrow(
+      ForbiddenException
+    );
+  });
+
+  it("allows an authorized correction reason", () => {
+    expect(() =>
+      assertClosedRecordContentEditable(WorkOrderStatus.CLOSED, {
+        actorRole: RoleName.ADMIN,
+        overrideReason: "Correct the recorded title"
+      })
+    ).not.toThrow();
+  });
+
+  it("blocks content edits on a cancelled work order unless a verifier sends a reason", () => {
+    expect(() => assertClosedRecordContentEditable(WorkOrderStatus.CANCELLED)).toThrow(ForbiddenException);
+    expect(() =>
+      assertClosedRecordContentEditable(WorkOrderStatus.CANCELLED, {
+        actorRole: RoleName.ADMIN,
+        overrideReason: "Correct the recorded title"
+      })
+    ).not.toThrow();
   });
 });

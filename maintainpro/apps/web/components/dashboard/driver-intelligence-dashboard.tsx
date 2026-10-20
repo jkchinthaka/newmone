@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from "@/components/forms/date-fields";
 import { AlertTriangle, ArrowRight, RefreshCw, ShieldAlert, Trophy } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -74,21 +75,11 @@ export function DriverIntelligenceDashboard() {
         <div className="flex flex-wrap items-end gap-2">
           <label className="space-y-1 text-xs font-medium text-slate-600">
             Start
-            <input
-              type="date"
-              value={filters.startDate}
-              onChange={(event) => setFilters((current) => ({ ...current, startDate: event.target.value }))}
-              className="block rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-            />
+            <DateField bare label="Start" value={filters.startDate} onChange={(startDate) => setFilters((current) => ({ ...current, startDate }))} />
           </label>
           <label className="space-y-1 text-xs font-medium text-slate-600">
             End
-            <input
-              type="date"
-              value={filters.endDate}
-              onChange={(event) => setFilters((current) => ({ ...current, endDate: event.target.value }))}
-              className="block rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-            />
+            <DateField bare label="End" value={filters.endDate} onChange={(endDate) => setFilters((current) => ({ ...current, endDate }))} />
           </label>
           <button
             type="button"

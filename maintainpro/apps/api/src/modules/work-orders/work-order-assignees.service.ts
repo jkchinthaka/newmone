@@ -13,7 +13,6 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
-import { matchesWorkforceDesignation } from "../../common/utils/workforce-designation";
 import { PrismaService } from "../../database/prisma.service";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
@@ -21,6 +20,22 @@ import { WorkforceEmployeesService } from "../workforce/workforce-employees.serv
 import { WorkforcePlanningService } from "../workforce/workforce-planning.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
+
+type AssignmentDb = Prisma.TransactionClient;
+
+export type AddAssigneeOptions = {
+  /** Legacy assign() writes technicianId itself, in the same transaction. */
+  deferTechnicianLink?: boolean;
+  tx?: AssignmentDb;
+};
+
+export type PreparedAssignee = {
+  workOrder: { id: string; tenantId: string | null; technicianId: string | null };
+  employee: { id: string; designation: string | null; linkedUserId: string | null };
+  input: AddWorkOrderAssigneeInput;
+  plannedStartAt: Date | null;
+  plannedEndAt: Date | null;
+};
 
 export type AddWorkOrderAssigneeInput = {
   employeeId: string;
@@ -47,6 +62,10 @@ export class WorkOrderAssigneesService {
     return requireTenantId(actor?.tenantId);
   }
 
+  private assignmentDb(db?: AssignmentDb): AssignmentDb | PrismaService {
+    return db ?? this.prisma;
+  }
+
   private async recordAudit(payload: {
     entity: string;
     entityId: string;
@@ -56,9 +75,9 @@ export class WorkOrderAssigneesService {
     metadata?: Prisma.InputJsonValue;
     beforeData?: Prisma.InputJsonValue;
     afterData?: Prisma.InputJsonValue;
-  }) {
+  }, db?: AssignmentDb) {
     const ctx = requestContext.get();
-    await this.prisma.auditLog.create({
+    await this.assignmentDb(db).auditLog.create({
       data: {
         tenantId: payload.actor?.tenantId ?? ctx?.tenantId ?? null,
         actorId: payload.actor?.sub ?? ctx?.actorId ?? null,
@@ -128,7 +147,14 @@ export class WorkOrderAssigneesService {
     });
   }
 
-  async addAssignee(workOrderId: string, input: AddWorkOrderAssigneeInput, actor?: Actor) {
+  /**
+   * Reads and eligibility checks only. Callers use this before opening the assignment transaction.
+   */
+  async prepareAssignee(
+    workOrderId: string,
+    input: AddWorkOrderAssigneeInput,
+    actor?: Actor
+  ): Promise<PreparedAssignee> {
     const workOrder = await this.assertWorkOrder(workOrderId, actor);
     if (workOrder.approvalStatus === "REJECTED") {
       throw new BadRequestException("Work order was rejected and cannot be executed");
@@ -138,20 +164,11 @@ export class WorkOrderAssigneesService {
     }
     const tenantId = this.resolveTenantId(actor);
 
-    const employee = await this.workforceEmployees.resolveAssignableEmployee(input.employeeId, tenantId);
-
-    if (!employee) {
-      throw new NotFoundException("Employee not found");
-    }
-
-    if (input.designation?.trim()) {
-      const matches = matchesWorkforceDesignation({ designation: employee.designation }, input.designation);
-      if (!matches) {
-        throw new BadRequestException(
-          `Employee designation "${employee.designation}" does not match required "${input.designation}"`
-        );
-      }
-    }
+    const employee = await this.workforceEmployees.assertEligibleForAssignment(
+      input.employeeId,
+      tenantId,
+      input.designation
+    );
 
     const plannedStartAt = input.plannedStartAt ? new Date(input.plannedStartAt) : null;
     const plannedEndAt = input.plannedEndAt ? new Date(input.plannedEndAt) : null;
@@ -171,13 +188,11 @@ export class WorkOrderAssigneesService {
       }
     }
 
-    const workforceEmployeeId = employee.id;
-
     const existing = await this.prisma.workOrderAssignee.findUnique({
       where: {
         workOrderId_employeeId: {
           workOrderId,
-          employeeId: workforceEmployeeId
+          employeeId: employee.id
         }
       }
     });
@@ -188,35 +203,81 @@ export class WorkOrderAssigneesService {
 
     await this.workforcePlanning.assertAssignmentAvailability({
       tenantId: workOrder.tenantId,
-      employeeId: workforceEmployeeId,
+      employeeId: employee.id,
       plannedStartAt,
       plannedEndAt,
       estimatedHours: input.estimatedHours,
       leaveOverride: Boolean(input.leaveOverride),
-      actorRole: actor?.role
+      actorRole: actor?.role,
+      availabilityStatus: employee.availabilityStatus
     });
 
+    return {
+      workOrder: {
+        id: workOrder.id,
+        tenantId: workOrder.tenantId,
+        technicianId: workOrder.technicianId
+      },
+      employee: {
+        id: employee.id,
+        designation: employee.designation,
+        linkedUserId: employee.linkedUserId
+      },
+      input,
+      plannedStartAt,
+      plannedEndAt
+    };
+  }
+
+  /**
+   * Assignee insert, previous primary flags, optional technician link, and assignee audit.
+   * Every statement uses the transaction client passed by the caller.
+   */
+  async persistAssignee(
+    db: AssignmentDb,
+    prepared: PreparedAssignee,
+    actor?: Actor,
+    options?: Pick<AddAssigneeOptions, "deferTechnicianLink">
+  ) {
+    const { workOrder, employee, input, plannedStartAt, plannedEndAt } = prepared;
+    await db.$queryRaw`
+      SELECT [id] FROM [WorkOrder] WITH (UPDLOCK, ROWLOCK)
+      WHERE [id] = ${workOrder.id} AND [tenantId] = ${workOrder.tenantId}
+    `;
+    const existing = await db.workOrderAssignee.findUnique({
+      where: {
+        workOrderId_employeeId: {
+          workOrderId: workOrder.id,
+          employeeId: employee.id
+        }
+      }
+    });
+
+    if (existing && existing.assignmentStatus !== WorkOrderAssigneeStatus.REMOVED) {
+      throw new BadRequestException("Employee is already assigned to this work order");
+    }
+
     if (input.isPrimary) {
-      await this.prisma.workOrderAssignee.updateMany({
+      await db.workOrderAssignee.updateMany({
         where: {
-          workOrderId,
+          workOrderId: workOrder.id,
           assignmentStatus: { not: WorkOrderAssigneeStatus.REMOVED }
         },
         data: { isPrimary: false }
       });
     }
 
-    const assignee = await this.prisma.workOrderAssignee.upsert({
+    const assignee = await db.workOrderAssignee.upsert({
       where: {
         workOrderId_employeeId: {
-          workOrderId,
-          employeeId: workforceEmployeeId
+          workOrderId: workOrder.id,
+          employeeId: employee.id
         }
       },
       create: {
         tenantId: workOrder.tenantId,
-        workOrderId,
-        employeeId: workforceEmployeeId,
+        workOrderId: workOrder.id,
+        employeeId: employee.id,
         designation: input.designation?.trim() || employee.designation,
         roleInTask: input.roleInTask?.trim(),
         isPrimary: Boolean(input.isPrimary),
@@ -258,36 +319,55 @@ export class WorkOrderAssigneesService {
       }
     });
 
-    if (input.isPrimary || !workOrder.technicianId) {
-      await this.prisma.workOrder.update({
-        where: { id: workOrderId },
+    if (!options?.deferTechnicianLink && (input.isPrimary || !workOrder.technicianId)) {
+      await db.workOrder.update({
+        where: { id: workOrder.id },
         data: { technicianId: employee.linkedUserId ?? null }
       });
     }
 
-    await this.recordAudit({
-      entity: "WorkOrderAssignee",
-      entityId: assignee.id,
-      action: AuditAction.CREATE,
-      actor,
-      reason: "Work order assignee added",
-      metadata: {
-        event: "work_order_assignee_added",
-        workOrderId,
-        employeeId: workforceEmployeeId,
-        isPrimary: Boolean(input.isPrimary),
-        leaveOverride: Boolean(input.leaveOverride),
-        leaveOverrideReason: input.leaveOverrideReason?.trim() ?? null
+    await this.recordAudit(
+      {
+        entity: "WorkOrderAssignee",
+        entityId: assignee.id,
+        action: AuditAction.CREATE,
+        actor,
+        reason: "Work order assignee added",
+        metadata: {
+          event: "work_order_assignee_added",
+          workOrderId: workOrder.id,
+          employeeId: employee.id,
+          isPrimary: Boolean(input.isPrimary),
+          leaveOverride: Boolean(input.leaveOverride),
+          leaveOverrideReason: input.leaveOverrideReason?.trim() ?? null
+        },
+        afterData: {
+          designation: assignee.designation,
+          plannedStartAt: assignee.plannedStartAt?.toISOString() ?? null,
+          plannedEndAt: assignee.plannedEndAt?.toISOString() ?? null,
+          leaveOverrideReason: input.leaveOverrideReason?.trim() ?? null
+        }
       },
-      afterData: {
-        designation: assignee.designation,
-        plannedStartAt: assignee.plannedStartAt?.toISOString() ?? null,
-        plannedEndAt: assignee.plannedEndAt?.toISOString() ?? null,
-        leaveOverrideReason: input.leaveOverrideReason?.trim() ?? null
-      }
-    });
+      db
+    );
 
     return assignee;
+  }
+
+  async addAssignee(
+    workOrderId: string,
+    input: AddWorkOrderAssigneeInput,
+    actor?: Actor,
+    options?: AddAssigneeOptions
+  ) {
+    const prepared = await this.prepareAssignee(workOrderId, input, actor);
+    if (options?.tx) {
+      return this.persistAssignee(options.tx, prepared, actor, options);
+    }
+    return this.prisma.$transaction((tx) => this.persistAssignee(tx, prepared, actor, options), {
+      maxWait: 5_000,
+      timeout: 15_000
+    });
   }
 
   async removeAssignee(workOrderId: string, assigneeId: string, actor?: Actor, reason?: string) {

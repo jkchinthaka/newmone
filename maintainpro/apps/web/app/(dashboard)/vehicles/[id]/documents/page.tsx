@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+
+import { DateField } from "@/components/forms/date-fields";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -420,21 +422,11 @@ function CreateDocumentDialog({
             />
           </Field>
           <Field label="Issued date">
-            <input
-              type="date"
-              value={issuedDate}
-              onChange={(e) => setIssuedDate(e.target.value)}
-              className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
-            />
+            <DateField bare label="Issued date" value={issuedDate} onChange={setIssuedDate} />
           </Field>
           <Field label="Expiry date *">
-            <input
-              type="date"
-              required
-              value={expiryDate}
-              onChange={(e) => setExpiryDate(e.target.value)}
-              className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
-            />
+            <DateField bare label="Expiry date" value={expiryDate} onChange={setExpiryDate} />
+            <input required value={expiryDate} readOnly tabIndex={-1} aria-hidden="true" className="sr-only" />
           </Field>
         </div>
         <Field label="File URL">

@@ -5,6 +5,7 @@ import { BarChart3, Download, Loader2, RefreshCw, TrendingUp } from "lucide-reac
 import Link from "next/link";
 import type { Route } from "next";
 
+import { DateField } from "@/components/forms/date-fields";
 import { getApiErrorMessage } from "@/lib/api-client";
 import {
   defaultManagementFilters,
@@ -193,6 +194,15 @@ function FilterField({
   onChange: (value: string) => void;
   type?: string;
 }) {
+  if (type === "date") {
+    return (
+      <label className="text-xs font-medium text-slate-600">
+        {label}
+        <DateField bare label={label} value={value} onChange={onChange} />
+      </label>
+    );
+  }
+
   return (
     <label className="text-xs font-medium text-slate-600">
       {label}

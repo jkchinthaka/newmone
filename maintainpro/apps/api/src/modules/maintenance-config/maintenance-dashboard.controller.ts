@@ -11,7 +11,7 @@ type AuthedRequest = { user: JwtPayload };
 
 /**
  * D6 Maintenance Dashboard — operational read model.
- * Distinct from Action Center (/action-center). Does not mutate work-order state.
+ * Maintenance dashboard summary. Does not mutate work-order state.
  */
 @ApiTags("Maintenance Dashboard")
 @ApiBearerAuth()

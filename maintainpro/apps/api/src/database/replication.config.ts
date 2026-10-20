@@ -40,7 +40,7 @@ function resolveEnvReference(value: string | undefined, env: NodeJS.ProcessEnv):
 
 export function getDatabaseReplicationConfig(env: NodeJS.ProcessEnv = process.env): DatabaseReplicationConfig {
   const mode = normalizeMode(env.DATABASE_REPLICATION_MODE);
-  const explicitEnabled = booleanEnv(env.DATABASE_REPLICATION_ENABLED, true);
+  const explicitEnabled = booleanEnv(env.DATABASE_REPLICATION_ENABLED, false);
   const primaryDatabaseUrl =
     resolveEnvReference(env.PRIMARY_DATABASE_URL, env) ||
     resolveEnvReference(env.DATABASE_URL, env) ||

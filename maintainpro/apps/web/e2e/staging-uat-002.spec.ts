@@ -130,7 +130,7 @@ test.describe("UAT-002 staging browser verification", () => {
   });
 
   test("core routes load without application crash after admin login", async ({ page }) => {
-    const routes = ["/dashboard", "/assets", "/vehicles", "/action-center", "/settings"];
+    const routes = ["/dashboard", "/assets", "/vehicles", "/notifications", "/settings"];
 
     await loginAs(page, personas.admin.email);
     for (const route of routes) {
