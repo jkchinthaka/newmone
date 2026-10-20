@@ -17,7 +17,7 @@ import {
   type ActionCenterSnapshot,
   type ActionCenterVariant
 } from "../action-center";
-import { canRoleFetchNavBadges } from "../use-nav-badges";
+import { canFetchApprovalBadge, canRoleFetchNavBadges } from "../use-nav-badges";
 
 function emptySnapshot(overrides: Partial<ActionCenterSnapshot> = {}): ActionCenterSnapshot {
   return {
@@ -119,6 +119,14 @@ test("navigation badges do not fetch the queue summary for backend-ineligible ro
   for (const role of ["ADMIN", "MANAGER", "TECHNICIAN", "FINANCE", "VIEWER"]) {
     assert.equal(canRoleFetchNavBadges(role), true, role);
   }
+});
+
+test("approval badge is not requested without approvals.view or its alias", () => {
+  assert.equal(canFetchApprovalBadge("SUPERVISOR", ["dashboard.view"]), false);
+  assert.equal(canFetchApprovalBadge("SUPERVISOR", ["work_orders.manage"]), true);
+  assert.equal(canFetchApprovalBadge("ADMIN", ["work_orders.manage"]), true);
+  assert.equal(canFetchApprovalBadge("ADMIN", []), false);
+  assert.equal(canFetchApprovalBadge(null, ["approvals.view"]), false);
 });
 
 test("Action Center KPI visibility mirrors reporting overview RBAC", () => {
