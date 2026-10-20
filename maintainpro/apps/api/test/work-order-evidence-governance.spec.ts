@@ -117,6 +117,34 @@ describe("work order evidence governance", () => {
     ).not.toThrow();
   });
 
+  it.each(["minio", "s3", "cloudinary", "mock"])(
+    "blocks required photo completion in production when STORAGE_MODE is %s",
+    (mode) => {
+      const previousEnv = process.env.NODE_ENV;
+      const previousMode = process.env.STORAGE_MODE;
+      process.env.NODE_ENV = "production";
+      process.env.STORAGE_MODE = mode;
+      try {
+        const checklist = evaluateEvidenceRequirements(WorkOrderType.CORRECTIVE, []);
+        expect(checklist.required).toBe(true);
+        expect(checklist.complete).toBe(false);
+        expect((checklist as { waived?: boolean }).waived).not.toBe(true);
+        expect(checklist.storageUnavailableBlocking || checklist.missingBefore).toBe(true);
+        expect(() =>
+          assertEvidenceForTechnicianCompletion({
+            workOrderType: WorkOrderType.CORRECTIVE,
+            items: [],
+            completionNote: "Completed without photos"
+          })
+        ).toThrow(BadRequestException);
+      } finally {
+        process.env.NODE_ENV = previousEnv;
+        if (previousMode === undefined) delete process.env.STORAGE_MODE;
+        else process.env.STORAGE_MODE = previousMode;
+      }
+    }
+  );
+
   it("adds risk score factors for evidence and QR issues", () => {
     const score = calculateWorkOrderRiskScore({
       requiredEvidenceMissing: true,
