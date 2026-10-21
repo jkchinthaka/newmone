@@ -27,7 +27,7 @@ export default function MyRequestsPage() {
         if (!cancelled) setItems(result.items);
       })
       .catch((cause: unknown) => {
-        if (!cancelled) setError(getApiErrorMessage(cause));
+        if (!cancelled) setError(getApiErrorMessage(cause, "Couldn't load your requests."));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

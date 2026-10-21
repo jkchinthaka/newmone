@@ -5,4 +5,4 @@
 0b | ui/pages-batch-2 | https://github.com/jkchinthaka/newmone/pull/114 | develop merged; checks re-running
 2 | ui/pages-batch-3 | https://github.com/jkchinthaka/newmone/pull/117 | checks running; screenshots still to capture
 3 | feature/wo-flow-phase2 | https://github.com/jkchinthaka/newmone/pull/116 | checks running; Playwright dialog still to add
-4 | feature/my-requests | branch ready | unit tests passed; PR next
+4 | feature/my-requests | https://github.com/jkchinthaka/newmone/pull/118 | typecheck fix pushed; checks re-running
