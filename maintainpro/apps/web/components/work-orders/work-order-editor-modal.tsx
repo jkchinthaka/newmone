@@ -419,7 +419,7 @@ export function WorkOrderEditorModal({
                     type="submit"
                     form="work-order-editor-form"
                     disabled={!saveDecision.enabled}
-                    className="btn-primary hidden min-h-10 justify-center disabled:opacity-70 sm:inline-flex"
+                    className="btn-primary !hidden min-h-10 justify-center disabled:opacity-70 sm:!inline-flex"
                     aria-describedby={saveDecision.reason ? "overview-save-reason" : undefined}
                   >
                     {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
@@ -935,7 +935,7 @@ export function WorkOrderEditorModal({
                   <button
                     type="submit"
                     disabled={!saveDecision.enabled}
-                    className="btn-primary w-full justify-center disabled:opacity-70 sm:hidden"
+                    className="btn-primary w-full justify-center disabled:opacity-70 sm:!hidden"
                     aria-describedby={saveDecision.reason ? "overview-save-reason" : undefined}
                   >
                     {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
