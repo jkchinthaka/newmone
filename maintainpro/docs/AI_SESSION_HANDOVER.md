@@ -8,6 +8,8 @@
 > 3. Keep unfinished work on the current feature branch. Never force-push, never discard or
 >    reset someone else's changes, never push unvalidated code to `main`.
 
+**CURRENT (2026-10-21) — work order drawer UI on `ui/wo-drawer`.** Branched from `origin/develop` at `5feadd29` (local `develop` was behind). Handover on the previous checkout recorded `fix/ux-confirmed-defects` at `4d394657`; that checkout was actually `99ec9d5b`. This work did not continue that branch. UI-only drawer redesign plus terminal-lock checks for CLOSED/CANCELLED assignee, downtime start, and evidence upload. Parts already rejected those statuses. Web unit tests 359 passed. API Jest `work-order-terminal-lock`, `work-order-parts-governance`, and `reliability-downtime-rca-permits` passed. No `.env.e2e`, so full-stack e2e was not run locally. Screenshots: `docs/handover/ui-redesign/wo-drawer/`.
+
 Start-of-session checks (run from repo root `C:/Dev/newmone`):
 
 **2026-10-16 Block A–B.** Branch `fix/enterprise-remediation-20261015`, HEAD `a79859dc`, no commit. Block A full Jest runInBand 0 failed (258 suites, 2161 tests, skip inventory-disposable-mongo). Block B: overdue PM due date, technician findOne scope, security-officer queue denial, journey spec, defect/RBAC/report docs. Gates for the Block B diff are running.

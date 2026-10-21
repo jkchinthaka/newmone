@@ -1,9 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, History, Loader2 } from "lucide-react";
+import { AlertTriangle, History } from "lucide-react";
 
+import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard";
 import { apiClient, getApiErrorMessageForRoute } from "@/lib/api-client";
+import { formatCalendarDate } from "@/lib/colombo-datetime";
+import { formatDrawerDateTime } from "@/lib/work-order-drawer-display";
 
 export type WorkOrderHistoryContext = {
   workOrderId: string;
@@ -34,7 +37,8 @@ type Props = {
 
 function formatDate(value: unknown) {
   if (typeof value !== "string" || !value) return "—";
-  return new Date(value).toLocaleDateString();
+  if (value.includes("T")) return formatDrawerDateTime(value) || "—";
+  return formatCalendarDate(value.slice(0, 10)) || formatDrawerDateTime(value) || "—";
 }
 
 function formatMoney(value: unknown) {
@@ -53,24 +57,23 @@ export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
 
   if (query.isLoading) {
     return (
-      <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600">
-        <div className="inline-flex items-center gap-2">
-          <Loader2 size={14} className="animate-spin" aria-hidden />
-          Loading previous maintenance history…
-        </div>
+      <section className="space-y-2">
+        <p className="sr-only">Loading previous maintenance history…</p>
+        <SkeletonCard />
       </section>
     );
   }
 
   if (query.isError) {
     return (
-      <section className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-        {getApiErrorMessageForRoute(
+      <ErrorState
+        message={getApiErrorMessageForRoute(
           query.error,
           "work-order-history",
           "Could not load maintenance history for this work order."
         )}
-      </section>
+        onRetry={() => void query.refetch()}
+      />
     );
   }
 
@@ -235,23 +238,24 @@ function HistoryTable({
   rows: Array<{ key: string; primary: string; secondary: string; meta?: string }>;
 }) {
   if (rows.length === 0) {
-    return empty ? <p className="text-sm text-slate-500">{empty}</p> : null;
+    return empty ? <EmptyState title={title} description={empty} /> : null;
   }
 
   return (
     <article className="overflow-hidden rounded-lg border border-slate-200 bg-white">
       <h5 className="border-b border-slate-200 px-3 py-2 text-sm font-medium text-slate-900">{title}</h5>
-      <ul className="divide-y divide-slate-100">
+      <ol className="space-y-0 px-3 py-2">
         {rows.map((row) => (
-          <li key={row.key} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-            <div className="min-w-0">
-              <p className="truncate font-medium text-slate-800">{row.primary}</p>
-              <p className="truncate text-xs text-slate-500">{row.secondary}</p>
-            </div>
-            {row.meta ? <span className="shrink-0 text-xs text-slate-500">{row.meta}</span> : null}
+          <li key={row.key} className="relative border-l border-brand-200 py-2 pl-4 text-sm">
+            <span className="absolute -left-1 top-3 h-2 w-2 rounded-full bg-brand-600" aria-hidden />
+            <p className="text-xs text-slate-500">
+              {row.secondary}
+              {row.meta ? ` · ${row.meta}` : ""}
+            </p>
+            <p className="font-medium text-slate-800">{row.primary}</p>
           </li>
         ))}
-      </ul>
+      </ol>
     </article>
   );
 }

@@ -7,6 +7,8 @@ import { AlertTriangle, Loader2, UserMinus, UserPlus, Star } from "lucide-react"
 import { toast } from "sonner";
 
 import { DateTimeField } from "@/components/forms/date-fields";
+import { formatDrawerDateTime } from "@/lib/work-order-drawer-display";
+import { EmptyState, ErrorState, SectionCard, SkeletonCard } from "@/components/ui/dashboard";
 import { visibleFieldMessage } from "@/lib/form-feedback";
 import { apiClient, getApiErrorMessageForRoute } from "@/lib/api-client";
 import {
@@ -17,7 +19,6 @@ import {
   dateTimeLocalToIso,
   assignmentEmployeeListParams,
   designationChoices,
-  DESIGNATION_FALLBACK_NOTE,
   formatEmployeeOptionLabel,
   toDateTimeLocalValue
 } from "@/lib/workforce-designations";
@@ -65,6 +66,8 @@ type AssignmentPreview = {
 
 interface Props {
   workOrderId: string;
+  readOnly?: boolean;
+  actualHours?: number | string | null;
 }
 
 function employeeName(row: AssigneeRow) {
@@ -74,7 +77,13 @@ function employeeName(row: AssigneeRow) {
   return row.employeeId;
 }
 
-export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
+function initials(name: string) {
+  const parts = name.split(/\s+/).filter(Boolean);
+  const letters = `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
+  return letters || "?";
+}
+
+export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualHours }: Props) {
   const currentUser = useCurrentUser();
   const [assignees, setAssignees] = useState<AssigneeRow[]>([]);
   const [employees, setEmployees] = useState<WorkforceEmployee[]>([]);
@@ -307,12 +316,18 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
     ? (`/master-data/employees?designation=${encodeURIComponent(designationFilter.trim())}` as Route)
     : ("/master-data/employees" as Route);
 
+  const plannedHours = assignees.reduce((sum, row) => sum + (Number(row.estimatedHours) || 0), 0);
+  const primaryName = assignees.find((row) => row.isPrimary)?.employee?.fullName;
+  const actualLabel =
+    actualHours === null || actualHours === undefined || actualHours === "" || Number.isNaN(Number(actualHours))
+      ? null
+      : `${actualHours} h`;
+
   return (
-    <section className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
-      <h4 className="text-sm font-semibold text-slate-900">Workforce assignments</h4>
+    <section className="space-y-4">
+      <h4 className="text-sm font-semibold text-slate-900">Assigned team</h4>
       <p className="mt-1 text-xs text-slate-500">
-        Assign multiple employees by designation. One primary assignee syncs to the legacy technician field.{" "}
-        {DESIGNATION_FALLBACK_NOTE}
+        Choose a designation, then add the people doing this job. Mark one person as the primary assignee.
       </p>
 
       {!canSeeAssignees ? (
@@ -321,21 +336,43 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
           administrator.
         </p>
       ) : loadingAssignees ? (
-        <p className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
-          <Loader2 size={14} className="animate-spin" aria-hidden /> Loading assignees...
-        </p>
+        <div>
+          <p className="sr-only">Loading assignees...</p>
+          <SkeletonCard />
+        </div>
       ) : assigneesError ? (
-        <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{assigneesError}</p>
+        <ErrorState message={assigneesError} onRetry={() => void loadAssignees()} />
       ) : assignees.length === 0 ? (
-        <p className="mt-3 text-sm text-slate-500">No employees assigned yet.</p>
+        <EmptyState title="No employees assigned yet" description="Add a team member when this job is still open." />
       ) : (
-        <ul className="mt-3 space-y-2">
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <p className="text-xs text-slate-500">Team members</p>
+              <p className="font-semibold text-slate-900">{assignees.length}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <p className="text-xs text-slate-500">Planned hours</p>
+              <p className="font-semibold text-slate-900">{plannedHours} h</p>
+            </div>
+            {actualLabel ? (
+              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                <p className="text-xs text-slate-500">Actual hours</p>
+                <p className="font-semibold text-slate-900">{actualLabel}</p>
+              </div>
+            ) : null}
+          </div>
+        <ul className="space-y-2">
           {assignees.map((row) => (
             <li
               key={row.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm"
             >
-              <div>
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-800" aria-hidden>
+                  {initials(employeeName(row))}
+                </span>
+                <div>
                 <span className="font-medium text-slate-900">{employeeName(row)}</span>
                 {row.isPrimary ? (
                   <span className="ml-2 inline-flex items-center gap-0.5 rounded bg-brand-100 px-1.5 py-0.5 text-xs font-medium text-brand-800">
@@ -348,11 +385,12 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
                 {row.roleInTask ? <span className="ml-2 text-xs text-slate-500">· {row.roleInTask}</span> : null}
                 {row.plannedStartAt || row.plannedEndAt ? (
                   <p className="text-xs text-slate-500">
-                    Planned: {row.plannedStartAt ? new Date(row.plannedStartAt).toLocaleString() : "—"} →{" "}
-                    {row.plannedEndAt ? new Date(row.plannedEndAt).toLocaleString() : "—"}
+                    Planned: {row.plannedStartAt ? formatDrawerDateTime(row.plannedStartAt) : "—"} →{" "}
+                    {row.plannedEndAt ? formatDrawerDateTime(row.plannedEndAt) : "—"}
                     {row.estimatedHours ? ` · ${row.estimatedHours}h` : ""}
                   </p>
                 ) : null}
+                </div>
               </div>
               <div className="flex flex-col items-end gap-2">
                 {pendingRemoveId === row.id ? (
@@ -389,7 +427,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
                       </button>
                     </div>
                   </div>
-                ) : (
+                ) : readOnly ? null : (
                   <button
                     type="button"
                     disabled={busy}
@@ -406,11 +444,13 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
             </li>
           ))}
         </ul>
+        </div>
       )}
 
-      {canSeeAssignees ? (
+      {canSeeAssignees && !readOnly ? (
+      <SectionCard title="Add team member">
       <div
-        className="mt-4 grid gap-3 sm:grid-cols-2"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2"
         onKeyDown={(event) => {
           if (event.key !== "Enter" || event.target instanceof HTMLTextAreaElement) {
             return;
@@ -419,7 +459,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
           void handleAdd();
         }}
       >
-        <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
+        <label className="space-y-1 text-sm text-slate-700">
           <span className="font-medium">Filter by designation</span>
           {loadingEmployees ? (
             <p className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500" role="status">
@@ -451,7 +491,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
           )}
         </label>
 
-        <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
+        <label className="space-y-1 text-sm text-slate-700">
           <span className="font-medium">Employee</span>
           {!canSeeEmployees ? (
             <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
@@ -596,7 +636,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
             onChange={(event) => setIsPrimary(event.target.checked)}
             className="rounded border-slate-300"
           />
-          Primary assignee
+          Primary assignee{primaryName ? ` (replaces ${primaryName})` : ""}
         </label>
 
         <div className="sm:col-span-2">
@@ -614,6 +654,7 @@ export function WorkOrderAssigneesPanel({ workOrderId }: Props) {
           </button>
         </div>
       </div>
+      </SectionCard>
       ) : null}
     </section>
   );

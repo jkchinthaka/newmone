@@ -39,6 +39,7 @@ import {
 
 interface Props {
   workOrderId: string;
+  readOnly?: boolean;
 }
 
 type SparePartOption = {
@@ -123,7 +124,7 @@ function partLineLabel(line: WorkOrderPartLine): string {
   return `${code} — ${part?.name ?? "Part"}`;
 }
 
-export function PartRequestsPanel({ workOrderId }: Props) {
+export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
   const user = useCurrentUser();
   const role = user.role ?? "";
 
@@ -250,6 +251,7 @@ export function PartRequestsPanel({ workOrderId }: Props) {
 
   return (
     <div className="space-y-4">
+      {readOnly ? null : (
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900">1. Request Parts</h3>
         <p className="mt-1 text-xs text-slate-500">Technicians can request parts. Stock availability is shown before submit.</p>
@@ -286,6 +288,7 @@ export function PartRequestsPanel({ workOrderId }: Props) {
             </p>
           ) : null}
           <p className="text-xs text-slate-600">{erpReconciliationLabel("PENDING")}. A pending outbox is not ERP Posted.</p>
+          <p className="text-xs text-slate-600">Stock balance comes from the ERP and is not changed here.</p>
 
           <div className="grid gap-2 md:grid-cols-[120px_1fr_auto]">
             <input
@@ -312,10 +315,11 @@ export function PartRequestsPanel({ workOrderId }: Props) {
           </div>
         </div>
       </section>
+      )}
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-900">2. Approval Status</h3>
+          <h3 className="text-sm font-semibold text-slate-900">Parts for this job</h3>
           <button
             type="button"
             onClick={() => void refresh()}
@@ -351,6 +355,7 @@ export function PartRequestsPanel({ workOrderId }: Props) {
                   </span>
                 </div>
 
+                {readOnly ? null : (
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -449,6 +454,7 @@ export function PartRequestsPanel({ workOrderId }: Props) {
                     </button>
                   </div>
                 </div>
+                )}
               </li>
             ))}
           </ul>
@@ -502,6 +508,7 @@ export function PartRequestsPanel({ workOrderId }: Props) {
                         ) : null}
                       </td>
                       <td className="py-2">
+                        {readOnly ? null : (
                         <div className="flex flex-col gap-1">
                           {line.issuedQuantity > 0 && pending > 0 && canMarkUsage ? (
                             <div className="flex gap-1">
@@ -645,6 +652,7 @@ export function PartRequestsPanel({ workOrderId }: Props) {
                             </div>
                           ) : null}
                         </div>
+                        )}
                       </td>
                     </tr>
                   );
