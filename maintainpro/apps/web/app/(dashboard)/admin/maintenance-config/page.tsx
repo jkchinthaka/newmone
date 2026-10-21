@@ -6,6 +6,8 @@ import type { Route } from "next";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { MaintenanceSettingsNav } from "@/components/admin/maintenance-settings-nav";
+import { SkeletonCard } from "@/components/ui/dashboard";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { taxRateInputIsValid } from "@/lib/vendor-tax";
 
@@ -97,24 +99,28 @@ export default function AdminMaintenanceConfigPage() {
     <div className="space-y-6">
       <PageBreadcrumbs items={[{ label: "Admin", href: "/admin" }, { label: "Maintenance Configuration" }]} />
       <div>
-        <h1 className="page-title">Maintenance Configuration</h1>
+        <h1 className="page-title">Maintenance settings</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Control center for job domains, categories, priorities, fault codes, and policy history.
-          Operational changes here apply without code deployments.
+          Company defaults used across work orders, vendors and approvals.
         </p>
       </div>
-      <DefaultTaxRateSetting />
-      <div className="grid gap-3 md:grid-cols-2">
-        {SECTIONS.map((section) => (
-          <Link
-            key={section.href}
-            href={section.href as Route}
-            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-brand-300"
-          >
-            <h2 className="font-semibold">{section.title}</h2>
-            <p className="mt-1 text-sm text-slate-600">{section.description}</p>
-          </Link>
-        ))}
+      <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <MaintenanceSettingsNav />
+        <div className="space-y-4">
+          <DefaultTaxRateSetting />
+          <div className="grid gap-3 md:grid-cols-2">
+            {SECTIONS.map((section) => (
+              <Link
+                key={section.href}
+                href={section.href as Route}
+                className="rounded-card border border-slate-200 bg-white p-4 shadow-card hover:border-brand-300"
+              >
+                <h2 className="font-semibold">{section.title}</h2>
+                <p className="mt-1 text-sm text-slate-600">{section.description}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -137,6 +143,10 @@ function DefaultTaxRateSetting() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  if (loading) {
+    return <SkeletonCard />;
+  }
 
   return (
     <form
@@ -173,7 +183,7 @@ function DefaultTaxRateSetting() {
       <button
         type="submit"
         disabled={loading || saving}
-        className="mt-3 rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+        className="mt-3 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
       >
         Save default tax rate
       </button>

@@ -73,7 +73,7 @@ export function PermissionGroupCard({ group, roles, matrix, showTenantColumns }:
                             : "border-slate-200 bg-slate-50 text-slate-400"
                         }`}
                       >
-                        {granted ? "Yes" : "—"}
+                        {granted ? "✓" : "–"}
                       </span>
                     </td>
                   );

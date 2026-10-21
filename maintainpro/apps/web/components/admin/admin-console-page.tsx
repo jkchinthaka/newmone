@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { OperationalJobsHeader } from "@/components/operational";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { PermissionState } from "@/components/ui/page-state";
+import { KpiCard } from "@/components/ui/dashboard";
 import { fetchAdminOverview } from "@/lib/admin-governance-api";
 import { ADMIN_QUICK_ACTIONS, adminCommandGroups, isAdminConsoleRole, searchAdminModules } from "@/lib/admin-console";
 import { apiClient } from "@/lib/api-client";
@@ -103,35 +104,32 @@ function AdminConsoleAuthorized({ user, roleName }: { user: CurrentUser; roleNam
           </Link>
         ))}
       </div>
-      <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:grid-cols-5" aria-label="Administration summary">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Administration summary">
         {(
           [
-            ["Users", overview?.users.active],
+            ["Active users", overview?.users.active],
             ["Tenants", overview?.tenants?.active],
             ["Open critical", overview?.jobs?.openCritical],
             ["Overdue jobs", overview?.jobs?.overdue],
-            ["Data issues", overview?.dataQuality.totalIssues]
+            ["Data issues", overview?.dataQuality.totalIssues],
+            ["Pending approvals", overview?.pendingApprovals],
+            ["Pending imports", overview?.pendingImports]
           ] as Array<[string, number | undefined]>
         ).map(([label, value]) => (
-          <div key={label} className="rounded-md border border-slate-200 bg-white px-3 py-2">
-            <dt className="text-xs text-slate-500">{label}</dt>
-            <dd className="font-semibold tabular-nums text-slate-900">{value ?? "–"}</dd>
-          </div>
+          <KpiCard key={label} label={label} value={value == null ? "–" : String(value)} />
         ))}
-      </dl>
+      </div>
       <p className="text-xs text-slate-500">Signed in as {user.email ?? "Unknown user"} · {roleName ?? "Unknown role"}</p>
       <h2 className="text-sm font-semibold text-slate-900">Administration modules</h2>
       {daily.map((group) => (
         <section key={group.id} aria-labelledby={`admin-${group.id}`}>
           <h2 id={`admin-${group.id}`} className="text-sm font-semibold text-slate-900">{group.title}</h2>
-          <div className="mt-1 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+          <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {group.sections.map((section) => (
-              <Link key={section.id} href={(section.href ?? "/admin") as never} className="flex min-h-11 items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-slate-50">
-                <span>
-                  <span className="font-medium text-slate-900">{section.title}</span>
-                  <span className="block text-xs text-slate-500">{section.description}</span>
-                </span>
-                <span aria-hidden>→</span>
+              <Link key={section.id} href={(section.href ?? "/admin") as never} className="rounded-card border border-slate-200 bg-white p-4 text-sm shadow-card hover:border-brand-300">
+                <span className="font-medium text-slate-900">{section.title}</span>
+                <span className="mt-1 block text-xs text-slate-500">{section.description}</span>
+                <span className="mt-2 inline-flex text-xs font-medium text-brand-700">Open →</span>
               </Link>
             ))}
           </div>

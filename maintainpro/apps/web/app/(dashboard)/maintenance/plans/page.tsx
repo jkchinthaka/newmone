@@ -11,8 +11,7 @@ import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { CreatePmPlanDialog } from "@/components/maintenance/create-pm-plan-dialog";
 import { JobsPagination } from "@/components/operational/jobs-pagination";
 import { OperationalPageHeader } from "@/components/operational/operational-page-header";
-import { TableLoadingRows } from "@/components/operational/operational-list-states";
-import { ErrorState } from "@/components/ui/page-state";
+import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { formatQueueDue } from "@/lib/work-order-queue-nav";
 import { useCurrentUser } from "@/lib/use-current-user";
@@ -83,6 +82,7 @@ export default function PreventiveMaintenancePage() {
   const [busy, setBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [moreFilters, setMoreFilters] = useState(false);
+  const [layout, setLayout] = useState<"list" | "calendar" | null>(null);
 
   const write = (patch: Record<string, string | null>, resetPage = true) => {
     const next = new URLSearchParams(params.toString());
@@ -151,6 +151,9 @@ export default function PreventiveMaintenancePage() {
   ].filter((chip): chip is { key: string; label: string } => Boolean(chip));
 
   const filtered = chips.length > 0;
+  const hasDates = items.some((plan) => Boolean(plan.nextDueAt));
+  const viewMode = layout ?? (hasDates ? "calendar" : "list");
+  const dueNext = [...items].filter((plan) => plan.nextDueAt).sort((a, b) => String(a.nextDueAt).localeCompare(String(b.nextDueAt))).slice(0, 6);
 
   return (
     <div className="min-w-0 space-y-3 p-4 md:p-6">
@@ -174,7 +177,7 @@ export default function PreventiveMaintenancePage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2" aria-label="PM summary">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="PM summary">
         {(
           [
             {
@@ -212,13 +215,13 @@ export default function PreventiveMaintenancePage() {
             type="button"
             aria-pressed={item.pressed}
             title={pmSummaryHint(item.key)}
-            className={`inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm ${
-              item.pressed ? "border-brand-600 bg-brand-50" : "border-slate-200 bg-white"
+            className={`rounded-card border bg-white p-4 text-left shadow-card ${
+              item.pressed ? "border-brand-600" : "border-slate-200"
             }`}
             onClick={() => write(item.patch as Record<string, string | null>)}
           >
-            <span className="text-slate-600">{item.label}</span>
-            <span className="font-semibold text-slate-900">{item.value}</span>
+            <span className="block text-sm text-slate-600">{item.label}</span>
+            <span className="mt-2 block text-2xl font-semibold text-slate-900">{item.value}</span>
           </button>
         ))}
       </div>
@@ -315,31 +318,60 @@ export default function PreventiveMaintenancePage() {
       </section>
 
       {error ? (
-        <ErrorState title="We couldn't load preventive maintenance plans." description={error} onRetry={() => write({ retry: String(Date.now()) }, false)} retryLabel="Retry" />
+        <ErrorState message={`We couldn't load preventive maintenance plans. ${error}`} onRetry={() => write({ retry: String(Date.now()) }, false)} />
       ) : null}
-      {loading ? <TableLoadingRows /> : null}
+      {loading ? (
+        <div className="grid gap-3 sm:grid-cols-2" aria-busy="true" aria-label="Loading plans">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      ) : null}
 
       {!loading && !error && items.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-8 text-center">
-          <p className="text-sm font-medium text-slate-900">No preventive maintenance plans match these filters.</p>
-          <div className="mt-3 flex items-center justify-center gap-3">
-            {filtered ? (
-              <button type="button" className="text-sm font-medium text-brand-700" onClick={() => write({ status: null, due: null, attention: null, trigger: null, q: null, assetId: null })}>
-                Clear filters
-              </button>
-            ) : null}
-            {canManage ? (
-              <button type="button" className="text-sm font-medium text-slate-700" onClick={() => setWizard(true)}>
-                Create PM Plan
-              </button>
-            ) : null}
-          </div>
-        </div>
+        <EmptyState
+          title="No preventive maintenance plans match these filters."
+          description="Clear the filters or create a plan when you are allowed to."
+          action={
+            <div className="flex items-center justify-center gap-3">
+              {filtered ? (
+                <button type="button" className="text-sm font-medium text-brand-700" onClick={() => write({ status: null, due: null, attention: null, trigger: null, q: null, assetId: null })}>
+                  Clear filters
+                </button>
+              ) : null}
+              {canManage ? (
+                <button type="button" className="text-sm font-medium text-slate-700" onClick={() => setWizard(true)}>
+                  Create PM Plan
+                </button>
+              ) : null}
+            </div>
+          }
+        />
       ) : null}
 
       {!loading && items.length > 0 ? (
         <>
-          <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white md:block">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Plan layout">
+            <button type="button" aria-pressed={viewMode === "calendar"} disabled={!hasDates} className={`min-h-11 rounded-md px-3 text-sm ${viewMode === "calendar" ? "bg-brand-600 text-white" : "border border-slate-300 bg-white"}`} onClick={() => setLayout("calendar")}>Calendar</button>
+            <button type="button" aria-pressed={viewMode === "list"} className={`min-h-11 rounded-md px-3 text-sm ${viewMode === "list" ? "bg-brand-600 text-white" : "border border-slate-300 bg-white"}`} onClick={() => setLayout("list")}>List</button>
+          </div>
+          {viewMode === "calendar" ? (
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+              <PmMonthCalendar plans={items} />
+              <section className="rounded-card border border-slate-200 bg-white p-4 shadow-card">
+                <h2 className="text-sm font-semibold text-slate-900">Due next</h2>
+                <ul className="mt-3 space-y-3">
+                  {dueNext.length === 0 ? <li className="text-sm text-slate-600">No dated plans in this list.</li> : dueNext.map((plan) => (
+                    <li key={plan.id} className="border-b border-slate-100 pb-2 text-sm last:border-0">
+                      <p className="font-medium text-slate-900">{plan.name}</p>
+                      <p className="text-xs text-slate-500">{scopeLabel(plan)} · {plan.nextDueAt ? new Date(plan.nextDueAt).toLocaleDateString() : ""}</p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </div>
+          ) : null}
+          {viewMode === "list" ? (
+          <div className="hidden overflow-x-auto rounded-card border border-slate-200 bg-white shadow-card md:block">
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
                 <tr>
@@ -419,7 +451,8 @@ export default function PreventiveMaintenancePage() {
               </tbody>
             </table>
           </div>
-          <div className="space-y-2 md:hidden">
+          ) : null}
+          <div className={`space-y-2 md:hidden ${viewMode === "list" ? "" : "hidden"}`}>
             {items.map((plan) => (
               <article key={plan.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
                 <div className="flex items-start justify-between gap-2">
@@ -489,5 +522,52 @@ export default function PreventiveMaintenancePage() {
         />
       ) : null}
     </div>
+  );
+}
+
+function PmMonthCalendar({ plans }: { plans: PmPlan[] }) {
+  const [cursor, setCursor] = useState(() => new Date());
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const first = new Date(year, month, 1);
+  const pad = (first.getDay() + 6) % 7;
+  const days = new Date(year, month + 1, 0).getDate();
+  const cells: Array<number | null> = [...Array.from({ length: pad }, () => null), ...Array.from({ length: days }, (_, index) => index + 1)];
+  const onDay = (day: number) =>
+    plans.filter((plan) => {
+      if (!plan.nextDueAt) return false;
+      const due = new Date(plan.nextDueAt);
+      return due.getFullYear() === year && due.getMonth() === month && due.getDate() === day;
+    });
+
+  return (
+    <section className="rounded-card border border-slate-200 bg-white p-4 shadow-card">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-900">{cursor.toLocaleString(undefined, { month: "long", year: "numeric" })}</h2>
+        <div className="flex gap-2">
+          <button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setCursor(new Date(year, month - 1, 1))} aria-label="Previous month">‹</button>
+          <button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setCursor(new Date())}>Today</button>
+          <button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setCursor(new Date(year, month + 1, 1))} aria-label="Next month">›</button>
+        </div>
+      </div>
+      <div className="grid grid-cols-7 gap-1 text-center text-xs text-slate-500">
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => (
+          <div key={label} className="py-1">{label}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((day, index) => {
+          const entries = day ? onDay(day) : [];
+          return (
+            <div key={`${day ?? "x"}-${index}`} className="min-h-16 rounded-md border border-slate-100 p-1 text-xs">
+              <span className="text-slate-500">{day ?? ""}</span>
+              {entries.slice(0, 2).map((plan) => (
+                <p key={plan.id} className={`mt-1 truncate rounded px-1 ${plan.remainingDays != null && plan.remainingDays < 0 ? "bg-red-50 text-red-800" : "bg-brand-50 text-brand-800"}`}>{plan.name}</p>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }

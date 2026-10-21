@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { MaintenanceSettingsNav } from "@/components/admin/maintenance-settings-nav";
 import { ResponsivePageHeader } from "@/components/ui/responsive-page-header";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
@@ -110,6 +111,7 @@ export default function AdminApprovalsPage() {
 
   return (
     <div className="ops-page">
+      <MaintenanceSettingsNav />
       <PageBreadcrumbs
         items={[
           { label: "Admin", href: "/admin" },

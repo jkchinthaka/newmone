@@ -1,0 +1,16 @@
+---
+description: Start MaintainPro only from the app worktree on fixed ports
+alwaysApply: true
+---
+
+# Canonical MaintainPro launch
+
+Local app runs only on 3040 (API) and 3041 (web) from the 'app' worktree. Agents must not start other dev servers; e2e uses its own temporary stack and must stop it when done.
+
+When the user says "Run this project", "Start MaintainPro", "Open localhost", or "Run current project", run:
+
+```powershell
+npm run dev:current
+```
+
+from `C:\Users\chint\AppData\Local\MaintainPro\worktrees\app\maintainpro`. If 3040 or 3041 is still busy, stop and report the process. Do not start a server on another port.

@@ -115,7 +115,16 @@ function buildColumns(showTenantColumns: boolean): DataTableColumn<AdminUserAcce
       id: "displayName",
       header: "Name",
       mobileLabel: "Name",
-      cell: (row) => <span className="font-medium text-slate-900">{row.displayName || "—"}</span>
+      cell: (row) => {
+        const name = row.displayName || "—";
+        const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("") || "?";
+        return (
+          <span className="inline-flex items-center gap-2 font-medium text-slate-900">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-800" aria-hidden>{initials}</span>
+            {name}
+          </span>
+        );
+      }
     },
     {
       id: "email",
