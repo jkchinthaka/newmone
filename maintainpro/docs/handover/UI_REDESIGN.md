@@ -21,6 +21,10 @@ Existing pages are unchanged in this step. Later areas swap JSX only and keep la
 
 Layout patterns follow Tremor Blocks (MIT, https://blocks.tremor.so), rewritten for Tailwind 3. No Tremor package is installed.
 
+## Phase 1
+
+`/maintenance` uses the dashboard components. Queries, labels, and links are unchanged. Screenshots: `docs/handover/ui-redesign/dashboard/`.
+
 ## Next
 
-Maintenance dashboard (`/maintenance`): KPI cards, priority table, workload chips, domain BarList, pipeline cards. Same queries.
+Work orders list and My Jobs. Do not start until the maintenance dashboard look is accepted.
