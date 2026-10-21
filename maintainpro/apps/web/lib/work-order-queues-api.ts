@@ -39,6 +39,7 @@ export type WorkOrderQueueItem = WorkOrder & {
   riskSeverity?: RiskSeverity;
   actionRequired?: WorkOrderActionRequiredItem[];
   partsStatus?: string;
+  sla?: string;
   evidenceStatus?: string;
   overdueDays?: number;
   primaryAssigneeName?: string | null;
@@ -150,6 +151,7 @@ export type WorkOrderQueueFilters = {
   technicianId?: string;
   evidenceStatus?: string;
   partsStatus?: string;
+  sla?: string;
 };
 
 export const DEFAULT_QUEUE_FILTERS: WorkOrderQueueFilters = {
@@ -246,6 +248,7 @@ export function queueFiltersFromSearch(params: {
   technicianId?: string | null;
   evidenceStatus?: string | null;
   partsStatus?: string | null;
+  sla?: string | null;
   jobDomain?: string | null;
   page?: string | null;
   pageSize?: string | null;
@@ -285,6 +288,7 @@ export function queueFiltersFromSearch(params: {
   if (params.technicianId) patch.technicianId = params.technicianId;
   if (params.evidenceStatus) patch.evidenceStatus = params.evidenceStatus;
   if (params.partsStatus) patch.partsStatus = params.partsStatus;
+  if (params.sla) patch.sla = params.sla;
   if (params.jobDomain) patch.jobDomain = params.jobDomain;
   const page = Number(params.page);
   if (Number.isFinite(page) && page > 0) patch.page = page;
@@ -319,6 +323,7 @@ export function buildQueueListSearchParams(filters: WorkOrderQueueFilters): URLS
   if (filters.technicianId) params.set("technicianId", filters.technicianId);
   if (filters.evidenceStatus) params.set("evidenceStatus", filters.evidenceStatus);
   if (filters.partsStatus) params.set("partsStatus", filters.partsStatus);
+  if (filters.sla) params.set("sla", filters.sla);
   return params;
 }
 

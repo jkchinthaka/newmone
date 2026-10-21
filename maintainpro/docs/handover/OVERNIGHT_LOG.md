@@ -1,4 +1,9 @@
 # Overnight log
 
-0 | develop | #112 #110 #113 merged; #111 checks re-running after develop merge | in progress
-1 | fix/backlog-high | https://github.com/jkchinthaka/newmone/pull/115 | checks running
+0 | develop | #112 #110 #113 #111 merged | done
+1 | fix/backlog-high | https://github.com/jkchinthaka/newmone/pull/115 | merged
+0b | ui/pages-batch-2 | https://github.com/jkchinthaka/newmone/pull/114 | develop merged; checks re-running
+2 | ui/pages-batch-3 | https://github.com/jkchinthaka/newmone/pull/117 | checks running; screenshots still to capture
+3 | feature/wo-flow-phase2 | https://github.com/jkchinthaka/newmone/pull/116 | checks green earlier; Playwright dialog still to add before merge
+4 | feature/my-requests | https://github.com/jkchinthaka/newmone/pull/118 | checks running
+5 | feature/wo-insights | branch ready | unit tests passed; PR next

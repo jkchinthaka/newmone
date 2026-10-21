@@ -13,6 +13,7 @@ import {
 } from "@/lib/work-order-drawer-display";
 
 import { toTitleCase } from "./helpers";
+import { WorkOrderCostBreakdown } from "./work-order-insights";
 import type { WorkOrder } from "./types";
 
 export function WorkOrderLockBanner({ status }: { status: string }) {
@@ -151,6 +152,7 @@ export function WorkOrderOverviewView({
 
   return (
     <div className="space-y-4">
+      <WorkOrderCostBreakdown workOrderId={workOrder.id} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SectionCard
           title="Job details"
