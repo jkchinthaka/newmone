@@ -13,6 +13,7 @@ import type {
   WorkOrderType
 } from "./types";
 import { WORK_ORDER_STATUSES } from "./types";
+import { getErrorMessage } from "./helpers";
 
 interface ApiEnvelope<T> {
   data: T;
@@ -292,8 +293,20 @@ export async function fetchTechnicians(): Promise<TechnicianOption[]> {
   }
 }
 
-export async function bulkDeleteWorkOrders(ids: string[]): Promise<void> {
-  await Promise.all(ids.map((id) => deleteWorkOrder(id)));
+export async function bulkDeleteWorkOrders(ids: string[]): Promise<{ ok: string[]; failed: Array<{ id: string; message: string }> }> {
+  const settled = await Promise.allSettled(ids.map((id) => deleteWorkOrder(id).then(() => id)));
+  const ok: string[] = [];
+  const failed: Array<{ id: string; message: string }> = [];
+  settled.forEach((result, index) => {
+    const id = ids[index];
+    if (!id) return;
+    if (result.status === "fulfilled") {
+      ok.push(id);
+      return;
+    }
+    failed.push({ id, message: getErrorMessage(result.reason) });
+  });
+  return { ok, failed };
 }
 
 export async function bulkUpdateStatus(input: {

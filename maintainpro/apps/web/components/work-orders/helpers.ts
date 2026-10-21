@@ -10,6 +10,7 @@ import type {
   WorkOrderSortField,
   WorkOrderStatus
 } from "./types";
+import { humanWorkOrderActionMessage } from "@/lib/work-order-action-messages";
 
 export function getErrorMessage(error: unknown): string {
   const fallback = "Something went wrong. Please try again.";
@@ -36,7 +37,7 @@ export function getErrorMessage(error: unknown): string {
   }
 
   if (typeof nestedErrorMessage === "string" && nestedErrorMessage.trim()) {
-    return nestedErrorMessage;
+    return humanWorkOrderActionMessage(nestedErrorMessage);
   }
 
   const responseMessage = maybeError.response?.data?.message;
@@ -45,11 +46,11 @@ export function getErrorMessage(error: unknown): string {
   }
 
   if (typeof responseMessage === "string" && responseMessage.trim()) {
-    return responseMessage;
+    return humanWorkOrderActionMessage(responseMessage);
   }
 
   if (typeof maybeError.message === "string" && maybeError.message.trim()) {
-    return maybeError.message;
+    return humanWorkOrderActionMessage(maybeError.message);
   }
 
   return fallback;
@@ -153,7 +154,7 @@ export function humanWorkOrderStatusLabel(status: string): string {
     CLOSED: "Closed",
     COMPLETED: "Closed (Legacy)",
     CANCELLED: "Cancelled",
-    OVERDUE: "Overdue"
+    OVERDUE: "Overdue (Legacy)"
   };
   return labels[status] ?? toTitleCase(status);
 }

@@ -54,6 +54,7 @@ import {
   assertReasonProvided,
   assertRoleCanSetStatus,
   assertSensitiveFieldsUnlocked,
+  assertAssignableStatus,
   canDirectlyCloseWorkOrder,
   canReopenWorkOrder,
   canVerifySupervisor,
@@ -1564,9 +1565,7 @@ export class WorkOrdersService {
     // version must be a conflict, including when the winner already stored a technician
     // and this caller has no reassignment reason.
     const where = this.assertOptimisticVersion(current, options?.expectedVersion);
-    if (current.status !== WorkOrderStatus.PLANNED && current.status !== WorkOrderStatus.ASSIGNED) {
-      throw new BadRequestException("Work orders can only be assigned from PLANNED or ASSIGNED status.");
-    }
+    const assignment = assertAssignableStatus(current.status, current.approvalStatus);
     this.assertWorkOrderApprovedForExecution(current);
     const tenantId = this.resolveTenantId(actor);
     const technician = await this.prisma.user.findFirst({
@@ -1742,6 +1741,38 @@ export class WorkOrdersService {
         });
       }
 
+      if (assignment.promoteFromOpen) {
+        await this.recordAudit(
+          {
+            entity: "WorkOrder",
+            entityId: id,
+            action: AuditAction.UPDATE,
+            actor,
+            reason: "Planned while assigning a technician",
+            metadata: {
+              event: "work_order_planned",
+              woNumber: current.woNumber,
+              fromStatus: WorkOrderStatus.OPEN,
+              toStatus: WorkOrderStatus.PLANNED
+            },
+            beforeData: { status: WorkOrderStatus.OPEN },
+            afterData: { status: WorkOrderStatus.PLANNED }
+          },
+          tx
+        );
+        await tx.workOrderStatusHistory.create({
+          data: {
+            tenantId,
+            workOrderId: id,
+            fromStatus: WorkOrderStatus.OPEN,
+            toStatus: WorkOrderStatus.PLANNED,
+            action: "PLANNED",
+            actorId: actor?.sub,
+            reason: trimmedReason ?? "Planned while assigning a technician"
+          }
+        });
+      }
+
       await this.recordAudit(
         {
           entity: "WorkOrder",
@@ -1766,7 +1797,7 @@ export class WorkOrdersService {
         data: {
           tenantId,
           workOrderId: id,
-          fromStatus: current.status,
+          fromStatus: assignment.promoteFromOpen ? WorkOrderStatus.PLANNED : current.status,
           toStatus: WorkOrderStatus.ASSIGNED,
           action: isReassignment ? "REASSIGNED" : "ASSIGNED",
           actorId: actor?.sub,
@@ -2576,6 +2607,17 @@ export class WorkOrdersService {
       await this.notifyEnterpriseCompleted(updated, actor);
     }
 
+    if (targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED) {
+      const managers = await this.managerUserIds(tenantId);
+      await this.notifyWorkOrderUsers(managers, {
+        title: "Job ready to verify",
+        message: `Work order ${updated.woNumber} is finished and waiting for verification.`,
+        referenceId: updated.id,
+        woNumber: updated.woNumber,
+        status: updated.status
+      });
+    }
+
     await this.syncNormalizedExtensions(id, tenantId);
 
     return this.findOneWithRelations(id, actor);
@@ -2807,6 +2849,26 @@ export class WorkOrdersService {
       beforeData: { status: current.status },
       afterData: { status: updated.status, closedAt: updated.closedAt }
     });
+    let reportedById: string | undefined;
+    if (typeof this.prisma.maintenanceRequest?.findFirst === "function") {
+      const request = await this.prisma.maintenanceRequest
+        .findFirst({
+          where: { workOrderId: id, tenantId: current.tenantId },
+          select: { reportedById: true }
+        })
+        .catch(() => null);
+      reportedById = request?.reportedById;
+    }
+    await this.notifyWorkOrderUsers(
+      [updated.createdById, reportedById].filter((userId): userId is string => Boolean(userId)),
+      {
+        title: "Work order closed",
+        message: `Work order ${updated.woNumber} is closed.`,
+        referenceId: updated.id,
+        woNumber: updated.woNumber,
+        status: updated.status
+      }
+    );
     await this.completePmOccurrenceForClosedWorkOrder(current);
     if (this.workOrderDomain) {
       await this.workOrderDomain.releaseTargetIfLastOpenWorkOrder(id, actor);
@@ -4600,6 +4662,50 @@ export class WorkOrdersService {
       where: { id: line.id },
       data: { reservedQuantity: 0 }
     });
+  }
+
+  private async managerUserIds(tenantId: string): Promise<string[]> {
+    if (typeof this.prisma.user?.findMany !== "function") {
+      return [];
+    }
+    try {
+      const rows = await this.prisma.user.findMany({
+        where: {
+          tenantId,
+          role: { name: { in: [RoleName.MANAGER, RoleName.ADMIN] } }
+        },
+        select: { id: true }
+      });
+      return (rows ?? []).map((row) => row.id);
+    } catch {
+      return [];
+    }
+  }
+
+  private async notifyWorkOrderUsers(
+    userIds: string[],
+    input: { title: string; message: string; referenceId: string; woNumber: string; status: string }
+  ) {
+    const seen = new Set<string>();
+    for (const userId of userIds) {
+      if (!userId || seen.has(userId)) continue;
+      seen.add(userId);
+      try {
+        await this.notificationsService.createNotification({
+          userId,
+          title: input.title,
+          message: input.message,
+          type: NotificationType.WORK_ORDER_UPDATED,
+          priority: NotificationPriority.INFO,
+          channel: "IN_APP",
+          referenceId: input.referenceId,
+          referenceType: "WorkOrder",
+          metadata: { woNumber: input.woNumber, status: input.status }
+        });
+      } catch {
+        // The status change stays saved when a notice cannot be written.
+      }
+    }
   }
 
   private async notifyEnterpriseCompleted(

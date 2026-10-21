@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
-import { RoleName, WorkOrderStatus, WorkOrderType } from "@prisma/client";
+import { RoleName, WorkOrderApprovalStatus, WorkOrderStatus, WorkOrderType } from "@prisma/client";
 
 export const GOVERNANCE_MIN_REASON_LENGTH = 3;
 
@@ -29,13 +29,15 @@ export const TERMINAL_WORK_ORDER_STATUSES = new Set<WorkOrderStatus>([
   WorkOrderStatus.COMPLETED // legacy closed
 ]);
 
-export const SUPERVISOR_ROLES = new Set<RoleName>([
+export const SUPERVISOR_ROLE_NAMES = [
   RoleName.SUPER_ADMIN,
   RoleName.ADMIN,
   RoleName.MANAGER,
   RoleName.OPERATIONS_MANAGER,
   RoleName.ASSET_MANAGER
-]);
+] as const;
+
+export const SUPERVISOR_ROLES = new Set<RoleName>(SUPERVISOR_ROLE_NAMES);
 
 export const ADMIN_RESET_ROLES = new Set<RoleName>([
   RoleName.SUPER_ADMIN,
@@ -142,6 +144,29 @@ export function canDirectlyCloseWorkOrder(role?: RoleName | null): boolean {
 
 export function canVerifySupervisor(role?: RoleName | null): boolean {
   return role ? SUPERVISOR_ROLES.has(role) : false;
+}
+
+/** Assign from an approved OPEN work order records PLANNED, then ASSIGNED, in one transaction. */
+export function assertAssignableStatus(
+  status: WorkOrderStatus,
+  approvalStatus: WorkOrderApprovalStatus | string
+): { promoteFromOpen: boolean } {
+  if (approvalStatus === WorkOrderApprovalStatus.PENDING) {
+    throw new BadRequestException("Approve this work order before assigning a technician.");
+  }
+  if (approvalStatus === WorkOrderApprovalStatus.REJECTED) {
+    throw new BadRequestException("Work order was rejected and cannot be executed");
+  }
+  if (status === WorkOrderStatus.OPEN) {
+    if (approvalStatus !== WorkOrderApprovalStatus.APPROVED && approvalStatus !== "NOT_REQUIRED") {
+      throw new BadRequestException("Approve this work order before assigning a technician.");
+    }
+    return { promoteFromOpen: true };
+  }
+  if (status !== WorkOrderStatus.PLANNED && status !== WorkOrderStatus.ASSIGNED) {
+    throw new BadRequestException("Work orders can only be assigned from PLANNED or ASSIGNED status.");
+  }
+  return { promoteFromOpen: false };
 }
 
 export function canReopenWorkOrder(role?: RoleName | null): boolean {
