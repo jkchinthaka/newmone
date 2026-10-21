@@ -1,7 +1,8 @@
 name: Develop Staging Deploy
 
-# Build-only until staging host credentials exist. The deploy job fails on purpose
-# so a green workflow cannot be read as a completed deployment.
+# Build on every develop push. The deploy job runs only when the staging host,
+# database, Redis, storage, and mail secrets are all set. Missing secrets skip
+# that job. They do not fail the workflow.
 
 on:
   workflow_dispatch:
@@ -44,13 +45,41 @@ jobs:
           NEXT_PUBLIC_API_ORIGIN: http://localhost:3000
           NEXT_PUBLIC_USE_BFF: "true"
 
-  staging-cd:
-    needs: staging-build
+  staging-secrets:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    outputs:
+      ready: ${{ steps.probe.outputs.ready }}
     steps:
-      - name: Staging deployment is blocked
+      - name: Probe staging secrets
+        id: probe
+        env:
+          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          STAGING_REDIS_URL: ${{ secrets.STAGING_REDIS_URL }}
+          STAGING_STORAGE: ${{ secrets.STAGING_STORAGE }}
+          STAGING_MAIL: ${{ secrets.STAGING_MAIL }}
+        run: |
+          if [ -n "$STAGING_API_URL" ] && [ -n "$STAGING_DATABASE_URL" ] && [ -n "$STAGING_REDIS_URL" ] && [ -n "$STAGING_STORAGE" ] && [ -n "$STAGING_MAIL" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Staging secrets are missing. Deploy job skipped."
+          fi
+
+  staging-cd:
+    needs: [staging-build, staging-secrets]
+    if: needs.staging-secrets.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Staging deployment is not implemented
         run: |
           echo "STAGING_CD=BLOCKED"
-          echo "No staging API host, database, Redis, storage, or mail credentials are configured in this workflow."
+          echo "Staging secrets are present, but this workflow does not deploy yet."
           echo "Images were not pushed. Production was not deployed."
           exit 1
