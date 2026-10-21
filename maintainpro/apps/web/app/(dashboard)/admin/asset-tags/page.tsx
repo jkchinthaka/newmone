@@ -108,7 +108,6 @@ export default function AssetTagUploadPage() {
           ))}
         </div>
       ) : null}
-      <p><Link href="/admin/utilities">Utilities setup</Link></p>
     </main>
   );
 }
