@@ -17,6 +17,7 @@ import { parseWorkOrderRecordLink } from "@/lib/operational-deep-link";
 import { USER_KEY } from "@/lib/auth-storage";
 import { canCreateWorkOrder } from "@/lib/user-role";
 import { buildBulkStatusItems, remainingBulkSelection, summarizeBulkStatusResults } from "@/lib/work-order-bulk-status";
+import { bulkCancelSummary, bulkCancelToast, openWorkOrderIds, type BulkCancelRow } from "./bulk-cancel";
 import {
   ALLOWED_STATUS_TRANSITIONS,
   getValidWorkOrderActions,
@@ -88,6 +89,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [view, setView] = useState<WorkOrderViewMode>("queues");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [queueStatusRows, setQueueStatusRows] = useState<BulkCancelRow[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [editorState, setEditorState] = useState<{
     open: boolean;
@@ -353,27 +355,36 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     }
   };
 
+  const bulkCancelRows = view === "queues" ? queueStatusRows : workOrdersQuery.workOrders;
+  const cancellableIds = openWorkOrderIds(selectedIds, bulkCancelRows);
+
   const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) {
+    if (bulkDeleteMutation.isPending || cancellableIds.length === 0) {
       return;
     }
 
     const confirmed = await confirm({
-      title: `Cancel ${selectedIds.length} work orders?`,
-      description:
-        "Selected work orders will be cancelled and retained historically. They will not be permanently deleted.",
-      confirmLabel: "Cancel selected",
+      title: "Cancel open work orders?",
+      description: "Only OPEN work orders will be cancelled. Records are kept for audit.",
+      confirmLabel: "Cancel open work orders",
       cancelLabel: "Keep selected",
       variant: "destructive"
     });
-    if (!confirmed) {
+    if (!confirmed || bulkDeleteMutation.isPending) {
       return;
     }
 
+    const skippedNotOpen = selectedIds.length - cancellableIds.length;
     try {
-      await bulkDeleteMutation.mutateAsync(selectedIds);
-      toast.success("Selected work orders cancelled");
-      setSelectedIds([]);
+      const result = await bulkDeleteMutation.mutateAsync(cancellableIds);
+      const cancelled = new Set(result.ok);
+      setSelectedIds((current) => current.filter((id) => !cancelled.has(id)));
+      const summary = bulkCancelToast(result.ok.length, skippedNotOpen, result.failed[0]?.message);
+      if (result.failed.length > 0) {
+        toast.error(summary);
+      } else {
+        toast.success(summary);
+      }
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -442,6 +453,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             onRefreshLegacy={() => void workOrdersQuery.refetch()}
             selectedIds={selectedIds}
             onSelectedIdsChange={setSelectedIds}
+            onVisibleRows={setQueueStatusRows}
             technicians={technicians}
           />
         </Suspense>
@@ -569,7 +581,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       />
       {selectedIds.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-          <span className="font-medium text-slate-700">{selectedIds.length} selected</span>
+          <span className="font-medium text-slate-700">{bulkCancelSummary(selectedIds.length, cancellableIds.length)}</span>
           <label>
             <span className="sr-only">Bulk status</span>
             <select
@@ -594,10 +606,10 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
           <button
             type="button"
             onClick={() => void handleBulkDelete()}
-            disabled={bulkBusy}
+            disabled={bulkBusy || cancellableIds.length === 0}
             className="rounded-md border border-rose-300 px-2 py-1 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60"
           >
-            Cancel selected
+            Cancel open work orders
           </button>
         </div>
       ) : null}
