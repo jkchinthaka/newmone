@@ -160,3 +160,4 @@ Branch `fix/sweep-e2e-tenant`. Local `npm run test:e2e:full-stack` against the r
 2026-10-21 v1.0.3 flow: assign-from-open, six-role dropdown, grant script, next action, plain errors, legacy filters hidden. API tsc 0, web tsc 0, web unit 353 passed, assign/approval/legacy jest passed, audit tenant and rbac 0. Local full Jest still has pre-existing HTTP 401s that also fail on the release tree.
 2026-10-21 wo-flow-v103 Playwright 1 passed (CSRF, asset request, one login per role, photo bytes, QR scan, labour hold). PR #104 merged to develop. PR #105 develop to main still running required checks.
 2026-10-21 ui/foundation: dashboard primitives and status map added. Pages unchanged.
+2026-10-21 ui/maintenance-dashboard: /maintenance restyle only. Web tsc 0, web unit 355 passed. Full-stack, uat-roles, and wo-flow not run (local DB is MaintainProDev).
