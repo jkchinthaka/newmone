@@ -740,11 +740,13 @@ export class WorkOrdersController {
   async assign(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { technicianId: string; reason?: string; expectedVersion?: number }
+    @Body() body: { technicianId: string; reason?: string; expectedVersion?: number; plannedStartAt?: string; plannedEndAt?: string }
   ) {
     const data = await this.workOrdersService.assign(id, body.technicianId, req.user, {
       reason: body.reason,
-      expectedVersion: body.expectedVersion
+      expectedVersion: body.expectedVersion,
+      plannedStartAt: body.plannedStartAt,
+      plannedEndAt: body.plannedEndAt
     });
     return { data, message: "Work order assigned" };
   }
