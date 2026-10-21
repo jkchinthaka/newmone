@@ -87,6 +87,7 @@ function sanitizeWorkOrder(raw: unknown): WorkOrder {
 
   return {
     id: String(candidate.id ?? ""),
+    version: Number.isFinite(Number(candidate.version)) ? Number(candidate.version) : undefined,
     woNumber: String(candidate.woNumber ?? "WO-UNKNOWN"),
     title: String(candidate.title ?? "Untitled work order"),
     description: String(candidate.description ?? ""),
