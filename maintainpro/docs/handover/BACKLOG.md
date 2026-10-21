@@ -33,3 +33,5 @@ Restore archive/fix--ux-confirmed-defects and archive/test--playwright-qa-suite 
 Cleanup: `apps/api/test/nav-admin-remediation.integration.spec.ts` creates leftover "Nav admin" / "Nav other" tenants (`nav-admin-${stamp}` / `nav-other-${stamp}`) and does not delete them. Delete those fixtures after the spec, on disposable `maintainpro_e2e_*` databases only.
 
 SQL deadlock/write conflict in WorkOrdersService.assign → auditLog.create seen once in Jest (maintenance-flow.integration). Add retry on SQL error 1205/3960 for audit writes; check under concurrent assign.
+
+`confirmWorkOrderUpload` has no closed/cancelled lock (upload started before close, confirmed after). Create, upload-request, and byte-store reject CLOSED and CANCELLED. Confirm does not.
