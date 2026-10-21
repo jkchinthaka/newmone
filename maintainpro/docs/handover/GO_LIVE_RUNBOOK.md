@@ -2,8 +2,8 @@
 
 **Target go-live date:** 2026-10-21  
 **Code freeze:** 2026-10-20 18:00  
-**Go-live release:** tag `v1.0.3` on `main`. `v1.0.0-golive`, `v1.0.1-golive`, and `v1.0.2-golive` stay in place and are not the current go-live release.
-**Checkout:** `git checkout v1.0.3`
+**Deploy tag:** `v1.0.4` on `main`. This is the v1.0.3 flow plus the release notes and spec. `v1.0.0-golive`, `v1.0.1-golive`, `v1.0.2-golive`, and `v1.0.3` stay in place. Do not move `v1.0.3`.
+**Checkout:** `git checkout v1.0.4`
 **Work-order flow:** any of the six login roles can raise a request. A manager or admin approves and assigns an approved open job in one step. The technician starts, stores before and after photos, and marks complete. The manager verifies and closes. The technician cannot verify their own job.
 **Visible login roles:** `SUPER_ADMIN`, `ADMIN`, `MANAGER`, `TECHNICIAN`, `SECURITY_OFFICER`, `INVENTORY_KEEPER`. Other roles remain in the database.
 **Production database:** `MaintainProProd` on `localhost:1433` (Windows integrated auth)
@@ -35,7 +35,7 @@
 ## 2. Deploy the Build
 
 ```powershell
-# On the production server, from a checkout of tag v1.0.3
+# On the production server, from a checkout of tag v1.0.4
 cd C:\MaintainPro\maintainpro
 
 # 1. Install from the lockfile
@@ -121,6 +121,22 @@ npx ts-node --transpile-only apps/api/src/database/seed.ts
 - Demo users (supervisor, cleaner, security, tech, mechanic, inventory, drivers)
 - Cleaning locations, meter readings, utility bills
 - Workforce employees
+
+---
+
+## Post-deploy permission grant
+
+After the app is up on deploy tag `v1.0.4`, IT grants `maintenance_requests.create` to the six login roles and adds MANAGER and ADMIN approver levels only where an active rule is finance-only or has no approver. The script never removes a permission or a level.
+
+```powershell
+cd C:\MaintainPro\maintainpro
+$env:DATABASE_URL = "sqlserver://localhost:1433;database=MaintainProProd;integratedSecurity=true;trustServerCertificate=true;encrypt=true"
+npx tsx scripts/ops/grant-v103-permissions.ts --dry-run
+```
+
+Review the KEEP and GRANT lines. Then IT runs the same command without `--dry-run`.
+
+The script in this tag exits unless the database name starts with `maintainpro_e2e_`. A dry-run pointed at `MaintainProProd` prints that refusal and writes nothing. Do not point it at `MaintainProDev` or `nelna`. Do not use `sa`.
 
 ---
 
