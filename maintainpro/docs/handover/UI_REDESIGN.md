@@ -24,3 +24,5 @@ Layout patterns follow Tremor Blocks (MIT, https://blocks.tremor.so), rewritten 
 ## Next
 
 Maintenance dashboard (`/maintenance`): KPI cards, priority table, workload chips, domain BarList, pipeline cards. Same queries.
+
+15/06 My Jobs (`/work-orders/my`) | `work-orders/my/page.tsx`, `components/ui/dashboard/*`, `lib/dashboard-status.ts` | hidden: Scan asset QR, Waiting for parts, Completed this week (loaded rows have no parts flag or completed-at).
