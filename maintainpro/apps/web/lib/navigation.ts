@@ -208,6 +208,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/dashboard",
   "/requests",
   "/requests/new",
+  "/requests/mine",
   "/qr/report-issue",
   "/work-orders",
   "/work-orders/my",
@@ -360,6 +361,17 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     description: "Report and triage Maintenance Requests",
     mobilePriority: true,
     activeMatch: "startsWith"
+  },
+  {
+    id: "my-requests",
+    label: "My requests",
+    href: "/requests/mine",
+    icon: "ClipboardCheck",
+    allowedRoles: REQUEST_ROLES,
+    requiredPermissions: ["maintenance_requests.create"],
+    category: "operations",
+    description: "Track requests you submitted",
+    activeMatch: "exact"
   },
   {
     id: "all-jobs",
@@ -748,7 +760,7 @@ export function isNavigationItemVisible(
   if (!item.allowedRoles.includes(normalized)) {
     // Requests are granted by permission, not by department role. An authorized
     // Finance, Farm, or other employee must see the entry the API will allow.
-    if (item.id !== "requests") {
+    if (item.id !== "requests" && item.id !== "my-requests") {
       return false;
     }
   }
@@ -1002,6 +1014,10 @@ export function isNavItemActive(pathname: string, item: NavigationItem, search =
 
   if (match === "exact") {
     return pathname === itemPath;
+  }
+
+  if (itemPath === "/requests" && (pathname === "/requests/mine" || pathname.startsWith("/requests/mine/"))) {
+    return false;
   }
 
   return pathname === itemPath || pathname.startsWith(`${itemPath}/`);

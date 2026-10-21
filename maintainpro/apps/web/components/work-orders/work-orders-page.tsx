@@ -738,13 +738,21 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       )}
 
       {view === "queues" ? null : (
-        <p className="summary-strip" aria-label="Work order counts">
-          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.total}</span> all</span>
-          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.open}</span> open</span>
-          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.inProgress}</span> in progress</span>
-          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.overdue}</span> overdue</span>
-          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.completed}</span> completed</span>
-        </p>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Work order counts">
+          {(
+            [
+              ["Open", workOrdersQuery.stats.open, "text-slate-900"],
+              ["In progress", workOrdersQuery.stats.inProgress, "text-slate-900"],
+              ["Overdue", workOrdersQuery.stats.overdue, workOrdersQuery.stats.overdue > 0 ? "text-red-700" : "text-slate-900"],
+              ["Completed", workOrdersQuery.stats.completed, "text-slate-900"]
+            ] as Array<[string, number, string]>
+          ).map(([label, value, tone]) => (
+            <article key={label} className="rounded-card border border-slate-200 bg-white p-4 shadow-card">
+              <p className="text-sm font-medium text-slate-600">{label}</p>
+              <p className={`mt-3 text-2xl font-semibold tabular-nums ${tone}`}>{value}</p>
+            </article>
+          ))}
+        </div>
       )}
 
       <motion.section

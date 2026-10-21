@@ -40,7 +40,7 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
     cards: [
       { id: "report-issue", title: "Report a Maintenance Issue", href: "/requests/new", description: "Report a physical maintenance issue" },
       { id: "new-request", title: "New Request", href: "/requests/new", description: "Submit a structured request" },
-      { id: "my-requests", title: "My Requests", href: "/requests", description: "Track your requests" }
+      { id: "my-requests", title: "My Requests", href: "/requests/mine", description: "Track your requests" }
     ]
   },
   {
