@@ -251,8 +251,15 @@ export async function updateWorkOrderStatus(id: string, payload: UpdateWorkOrder
   return sanitizeWorkOrder(unwrapData(response.data));
 }
 
-export async function assignWorkOrder(id: string, technicianId: string): Promise<WorkOrder> {
-  const response = await apiClient.post<ApiEnvelope<WorkOrder>>(`/work-orders/${id}/assign`, { technicianId });
+export async function assignWorkOrder(
+  id: string,
+  technicianId: string,
+  options?: { plannedStartAt?: string; plannedEndAt?: string; expectedVersion?: number }
+): Promise<WorkOrder> {
+  const response = await apiClient.post<ApiEnvelope<WorkOrder>>(`/work-orders/${id}/assign`, {
+    technicianId,
+    ...options
+  });
   return sanitizeWorkOrder(unwrapData(response.data));
 }
 
