@@ -9,7 +9,7 @@ Presentational only. APIs, RBAC, tenant isolation, stock transactions, and maint
 - Status: slate neutral, sky planned/assigned, brand in progress, amber hold/pending, red rework/overdue/rejected, emerald verified/closed/approved.
 - Type: page title `text-xl font-semibold`, section title `text-sm font-semibold`, KPI value `text-2xl`.
 - Space: page stack `space-y-4`, card padding `p-4`, radius `rounded-card` (0.75rem), shadow `shadow-card`.
-- Light and dark pairs use `dark:` on the same elements. Focus uses `focus-visible:outline-brand-600`.
+- Light theme only. `dark:` styles apply only when a `dark` class is present, and the app does not add that class. Focus uses `focus-visible:outline-brand-600`.
 
 ## Components (`components/ui/dashboard`)
 
