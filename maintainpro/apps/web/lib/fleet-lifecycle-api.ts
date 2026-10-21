@@ -23,8 +23,8 @@ export type GateEligibilityResult = {
   driverId?: string;
 };
 
-export async function getFleetOverview(): Promise<FleetOverviewSummary> {
-  const response = await apiClient.get("/fleet-lifecycle/overview");
+export async function getFleetOverview(signal?: AbortSignal): Promise<FleetOverviewSummary> {
+  const response = await apiClient.get("/fleet-lifecycle/overview", { signal });
   return (response.data as { data: FleetOverviewSummary }).data;
 }
 

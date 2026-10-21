@@ -155,11 +155,9 @@ export function shouldIgnoreCommandPaletteShortcut(target: EventTarget | null): 
 }
 
 export function isCommandPaletteShortcut(
-  event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey">
+  event: Pick<KeyboardEvent, "ctrlKey" | "metaKey" | "altKey" | "shiftKey"> & { key?: string }
 ): boolean {
-  if (event.key.toLowerCase() !== "k") {
-    return false;
-  }
+  if (typeof event.key !== "string" || event.key.toLowerCase() !== "k") return false;
 
   if (event.altKey || event.shiftKey) {
     return false;
