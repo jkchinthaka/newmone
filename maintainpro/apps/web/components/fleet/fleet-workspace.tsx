@@ -225,7 +225,7 @@ export function FleetWorkspace() {
       <OperationalJobsHeader
         eyebrow="Fleet"
         title="Fleet"
-        description="Overview of vehicles, service due dates, compliance, and readiness."
+        description="Vehicles, service due dates, documents and gate readiness."
         actions={
           <>
             <button type="button" className="h-9 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>
@@ -240,14 +240,14 @@ export function FleetWorkspace() {
         }
       />
 
-      <div className="flex max-w-full gap-1 overflow-x-auto [contain:paint]" role="tablist" aria-label="Fleet sections">
+      <div className="flex max-w-full gap-1 overflow-x-auto rounded-card border border-slate-200 bg-white p-1 shadow-card [contain:paint]" role="tablist" aria-label="Fleet sections">
         {FLEET_VIEWS.map((view) => (
           <button
             key={view}
             type="button"
             role="tab"
             aria-selected={state.view === view}
-            className={`whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium ${state.view === view ? "bg-brand-600 text-white" : "text-slate-700 hover:bg-slate-100"}`}
+            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${state.view === view ? "bg-brand-700 text-white" : "text-slate-700 hover:bg-slate-100"}`}
             onClick={() => write({ ...fleetStateFromSearch(new URLSearchParams()), view, pageSize: state.pageSize, expiry: view === "compliance" ? "30d" : "" })}
           >
             {VIEW_LABELS[view]}
@@ -508,12 +508,12 @@ function RecordTable({ view, rows }: { view: FleetView; rows: Array<Record<strin
 }
 
 const FLEET_SUMMARY_METRICS = [
-  ["overdue", "Service Overdue", "overdueService"],
-  ["due", "Due Soon", "dueService"],
-  ["docs", "Docs Expiring", "expiringDocs"],
-  ["gate", "Gate Blocked", "blockedVehicles"],
-  ["repairs", "Open Repairs", "openRepairs"],
-  ["out", "Out of Service", "outOfService"]
+  ["overdue", "Service overdue", "overdueService"],
+  ["due", "Due soon", "dueService"],
+  ["docs", "Docs expiring", "expiringDocs"],
+  ["gate", "Gate blocked", "blockedVehicles"],
+  ["repairs", "Open repairs", "openRepairs"],
+  ["out", "Out of service", "outOfService"]
 ] as const;
 
 export function FleetSummaryChips({
@@ -541,20 +541,20 @@ export function FleetSummaryChips({
   }
 
   return (
-    <div className="grid grid-cols-3 gap-2 lg:grid-cols-6" aria-label="Fleet summary">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6" aria-label="Fleet summary">
       {FLEET_SUMMARY_METRICS.map(([key, label, field]) => {
         const count = summary ? summary[field] : null;
         const shown = loading || count == null ? "–" : String(count);
-        const alert = typeof count === "number" && count > 0;
+        const alert = typeof count === "number" && count > 0 && (key === "overdue" || key === "gate");
         return (
           <button
             key={key}
             type="button"
-            className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-left"
+            className="rounded-card border border-slate-200 bg-white p-4 text-left shadow-card"
             onClick={() => onSelect(key)}
           >
-            <span className={`block text-xl font-semibold leading-none ${alert ? "text-red-700" : "text-slate-900"}`}>{shown}</span>
-            <span className="mt-1 block text-xs text-slate-600">{label}</span>
+            <span className="block text-sm font-medium text-slate-600">{label}</span>
+            <span className={`mt-3 block text-2xl font-semibold leading-none ${alert ? "text-red-700" : "text-slate-900"}`}>{shown}</span>
           </button>
         );
       })}
