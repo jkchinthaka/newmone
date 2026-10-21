@@ -49,6 +49,7 @@ import {
 import { WorkOrderCompactTable } from "./work-order-compact-table";
 import { WorkOrderMobileCardList } from "./work-order-mobile-card-list";
 import { humanWorkOrderStatusLabel } from "./helpers";
+import { selectableWorkOrderStatuses } from "@/lib/work-order-next-action";
 import { WORK_ORDER_STATUSES, type TechnicianOption, type WorkOrder } from "./types";
 
 type Props = {
@@ -431,7 +432,7 @@ export function WorkOrderQueuePanel({
               className={`${fieldClass} w-full`}
             >
               <option value="ALL">All statuses</option>
-              {WORK_ORDER_STATUSES.map((status) => (
+              {selectableWorkOrderStatuses(WORK_ORDER_STATUSES).map((status) => (
                 <option key={status} value={status}>
                   {humanWorkOrderStatusLabel(status)}
                 </option>

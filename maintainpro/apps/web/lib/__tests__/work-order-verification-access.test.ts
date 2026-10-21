@@ -16,8 +16,8 @@ test("only manager and admin roles can verify work orders", () => {
   assert.equal(canVerifyWorkOrderRole(null), false);
 });
 
-test("SV-19 supervisor Verify is shown only with the explicit permission", () => {
-  assert.equal(canVerifyWorkOrder({ role: "SUPERVISOR", permissions: ["work_orders.verify"] }), true);
+test("SV-19 Verify is shown only to the shared verifier roles", () => {
+  assert.equal(canVerifyWorkOrder({ role: "SUPERVISOR", permissions: ["work_orders.verify"] }), false);
   assert.equal(canVerifyWorkOrder({ role: "SUPERVISOR", permissions: ["work_orders.manage"] }), false);
   assert.equal(canVerifyWorkOrder({ role: "SUPERVISOR", permissions: [] }), false);
   assert.equal(canVerifyWorkOrder({ role: "MANAGER", permissions: [] }), true);

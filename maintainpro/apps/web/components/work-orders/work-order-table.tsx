@@ -4,6 +4,7 @@ import { Pencil, Trash2 } from "lucide-react";
 
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { getValidWorkOrderActions } from "@/lib/work-order-actions";
+import { canManageWorkOrders, primaryWorkOrderAction, secondaryWorkOrderActions } from "@/lib/work-order-next-action";
 
 import {
   formatDate,
@@ -37,6 +38,8 @@ type WorkOrderTableProps = {
   onComplete: (workOrder: WorkOrder) => void;
   onDelete: (workOrder: WorkOrder) => void;
   onEdit: (workOrder: WorkOrder) => void;
+  actorRole?: string | null;
+  onPrimary?: (workOrder: WorkOrder, actionId?: string) => void;
 };
 
 export function WorkOrderTable({
@@ -52,8 +55,12 @@ export function WorkOrderTable({
   onAssign,
   onComplete,
   onDelete,
-  onEdit
+  onEdit,
+  actorRole,
+  onPrimary
 }: WorkOrderTableProps) {
+  void onStatusChange;
+  void onComplete;
   const selectableIds = rows.map((row) => row.id);
   const allChecked = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.includes(id));
 
@@ -93,50 +100,13 @@ export function WorkOrderTable({
       header: "Status",
       mobileLabel: "Status",
       sortable: true,
-      cell: (workOrder) => {
-        const actions = getValidWorkOrderActions(workOrder.status).filter((descriptor) =>
-          new Set(["PLAN", "ASSIGN", "START", "HOLD", "RESUME", "COMPLETE", "VERIFY", "CLOSE"]).has(
-            descriptor.action
-          )
-        );
-
-        return (
-          <div className="space-y-2">
-            <span
-              className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ring-1 ${getStatusClass(workOrder.status)}`}
-            >
-              {humanWorkOrderStatusLabel(workOrder.status)}
-            </span>
-
-            {actions.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
-                {actions.map((descriptor) => (
-                  <button
-                    key={`${workOrder.id}-${descriptor.action}`}
-                    type="button"
-                    onClick={() => {
-                      if (descriptor.action === "COMPLETE") {
-                        onComplete(workOrder);
-                        return;
-                      }
-
-                      if (descriptor.action === "PLAN" && descriptor.targetStatus === workOrder.status) {
-                        onEdit(workOrder);
-                        return;
-                      }
-
-                      onStatusChange(workOrder, descriptor.targetStatus);
-                    }}
-                    className="rounded-md border border-slate-300 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    {descriptor.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        );
-      }
+      cell: (workOrder) => (
+          <span
+            className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ring-1 ${getStatusClass(workOrder.status)}`}
+          >
+            {humanWorkOrderStatusLabel(workOrder.status)}
+          </span>
+        )
     },
     {
       id: "priority",
@@ -211,8 +181,40 @@ export function WorkOrderTable({
       }
       minWidth="1020px"
       onSortChange={(columnId) => onSortChange(columnId as WorkOrderSortField)}
-      renderActions={(workOrder) => (
+      renderActions={(workOrder) => {
+        if (!canManageWorkOrders(actorRole)) return null;
+        const next = primaryWorkOrderAction({
+          status: workOrder.status,
+          role: actorRole,
+          approvalStatus: workOrder.approvalStatus
+        });
+        const more = secondaryWorkOrderActions({ status: workOrder.status, role: actorRole });
+        return (
         <div className="flex flex-wrap items-center gap-1">
+          {next ? (
+            <button
+              type="button"
+              title={next.disabledReason}
+              disabled={Boolean(next.disabledReason)}
+              onClick={() => onPrimary?.(workOrder, next.id)}
+              className="inline-flex min-h-11 items-center rounded-md bg-brand-700 px-2 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {next.label}
+            </button>
+          ) : null}
+          <details className="relative">
+            <summary className="cursor-pointer list-none rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700">More</summary>
+            <div className="mt-1 flex flex-wrap gap-1">
+          {more.map((action) => (
+            <button
+              key={action.id}
+              type="button"
+              onClick={() => onPrimary?.(workOrder, action.id)}
+              className="inline-flex min-h-11 items-center rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700"
+            >
+              {action.label}
+            </button>
+          ))}
           <button
             type="button"
             onClick={() => onEdit(workOrder)}
@@ -229,8 +231,11 @@ export function WorkOrderTable({
               <Trash2 size={12} /> Cancel
             </button>
           ) : null}
+            </div>
+          </details>
         </div>
-      )}
+        );
+      }}
       renderLeadingCell={(workOrder) => (
         <input
           type="checkbox"

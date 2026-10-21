@@ -16,6 +16,7 @@ import { createPerson, type CreatePersonPayload } from "@/lib/people-api";
 import { ASSIGNABLE_WORKFORCE_DESIGNATIONS } from "@/lib/workforce-designations";
 import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
+import { visibleLoginRoles } from "@/lib/visible-login-roles";
 
 type WizardState = {
   employeeNo: string;
@@ -193,7 +194,7 @@ export function AddPersonWizard() {
               <input placeholder="Login email *" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
               <select value={form.roleId} onChange={(e) => setForm({ ...form, roleId: e.target.value })} className="w-full rounded border px-3 py-2 text-sm">
                 <option value="">Select role</option>
-                {(rolesQuery.data ?? []).map((role) => (
+                {(visibleLoginRoles(rolesQuery.data ?? [], form.roleId)).map((role) => (
                   <option key={role.id} value={role.id}>{role.name}</option>
                 ))}
               </select>

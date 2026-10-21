@@ -21,6 +21,7 @@ import { VendorRepairService } from "./vendor-repair.service";
 import { WorkOrderTaxonomyService } from "../work-order-taxonomy/work-order-taxonomy.service";
 import { MaintenanceConfigService } from "../maintenance-config/maintenance-config.service";
 import { parseWorkOrderListQuery } from "./work-order-list-query.util";
+import { SUPERVISOR_ROLE_NAMES } from "../../common/utils/work-order-governance";
 import {
   PART_REQUEST_APPROVE_FINANCE_ROLES,
   PART_REQUEST_APPROVE_OPERATIONAL_ROLES,
@@ -657,7 +658,7 @@ export class WorkOrdersController {
   @Post(":id/plan")
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Work order planned" })
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Roles(...SUPERVISOR_ROLE_NAMES)
   @Permissions("work_orders.plan")
   async planWork(
     @Req() req: AuthedRequest,
@@ -947,7 +948,7 @@ export class WorkOrdersController {
   @Post(":id/verify-supervisor")
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Work order supervisor verified (Phase 6 VERIFIED)" })
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Roles(...SUPERVISOR_ROLE_NAMES)
   @Permissions("work_orders.verify")
   async verifySupervisor(
     @Req() req: AuthedRequest,

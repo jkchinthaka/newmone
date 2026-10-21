@@ -24,6 +24,8 @@ import {
   isAllowedKanbanDrop
 } from "@/lib/work-order-actions";
 import { useCurrentUser } from "@/lib/use-current-user";
+import { apiClient } from "@/lib/api-client";
+import { primaryWorkOrderAction, selectableWorkOrderStatuses } from "@/lib/work-order-next-action";
 
 import { CompleteWorkOrderModal } from "./complete-work-order-modal";
 import { getErrorMessage, toTitleCase } from "./helpers";
@@ -320,6 +322,55 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     }
   };
 
+  const handlePrimary = async (workOrder: WorkOrder, actionId?: string) => {
+    const action = primaryWorkOrderAction({
+      status: workOrder.status,
+      role: currentUser.role,
+      approvalStatus: workOrder.approvalStatus
+    });
+    const selected = actionId ?? action?.id;
+    if (!selected) return;
+    if (selected === action?.id && action?.disabledReason) return;
+    if (selected === "send-back") {
+      try {
+        await apiClient.post(`/work-orders/${workOrder.id}/reject-supervisor`, {
+          reason: "Sent back for rework"
+        });
+        toast.success(`${workOrder.woNumber} sent back`);
+        await workOrdersQuery.refetch();
+      } catch (error) {
+        toast.error(getErrorMessage(error));
+      }
+      return;
+    }
+    if (selected === "assign") {
+      toast.message("Choose a technician in the Assign list.");
+      return;
+    }
+    if (selected === "start") {
+      await handleStatusChange(workOrder, "IN_PROGRESS");
+      return;
+    }
+    if (selected === "complete") {
+      setCompletionTarget(workOrder);
+      return;
+    }
+    try {
+      const verified = await apiClient.post<{ data?: { version?: number } }>(`/work-orders/${workOrder.id}/verify-supervisor`, {
+        expectedVersion: workOrder.version,
+        verificationNote: "Verified from the work order list"
+      });
+      await apiClient.post(`/work-orders/${workOrder.id}/close`, {
+        expectedVersion: verified.data?.data?.version ?? workOrder.version,
+        note: "Closed after verification"
+      });
+      toast.success(`${workOrder.woNumber} verified and closed`);
+      await workOrdersQuery.refetch();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   const handleApprove = async (workOrder: WorkOrder) => {
     try {
       await approveMutation.mutateAsync({ id: workOrder.id });
@@ -534,12 +585,16 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             onComplete={(workOrder) => setCompletionTarget(workOrder)}
             onDelete={(workOrder) => void handleDelete(workOrder)}
             onEdit={openEditModal}
+            actorRole={currentUser.role}
+            onPrimary={(workOrder, actionId) => void handlePrimary(workOrder, actionId)}
           />
         )}
       </>
     );
   }, [
     handleAssign,
+    handlePrimary,
+    currentUser.role,
     handleApprove,
     handleReject,
     canApproveWorkOrders,
@@ -596,7 +651,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
               className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700"
             >
               <option value="">Bulk status</option>
-              {WORK_ORDER_STATUSES.filter((status) => status !== "COMPLETED").map((status) => (
+              {selectableWorkOrderStatuses(WORK_ORDER_STATUSES).map((status) => (
                 <option key={status} value={status}>
                   {toTitleCase(status)}
                 </option>

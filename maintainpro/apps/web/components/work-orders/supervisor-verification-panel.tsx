@@ -140,7 +140,7 @@ export function SupervisorVerificationPanel({
             className="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-white px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-70"
           >
             <XCircle size={14} />
-            Request Rework
+            Send back
           </button>
         ) : null}
       </div>

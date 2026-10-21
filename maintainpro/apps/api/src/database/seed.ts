@@ -17,6 +17,7 @@ import * as bcrypt from "bcryptjs";
 import { buildCanonicalDepartmentSeed, createDepartmentCode, normalizeDepartmentName } from "../modules/departments/department-master-list";
 import { AssetTaxonomyService } from "../modules/asset-taxonomy/asset-taxonomy.service";
 import { MaintenanceConfigService } from "../modules/maintenance-config/maintenance-config.service";
+import { applyV103Grants } from "./v103-grants";
 import { MaintenanceTemplatesService } from "../modules/maintenance-config/maintenance-templates.service";
 import { ReliabilityService } from "../modules/reliability/reliability.service";
 import { TenantFeaturesService } from "../modules/maintenance-config/tenant-features.service";
@@ -342,7 +343,8 @@ const rolePermissions: Record<RoleName, string[]> = {
     "erp.view",
     "erp.reconcile",
     "reports.view",
-    "modules.view_all"
+    "modules.view_all",
+    "maintenance_requests.create"
   ],
   SUPERVISOR: [
     "dashboard.view",
@@ -381,7 +383,8 @@ const rolePermissions: Record<RoleName, string[]> = {
     "gate.out.create",
     "gate.in.create",
     "operations.scan_lookup",
-    "predictive_insights.view"
+    "predictive_insights.view",
+    "maintenance_requests.create"
   ],
   CLEANER: ["cleaning.log_visit", "cleaning.report_issue", "facility_issues.report"],
   DRIVER: [
@@ -1575,6 +1578,7 @@ async function main() {
   }
   }
 
+  await applyV103Grants(prisma, { dryRun: false });
   await verifySeedBaseline(tenant.id);
 
   if (seedDemo) {

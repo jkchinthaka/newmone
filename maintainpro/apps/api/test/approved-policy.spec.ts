@@ -350,7 +350,8 @@ describe("approved supervisor verification", () => {
     ).rejects.toThrow();
     await expect(service.reopenWorkOrder("wo-1", "Need it open", supervisor)).rejects.toBeInstanceOf(BadRequestException);
     const roles = new Reflector().get<string[]>(ROLES_KEY, WorkOrdersController.prototype.verifySupervisor);
-    expect(roles).toContain("SUPERVISOR");
+    expect(roles).toEqual(["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER"]);
+    expect(roles).not.toContain("SUPERVISOR");
     const closeRoles = new Reflector().get<string[]>(ROLES_KEY, WorkOrdersController.prototype.closeWorkOrder);
     expect(closeRoles).not.toContain("SUPERVISOR");
   });

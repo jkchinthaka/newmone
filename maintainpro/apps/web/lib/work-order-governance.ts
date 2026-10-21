@@ -56,7 +56,7 @@ export function canVerifyWorkOrderRole(role: string | null | undefined): boolean
   return Boolean(role && WORK_ORDER_VERIFIER_ROLES.has(role));
 }
 
-/** SUPERVISOR needs the explicit grant. work_orders.manage does not count. Managers stay role-based. */
+/** Verify is limited to the same roles as the API supervisor set. */
 export function canVerifyWorkOrder(input: {
   role?: string | null;
   permissions?: readonly string[] | null;
@@ -64,10 +64,7 @@ export function canVerifyWorkOrder(input: {
   if (canVerifyWorkOrderRole(input.role)) {
     return true;
   }
-  if (input.role !== "SUPERVISOR") {
-    return false;
-  }
-  return (input.permissions ?? []).includes("work_orders.verify");
+  return false;
 }
 
 export function getLifecycleStageLabel(status: WorkOrderStatus): string {
