@@ -4,13 +4,13 @@ This note is for the server team and the next developer. It does not assume the 
 
 ## 1. Status
 
-The go-live release is tag **`v1.0.2-golive`** on `main` (vehicle register hotfix). `develop` and `qa` are fast-forwarded to that tag. Pull request **#100** stays on `develop`. **`v1.0.0-golive` (`f0eba613`) and `v1.0.1-golive` (`a1e80ed8`) stay in place and are not the current go-live release.** Do not deploy them.
+The go-live release is tag **`v1.0.3`** on `main`. Visible login roles are SUPER_ADMIN, ADMIN, MANAGER, TECHNICIAN, SECURITY_OFFICER, and INVENTORY_KEEPER. Any of those roles can raise a maintenance request. A manager or admin approves it and assigns the approved open work order in one step. The technician starts, stores before and after photos, and marks complete. The manager verifies and closes. A technician cannot verify their own job. **`v1.0.0-golive` (`f0eba613`), `v1.0.1-golive` (`a1e80ed8`), and `v1.0.2-golive` stay in place and are not the current go-live release.** Do not deploy them.
 
-The runbook and master-data note for this release are `maintainpro/docs/handover/GO_LIVE_RUNBOOK.md` and `GO_LIVE_MASTER_DATA.md` on `v1.0.2-golive`.
+The runbook and master-data note for this release are `maintainpro/docs/handover/GO_LIVE_RUNBOOK.md` and `GO_LIVE_MASTER_DATA.md` on `v1.0.3`. The flow note is `WO_FLOW_V103.md`.
 
 ## 2. Server and IT checklist
 
-Do these in order on tag `v1.0.2-golive`. Steps are in `maintainpro/docs/handover/GO_LIVE_RUNBOOK.md` and `GO_LIVE_MASTER_DATA.md`. Production web is `next start`. Never `next dev`.
+Do these in order on tag `v1.0.3`. Steps are in `maintainpro/docs/handover/GO_LIVE_RUNBOOK.md` and `GO_LIVE_MASTER_DATA.md`. Production web is `next start`. Never `next dev`.
 
 1. **Server.** Runbook §1. Windows host, SQL Server Express, Node, and the release checkout.
 2. **IIS ARR and `X-Real-IP`.** Runbook §12. The proxy in front of Next.js sets `X-Real-IP` to `{REMOTE_ADDR}` (one client address). Do not copy `X-Forwarded-For`. ARR’s forwarded-for option does not count. Allow server variable `HTTP_X_REAL_IP`. Same text is in `DEPLOYMENT_RUNBOOK.md` on that branch.
@@ -46,7 +46,7 @@ Rollback is runbook §9: previous build, and a database restore only if a migrat
 | Unused Prisma models. Confirm each model has no caller, then remove it in its own pull request. | — |
 | Prisma upgrade. Not before a stable release. | — |
 
-Ship tag `v1.0.2-golive`. Keep `v1.0.0-golive` and `v1.0.1-golive`. Do not cut another tag for a documentation-only change.
+Ship tag `v1.0.3`. Keep `v1.0.0-golive`, `v1.0.1-golive`, and `v1.0.2-golive`. Do not move those tags.
 
 ## 4. Run and test
 
