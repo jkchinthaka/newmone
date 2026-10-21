@@ -87,6 +87,7 @@ function sanitizeWorkOrder(raw: unknown): WorkOrder {
 
   return {
     id: String(candidate.id ?? ""),
+    version: Number.isFinite(Number(candidate.version)) ? Number(candidate.version) : undefined,
     woNumber: String(candidate.woNumber ?? "WO-UNKNOWN"),
     title: String(candidate.title ?? "Untitled work order"),
     description: String(candidate.description ?? ""),
@@ -251,8 +252,15 @@ export async function updateWorkOrderStatus(id: string, payload: UpdateWorkOrder
   return sanitizeWorkOrder(unwrapData(response.data));
 }
 
-export async function assignWorkOrder(id: string, technicianId: string): Promise<WorkOrder> {
-  const response = await apiClient.post<ApiEnvelope<WorkOrder>>(`/work-orders/${id}/assign`, { technicianId });
+export async function assignWorkOrder(
+  id: string,
+  technicianId: string,
+  options?: { plannedStartAt?: string; plannedEndAt?: string; expectedVersion?: number }
+): Promise<WorkOrder> {
+  const response = await apiClient.post<ApiEnvelope<WorkOrder>>(`/work-orders/${id}/assign`, {
+    technicianId,
+    ...options
+  });
   return sanitizeWorkOrder(unwrapData(response.data));
 }
 

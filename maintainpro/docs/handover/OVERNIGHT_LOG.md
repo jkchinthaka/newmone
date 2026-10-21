@@ -1,9 +1,9 @@
 # Overnight log
 
-0 | develop | #112 #110 #113 #111 merged | done
-1 | fix/backlog-high | https://github.com/jkchinthaka/newmone/pull/115 | merged
-0b | ui/pages-batch-2 | https://github.com/jkchinthaka/newmone/pull/114 | develop merged; checks re-running
-2 | ui/pages-batch-3 | https://github.com/jkchinthaka/newmone/pull/117 | checks running; screenshots still to capture
-3 | feature/wo-flow-phase2 | https://github.com/jkchinthaka/newmone/pull/116 | checks green earlier; Playwright dialog still to add before merge
-4 | feature/my-requests | https://github.com/jkchinthaka/newmone/pull/118 | checks running
-5 | feature/wo-insights | branch ready | unit tests passed; PR next
+0 | develop | #112 #110 #113 #111 #116 merged | #116 a5e13464
+1 | fix/backlog-high | #115 | merged
+2 | ui/pages-batch-3 | #117 | screenshots pushed; full-stack-e2e still pending
+3 | feature/my-requests | #118 | develop merged; full-stack-e2e and release-validate still pending
+4 | feature/wo-insights | #119 | develop merged; phase3 HTTP fix local 16 passed; do not merge until green
+5 | feature/gate-history | #120 | checks green including fresh-sqlserver-migrate; NOT merged; review SQL uncommitted
+6 | feature/access-studio-f1 | F1 coded | api tests 26, web card test 1, api and web tsc pass; qa-reviewer blocked by billing, not a FAIL

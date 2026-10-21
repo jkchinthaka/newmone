@@ -118,6 +118,8 @@ type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId"> & {
 type AssignOptions = {
   reason?: string;
   expectedVersion?: number;
+  plannedStartAt?: string;
+  plannedEndAt?: string;
 };
 
 @Injectable()
@@ -1600,10 +1602,24 @@ export class WorkOrdersService {
       throw new BadRequestException("Reassignment reason is required when changing technician.");
     }
 
+    let plannedStartAt: Date | undefined;
+    let plannedEndAt: Date | undefined;
+    if (options?.plannedStartAt || options?.plannedEndAt) {
+      if (!options.plannedStartAt || !options.plannedEndAt) {
+        throw new BadRequestException("Planned start and end are both required.");
+      }
+      plannedStartAt = new Date(options.plannedStartAt);
+      plannedEndAt = new Date(options.plannedEndAt);
+      if (Number.isNaN(plannedStartAt.getTime()) || Number.isNaN(plannedEndAt.getTime()) || plannedEndAt <= plannedStartAt) {
+        throw new BadRequestException("Planned window must end after it starts.");
+      }
+    }
+
     const assignmentData = {
       technicianId,
       status: WorkOrderStatus.ASSIGNED,
-      version: { increment: 1 as const }
+      version: { increment: 1 as const },
+      ...(plannedStartAt && plannedEndAt ? { plannedStartAt, plannedEndAt } : {})
     };
 
     let employee = await this.prisma.employee.findFirst({

@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 import { DateTimeField } from "@/components/forms/date-fields";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
-import { ErrorState } from "@/components/ui/page-state";
+import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard";
 import { getApiErrorMessage, apiClient } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/localization";
 import { useCurrentUser } from "@/lib/use-current-user";
@@ -142,14 +142,14 @@ export default function MaintenanceInspectionsPage() {
         </div>
       </header>
 
-      <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
           ["Due Today", summary.dueToday, "due"],
           ["Overdue", summary.overdue, "overdue"],
           ["Failed / Critical", summary.failed, "failed"],
           ["Completed This Week", summary.completedThisWeek, "completed"]
         ].map(([label, value, key]) => (
-          <button key={String(label)} type="button" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left" onClick={() => write({ view: String(key) })}>
+          <button key={String(label)} type="button" className="rounded-card border border-slate-200 bg-white p-4 text-left shadow-card" onClick={() => write({ view: String(key) })}>
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
             <p className="mt-1 text-2xl font-semibold">{value}</p>
           </button>
@@ -182,18 +182,15 @@ export default function MaintenanceInspectionsPage() {
       </div>
       <p className="text-sm text-slate-600">{total} inspection{total === 1 ? "" : "s"}</p>
 
-      {error ? <ErrorState title="We couldn't load inspections." description={error} onRetry={() => write({ retry: String(Date.now()) })} retryLabel="Retry" /> : null}
+      {error ? <ErrorState message={`We couldn't load inspections. ${error}`} onRetry={() => write({ retry: String(Date.now()) })} /> : null}
       {loading ? (
-        <div className="space-y-2" aria-busy="true">
-          {Array.from({ length: 5 }).map((_, index) => <div key={index} className="h-14 animate-pulse rounded-lg bg-slate-100" />)}
+        <div className="grid gap-3 sm:grid-cols-2" aria-busy="true">
+          {Array.from({ length: 4 }).map((_, index) => <SkeletonCard key={index} />)}
         </div>
       ) : null}
 
       {!loading && !error && items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center">
-          <p className="font-medium">No inspections yet.</p>
-          <p className="mt-1 text-sm text-slate-600">Create an inspection to check asset, vehicle or facility condition and record findings before they become maintenance problems.</p>
-        </div>
+        <EmptyState title="No inspections yet." description="Create an inspection to check asset, vehicle or facility condition and record findings before they become maintenance problems." />
       ) : null}
 
       {!loading && items.length > 0 ? (

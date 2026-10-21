@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev:api\" \"npm run dev:web\"",
-    "dev:current": "node ./scripts/start-current.mjs",
+    "dev:current": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/dev/dev-current.ps1",
     "dev:api": "npm run dev --workspace @maintainpro/api",
     "start:qa": "npm run build --workspace @maintainpro/shared-types && npm run start:qa --workspace @maintainpro/api",
     "dev:web": "npm run dev --workspace @maintainpro/web",

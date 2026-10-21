@@ -13,18 +13,13 @@ for every agent:
 
 ## Run the current project
 
+Local app runs only on 3040 (API) and 3041 (web) from the 'app' worktree. Agents must not start other dev servers; e2e uses its own temporary stack and must stop it when done.
+
 When the user says "Run this project", "Start MaintainPro", "Open localhost", or "Run current project":
 
-- Run `node maintainpro/scripts/start-current.mjs` from the canonical release worktree recorded in `maintainpro/scripts/canonical-project.json`. From the maintainpro directory, `npm run dev:current` does the same thing.
-- Do not run `npm run dev` from an unknown directory.
-- Do not open an existing localhost server until its `/dev/identity` worktree id, branch, and SHA match that worktree.
-- Port 3001 belonging to another checkout is not the current app.
-
-Fallback from any directory:
-
-```powershell
-node C:\Users\chint\AppData\Local\MaintainPro\worktrees\release-final-20261013\maintainpro\scripts\start-current.mjs
-```
+- From `C:\Users\chint\AppData\Local\MaintainPro\worktrees\app\maintainpro`, run `npm run dev:current`.
+- That script frees node listeners on 3040 and 3041, then starts the API and web there. If either port is still busy, it stops with an error and does not choose another port.
+- Do not run `npm run dev` from another checkout.
 
 ## Git policy (single source of truth)
 
