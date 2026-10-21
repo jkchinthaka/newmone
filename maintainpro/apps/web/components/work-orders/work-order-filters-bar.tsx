@@ -4,7 +4,8 @@ import { useState } from "react";
 import { ChevronDown, Filter, Search } from "lucide-react";
 
 import { DateField } from "@/components/forms/date-fields";
-import { toTitleCase } from "./helpers";
+import { toTitleCase, humanWorkOrderStatusLabel } from "./helpers";
+import { selectableWorkOrderStatuses } from "@/lib/work-order-next-action";
 import {
   WORK_ORDER_PRIORITIES,
   WORK_ORDER_STATUSES,
@@ -79,9 +80,9 @@ export function WorkOrderFiltersBar({
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
               >
                 <option value="ALL">All Statuses</option>
-                {WORK_ORDER_STATUSES.map((status) => (
+                {selectableWorkOrderStatuses(WORK_ORDER_STATUSES).map((status) => (
                   <option key={status} value={status}>
-                    {toTitleCase(status)}
+                    {humanWorkOrderStatusLabel(status)}
                   </option>
                 ))}
               </select>

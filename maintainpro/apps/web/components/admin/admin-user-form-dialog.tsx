@@ -16,6 +16,7 @@ import {
 import { fetchAdminTenantOverviewList } from "@/lib/admin-tenants-api";
 import type { AdminRoleReviewRow } from "@/lib/admin-roles";
 import { formatRoleLabel } from "@/lib/admin-roles";
+import { visibleLoginRoles } from "@/lib/visible-login-roles";
 
 export interface AdminUserFormDialogProps {
   open: boolean;
@@ -210,7 +211,7 @@ export function AdminUserFormDialog({ open, onClose, onSaved, roles, user }: Adm
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
               >
                 <option value="">Select role…</option>
-                {roles.map((role) => (
+                {visibleLoginRoles(roles, form.roleId).map((role) => (
                   <option key={role.id} value={role.id}>
                     {formatRoleLabel(role.name)}
                   </option>

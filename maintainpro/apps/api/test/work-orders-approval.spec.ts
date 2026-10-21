@@ -167,7 +167,9 @@ describe("WorkOrdersService approval and audit", () => {
 
     const service = new WorkOrdersService(prisma as any, { createNotification: jest.fn() } as any, createWorkOrderPartsServiceMock() as any, createWorkOrderTaxonomyServiceMock() as any, { addAssignee: jest.fn() } as any);
 
-    await expect(service.assign("wo-1", "tech-1", manager)).rejects.toThrow(BadRequestException);
+    await expect(service.assign("wo-1", "tech-1", manager)).rejects.toThrow(
+      "Approve this work order before assigning a technician."
+    );
     expect(prisma.workOrder.update).not.toHaveBeenCalled();
   });
 

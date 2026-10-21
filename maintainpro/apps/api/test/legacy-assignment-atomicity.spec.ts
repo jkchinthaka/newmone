@@ -168,6 +168,31 @@ describe("legacy technician assignment transaction boundary", () => {
     expect(prisma.workOrder.update).not.toHaveBeenCalled();
   });
 
+  it("plans and assigns an approved open work order in one transaction", async () => {
+    prisma.workOrder.findFirst.mockResolvedValue({
+      id: "wo-1",
+      tenantId: "tenant-1",
+      status: WorkOrderStatus.OPEN,
+      approvalStatus: "APPROVED",
+      technicianId: null,
+      woNumber: "WO-1",
+      priority: "MEDIUM"
+    });
+
+    await service.assign("wo-1", "tech-1", actor);
+
+    const histories = prisma.workOrderStatusHistory.create.mock.calls.map(
+      (call: [{ data: { fromStatus: string; toStatus: string } }]) =>
+        `${call[0].data.fromStatus}->${call[0].data.toStatus}`
+    );
+    expect(histories).toEqual(["OPEN->PLANNED", "PLANNED->ASSIGNED"]);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.auditLog.create).toHaveBeenCalledTimes(2);
+    expect(notifications.createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "tech-1", title: "Work order assigned" })
+    );
+  });
+
   it("blocks a technician from another tenant before any assignment write", async () => {
     prisma.user.findFirst.mockResolvedValue(null);
 

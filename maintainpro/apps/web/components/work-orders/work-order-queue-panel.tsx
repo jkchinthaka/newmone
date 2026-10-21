@@ -49,6 +49,7 @@ import {
 import { WorkOrderCompactTable } from "./work-order-compact-table";
 import { WorkOrderMobileCardList } from "./work-order-mobile-card-list";
 import { humanWorkOrderStatusLabel } from "./helpers";
+import { selectableWorkOrderStatuses } from "@/lib/work-order-next-action";
 import { WORK_ORDER_STATUSES, type TechnicianOption, type WorkOrder } from "./types";
 
 type Props = {
@@ -56,6 +57,7 @@ type Props = {
   onRefreshLegacy?: () => void;
   selectedIds?: string[];
   onSelectedIdsChange?: (ids: string[]) => void;
+  onVisibleRows?: (rows: Array<{ id: string; status: string }>) => void;
   jobDomain?: string;
   technicians?: TechnicianOption[];
 };
@@ -117,6 +119,7 @@ export function WorkOrderQueuePanel({
   onRefreshLegacy,
   selectedIds = [],
   onSelectedIdsChange,
+  onVisibleRows,
   jobDomain,
   technicians = []
 }: Props) {
@@ -306,6 +309,10 @@ export function WorkOrderQueuePanel({
 
   const rows = queueQuery.data?.data ?? [];
 
+  useEffect(() => {
+    onVisibleRows?.(rows.map((row) => ({ id: row.id, status: row.status })));
+  }, [onVisibleRows, rows]);
+
   const actionRequiredCount =
     summaryData.queues?.find((queue) => queue.key === "action-required")?.count ?? 0;
 
@@ -425,7 +432,7 @@ export function WorkOrderQueuePanel({
               className={`${fieldClass} w-full`}
             >
               <option value="ALL">All statuses</option>
-              {WORK_ORDER_STATUSES.map((status) => (
+              {selectableWorkOrderStatuses(WORK_ORDER_STATUSES).map((status) => (
                 <option key={status} value={status}>
                   {humanWorkOrderStatusLabel(status)}
                 </option>

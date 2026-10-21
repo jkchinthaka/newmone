@@ -17,12 +17,15 @@ import { parseWorkOrderRecordLink } from "@/lib/operational-deep-link";
 import { USER_KEY } from "@/lib/auth-storage";
 import { canCreateWorkOrder } from "@/lib/user-role";
 import { buildBulkStatusItems, remainingBulkSelection, summarizeBulkStatusResults } from "@/lib/work-order-bulk-status";
+import { bulkCancelSummary, bulkCancelToast, openWorkOrderIds, type BulkCancelRow } from "./bulk-cancel";
 import {
   ALLOWED_STATUS_TRANSITIONS,
   getValidWorkOrderActions,
   isAllowedKanbanDrop
 } from "@/lib/work-order-actions";
 import { useCurrentUser } from "@/lib/use-current-user";
+import { apiClient } from "@/lib/api-client";
+import { primaryWorkOrderAction, selectableWorkOrderStatuses } from "@/lib/work-order-next-action";
 
 import { CompleteWorkOrderModal } from "./complete-work-order-modal";
 import { getErrorMessage, toTitleCase } from "./helpers";
@@ -88,6 +91,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [view, setView] = useState<WorkOrderViewMode>("queues");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [queueStatusRows, setQueueStatusRows] = useState<BulkCancelRow[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [editorState, setEditorState] = useState<{
     open: boolean;
@@ -318,6 +322,55 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     }
   };
 
+  const handlePrimary = async (workOrder: WorkOrder, actionId?: string) => {
+    const action = primaryWorkOrderAction({
+      status: workOrder.status,
+      role: currentUser.role,
+      approvalStatus: workOrder.approvalStatus
+    });
+    const selected = actionId ?? action?.id;
+    if (!selected) return;
+    if (selected === action?.id && action?.disabledReason) return;
+    if (selected === "send-back") {
+      try {
+        await apiClient.post(`/work-orders/${workOrder.id}/reject-supervisor`, {
+          reason: "Sent back for rework"
+        });
+        toast.success(`${workOrder.woNumber} sent back`);
+        await workOrdersQuery.refetch();
+      } catch (error) {
+        toast.error(getErrorMessage(error));
+      }
+      return;
+    }
+    if (selected === "assign") {
+      toast.message("Choose a technician in the Assign list.");
+      return;
+    }
+    if (selected === "start") {
+      await handleStatusChange(workOrder, "IN_PROGRESS");
+      return;
+    }
+    if (selected === "complete") {
+      setCompletionTarget(workOrder);
+      return;
+    }
+    try {
+      const verified = await apiClient.post<{ data?: { version?: number } }>(`/work-orders/${workOrder.id}/verify-supervisor`, {
+        expectedVersion: workOrder.version,
+        verificationNote: "Verified from the work order list"
+      });
+      await apiClient.post(`/work-orders/${workOrder.id}/close`, {
+        expectedVersion: verified.data?.data?.version ?? workOrder.version,
+        note: "Closed after verification"
+      });
+      toast.success(`${workOrder.woNumber} verified and closed`);
+      await workOrdersQuery.refetch();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   const handleApprove = async (workOrder: WorkOrder) => {
     try {
       await approveMutation.mutateAsync({ id: workOrder.id });
@@ -353,27 +406,36 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     }
   };
 
+  const bulkCancelRows = view === "queues" ? queueStatusRows : workOrdersQuery.workOrders;
+  const cancellableIds = openWorkOrderIds(selectedIds, bulkCancelRows);
+
   const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) {
+    if (bulkDeleteMutation.isPending || cancellableIds.length === 0) {
       return;
     }
 
     const confirmed = await confirm({
-      title: `Cancel ${selectedIds.length} work orders?`,
-      description:
-        "Selected work orders will be cancelled and retained historically. They will not be permanently deleted.",
-      confirmLabel: "Cancel selected",
+      title: "Cancel open work orders?",
+      description: "Only OPEN work orders will be cancelled. Records are kept for audit.",
+      confirmLabel: "Cancel open work orders",
       cancelLabel: "Keep selected",
       variant: "destructive"
     });
-    if (!confirmed) {
+    if (!confirmed || bulkDeleteMutation.isPending) {
       return;
     }
 
+    const skippedNotOpen = selectedIds.length - cancellableIds.length;
     try {
-      await bulkDeleteMutation.mutateAsync(selectedIds);
-      toast.success("Selected work orders cancelled");
-      setSelectedIds([]);
+      const result = await bulkDeleteMutation.mutateAsync(cancellableIds);
+      const cancelled = new Set(result.ok);
+      setSelectedIds((current) => current.filter((id) => !cancelled.has(id)));
+      const summary = bulkCancelToast(result.ok.length, skippedNotOpen, result.failed[0]?.message);
+      if (result.failed.length > 0) {
+        toast.error(summary);
+      } else {
+        toast.success(summary);
+      }
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -442,6 +504,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             onRefreshLegacy={() => void workOrdersQuery.refetch()}
             selectedIds={selectedIds}
             onSelectedIdsChange={setSelectedIds}
+            onVisibleRows={setQueueStatusRows}
             technicians={technicians}
           />
         </Suspense>
@@ -522,12 +585,16 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             onComplete={(workOrder) => setCompletionTarget(workOrder)}
             onDelete={(workOrder) => void handleDelete(workOrder)}
             onEdit={openEditModal}
+            actorRole={currentUser.role}
+            onPrimary={(workOrder, actionId) => void handlePrimary(workOrder, actionId)}
           />
         )}
       </>
     );
   }, [
     handleAssign,
+    handlePrimary,
+    currentUser.role,
     handleApprove,
     handleReject,
     canApproveWorkOrders,
@@ -569,7 +636,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       />
       {selectedIds.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-          <span className="font-medium text-slate-700">{selectedIds.length} selected</span>
+          <span className="font-medium text-slate-700">{bulkCancelSummary(selectedIds.length, cancellableIds.length)}</span>
           <label>
             <span className="sr-only">Bulk status</span>
             <select
@@ -584,7 +651,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
               className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700"
             >
               <option value="">Bulk status</option>
-              {WORK_ORDER_STATUSES.filter((status) => status !== "COMPLETED").map((status) => (
+              {selectableWorkOrderStatuses(WORK_ORDER_STATUSES).map((status) => (
                 <option key={status} value={status}>
                   {toTitleCase(status)}
                 </option>
@@ -594,10 +661,10 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
           <button
             type="button"
             onClick={() => void handleBulkDelete()}
-            disabled={bulkBusy}
+            disabled={bulkBusy || cancellableIds.length === 0}
             className="rounded-md border border-rose-300 px-2 py-1 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60"
           >
-            Cancel selected
+            Cancel open work orders
           </button>
         </div>
       ) : null}
