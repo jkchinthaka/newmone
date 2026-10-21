@@ -63,21 +63,19 @@ export function WorkOrderGovernanceBanner({ workOrder }: Props) {
             <dt className="font-medium text-brand-800">Verification</dt>
             <dd>{getVerificationStatusLabel(verificationStatus)}</dd>
           </div>
-          <div>
-            <dt className="font-medium text-brand-800">Operational risk score</dt>
-            <dd>
-              {riskScore ? (
+          {riskScore && Number.isFinite(riskScore.score) ? (
+            <div>
+              <dt className="font-medium text-brand-800">Operational risk score</dt>
+              <dd>
                 <span className={`inline-flex rounded-full border px-2 py-0.5 text-sm font-semibold ${severityClass(riskScore.severity as "LOW")}`}>
                   {riskScore.score} · {riskScore.severity}
                 </span>
-              ) : (
-                "Not available"
-              )}
-            </dd>
-          </div>
+              </dd>
+            </div>
+          ) : null}
           <div className="sm:col-span-2">
             <dt className="font-medium text-brand-800">Evidence requirement</dt>
-            <dd>Upload before/after photos on the Evidence tab when storage is enabled.</dd>
+            <dd>Add before and after photos on the Evidence tab.</dd>
           </div>
         </dl>
       </div>

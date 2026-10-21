@@ -13,7 +13,8 @@ import { visibleWorkOrderTab, workOrderTabLoads } from "@/lib/operational-deep-l
 import { dialogTabTrapDecision, workOrderDrawerEscapeDecision } from "@/lib/overlay-dismiss";
 import { disableSubmitControl } from "@/lib/submit-lock";
 import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
-import { canVerifyWorkOrder, isWorkOrderStarted, workOrderStatusBadgeClass } from "@/lib/work-order-governance";
+import { canVerifyWorkOrder, isWorkOrderStarted } from "@/lib/work-order-governance";
+import { isWorkOrderDrawerReadOnly } from "@/lib/work-order-drawer-display";
 import { overviewDraftDirty, overviewSaveDecision, type OverviewDraft } from "@/lib/work-order-overview-edit";
 import type { WorkOrderActivityTimelineResponse } from "@/lib/work-order-activity";
 import { workOrderActivityUnavailableMessage } from "@/lib/work-order-activity";
@@ -27,7 +28,6 @@ import { asDateInputValue, requiresAssetOrVehicle, toTitleCase } from "./helpers
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_TYPES, type UpdateWorkOrderInput, type WorkOrder } from "./types";
 import { PartRequestsPanel } from "./part-requests-panel";
 import { WorkOrderAssigneesPanel } from "./work-order-assignees-panel";
-import { WorkOrderActivityPanel } from "./work-order-activity-panel";
 import { WorkOrderAuditPanel } from "./work-order-audit-panel";
 import { WorkOrderDetailTabs, type WorkOrderDetailTab } from "./work-order-detail-tabs";
 import { WorkOrderEvidencePanel } from "./work-order-evidence-panel";
@@ -38,6 +38,13 @@ import { WorkOrderVendorRepairPanel } from "./work-order-vendor-repair-panel";
 import { WorkOrderGuidedCreate } from "./work-order-guided-create";
 import { useWorkOrderHistorySummary, WorkOrderHistoryPanel } from "./work-order-history-panel";
 import { WorkOrderSafetyPanel } from "./work-order-safety-panel";
+import {
+  DrawerStatusRow,
+  drawerTitle,
+  WorkOrderLockBanner,
+  WorkOrderOverviewView,
+  WorkOrderProgress
+} from "./work-order-drawer-chrome";
 
 type WorkOrderEditorMode = "create" | "edit";
 
@@ -342,6 +349,7 @@ export function WorkOrderEditorModal({
     },
     overviewBaseline
   );
+  const drawerReadOnly = !isCreateMode && Boolean(workOrder && isWorkOrderDrawerReadOnly(workOrder.status));
   const saveDecision = overviewSaveDecision({
     mode: isCreateMode ? "create" : editingOverview ? "edit" : "view",
     tab: activeTab,
@@ -386,45 +394,38 @@ export function WorkOrderEditorModal({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 24 }}
             transition={drawerMotion}
-            className="flex h-dvh w-full max-w-full flex-col overflow-hidden bg-white shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600 sm:max-w-xl lg:max-w-3xl"
+            className="flex h-dvh w-full max-w-full flex-col overflow-hidden bg-white shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600 sm:max-w-[760px]"
           >
-            <header className="flex shrink-0 items-start justify-between gap-3 border-b border-brand-100 px-4 py-3">
+            <header className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-brand-800">
+                <p className="text-xs font-semibold text-brand-800">
                   {isCreateMode ? "New work order" : workOrder?.woNumber || "Work order"}
                 </p>
                 <h3 id="work-order-editor-title" className="page-title break-words">
-                  {isCreateMode ? "Create an open job" : workOrder?.title || "Work order"}
+                  {isCreateMode ? "Create an open job" : workOrder ? drawerTitle(workOrder) : "Work order"}
                 </h3>
                 {!isCreateMode && workOrder ? (
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink">
-                    <span className={`inline-flex min-h-7 items-center rounded-full border px-2.5 py-0.5 font-medium ${workOrderStatusBadgeClass(workOrder.status)}`}>
-                      {toTitleCase(workOrder.status)}
-                    </span>
-                    <span
-                      className={`rounded-full border px-2 py-0.5 font-medium ${
-                        workOrder.priority === "CRITICAL" || workOrder.priority === "HIGH"
-                          ? "border-amber-300 bg-accent-50 text-accent-700"
-                          : "border-brand-100 bg-white"
-                      }`}
-                    >
-                      {toTitleCase(workOrder.priority)}
-                    </span>
-                    {workOrder.slaBreached ? (
-                      <span className="rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 font-medium text-rose-800">
-                        SLA breached
-                      </span>
-                    ) : null}
-                    <span className="min-w-0 break-words">
-                      {workOrder.asset?.name || workOrder.vehicle?.registrationNo || "No asset linked"}
-                      {workOrder.asset?.assetTag ? ` · ${workOrder.asset.assetTag}` : ""}
-                    </span>
-                  </div>
+                  <>
+                    <DrawerStatusRow workOrder={workOrder} />
+                    <WorkOrderProgress status={workOrder.status} />
+                  </>
                 ) : (
                   <p className="mt-1 text-sm text-brand-800">Planning can continue after creation.</p>
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-1">
+                {!isCreateMode && saveDecision.showSave ? (
+                  <button
+                    type="submit"
+                    form="work-order-editor-form"
+                    disabled={!saveDecision.enabled}
+                    className="btn-primary hidden min-h-10 justify-center disabled:opacity-70 sm:inline-flex"
+                    aria-describedby={saveDecision.reason ? "overview-save-reason" : undefined}
+                  >
+                    {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {saveDecision.label}
+                  </button>
+                ) : null}
                 {!isCreateMode ? (
                   <div className="relative">
                     <button
@@ -475,12 +476,24 @@ export function WorkOrderEditorModal({
               </div>
             </header>
 
+            {!isCreateMode && workOrder ? <WorkOrderLockBanner status={workOrder.status} /> : null}
+
             {!isCreateMode && workOrder?.id ? (
               <WorkOrderDetailTabs
                 activeTab={activeTab}
                 onChange={setActiveTab}
                 showAudit={showAuditTab}
                 showAssignment={currentUser.role !== "TECHNICIAN" && currentUser.role !== "MECHANIC"}
+                counts={{
+                  evidence: evidenceItems.some((item) => item.status === "UPLOADED")
+                    ? evidenceItems.filter((item) => item.status === "UPLOADED").length
+                    : undefined,
+                  history:
+                    historySummary.data &&
+                    historySummary.data.previousMaintenance.length + historySummary.data.previousBreakdowns.length > 0
+                      ? historySummary.data.previousMaintenance.length + historySummary.data.previousBreakdowns.length
+                      : undefined
+                }}
               />
             ) : null}
 
@@ -520,6 +533,7 @@ export function WorkOrderEditorModal({
               </div>
             ) : (
               <form
+              id="work-order-editor-form"
               onSubmit={(event) => {
                 event.preventDefault();
                 disableSubmitControl(event.currentTarget);
@@ -590,13 +604,21 @@ export function WorkOrderEditorModal({
               }}
               className="flex min-h-0 flex-1 flex-col overflow-hidden"
             >
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-slate-50 px-4 py-4">
               {formError ? (
                 <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">
                   {formError}
                 </p>
               ) : null}
-              {!isCreateMode && activeTab !== "overview" ? null : (
+              {!isCreateMode && activeTab !== "overview" ? null : !editingOverview && workOrder ? (
+                <WorkOrderOverviewView
+                  workOrder={workOrder}
+                  description={formState.description}
+                  role={currentUser.role}
+                  readOnly={drawerReadOnly}
+                  onEdit={() => setEditingOverview(true)}
+                />
+              ) : (
               <section className="space-y-4 rounded-xl border border-brand-100 bg-white p-4">
                 <div className="flex items-center justify-between gap-2">
                 <h4 className="text-sm font-semibold text-ink">Details</h4>
@@ -841,29 +863,26 @@ export function WorkOrderEditorModal({
               ) : null}
 
               {!isCreateMode && workOrder?.id && activeTab === "assignment" ? (
-                <WorkOrderAssigneesPanel workOrderId={workOrder.id} />
+                <WorkOrderAssigneesPanel
+                  workOrderId={workOrder.id}
+                  readOnly={drawerReadOnly}
+                  actualHours={workOrder.actualHours}
+                />
               ) : null}
 
               {!isCreateMode && workOrder?.id && activeTab === "parts" ? (
-                <PartRequestsPanel workOrderId={workOrder.id} />
+                <PartRequestsPanel workOrderId={workOrder.id} readOnly={drawerReadOnly} />
               ) : null}
 
               {!isCreateMode && workOrder?.id && activeTab === "safety" ? (
-                <WorkOrderSafetyPanel workOrderId={workOrder.id} />
+                <WorkOrderSafetyPanel workOrderId={workOrder.id} readOnly={drawerReadOnly} />
               ) : null}
 
               {!isCreateMode && workOrder?.id && activeTab === "evidence" ? (
                 <div className="space-y-4">
-                  <WorkOrderActivityPanel
-                    loading={activityLoading}
-                    error={activityError}
-                    timeline={activityTimeline}
-                    workOrderId={undefined}
-                    evidenceReadiness={null}
-                    evidenceItems={[]}
-                  />
                   <WorkOrderEvidencePanel
                     workOrderId={workOrder.id}
+                    readOnly={drawerReadOnly}
                     readiness={evidenceReadiness}
                     items={evidenceItems}
                     requirements={evidenceRequirements}
@@ -886,6 +905,7 @@ export function WorkOrderEditorModal({
                 <WorkOrderVendorRepairPanel
                   workOrderId={workOrder.id}
                   verificationStatus={workOrder.verificationStatus ?? undefined}
+                  readOnly={drawerReadOnly}
                 />
               ) : null}
 
@@ -898,7 +918,7 @@ export function WorkOrderEditorModal({
               ) : null}
               </div>
 
-              <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-brand-100 bg-white px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+              <div className="flex shrink-0 flex-col gap-2 border-t border-brand-100 bg-white px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                 {saveDecision.reason ? (
                   <p id="overview-save-reason" className="text-sm text-slate-700 sm:mr-auto" role="status">{saveDecision.reason}</p>
                 ) : null}
@@ -915,7 +935,7 @@ export function WorkOrderEditorModal({
                   <button
                     type="submit"
                     disabled={!saveDecision.enabled}
-                    className="btn-primary w-full justify-center disabled:opacity-70 sm:w-auto"
+                    className="btn-primary w-full justify-center disabled:opacity-70 sm:hidden"
                     aria-describedby={saveDecision.reason ? "overview-save-reason" : undefined}
                   >
                     {submitting ? <Loader2 size={14} className="animate-spin" /> : null}

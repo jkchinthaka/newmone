@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Truck } from "lucide-react";
 import { toast } from "sonner";
@@ -7,6 +8,8 @@ import { toast } from "sonner";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { previewVendorTax, taxRateInputIsValid } from "@/lib/vendor-tax";
+import { vendorRepairStepper } from "@/lib/work-order-drawer-display";
+import { VendorRepairProgress } from "./work-order-drawer-chrome";
 import {
   canApproveVendorQuotation,
   canFinanceApproveVendorInvoice,
@@ -21,9 +24,10 @@ type ApiEnvelope<T> = { data: T; message?: string };
 type Props = {
   workOrderId: string;
   verificationStatus?: string;
+  readOnly?: boolean;
 };
 
-export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: Props) {
+export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus, readOnly = false }: Props) {
   const currentUser = useCurrentUser();
   const role = currentUser?.role;
   const [loading, setLoading] = useState(true);
@@ -102,8 +106,19 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
     );
   }
 
+  const repairStep = vendorRepairStepper(vendorCase?.status);
+
   return (
     <div className="space-y-5">
+      {vendorCase ? <VendorRepairProgress status={vendorCase.status} /> : null}
+      {!repairStep.cancelled && repairStep.pendingApproval ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">Waiting for approval</span>
+          <Link href="/approvals" className="text-sm font-medium text-brand-800 underline">
+            View in Approvals
+          </Link>
+        </div>
+      ) : null}
       <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -138,7 +153,7 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
         </div>
       ) : null}
 
-      {!vendorCase && canRequestVendorRepair(role) ? (
+      {!readOnly && !vendorCase && canRequestVendorRepair(role) ? (
         <section className="space-y-3 rounded-lg border border-slate-200 p-4">
           <h4 className="font-semibold text-slate-900">Request vendor repair</h4>
           <textarea
@@ -196,7 +211,7 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
         </section>
       ) : null}
 
-      {vendorCase && canRequestVendorRepair(role) ? (
+      {!readOnly && vendorCase && canRequestVendorRepair(role) ? (
         <section className="space-y-3 rounded-lg border border-slate-200 p-4">
           <h4 className="font-semibold text-slate-900">Vendor & quotations</h4>
           {!vendorCase.supplier ? (
@@ -359,7 +374,7 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus }: 
         </section>
       ) : null}
 
-      {vendorCase && canRequestVendorRepair(role) ? (
+      {!readOnly && vendorCase && canRequestVendorRepair(role) ? (
         <section className="space-y-3 rounded-lg border border-slate-200 p-4">
           <h4 className="font-semibold text-slate-900">Invoice review</h4>
           {verificationStatus !== "VERIFIED" ? (

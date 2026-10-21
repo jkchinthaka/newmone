@@ -5,6 +5,8 @@ import { Camera, CheckCircle2, FileText, Loader2, QrCode, UploadCloud, WifiOff, 
 import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { apiBaseUrl } from "@/lib/api-url";
+import { formatDrawerDateTime } from "@/lib/work-order-drawer-display";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { EvidencePicker, type EvidencePickerFile } from "@/components/evidence/evidence-picker";
 import { QrScanner } from "@/components/qr/qr-scanner";
@@ -33,6 +35,27 @@ import {
   type WorkOrderEvidenceRequirements
 } from "@/lib/work-order-evidence";
 
+function EvidenceThumb({ workOrderId, item }: { workOrderId: string; item: WorkOrderEvidenceItem }) {
+  const [failed, setFailed] = useState(false);
+  const when = formatDrawerDateTime(item.capturedAt || item.createdAt);
+  const label = `${evidenceTypeLabel(item.evidenceType)}${when ? ` · ${when}` : ""}`;
+  if (!item.downloadAvailable || failed) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-slate-100 px-2 py-6 text-center text-xs text-slate-700">
+        {label}
+      </div>
+    );
+  }
+  return (
+    <img
+      src={`${apiBaseUrl}/work-orders/${encodeURIComponent(workOrderId)}/evidence/${encodeURIComponent(item.id)}/content`}
+      alt={evidenceTypeLabel(item.evidenceType)}
+      className="h-24 w-full rounded-lg border border-slate-200 object-cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 type ApiEnvelope<T> = {
   data: T;
   message?: string;
@@ -47,6 +70,7 @@ type WorkOrderEvidencePanelProps = {
   vehicleId?: string | null;
   loading?: boolean;
   onRefresh?: () => Promise<void> | void;
+  readOnly?: boolean;
 };
 
 type EvidenceUploadRequestResultLike = {
@@ -64,7 +88,8 @@ export function WorkOrderEvidencePanel({
   assetId,
   vehicleId,
   loading = false,
-  onRefresh
+  onRefresh,
+  readOnly = false
 }: WorkOrderEvidencePanelProps) {
   const currentUser = useCurrentUser();
   const [submitting, setSubmitting] = useState(false);
@@ -311,7 +336,7 @@ export function WorkOrderEvidencePanel({
                   </div>
                 ) : null}
               </div>
-              {canReview && item.verificationStatus === "PENDING" && item.status === "UPLOADED" ? (
+              {!readOnly && canReview && item.verificationStatus === "PENDING" && item.status === "UPLOADED" ? (
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -346,9 +371,53 @@ export function WorkOrderEvidencePanel({
           <span>Evidence & field proof</span>
         </div>
         <h4 id="work-order-evidence-heading" className="mt-2 text-sm font-semibold text-slate-900">
-          Before/after proof, QR verification, and supervisor review
+          Photo evidence
         </h4>
+        <p className="mt-1 text-xs text-slate-600">Before/after proof, QR verification, and supervisor review</p>
       </div>
+      <div className="flex flex-wrap gap-2 text-xs">
+        <span className="rounded-full bg-emerald-50 px-2 py-1 font-medium text-emerald-800">
+          Before photo ({items.filter((item) => item.status === "UPLOADED" && item.evidenceType === "BEFORE_PHOTO").length})
+        </span>
+        <span className="rounded-full bg-amber-50 px-2 py-1 font-medium text-amber-800">
+          After photo ({items.filter((item) => item.status === "UPLOADED" && item.evidenceType === "AFTER_PHOTO").length})
+        </span>
+      </div>
+      {items.some((item) => item.status === "UPLOADED" && item.mimeType.startsWith("image/")) ? (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {items
+            .filter((item) => item.status === "UPLOADED" && item.mimeType.startsWith("image/"))
+            .map((item) => (
+              <EvidenceThumb key={item.id} workOrderId={workOrderId} item={item} />
+            ))}
+        </div>
+      ) : null}
+      {items.some((item) => item.status === "UPLOADED" && item.mimeType === "application/pdf") ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead>
+              <tr className="text-xs text-slate-500">
+                <th className="py-1 pr-3">File</th>
+                <th className="py-1 pr-3">Type</th>
+                <th className="py-1 pr-3">Uploaded by</th>
+                <th className="py-1">Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items
+                .filter((item) => item.status === "UPLOADED" && item.mimeType === "application/pdf")
+                .map((item) => (
+                  <tr key={item.id} className="border-t border-slate-100">
+                    <td className="py-2 pr-3">{item.fileName}</td>
+                    <td className="py-2 pr-3">Document</td>
+                    <td className="py-2 pr-3">{item.uploadedByName || "—"}</td>
+                    <td className="py-2">{formatDrawerDateTime(item.createdAt)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
 
       {requirements ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
@@ -377,10 +446,16 @@ export function WorkOrderEvidencePanel({
         </div>
       ) : null}
 
+      {readOnly ? null : (
       <div className="rounded-lg border border-slate-200 p-4">
         <p className="text-sm font-medium text-slate-900">Upload evidence</p>
         {!storageConfigured ? (
-          <p className="mt-2 text-xs text-amber-800">{evidenceUploadDisabledMessage(readiness)}</p>
+          <p className="mt-2 text-xs text-amber-800">
+            Photo storage is not set up yet. Ask your administrator.
+            {currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN"
+              ? ` ${evidenceUploadDisabledMessage(readiness)}`
+              : ""}
+          </p>
         ) : null}
         {uploadPhase === "uploading" ? <p className="mt-2 text-xs text-slate-600">Uploading evidence…</p> : null}
         {uploadPhase === "failed" ? (
@@ -438,6 +513,7 @@ export function WorkOrderEvidencePanel({
           </button>
         </div>
       </div>
+      )}
 
       {(assetId || vehicleId) && requirements?.qrRequired ? (
         <div className="rounded-lg border border-slate-200 p-4">

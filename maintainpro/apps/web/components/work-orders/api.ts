@@ -146,7 +146,10 @@ function sanitizeWorkOrder(raw: unknown): WorkOrder {
         }
       : null,
     technician: sanitizeUser(candidate.technician),
-    createdBy: sanitizeUser(candidate.createdBy)
+    createdBy: sanitizeUser(candidate.createdBy),
+    categoryNameSnapshot: typeof candidate.categoryNameSnapshot === "string" ? candidate.categoryNameSnapshot : null,
+    typeNameSnapshot: typeof candidate.typeNameSnapshot === "string" ? candidate.typeNameSnapshot : null,
+    issueNameSnapshot: typeof candidate.issueNameSnapshot === "string" ? candidate.issueNameSnapshot : null
   };
 }
 

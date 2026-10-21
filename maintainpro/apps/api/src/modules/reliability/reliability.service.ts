@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 
+import { assertWorkOrderAcceptsFieldMutation } from "../../common/utils/work-order-terminal-lock";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
@@ -512,6 +513,7 @@ export class ReliabilityService {
   ) {
     const tenantId = requireTenantId(actor.tenantId);
     const wo = await this.assertWorkOrder(tenantId, workOrderId);
+    assertWorkOrderAcceptsFieldMutation(wo.status, "start downtime");
     const category = input.category.trim().toUpperCase();
     if (!(DOWNTIME_CATEGORIES as readonly string[]).includes(category)) {
       throw new BadRequestException(`Invalid downtime category. Allowed: ${DOWNTIME_CATEGORIES.join(", ")}`);
@@ -1185,6 +1187,7 @@ export class ReliabilityService {
       where: { id: workOrderId, tenantId },
       select: {
         id: true,
+        status: true,
         assetId: true,
         downtimeApplicable: true,
         downtimeStartedAt: true,

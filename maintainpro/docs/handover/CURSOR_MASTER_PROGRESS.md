@@ -161,3 +161,4 @@ Branch `fix/sweep-e2e-tenant`. Local `npm run test:e2e:full-stack` against the r
 2026-10-21 wo-flow-v103 Playwright 1 passed (CSRF, asset request, one login per role, photo bytes, QR scan, labour hold). PR #104 merged to develop. PR #105 develop to main still running required checks.
 2026-10-21 ui/foundation: dashboard primitives and status map added. Pages unchanged.
 2026-10-21 ci/run-gates-on-develop: release-validate and full-stack-e2e also run on pull requests into develop. SQL Server gate stays path-filtered, not branch-filtered.
+2026-10-21 ui/wo-drawer: drawer redesign polish (one save hint, tab underline, evidence copy, Colombo dates, mobile stepper). Local commit only.
