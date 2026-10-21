@@ -4,15 +4,7 @@ Recorded 2026-10-19. Neither item was coded in Block D. Each needs more than a o
 
 ## My Jobs SQL pagination
 
-`listMyJobs` in `apps/api/src/modules/work-orders/work-order-queues.service.ts` loads at most 500 assigned rows, then filters, counts, and pages in memory. `assignedTotal` is a real SQL count. `capped` is true when the assignment count is above 500. Tab counts and `total` describe the capped set, so a technician with more than 500 jobs can miss rows and see short counts.
-
-Plan:
-
-1. Push view, status, priority, due, and search into the Prisma `where` (the same rules as `matchesMyJobView` and `matchesMyJobFilters`).
-2. `count` and `findMany` with `skip` / `take` and `orderBy` matching `compareMyJobs`.
-3. Compute the nine tab counts with SQL `count` queries, not from the page.
-4. Remove the 500 cap. Keep `assignedTotal` as the unfiltered assignment count.
-5. Add a disposable-SQL test with more than one page and a row that would have fallen past the old cap.
+Done on develop. `listMyJobs` counts in SQL and pages with `skip` / `take`. The old 500-row in-memory cap is gone.
 
 ## Deferred audit outbox
 
