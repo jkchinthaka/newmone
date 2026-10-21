@@ -26,3 +26,15 @@ Layout patterns follow Tremor Blocks (MIT, https://blocks.tremor.so), rewritten 
 Maintenance dashboard (`/maintenance`): KPI cards, priority table, workload chips, domain BarList, pipeline cards. Same queries.
 
 15/06 My Jobs (`/work-orders/my`) | `work-orders/my/page.tsx`, `components/ui/dashboard/*`, `lib/dashboard-status.ts` | hidden: Scan asset QR, Waiting for parts, Completed this week (loaded rows have no parts flag or completed-at).
+16 Requests (`/requests`) | `requests/page.tsx` | hidden: none (stage cards and status chips use loaded summary and existing status filters).
+17 Preventive Maintenance (`/maintenance/plans`) | `maintenance/plans/page.tsx` | hidden: compliance KPI (no compliance figure on the loaded summary).
+18 Inspection (`/maintenance/inspections`, `/maintenance/inspections/[id]`) | both inspection pages | hidden: Pass/Fail/N/A buttons and Create work order from failure (checklist answers stay free-text inputs; no create-from-failure action).
+19 Gate (`/fleet/gate`) | `fleet-gate-panel.tsx` | hidden: Scan QR; site-wide Today at the gate (history stays the per-vehicle list already loaded on demand).
+20 Register vehicle (`/admin/vehicles/new`) | `admin/vehicles/new/page.tsx` | hidden: ownership, mileage, asset-tag link (not on this form). Payload sends selected type and fuelType.
+21 Reports (`/reports`) | `reports-dashboard-page.tsx` | hidden: site filter and the named downtime library (not in this page's filters or module list). KPI cards and bars use summaryCards and charts already returned.
+22 Admin Console (`/admin`) | `admin-console-page.tsx` | hidden: Assets, Vehicles, Pending invitations counts (overview has users, tenants, jobs, approvals, imports, data issues).
+23 Users (`/admin/users`) | `admin-users-page.tsx`, `user-access-table.tsx` | hidden: department column (not on the loaded user row). Group chips use loaded role counts.
+24 Roles (`/admin/roles`) | `admin-roles-page.tsx`, `permission-group-card.tsx` | hidden: none. Matrix stays read-only checkmarks; editing stays the existing role editor.
+25 Maintenance settings | `maintenance-config/page.tsx`, `maintenance-settings-nav.tsx`, job categories, priority SLA, approval rules, reason codes, fault codes, work permits | hidden: currency, time zone, work week (no fields). Tax rate and Save stay.
+e2e: run in CI later
+NEXT: screenshots if the app is up; otherwise stop after checks.
