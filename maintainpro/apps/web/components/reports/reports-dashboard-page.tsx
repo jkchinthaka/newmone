@@ -11,9 +11,8 @@ import { DateField } from "@/components/forms/date-fields";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ActiveFilterChips } from "@/components/operational/active-filter-chips";
 import { JobsPagination } from "@/components/operational/jobs-pagination";
-import { OperationalEmptyState, TableLoadingRows } from "@/components/operational/operational-list-states";
 import { OperationalPageHeader } from "@/components/operational/operational-page-header";
-import { ErrorState } from "@/components/ui/page-state";
+import { BarList, EmptyState, ErrorState, KpiCard, SectionCard, SkeletonCard } from "@/components/ui/dashboard";
 import { getApiErrorMessage } from "@/lib/api-client";
 import {
   REPORT_EMPTY,
@@ -251,6 +250,53 @@ export function ReportsDashboardPage() {
         </p>
       ) : null}
 
+      {query.isLoading ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-busy="true" aria-label="Loading report">
+          <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
+        </div>
+      ) : report?.summaryCards?.length ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {report.summaryCards.map((card) => (
+            <KpiCard key={card.label} label={card.label} value={String(card.value)} delta={card.subLabel} tone={card.tone === "danger" ? "red" : card.tone === "warning" ? "amber" : card.tone === "success" ? "emerald" : "neutral"} />
+          ))}
+        </div>
+      ) : null}
+
+      {report?.charts?.length ? (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {report.charts.map((chart) => {
+            const nameKey = chart.xKey ?? chart.nameKey ?? "name";
+            const valueKey = chart.yKeys?.[0] ?? chart.valueKey ?? "value";
+            return (
+              <SectionCard key={chart.id} title={chart.title}>
+                <BarList items={chart.data.map((row, index) => ({ name: String(row[nameKey] ?? index), value: Number(row[valueKey] ?? 0) || 0 }))} />
+              </SectionCard>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <SectionCard title="Report library" action={<span className="text-xs text-slate-500">Export CSV/XLSX uses the open report</span>}>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {modules.map((item) => (
+            <button
+              key={item.slug}
+              type="button"
+              className={`rounded-card border p-3 text-left ${moduleSlug === item.slug ? "border-brand-600 bg-brand-50" : "border-slate-200 bg-white"}`}
+              onClick={() => {
+                const next = new URLSearchParams(params.toString());
+                next.set("module", item.slug);
+                router.replace(`${pathname}?${next.toString()}` as Route);
+                setFilters((current) => ({ ...current, page: 1 }));
+              }}
+            >
+              <span className="block text-sm font-semibold text-slate-900">{item.label}</span>
+              <span className="mt-1 block text-xs text-slate-500">View · Export CSV/XLSX</span>
+            </button>
+          ))}
+        </div>
+      </SectionCard>
+
       <section className="rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 p-2">
           <DateField bare label="Date from" value={filters.startDate} onChange={(startDate) => setFilters({ ...filters, startDate, page: 1 })} />
@@ -324,13 +370,13 @@ export function ReportsDashboardPage() {
         ) : null}
 
         {query.isLoading ? (
-          <TableLoadingRows label="Loading report" />
+          <div className="p-4" aria-busy="true"><SkeletonCard /></div>
         ) : query.isError ? (
           <div className="p-4">
-            <ErrorState title="We couldn't load this report." description={getApiErrorMessage(query.error, "The report could not be loaded.")} onRetry={() => query.refetch()} />
+            <ErrorState message={`We couldn't load this report. ${getApiErrorMessage(query.error, "The report could not be loaded.")}`} onRetry={() => query.refetch()} />
           </div>
         ) : rows.length === 0 ? (
-          <OperationalEmptyState title={REPORT_EMPTY} onClear={clearFilters} />
+          <div className="p-4"><EmptyState title={REPORT_EMPTY} description="Clear the filters or choose another report." action={<button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm" onClick={clearFilters}>Clear filters</button>} /></div>
         ) : (
           <>
             <div className="hidden md:block overflow-x-auto">
