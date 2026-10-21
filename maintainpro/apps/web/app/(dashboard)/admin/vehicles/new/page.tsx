@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { EmptyState } from "@/components/ui/dashboard";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { useCurrentUser } from "@/lib/use-current-user";
 import {
@@ -25,7 +26,7 @@ function labelFor(value: string) {
     .join(" ");
 }
 
-const fieldClass = "mt-1 h-11 w-full rounded-lg border border-slate-200 px-3 text-sm";
+const fieldClass = "mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm";
 
 export default function RegisterVehiclePage() {
   const user = useCurrentUser();
@@ -45,13 +46,17 @@ export default function RegisterVehiclePage() {
   if (!ready) {
     return (
       <main className="mx-auto max-w-3xl space-y-4 p-4">
-        <h1 className="page-title">Register vehicle</h1>
+        <h1 className="text-xl font-semibold text-slate-900">Register vehicle</h1>
       </main>
     );
   }
 
   if (user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
-    return <p className="p-4">Access required</p>;
+    return (
+      <div className="p-4">
+        <EmptyState title="Access required" description="Registering a vehicle is limited to admin roles." />
+      </div>
+    );
   }
 
   function update(field: keyof RegisterVehicleInput, value: string) {
@@ -94,20 +99,12 @@ export default function RegisterVehiclePage() {
     <main className="mx-auto max-w-3xl space-y-4 p-4">
       <PageBreadcrumbs items={[{ label: "Admin", href: "/admin" }, { label: "Register vehicle" }]} />
       <div>
-        <h1 className="page-title">Register vehicle</h1>
-        <p className="mt-1 text-sm text-slate-600">Add a vehicle to this company.</p>
+        <h1 className="text-xl font-semibold text-slate-900">Register vehicle</h1>
+        <p className="mt-1 text-sm text-slate-600">Add a company vehicle. Fields marked * are required.</p>
       </div>
-      <form
-        className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2"
-        onSubmit={submit}
-      >
-        <Field
-          id="registration"
-          label="Registration number"
-          hint="e.g. CP ABC-1234"
-          error={fieldErrors.registrationNo}
-          required
-        >
+      <form className="grid gap-3 rounded-card border border-slate-200 bg-white p-4 shadow-card md:grid-cols-2" onSubmit={submit}>
+        <h2 className="text-sm font-semibold text-slate-900 md:col-span-2">Vehicle details</h2>
+        <Field id="registration" label="Registration number" hint="e.g. CP ABC-1234" error={fieldErrors.registrationNo} required>
           <input
             id="registration"
             className={fieldClass}
@@ -172,13 +169,7 @@ export default function RegisterVehiclePage() {
             onChange={(event) => update("vehicleModel", event.target.value)}
           />
         </Field>
-        <Field
-          id="year"
-          label="Year"
-          hint={`${VEHICLE_YEAR_MIN} to ${yearMax}`}
-          error={fieldErrors.year}
-          required
-        >
+        <Field id="year" label="Year" hint={`${VEHICLE_YEAR_MIN} to ${yearMax}`} error={fieldErrors.year} required>
           <input
             id="year"
             className={fieldClass}
@@ -192,7 +183,7 @@ export default function RegisterVehiclePage() {
             onChange={(event) => update("year", event.target.value)}
           />
         </Field>
-        <details className="md:col-span-2 rounded-lg border border-slate-200 p-3">
+        <details className="rounded-lg border border-slate-200 p-3 md:col-span-2">
           <summary className="cursor-pointer text-sm font-medium text-slate-700">More details (optional)</summary>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <Field id="ownership" label="Ownership" hint="Leave blank if unknown" error={fieldErrors.ownershipType}>
@@ -235,27 +226,31 @@ export default function RegisterVehiclePage() {
           </div>
         </details>
         {error && Object.keys(fieldErrors).length === 0 ? (
-          <p className="md:col-span-2 text-sm text-rose-700" role="alert">
+          <p className="text-sm text-rose-700 md:col-span-2" role="alert">
             {error}
           </p>
         ) : null}
-        <button
-          className="h-11 rounded-lg bg-slate-900 px-4 text-sm font-medium text-white disabled:opacity-60 md:col-span-2"
-          disabled={saving || Boolean(createdId)}
-          type="submit"
-        >
-          {saving ? "Registering..." : "Register vehicle"}
-        </button>
+        <div className="flex justify-end md:col-span-2">
+          <button
+            className="h-11 rounded-md bg-brand-600 px-4 text-sm font-medium text-white disabled:opacity-60"
+            disabled={saving || Boolean(createdId)}
+            type="submit"
+          >
+            {saving ? "Registering..." : "Register vehicle"}
+          </button>
+        </div>
       </form>
       {createdId ? (
-        <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p role="status">Vehicle registered.</p>
-          <Link className="text-sm font-medium text-brand-700 hover:underline" href={`/vehicles/${createdId}` as never}>
-            Open vehicle
-          </Link>
-          <button className="block text-sm font-medium text-slate-700 underline" type="button" onClick={resetForm}>
-            Register another
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-emerald-200 bg-emerald-50 px-4 py-3" role="status">
+          <p>Vehicle registered.</p>
+          <div className="flex gap-2">
+            <Link className="inline-flex min-h-11 items-center rounded-md border border-slate-300 bg-white px-3 text-sm" href={`/vehicles/${createdId}` as never}>
+              Open vehicle
+            </Link>
+            <button type="button" className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm" onClick={resetForm}>
+              Register another
+            </button>
+          </div>
         </div>
       ) : null}
     </main>

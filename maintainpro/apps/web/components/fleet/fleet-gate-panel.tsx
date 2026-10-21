@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { ActiveFilterChips, JobsEmptyState, JobsLoadingSkeleton, JobsPagination, OperationalJobsHeader } from "@/components/operational";
+import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard";
+import { ActiveFilterChips, JobsPagination, OperationalJobsHeader } from "@/components/operational";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import {
   GATE_EMPTY,
@@ -214,7 +215,7 @@ export function FleetGatePanel() {
         <section className="order-2 rounded-lg border border-slate-200 bg-white lg:order-1">
           <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
             <label className="sr-only" htmlFor="gate-search">Search vehicle</label>
-            <input id="gate-search" value={draftQuery} onChange={(event) => setDraftQuery(event.target.value)} placeholder="Registration, code, model, or driver" className="h-9 min-w-48 flex-1 rounded-md border border-slate-300 px-3 text-sm" />
+            <input id="gate-search" value={draftQuery} onChange={(event) => setDraftQuery(event.target.value)} placeholder="Enter or scan registration number..." className="min-h-12 min-w-48 flex-1 rounded-md border border-slate-300 px-3 text-base" />
             <select aria-label="Gate state" value={state.presence} onChange={(event) => write({ ...state, presence: event.target.value as GateDeskState["presence"], page: 1 })} className="h-9 rounded-md border border-slate-300 px-2 text-sm">
               <option value="">Gate state</option>
               <option value="inside">Inside</option>
@@ -243,14 +244,13 @@ export function FleetGatePanel() {
             </div>
           ) : null}
           <ActiveFilterChips chips={chips} onRemove={(key) => write({ ...state, [key]: "", page: 1 })} onClearAll={() => write({ ...gateDeskFromSearch(new URLSearchParams()), vehicleId: state.vehicleId })} />
-          {loading ? <JobsLoadingSkeleton label="Loading vehicles" /> : null}
+          {loading ? <div className="grid gap-3 p-3 sm:grid-cols-2" aria-busy="true" aria-label="Loading vehicles"><SkeletonCard /><SkeletonCard /></div> : null}
           {!loading && error ? (
-            <div className="px-4 py-8 text-center text-sm">
-              <p>{error}</p>
-              <button type="button" className="mt-2 font-medium text-brand-700" onClick={() => setReloadKey((value) => value + 1)}>Retry</button>
+            <div className="p-4">
+              <ErrorState message={error} onRetry={() => setReloadKey((value) => value + 1)} />
             </div>
           ) : null}
-          {!loading && !error && rows.length === 0 ? <JobsEmptyState title={GATE_EMPTY} /> : null}
+          {!loading && !error && rows.length === 0 ? <EmptyState title={GATE_EMPTY} description="Try another registration or clear the filters." /> : null}
           {!loading && !error && rows.length > 0 ? (
             <>
             <ul className="space-y-2 p-3 md:hidden">
@@ -309,15 +309,15 @@ export function FleetGatePanel() {
           <JobsPagination page={meta.page} totalPages={meta.totalPages} total={meta.total} pageSize={state.pageSize} onPageChange={(page) => write({ ...state, page })} onPageSizeChange={(pageSize) => write({ ...state, pageSize, page: 1 })} />
         </section>
 
-        <section id="gate-action" className="order-1 rounded-lg border border-slate-200 bg-white p-4 lg:order-2" aria-live="polite">
-          <h2 className="text-sm font-semibold text-slate-900">Gate action</h2>
+        <section id="gate-action" className="order-1 rounded-card border border-slate-200 bg-white p-4 shadow-card lg:order-2" aria-live="polite">
+          <h2 className="text-sm font-semibold text-slate-900">Result</h2>
           {!selected ? <p className="mt-3 text-sm text-slate-600">Select a vehicle.</p> : (
             <div className="mt-3 space-y-3 text-sm">
               <p><span className="text-slate-500">Registration </span><Link href={`/vehicles/${selected.id}` as never} className="font-medium">{selected.registrationNo}</Link></p>
               <p><span className="text-slate-500">Vehicle </span>{[selected.make, selected.vehicleModel].filter(Boolean).join(" ") || "—"}</p>
               <p><span className="text-slate-500">Odometer </span>{selected.currentMileage ?? "—"} km</p>
               <p><span className="text-slate-500">Gate </span>{gatePresenceLabel(selected.status)}</p>
-              <p><span className="text-slate-500">Readiness </span>{gateReadinessLabel({ action, reasons, reasonsError })}</p>
+              <p><span className="text-slate-500">Readiness </span><span className={`ml-1 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${reasons?.blocked ? "bg-red-100 text-red-800" : reasons && !reasons.blocked ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>{reasons?.blocked ? "BLOCKED" : reasons && !reasons.blocked ? "READY" : gateReadinessLabel({ action, reasons, reasonsError })}</span></p>
               {reasons?.blocked ? (
                 <div>
                   <p className="font-medium text-red-800">Cannot gate out</p>

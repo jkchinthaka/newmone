@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { DateField } from "@/components/forms/date-fields";
 import { requestMenuPosition } from "@/lib/request-row-menu";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
-import { ErrorState } from "@/components/ui/page-state";
+import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard";
 import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 import { getApiErrorMessage } from "@/lib/api-client";
 import {
@@ -475,7 +475,7 @@ export default function RequestsPage() {
           {summary.scope === "mine" ? "Overview of your requests" : "Overview of all requests"}
           <span className="font-normal normal-case tracking-normal"> · select a card to list those requests</span>
         </h2>
-        <div className="summary-strip">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {requestStageCards(summary).map((card) => {
             const active = stage === card.stage && view !== "triage";
             return (
@@ -490,12 +490,12 @@ export default function RequestsPage() {
                     view: view === "triage" ? null : view === "all" ? null : view
                   })
                 }
-                className={`inline-flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 ${
-                  active ? "border-brand-600 bg-brand-50" : "border-transparent bg-transparent hover:bg-brand-50"
+                className={`rounded-card border bg-white p-4 text-left shadow-card focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 ${
+                  active ? "border-brand-600" : "border-slate-200"
                 }`}
               >
-                <span className="font-semibold tabular-nums">{loading && !capabilities ? "–" : card.value}</span>
-                <span>{card.label}</span>
+                <span className="block text-sm font-medium text-slate-600">{card.label}</span>
+                <span className="mt-2 block text-2xl font-semibold tabular-nums text-slate-900">{loading && !capabilities ? "–" : card.value}</span>
               </button>
             );
           })}
@@ -520,6 +520,27 @@ export default function RequestsPage() {
         ))}
       </div>
       ) : null}
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Status filters">
+        <button
+          type="button"
+          aria-pressed={!status && !stage}
+          className={`min-h-11 rounded-full border px-3 text-sm ${!status && !stage ? "border-brand-600 bg-brand-50 text-brand-800" : "border-slate-200 bg-white text-slate-700"}`}
+          onClick={() => writeQuery({ status: null, stage: null })}
+        >
+          All
+        </button>
+        {STATUS_OPTIONS.map((value) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={status === value}
+            className={`min-h-11 rounded-full border px-3 text-sm ${status === value ? "border-brand-600 bg-brand-50 text-brand-800" : "border-slate-200 bg-white text-slate-700"}`}
+            onClick={() => writeQuery({ status: value, stage: null })}
+          >
+            {requestStatusLabel(value)}
+          </button>
+        ))}
+      </div>
       {view === "triage" ? <p className="text-sm text-slate-600">{requestTriageExplanation()}</p> : null}
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-3" aria-label="Filters">
@@ -660,42 +681,42 @@ export default function RequestsPage() {
       </section>
 
       {error ? (
-        <ErrorState title="We couldn't load maintenance requests." description={error} onRetry={() => void refresh()} retryLabel="Retry" />
+        <ErrorState message={`We couldn't load maintenance requests. ${error}`} onRetry={() => void refresh()} />
       ) : null}
 
       {loading && items.length === 0 && !error ? (
-        <div className="space-y-2" aria-busy="true">
+        <div className="grid gap-3 sm:grid-cols-2" aria-busy="true">
           <p className="sr-only">Loading requests</p>
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="h-14 animate-pulse rounded-lg bg-slate-100" />
+          {Array.from({ length: 4 }).map((_, index) => (
+            <SkeletonCard key={index} />
           ))}
         </div>
       ) : null}
 
       {!loading && !error && items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center">
-          <p className="font-medium text-slate-900">
-            {filtered ? "No requests match these filters." : view === "triage" ? "Nothing is waiting for triage." : "No maintenance requests yet."}
-          </p>
-          <p className="mt-1 text-sm text-slate-600">
-            {filtered
+        <EmptyState
+          title={filtered ? "No requests match these filters." : view === "triage" ? "Nothing is waiting for triage." : "No maintenance requests yet."}
+          description={
+            filtered
               ? "Try a different search or clear the filters."
               : view === "triage"
                 ? "New requests appear here as soon as they are reported."
                 : canReport
                   ? "Report an issue to start the maintenance workflow."
-                  : "Requests you are allowed to see will appear here."}
-          </p>
-          {filtered ? (
-            <button type="button" className="mt-4 min-h-11 rounded-lg border border-slate-300 px-3 text-sm" onClick={clearFilters}>
-              Clear filters
-            </button>
-          ) : canReport && view !== "triage" ? (
-            <Link href={"/requests/new" as Route} className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white">
-              Report issue
-            </Link>
-          ) : null}
-        </div>
+                  : "Requests you are allowed to see will appear here."
+          }
+          action={
+            filtered ? (
+              <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm" onClick={clearFilters}>
+                Clear filters
+              </button>
+            ) : canReport && view !== "triage" ? (
+              <Link href={"/requests/new" as Route} className="inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white">
+                Report issue
+              </Link>
+            ) : null
+          }
+        />
       ) : null}
 
       {items.length > 0 && !error ? (
@@ -737,7 +758,7 @@ export default function RequestsPage() {
             })}
           </div>
 
-          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
+          <div className="hidden overflow-x-auto rounded-card border border-slate-200 bg-white shadow-card md:block">
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr>

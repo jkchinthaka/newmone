@@ -7,7 +7,7 @@ import { useParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
-import { ErrorState } from "@/components/ui/page-state";
+import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 
 type Item = {
@@ -82,13 +82,22 @@ export default function InspectionDetailPage() {
   })();
   const locked = detail?.status === "COMPLETED";
 
-  if (loading) return <p className="p-6 text-sm text-slate-600">Loading inspection...</p>;
-  if (missing) return <p className="p-6 text-sm">Inspection not found.</p>;
+  if (loading) {
+    return (
+      <div className="grid gap-3 p-6 sm:grid-cols-2" aria-busy="true" aria-label="Loading inspection">
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    );
+  }
+  if (missing) return <div className="p-6"><EmptyState title="Inspection not found." description="Open the inspections list and choose another record." /></div>;
   if (error || !detail) {
-    return <div className="p-6"><ErrorState title="Unable to load inspection" description={error ?? ""} onRetry={() => void load()} retryLabel="Retry" /></div>;
+    return <div className="p-6"><ErrorState message={`Unable to load inspection. ${error ?? ""}`} onRetry={() => void load()} /></div>;
   }
 
   const subject = detail.asset?.name || [detail.vehicle?.make, detail.vehicle?.vehicleModel].filter(Boolean).join(" ") || detail.vehicle?.registrationNo || "Unassigned";
+  const answered = items.filter((item) => String(answers[item.key]?.value ?? "").trim()).length;
+  const failedKeys = new Set((detail.findingRecords ?? []).map((finding) => finding.itemKey).filter(Boolean));
 
   return (
     <div className="mx-auto max-w-3xl ops-page">
@@ -121,8 +130,21 @@ export default function InspectionDetailPage() {
       ) : null}
 
       <section className="space-y-3">
-        {items.map((item) => (
-          <label key={item.key} className="block rounded-xl border bg-white p-3 text-sm">
+        {items.length ? (
+          <div>
+            <div className="mb-1 flex justify-between text-xs text-slate-600">
+              <span>{answered} of {items.length} items done{failedKeys.size ? ` · ${failedKeys.size} failed` : ""}</span>
+              <span>{items.length ? Math.round((answered / items.length) * 100) : 0}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-slate-100">
+              <div className="h-2 rounded-full bg-brand-600" style={{ width: `${items.length ? Math.round((answered / items.length) * 100) : 0}%` }} />
+            </div>
+          </div>
+        ) : null}
+        {items.map((item) => {
+          const failed = failedKeys.has(item.key) || /fail/i.test(String(answers[item.key]?.value ?? ""));
+          return (
+          <label key={item.key} className={`block rounded-card border bg-white p-3 text-sm shadow-card ${failed ? "border-red-300 bg-red-50" : "border-slate-200"}`}>
             <span className="font-medium">{item.label}</span>
             {item.required ? <span className="text-rose-700"> required</span> : null}
             <input
@@ -179,7 +201,8 @@ export default function InspectionDetailPage() {
               />
             ) : null}
           </label>
-        ))}
+          );
+        })}
         {!items.length ? <p className="text-sm text-slate-600">Start the inspection to load the checklist snapshot. Ad hoc inspections can be completed from the list.</p> : null}
       </section>
 
