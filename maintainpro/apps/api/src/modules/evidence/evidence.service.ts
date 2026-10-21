@@ -383,7 +383,13 @@ export class EvidenceService {
       return { ok: false, status: "blocked", message: readiness.message };
     }
 
-    const workOrder = await this.findTenantScopedWorkOrder(workOrderId, actor);
+    const workOrder = await this.findTenantScopedWorkOrder(workOrderId, actor, {
+      id: true,
+      tenantId: true,
+      status: true,
+      facilityIssue: { select: { id: true, tenantId: true } }
+    });
+    assertWorkOrderAcceptsFieldMutation(workOrder.status, "upload evidence");
     const tenantId = this.resolveTenantId(actor);
 
     const attachment = await this.prisma.evidenceAttachment.findFirst({

@@ -51,12 +51,18 @@ import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import {
   assignedToActorScope,
   businessDayWindow,
-  compareMyJobs,
   isMyJobView,
-  matchesMyJobFilters,
-  matchesMyJobView,
   type MyJobView
 } from "./my-jobs.rules";
+import {
+  MY_JOB_COUNT_FIELD,
+  myJobCountWhere,
+  myJobPageSql,
+  myJobPageWhere,
+  myJobScopeWhere,
+  type MyJobListFilters
+} from "./my-jobs.query";
+import { MY_JOB_VIEWS } from "./my-jobs.rules";
 import { MaintenanceReportsService } from "../reports/maintenance-reports.service";
 import { WorkOrderCategoryReportsService } from "../reports/work-order-category-reports.service";
 import type { JwtPayload } from "../auth/auth.types";
@@ -666,93 +672,38 @@ export class WorkOrderQueuesService {
     const page = Math.max(1, Number(query.page ?? 1) || 1);
     const pageSize = Math.min(50, Math.max(1, Number(query.pageSize ?? 25) || 25));
     const now = new Date();
-    const filters = {
+    const filters: MyJobListFilters = {
       search: query.search?.trim() || undefined,
       status: query.status?.trim().toUpperCase() || undefined,
       priority: query.priority?.trim().toUpperCase() || undefined,
       due: query.due?.trim().toLowerCase() || undefined
     };
-    const rows = await this.prisma.workOrder.findMany({
-      where: { tenantId, ...this.myTasksWhere(actor) },
-      select: {
-        id: true,
-        woNumber: true,
-        title: true,
-        status: true,
-        priority: true,
-        dueDate: true,
-        approvalStatus: true,
-        type: true,
-        // Start/hold/resume/complete send this as expectedVersion.
-        version: true,
-        asset: { select: { name: true, assetTag: true } },
-        functionalLocation: { select: { name: true, code: true } },
-        site: { select: { name: true } },
-        parts: {
-          select: {
-            lineStatus: true,
-            pendingReturnQuantity: true,
-            issuedQuantity: true,
-            requestedQuantity: true
-          }
-        },
-        partIssues: { select: { id: true }, take: 1 },
-        evidenceAttachments: {
-          where: { deletedAt: null, status: { not: "DELETED" } },
-          select: { evidenceType: true, status: true, verificationStatus: true }
-        }
-      },
-      orderBy: [{ dueDate: "asc" }, { id: "asc" }],
-      take: 500
-    });
     const assignedTotal = await this.prisma.workOrder.count({
-      where: { tenantId, ...this.myTasksWhere(actor) }
+      where: myJobScopeWhere(tenantId, actor.sub)
     });
-    const assigned = rows.map((row) => ({
-      ...row,
-      hasPartIssue: row.partIssues.length > 0,
-      parts: row.parts.map((line) => ({
-        lineStatus: line.lineStatus,
-        pendingReturnQuantity: Number(line.pendingReturnQuantity ?? 0),
-        issuedQuantity: Number(line.issuedQuantity ?? 0),
-        requestedQuantity: Number(line.requestedQuantity ?? 0)
-      })),
-      evidenceAttachments: row.evidenceAttachments
-    }));
     const counts = {
-      active: assigned.filter((row) => matchesMyJobView(row, "active", now)).length,
-      overdue: assigned.filter((row) => matchesMyJobView(row, "overdue", now)).length,
-      dueToday: assigned.filter((row) => matchesMyJobView(row, "due-today", now)).length,
-      waitingParts: assigned.filter((row) => matchesMyJobView(row, "waiting-parts", now)).length,
-      evidenceNeeded: assigned.filter((row) => matchesMyJobView(row, "evidence-needed", now)).length,
-      reworkRequired: assigned.filter((row) => matchesMyJobView(row, "rework-required", now)).length,
-      inProgress: assigned.filter((row) => matchesMyJobView(row, "in-progress", now)).length,
-      completed: assigned.filter((row) => matchesMyJobView(row, "completed", now)).length
+      active: 0,
+      overdue: 0,
+      dueToday: 0,
+      waitingParts: 0,
+      evidenceNeeded: 0,
+      reworkRequired: 0,
+      inProgress: 0,
+      completed: 0
     };
-    const matched = assigned.filter((row) =>
-      matchesMyJobFilters(
-        {
-          status: row.status,
-          priority: row.priority,
-          dueDate: row.dueDate,
-          woNumber: row.woNumber,
-          title: row.title,
-          assetName: row.asset?.name,
-          assetTag: row.asset?.assetTag,
-          type: row.type,
-          parts: row.parts,
-          hasPartIssue: row.hasPartIssue,
-          evidenceAttachments: row.evidenceAttachments
-        },
-        filters,
-        now
-      )
+    await Promise.all(
+      MY_JOB_VIEWS.map(async (viewKey) => {
+        counts[MY_JOB_COUNT_FIELD[viewKey]] = await this.prisma.workOrder.count({
+          where: myJobCountWhere(tenantId, actor.sub, viewKey, now)
+        });
+      })
     );
-    const visible = matched
-      .filter((row) => matchesMyJobView(row, view, now))
-      .sort((left, right) => compareMyJobs(left, right, now));
-    const start = (page - 1) * pageSize;
-    const items = visible.slice(start, start + pageSize).map((row) => ({
+    const total = await this.prisma.workOrder.count({
+      where: myJobPageWhere(tenantId, actor.sub, view, filters, now)
+    });
+    const skip = (page - 1) * pageSize;
+    const rows = await this.loadMyJobRows(tenantId, actor.sub, view, filters, now, skip, pageSize);
+    const items = rows.map((row) => ({
       id: row.id,
       woNumber: row.woNumber,
       title: row.title,
@@ -769,15 +720,64 @@ export class WorkOrderQueuesService {
     return {
       items,
       counts,
-      scope: "assigned-to-me",
+      scope: "assigned-to-me" as const,
       view,
       timezone: businessDayWindow(now).timeZone,
-      capped: assignedTotal > rows.length,
+      capped: false,
       assignedTotal,
       page,
       pageSize,
-      total: visible.length
+      total
     };
+  }
+
+  private myJobPageSelect() {
+    return {
+      id: true,
+      woNumber: true,
+      title: true,
+      status: true,
+      priority: true,
+      dueDate: true,
+      approvalStatus: true,
+      // Start/hold/resume/complete send this as expectedVersion.
+      version: true,
+      asset: { select: { name: true, assetTag: true } },
+      functionalLocation: { select: { name: true, code: true } },
+      site: { select: { name: true } }
+    } as const;
+  }
+
+  private async loadMyJobRows(
+    tenantId: string,
+    userId: string,
+    view: MyJobView,
+    filters: MyJobListFilters,
+    now: Date,
+    skip: number,
+    take: number
+  ) {
+    const select = this.myJobPageSelect();
+    const queryRaw = (this.prisma as unknown as { $queryRaw?: (query: Prisma.Sql) => Promise<Array<{ id: string }>> }).$queryRaw;
+    if (typeof queryRaw === "function") {
+      const ids = await this.prisma.$queryRaw<Array<{ id: string }>>(
+        myJobPageSql({ tenantId, userId, view, filters, now, skip, take })
+      );
+      if (!ids.length) return [];
+      const found = await this.prisma.workOrder.findMany({
+        where: { tenantId, id: { in: ids.map((row) => row.id) } },
+        select
+      });
+      const order = new Map(ids.map((row, index) => [row.id, index]));
+      return found.sort((left, right) => (order.get(left.id) ?? 0) - (order.get(right.id) ?? 0));
+    }
+    return this.prisma.workOrder.findMany({
+      where: myJobPageWhere(tenantId, userId, view, filters, now),
+      select,
+      orderBy: [{ dueDate: "asc" }, { id: "asc" }],
+      skip,
+      take
+    });
   }
 
   private myJobNextAction(row: { status: string; approvalStatus: string }) {
