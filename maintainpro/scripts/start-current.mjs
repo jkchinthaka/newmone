@@ -31,11 +31,7 @@ export function selectPort(preferred, searchEnd, role, branch, sha, probe) {
   if (current.canonical && matches(current.identity, role, branch, sha)) {
     return { port: preferred, reuse: true, reason: "identity-match" };
   }
-  for (let port = preferred + 1; port <= searchEnd; port += 1) {
-    if (protectedPorts.has(port)) continue;
-    if (probe(port).free) return { port, reuse: false, reason: "preferred-owned-by-other-worktree" };
-  }
-  throw new Error(`No free port from ${preferred} through ${searchEnd}. The occupied port was left running.`);
+  throw new Error(`Port ${preferred} is still in use. Refusing to pick another port.`);
 }
 
 function selfTest() {
@@ -56,8 +52,13 @@ function selfTest() {
   const reused = selectPort(3041, 3059, "web", branch, sha, probe);
   if (!reused.reuse) throw new Error("matching server was not reused");
   listeners.set(3041, { free: false, canonical: false, identity: null });
-  const moved = selectPort(3041, 3059, "web", branch, sha, probe);
-  if (moved.port === 3041 || moved.port === 3001) throw new Error("old or occupied port was selected");
+  let rejected = false;
+  try {
+    selectPort(3041, 3059, "web", branch, sha, probe);
+  } catch (error) {
+    rejected = String(error.message).includes("Refusing to pick another port");
+  }
+  if (!rejected) throw new Error("occupied port was not rejected");
   const stale = { free: false, canonical: true, identity: { app: "MaintainPro", role: "web", worktreeId: "other", branch, sha } };
   listeners.set(3042, stale);
   if (commandOwnsCanonical(`node ${root}\\apps\\web`) !== true) throw new Error("canonical path check failed");
@@ -97,11 +98,7 @@ async function choose(preferred, role, branch, sha) {
   const current = await probe(preferred);
   if (current.free) return { port: preferred, reuse: false };
   if (current.canonical) return { port: preferred, reuse: true };
-  for (let port = preferred + 1; port <= config.portSearchEnd; port += 1) {
-    if (protectedPorts.has(port)) continue;
-    if ((await probe(port)).free) return { port, reuse: false };
-  }
-  throw new Error(`No free ${role} port. Existing servers were left running.`);
+  throw new Error(`Port ${preferred} is still in use. Refusing to pick another port.`);
 }
 
 function launch(name, cwd, command) {

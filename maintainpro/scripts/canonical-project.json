@@ -1,7 +1,8 @@
 {
-  "id": "release-final-20261013",
-  "projectRoot": "C:\\Users\\chint\\AppData\\Local\\MaintainPro\\worktrees\\release-final-20261013\\maintainpro",
+  "id": "app",
+  "projectRoot": "C:\\Users\\chint\\AppData\\Local\\MaintainPro\\worktrees\\app\\maintainpro",
   "preferredApiPort": 3040,
   "preferredWebPort": 3041,
-  "portSearchEnd": 3059
+  "apiPort": 3040,
+  "webPort": 3041
 }
