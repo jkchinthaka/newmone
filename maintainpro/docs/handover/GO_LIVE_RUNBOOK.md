@@ -2,8 +2,10 @@
 
 **Target go-live date:** 2026-10-21  
 **Code freeze:** 2026-10-20 18:00  
-**Go-live release:** tag `v1.0.2-golive` on `main`. `v1.0.0-golive` and `v1.0.1-golive` stay in place and are not the current go-live release.
-**Checkout:** `git checkout v1.0.2-golive`
+**Go-live release:** tag `v1.0.3` on `main`. `v1.0.0-golive`, `v1.0.1-golive`, and `v1.0.2-golive` stay in place and are not the current go-live release.
+**Checkout:** `git checkout v1.0.3`
+**Work-order flow:** any of the six login roles can raise a request. A manager or admin approves and assigns an approved open job in one step. The technician starts, stores before and after photos, and marks complete. The manager verifies and closes. The technician cannot verify their own job.
+**Visible login roles:** `SUPER_ADMIN`, `ADMIN`, `MANAGER`, `TECHNICIAN`, `SECURITY_OFFICER`, `INVENTORY_KEEPER`. Other roles remain in the database.
 **Production database:** `MaintainProProd` on `localhost:1433` (Windows integrated auth)
 
 ---
@@ -33,7 +35,7 @@
 ## 2. Deploy the Build
 
 ```powershell
-# On the production server, from a checkout of tag v1.0.2-golive
+# On the production server, from a checkout of tag v1.0.3
 cd C:\MaintainPro\maintainpro
 
 # 1. Install from the lockfile
