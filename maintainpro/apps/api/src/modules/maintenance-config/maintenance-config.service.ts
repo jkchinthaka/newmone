@@ -27,6 +27,18 @@ type Actor = Pick<JwtPayload, "sub" | "tenantId" | "role"> & { permissions?: str
 
 const OPEN_STATUSES = DASHBOARD_OPEN_STATUSES;
 
+function dashboardAssigneeName(workOrder: {
+  technician?: { firstName?: string | null; lastName?: string | null } | null;
+  assignees?: Array<{ isPrimary?: boolean; employee?: { fullName?: string | null } | null }>;
+}): string | null {
+  const assignees = workOrder.assignees ?? [];
+  const primary = assignees.find((assignee) => assignee.isPrimary) ?? assignees[0];
+  const fromAssignees = primary?.employee?.fullName?.trim();
+  if (fromAssignees) return fromAssignees;
+  const fromTechnician = `${workOrder.technician?.firstName ?? ""} ${workOrder.technician?.lastName ?? ""}`.trim();
+  return fromTechnician || null;
+}
+
 const DEFAULT_CATEGORIES: Array<{
   jobDomain: JobDomain;
   main: { code: string; name: string };
@@ -232,7 +244,11 @@ export class MaintenanceConfigService {
       dueDate: true,
       asset: { select: { name: true, assetTag: true } },
       vehicle: { select: { registrationNo: true } },
-      technician: { select: { firstName: true, lastName: true } }
+      technician: { select: { firstName: true, lastName: true } },
+      assignees: {
+        where: { assignmentStatus: { not: "REMOVED" } },
+        select: { isPrimary: true, employee: { select: { fullName: true } } }
+      }
     } as const;
     const [overdueCandidates, urgentPriorityCandidates] = await Promise.all([
       this.prisma.workOrder.findMany({
@@ -317,9 +333,7 @@ export class MaintenanceConfigService {
         priority: wo.priority,
         dueDate: wo.dueDate ? wo.dueDate.toISOString() : null,
         assetName: wo.asset?.name ?? wo.vehicle?.registrationNo ?? null,
-        assigneeName: wo.technician
-          ? `${wo.technician.firstName} ${wo.technician.lastName}`.trim()
-          : null
+        assigneeName: dashboardAssigneeName(wo)
       })),
       availability: {
         inventory: canViewInventory,
