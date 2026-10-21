@@ -51,6 +51,7 @@ type WorkforceEmployee = {
   dailyCapacityHours?: number | null;
   workloadPercentage?: number | null;
   availabilityLabel?: string | null;
+  openJobCount?: number | null;
   branchName?: string | null;
   department?: { id: string; name: string; code: string } | null;
   canLogin?: boolean;
@@ -520,7 +521,8 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
                       branchName: employee.branchName,
                       departmentName: employee.department?.name,
                       availabilityLabel: employee.availabilityLabel,
-                      workloadPercentage: employee.workloadPercentage
+                      workloadPercentage: employee.workloadPercentage,
+                      openJobCount: employee.openJobCount
                     })}
                   </option>
                 ))}

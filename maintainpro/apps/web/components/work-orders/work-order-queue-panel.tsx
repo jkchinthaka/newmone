@@ -153,6 +153,7 @@ export function WorkOrderQueuePanel({
         technicianId: searchParams.get("technicianId"),
         evidenceStatus: searchParams.get("evidenceStatus"),
         partsStatus: searchParams.get("partsStatus"),
+        sla: searchParams.get("sla"),
         jobDomain: searchParams.get("jobDomain"),
         page: searchParams.get("page"),
         pageSize: searchParams.get("pageSize")
@@ -360,6 +361,7 @@ export function WorkOrderQueuePanel({
           technicianId: "",
           evidenceStatus: "",
           partsStatus: "",
+          sla: "",
           smartView: undefined,
           unassigned: false,
           page: 1
@@ -555,6 +557,19 @@ export function WorkOrderQueuePanel({
                 </select>
               </label>
               <label className="block text-sm">
+                SLA
+                <select
+                  value={filters.sla || ""}
+                  onChange={(event) => updateFilters({ sla: event.target.value, page: 1 })}
+                  className={`${fieldClass} mt-1 w-full`}
+                >
+                  <option value="">Any SLA</option>
+                  <option value="On track">On track</option>
+                  <option value="At risk">At risk</option>
+                  <option value="Breached">Breached</option>
+                </select>
+              </label>
+              <label className="block text-sm">
                 Created from
                 <DateField bare label="Created from" value={filters.dateFrom} onChange={(dateFrom) => updateFilters({ dateFrom, page: 1 })} />
               </label>
@@ -624,6 +639,7 @@ export function WorkOrderQueuePanel({
                 technicianId: "",
                 evidenceStatus: "",
                 partsStatus: "",
+                sla: "",
                 smartView: undefined,
                 unassigned: false,
                 jobDomain: jobDomain || undefined,

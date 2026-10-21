@@ -45,6 +45,7 @@ import {
   WorkOrderOverviewView,
   WorkOrderProgress
 } from "./work-order-drawer-chrome";
+import { WorkOrderSlaHeader } from "./work-order-insights";
 
 type WorkOrderEditorMode = "create" | "edit";
 
@@ -407,6 +408,7 @@ export function WorkOrderEditorModal({
                 {!isCreateMode && workOrder ? (
                   <>
                     <DrawerStatusRow workOrder={workOrder} />
+                    <WorkOrderSlaHeader workOrderId={workOrder.id} />
                     <WorkOrderProgress status={workOrder.status} />
                   </>
                 ) : (

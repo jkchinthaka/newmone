@@ -23,6 +23,7 @@ import {
 import { DASHBOARD_OPEN_STATUSES } from "../../common/utils/maintenance-dashboard.util";
 import { pendingQuantity, PART_APPROVAL_HIGH_THRESHOLD } from "../../common/utils/work-order-parts-governance";
 import { evaluateEvidenceRequirements } from "../../common/utils/work-order-evidence-governance";
+import { workOrderSla, worseSla, type SlaRuleMinutes } from "./work-order-insights";
 import {
   ACTIVE_OPERATIONAL_STATUSES,
   isSupervisorVerificationPending,
@@ -115,6 +116,8 @@ export type WorkOrderQueueQuery = {
   /** MACHINERY | SERVICE | VEHICLE */
   jobDomain?: string;
   domainId?: string;
+  /** On track | At risk | Breached, using the worse of respond and resolve. */
+  sla?: string;
   page?: string | number;
   pageSize?: string | number;
   sortBy?: string;
@@ -172,6 +175,8 @@ export type WorkOrderQueueListItem = WorkOrderRow & {
   evidenceStatus: string;
   overdueDays: number;
   primaryAssigneeName?: string | null;
+  slaRespond: string | null;
+  slaResolve: string | null;
 };
 
 const TECHNICIAN_ROLES = new Set<RoleName>([RoleName.TECHNICIAN, RoleName.MECHANIC]);
@@ -991,6 +996,7 @@ export class WorkOrderQueuesService {
     const page = Math.max(1, Number(query.page ?? 1));
     const pageSize = Math.min(100, Math.max(1, Number(query.pageSize ?? 25)));
     const tenantId = requireTenantId(actor.tenantId);
+    const slaRules = await this.loadSlaRules(tenantId);
 
     const baseWhere = this.buildPrismaWhere(actor, query);
     const where = this.applyQueueDbWhere(baseWhere, queue, actor, query);
@@ -1010,7 +1016,7 @@ export class WorkOrderQueuesService {
       ]);
 
       const enriched = await this.safeEnrichRows(rows, tenantId, []);
-      const pageRows = enriched.map((row) => this.toListItem(row));
+      const pageRows = enriched.map((row) => this.toListItem(row, slaRules));
       const summary = await this.buildListSummary(actor, baseWhere);
 
       return this.buildListResponse({
@@ -1050,12 +1056,26 @@ export class WorkOrderQueuesService {
     if (query.evidenceStatus) {
       filtered = filtered.filter((row) => row.evidenceStatus === query.evidenceStatus);
     }
+    if (query.sla) {
+      const now = new Date();
+      filtered = filtered.filter((row) => {
+        const clocks = workOrderSla({
+          priority: row.row.priority,
+          createdAt: row.row.createdAt,
+          startedAt: row.row.startDate,
+          completedAt: row.row.completedDate,
+          now,
+          rules: slaRules
+        });
+        return worseSla(clocks.respond, clocks.resolve) === query.sla;
+      });
+    }
 
     filtered.sort((a, b) => this.compareRows(a, b, query));
 
     const total = filtered.length;
     const start = (page - 1) * pageSize;
-    const pageRows = filtered.slice(start, start + pageSize).map((row) => this.toListItem(row));
+    const pageRows = filtered.slice(start, start + pageSize).map((row) => this.toListItem(row, slaRules));
     const summary = await this.buildListSummary(actor, baseWhere);
 
     return this.buildListResponse({
@@ -1163,6 +1183,7 @@ export class WorkOrderQueuesService {
     if (query.riskSeverity) return true;
     if (query.partsStatus) return true;
     if (query.evidenceStatus) return true;
+    if (query.sla) return true;
     return ["action-required", "waiting-evidence", "finance-vendor-pending"].includes(queue);
   }
 
@@ -1723,7 +1744,26 @@ export class WorkOrderQueuesService {
     }
   }
 
-  private toListItem(enriched: Awaited<ReturnType<WorkOrderQueuesService["enrichRow"]>>): WorkOrderQueueListItem {
+  private async loadSlaRules(tenantId: string): Promise<SlaRuleMinutes[]> {
+    if (typeof this.prisma.prioritySlaRule?.findMany !== "function") return [];
+    return this.prisma.prioritySlaRule.findMany({
+      where: { tenantId, active: true },
+      select: { priority: true, responseMinutes: true, completionMinutes: true }
+    });
+  }
+
+  private toListItem(
+    enriched: Awaited<ReturnType<WorkOrderQueuesService["enrichRow"]>>,
+    rules: SlaRuleMinutes[] = []
+  ): WorkOrderQueueListItem {
+    const clocks = workOrderSla({
+      priority: enriched.row.priority,
+      createdAt: enriched.row.createdAt,
+      startedAt: enriched.row.startDate,
+      completedAt: enriched.row.completedDate,
+      now: new Date(),
+      rules
+    });
     return {
       ...enriched.row,
       riskScore: enriched.riskScore,
@@ -1732,7 +1772,9 @@ export class WorkOrderQueuesService {
       partsStatus: enriched.partsStatus,
       evidenceStatus: enriched.evidenceStatus,
       overdueDays: enriched.overdueDays,
-      primaryAssigneeName: enriched.primaryAssigneeName
+      primaryAssigneeName: enriched.primaryAssigneeName,
+      slaRespond: clocks.respond,
+      slaResolve: clocks.resolve
     };
   }
 }
