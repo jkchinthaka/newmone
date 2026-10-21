@@ -281,7 +281,7 @@ function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: st
         action={
           <Link
             href={"/work-orders?filter=open" as never}
-            className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            className="btn-quiet"
           >
             View all
           </Link>

@@ -161,3 +161,4 @@ Branch `fix/sweep-e2e-tenant`. Local `npm run test:e2e:full-stack` against the r
 2026-10-21 wo-flow-v103 Playwright 1 passed (CSRF, asset request, one login per role, photo bytes, QR scan, labour hold). PR #104 merged to develop. PR #105 develop to main still running required checks.
 2026-10-21 ui/foundation: dashboard primitives and status map added. Pages unchanged.
 2026-10-21 ui/maintenance-dashboard: /maintenance restyle only. Web tsc 0, web unit 355 passed. Full-stack, uat-roles, and wo-flow not run (local DB is MaintainProDev).
+2026-10-21 ui/maintenance-dashboard: light-only tokens, page title, and the quiet View all button. Not merged.
