@@ -2023,7 +2023,53 @@ export class VehiclesService {
     });
     if (!vehicle) throw new NotFoundException("Vehicle not found");
     const blockedReasons = await this.explainGateBlock(vehicle, tenantId);
-    return { vehicleId: id, blocked: blockedReasons.length > 0, blockedReasons };
+    const result = { vehicleId: id, blocked: blockedReasons.length > 0, blockedReasons };
+    await this.recordGateCheck(tenantId, id, result.blocked, blockedReasons);
+    return result;
+  }
+
+  async listGateChecks(date: string) {
+    const tenantId = this.currentTenantId();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new BadRequestException("date must be YYYY-MM-DD");
+    }
+    const start = new Date(`${date}T00:00:00.000+05:30`);
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+    const rows = await this.prisma.gateCheck.findMany({
+      where: { tenantId, createdAt: { gte: start, lt: end } },
+      orderBy: { createdAt: "desc" },
+      include: {
+        vehicle: { select: { registrationNo: true } },
+        checkedBy: { select: { firstName: true, lastName: true } }
+      }
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      vehicleId: row.vehicleId,
+      registrationNo: row.vehicle.registrationNo,
+      result: row.result,
+      reasons: row.reasons,
+      checkedBy: `${row.checkedBy.firstName} ${row.checkedBy.lastName}`.trim(),
+      createdAt: row.createdAt
+    }));
+  }
+
+  private async recordGateCheck(tenantId: string, vehicleId: string, blocked: boolean, reasons: string[]) {
+    const checkedById = requestContext.getActorId();
+    if (!checkedById || typeof this.prisma.gateCheck?.create !== "function") return;
+    try {
+      await this.prisma.gateCheck.create({
+        data: {
+          tenantId,
+          vehicleId,
+          checkedById,
+          result: blocked ? "BLOCKED" : "READY",
+          reasons: JSON.stringify(reasons)
+        }
+      });
+    } catch {
+      // History must not change the gate decision.
+    }
   }
 
   private async listGateQueueForTenant(
