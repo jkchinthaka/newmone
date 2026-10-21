@@ -14,9 +14,9 @@ export type DashboardKpiCardProps = {
   tone?: StatusTone;
 };
 
-export function KpiCard({ label, value, icon: Icon, delta, tone = "neutral" }: DashboardKpiCardProps) {
+export function KpiCard({ label, value, icon: Icon, delta, tone = "neutral", compact = false }: DashboardKpiCardProps & { compact?: boolean }) {
   return (
-    <article className="rounded-card border border-slate-200 bg-white p-4 shadow-card dark:border-slate-700 dark:bg-slate-900">
+    <article className={cn("rounded-card border border-slate-200 bg-white shadow-card dark:border-slate-700 dark:bg-slate-900", compact ? "p-3" : "p-4")}>
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{label}</p>
         {Icon ? (
@@ -25,7 +25,7 @@ export function KpiCard({ label, value, icon: Icon, delta, tone = "neutral" }: D
           </span>
         ) : null}
       </div>
-      <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">{value}</p>
+      <p className={cn("font-semibold tracking-tight text-slate-900 dark:text-slate-50", compact ? "mt-2 text-xl" : "mt-3 text-2xl")}>{value}</p>
       {delta ? <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{delta}</p> : null}
     </article>
   );

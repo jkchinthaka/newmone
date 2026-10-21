@@ -195,4 +195,34 @@ describe("work order evidence storage", () => {
       )
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it("rejects confirmation on a closed or cancelled work order", async () => {
+    const provider = new EvidenceStorageProviderService(
+      configService({
+        NODE_ENV: "development",
+        STORAGE_MODE: "local",
+        STORAGE_UPLOADS_ENABLED: true,
+        STORAGE_LOCAL_ROOT: "C:\\MaintainPro\\evidence-objects"
+      })
+    );
+    const prisma = {
+      workOrder: { findFirst: jest.fn() },
+      evidenceAttachment: { findFirst: jest.fn(), update: jest.fn() },
+      auditLog: { create: jest.fn() }
+    } as unknown as ConstructorParameters<typeof EvidenceService>[0];
+    const service = new EvidenceService(prisma, provider);
+
+    for (const status of ["CLOSED", "CANCELLED"]) {
+      prisma.workOrder.findFirst = jest.fn().mockResolvedValue({
+        id: "wo-1",
+        tenantId: "tenant-a",
+        status,
+        facilityIssue: null
+      });
+      await expect(service.confirmWorkOrderUpload("wo-1", { attachmentId: "ev-1" }, actor)).rejects.toThrow(
+        "Cannot upload evidence on a closed or cancelled work order"
+      );
+    }
+    expect(prisma.evidenceAttachment.update).not.toHaveBeenCalled();
+  });
 });

@@ -93,6 +93,7 @@ import {
   FRAUD_AUDIT_EVENTS,
   FRAUD_CONTROL_ENABLED
 } from "../../common/utils/fraud-control.util";
+import { withSqlConflictRetry } from "../../common/utils/sql-conflict-retry";
 import { PrismaService } from "../../database/prisma.service";
 import { WorkOrderDomainService } from "./work-order-domain.service";
 import type { JwtPayload } from "../auth/auth.types";
@@ -1624,7 +1625,7 @@ export class WorkOrdersService {
       }
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    await withSqlConflictRetry(() => this.prisma.$transaction(async (tx) => {
       // Lock the technician, then the work order. Same order on every assignment avoids a lock cycle.
       const lockedUsers = await tx.$queryRaw<Array<{ id: string }>>`
         SELECT [id] FROM [User] WITH (UPDLOCK, ROWLOCK)
@@ -1810,7 +1811,7 @@ export class WorkOrdersService {
             })
         }
       });
-    }, { maxWait: 5_000, timeout: 15_000 });
+    }, { maxWait: 5_000, timeout: 15_000 }));
 
     const updated = await this.findOneWithRelations(id, actor);
 

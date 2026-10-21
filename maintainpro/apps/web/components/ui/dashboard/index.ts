@@ -1,5 +1,6 @@
 export { BarList } from "./bar-list";
 export { DataTable } from "./data-table";
+export type { DataTableColumn } from "./data-table";
 export { EmptyState } from "./empty-state";
 export { ErrorState } from "./error-state";
 export { KpiCard } from "./kpi-card";

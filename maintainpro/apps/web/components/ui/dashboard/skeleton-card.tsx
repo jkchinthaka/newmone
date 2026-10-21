@@ -1,3 +1,5 @@
+import React from "react";
+
 export function SkeletonCard() {
   return (
     <div aria-hidden className="animate-pulse rounded-card border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">

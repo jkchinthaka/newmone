@@ -21,9 +21,13 @@ Existing pages are unchanged in this step. Later areas swap JSX only and keep la
 
 Layout patterns follow Tremor Blocks (MIT, https://blocks.tremor.so), rewritten for Tailwind 3. No Tremor package is installed.
 
+## Phase 1
+
+`/maintenance` uses the dashboard components. Queries, labels, and links are unchanged. Screenshots: `docs/handover/ui-redesign/dashboard/`.
+
 ## Next
 
-Maintenance dashboard (`/maintenance`): KPI cards, priority table, workload chips, domain BarList, pipeline cards. Same queries.
+Maintenance dashboard (`/maintenance`): KPI cards, priority table, workload chips, domain BarList, pipeline cards. Same queries. Landed on develop.
 
 15/06 My Jobs (`/work-orders/my`) | `work-orders/my/page.tsx`, `components/ui/dashboard/*`, `lib/dashboard-status.ts` | hidden: Scan asset QR, Waiting for parts, Completed this week (loaded rows have no parts flag or completed-at).
 16 Requests (`/requests`) | `requests/page.tsx` | hidden: none (stage cards and status chips use loaded summary and existing status filters).
@@ -38,4 +42,4 @@ Maintenance dashboard (`/maintenance`): KPI cards, priority table, workload chip
 25 Maintenance settings | `maintenance-config/page.tsx`, `maintenance-settings-nav.tsx`, job categories, priority SLA, approval rules, reason codes, fault codes, work permits | hidden: currency, time zone, work week (no fields). Tax rate and Save stay.
 e2e: run in CI later
 Checks: web lint (tsc) pass. Web unit tests pass after dashboard-ui.test.ts expected OVERDUE label "Overdue" (current humanWorkOrderStatusLabel; the imported test said "Overdue (Legacy)").
-Screenshots: not captured. No running app on this branch, and .env.e2e is absent.
+Screenshots: `docs/handover/ui-redesign/batch-2/` captured with the OS theme dark. The app stays on the light theme (`darkMode: "class"`).

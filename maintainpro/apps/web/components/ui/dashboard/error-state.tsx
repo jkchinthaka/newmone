@@ -1,3 +1,5 @@
+import React from "react";
+
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div className="rounded-card border border-red-200 bg-red-50 px-4 py-6 text-center dark:border-red-900 dark:bg-red-950" role="alert">

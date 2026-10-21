@@ -1,12 +1,24 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { AlertTriangle, ClipboardCheck, Package, UserX, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
-import { humanWorkOrderStatusLabel } from "@/components/work-orders/helpers";
-import { EmptyState, ErrorState, LoadingCardSkeleton, LoadingState } from "@/components/ui/page-state";
+import {
+  BarList,
+  DataTable,
+  EmptyState,
+  ErrorState,
+  KpiCard,
+  PageShell,
+  QueueChip,
+  SectionCard,
+  SkeletonCard,
+  StatusBadge,
+  type DataTableColumn
+} from "@/components/ui/dashboard";
+import type { StatusTone } from "@/lib/dashboard-status";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { jobDomainLabel } from "@/lib/job-domain";
 import { PM_DUE_SOON_HREF, PM_OVERDUE_HREF } from "@/lib/operational-deep-link";
@@ -70,51 +82,42 @@ type MyJobCounts = {
   waitingParts: number;
 };
 
-const cardTones = {
-  default: "border-slate-200 bg-white",
-  warn: "border-amber-300 bg-amber-50",
-  critical: "border-red-200 bg-red-50"
+const ATTENTION_ICONS: Record<string, LucideIcon> = {
+  overdue: AlertTriangle,
+  unassigned: UserX,
+  "verification-required": ClipboardCheck,
+  "waiting-parts": Package,
+  "my-jobs": ClipboardCheck,
+  "due-today": ClipboardCheck
 };
 
-function ActionCard({
+function attentionTone(id: string, value: number): StatusTone {
+  if (value <= 0) return "neutral";
+  if (id === "overdue") return "red";
+  return actionCardTone(value) === "warn" ? "amber" : "neutral";
+}
+
+function LinkedKpi({
+  id,
   label,
   value,
   href,
-  tone = "default"
+  compact = false
 }: {
+  id: string;
   label: string;
   value: number;
   href: string;
-  tone?: "default" | "warn" | "critical";
+  compact?: boolean;
 }) {
-  const empty = value === 0;
   return (
     <Link
       href={href as never}
-      className={`inline-flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm text-ink transition hover:border-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${cardTones[tone]}`}
-      aria-label={empty ? `${label}: none right now` : `${label}: ${value}`}
+      aria-label={value === 0 ? `${label}: none right now` : `${label}: ${value}`}
+      className="block rounded-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
     >
-      <span className="font-semibold tabular-nums">{value}</span>
-      <span>{label}</span>
+      <KpiCard compact={compact} icon={ATTENTION_ICONS[id]} label={label} tone={attentionTone(id, value)} value={String(value)} />
     </Link>
-  );
-}
-
-function Section({ title, description, action, children }: { title: string; description?: string; action?: ReactNode; children: ReactNode }) {
-  const id = title.replace(/\s+/g, "-").toLowerCase();
-  return (
-    <section className="space-y-3" aria-labelledby={id}>
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 id={id} className="text-lg font-semibold text-slate-900">
-            {title}
-          </h2>
-          {description ? <p className="text-sm text-slate-600">{description}</p> : null}
-        </div>
-        {action}
-      </div>
-      {children}
-    </section>
   );
 }
 
@@ -134,6 +137,45 @@ function formatDue(value: string | null) {
   if (!value) return "No due date";
   return new Date(value).toLocaleDateString();
 }
+
+const priorityColumns: Array<DataTableColumn<PriorityWorkOrder>> = [
+  {
+    id: "work-order",
+    header: "Work order",
+    mobileLabel: "Work order",
+    cell: (wo) => (
+      <>
+        <Link
+          href={`/maintenance/jobs?wo=${wo.id}` as never}
+          className="font-medium text-brand-700 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+        >
+          {wo.woNumber}
+        </Link>
+        <div className="text-slate-700">{wo.title}</div>
+      </>
+    )
+  },
+  {
+    id: "asset",
+    header: "Asset",
+    mobileLabel: "Asset",
+    cell: (wo) => wo.assetName || jobDomainLabel(wo.jobDomain)
+  },
+  { id: "priority", header: "Priority", mobileLabel: "Priority", cell: (wo) => wo.priority },
+  {
+    id: "status",
+    header: "Status",
+    mobileLabel: "Status",
+    cell: (wo) => <StatusBadge status={wo.status} />
+  },
+  { id: "due", header: "Due", mobileLabel: "Due", cell: (wo) => formatDue(wo.dueDate) },
+  {
+    id: "assignee",
+    header: "Assignee",
+    mobileLabel: "Assignee",
+    cell: (wo) => wo.assigneeName || "Unassigned"
+  }
+];
 
 export function MaintenanceDashboardPage() {
   const user = useCurrentUser();
@@ -159,53 +201,56 @@ export function MaintenanceDashboardPage() {
 
   if (query.isLoading) {
     return (
-      <LoadingState title="Loading maintenance dashboard" description="Fetching the work that needs attention.">
-        <LoadingCardSkeleton rows={4} />
-      </LoadingState>
+      <div className="ops-page space-y-4" aria-busy="true">
+        <p className="text-sm font-medium text-slate-700">Loading maintenance dashboard</p>
+        <p className="text-sm text-slate-600">Fetching the work that needs attention.</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      </div>
     );
   }
 
   if (query.isError || !query.data) {
-    return (
-      <ErrorState
-        title="Unable to load maintenance dashboard"
-        description={getApiErrorMessage(query.error, "Unable to load maintenance dashboard")}
-        onRetry={() => query.refetch()}
-      />
-    );
+    const description = getApiErrorMessage(query.error, "Unable to load maintenance dashboard");
+    const message = description.includes("Unable to load maintenance dashboard")
+      ? description
+      : `Unable to load maintenance dashboard. ${description}`;
+    return <ErrorState message={message} onRetry={() => query.refetch()} />;
   }
 
   return (
     <div className="ops-page">
       <PageBreadcrumbs items={[{ label: "Maintenance" }]} />
-      <div>
-        <h1 className="page-title">Maintenance Dashboard</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-600">
-          {technicianView ? "Your jobs that need attention now." : "What needs attention now."}
-        </p>
+      <PageShell
+        subtitle={technicianView ? "Your jobs that need attention now." : "What needs attention now."}
+        title="Maintenance Dashboard"
+      >
         {!technicianView && dashboardQuery.data ? (
-          <p className="mt-1 text-xs text-slate-500">Updated {new Date(dashboardQuery.data.generatedAt).toLocaleString()}</p>
+          <p className="text-xs text-slate-500">Updated {new Date(dashboardQuery.data.generatedAt).toLocaleString()}</p>
         ) : null}
-      </div>
-
-      {technicianView && myJobsQuery.data ? <TechnicianDashboard counts={myJobsQuery.data} /> : null}
-      {!technicianView && dashboardQuery.data ? (
-        <ManagerDashboard data={dashboardQuery.data} role={user.role} />
-      ) : null}
+        {technicianView && myJobsQuery.data ? <TechnicianDashboard counts={myJobsQuery.data} /> : null}
+        {!technicianView && dashboardQuery.data ? (
+          <ManagerDashboard data={dashboardQuery.data} role={user.role} />
+        ) : null}
+      </PageShell>
     </div>
   );
 }
 
 function TechnicianDashboard({ counts }: { counts: MyJobCounts }) {
   return (
-    <Section title="My work" description="Assigned jobs only. Manager queues stay on the manager dashboard.">
-      <div className="summary-strip">
+    <SectionCard description="Assigned jobs only. Manager queues stay on the manager dashboard." title="My work">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {TECHNICIAN_ACTION_CARDS.map((card) => {
           const value = counts[card.countKey] ?? 0;
-          return <ActionCard key={card.id} label={card.label} value={value} href={card.href} tone={actionCardTone(value)} />;
+          return <LinkedKpi key={card.id} href={card.href} id={card.id} label={card.label} value={value} />;
         })}
       </div>
-    </Section>
+    </SectionCard>
   );
 }
 
@@ -222,70 +267,36 @@ function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: st
   const priority = data.priorityWorkList ?? [];
 
   return (
-    <>
-      <Section title="Needs attention" description="The four queues to clear first.">
-        <div className="summary-strip">
+    <div className="space-y-4">
+      <SectionCard description="The four queues to clear first." title="Needs attention">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {dashboardCardsForRole(role, MANAGER_ACTION_CARDS).map((card) => {
             const value = counts[card.countKey] ?? 0;
-            const tone = card.id === "overdue" && value > 0 ? "critical" : actionCardTone(value);
-            return <ActionCard key={card.id} label={card.label} value={value} href={card.href} tone={tone} />;
+            return <LinkedKpi key={card.id} href={card.href} id={card.id} label={card.label} value={value} />;
           })}
         </div>
-      </Section>
+      </SectionCard>
 
-      <Section
-        title="Priority work orders"
-        description="The five most urgent open jobs."
+      <SectionCard
         action={
           <Link
             href={"/work-orders?filter=open" as never}
-            className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            className="btn-quiet"
           >
             View all
           </Link>
         }
+        description="The five most urgent open jobs."
+        title="Priority work orders"
       >
         {priority.length === 0 ? (
-          <EmptyState title="Nothing urgent" description="No overdue or high-priority work orders right now." />
+          <EmptyState description="No overdue or high-priority work orders right now." title="Nothing urgent" />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b bg-slate-50 text-slate-600">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Work order</th>
-                  <th className="px-3 py-2 font-medium">Asset</th>
-                  <th className="px-3 py-2 font-medium">Priority</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
-                  <th className="px-3 py-2 font-medium">Due</th>
-                  <th className="px-3 py-2 font-medium">Assignee</th>
-                </tr>
-              </thead>
-              <tbody>
-                {priority.map((wo) => (
-                  <tr key={wo.id} className="border-b last:border-0">
-                    <td className="px-3 py-3">
-                      <Link
-                        href={`/maintenance/jobs?wo=${wo.id}` as never}
-                        className="font-medium text-brand-700 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-                      >
-                        {wo.woNumber}
-                      </Link>
-                      <div className="text-slate-700">{wo.title}</div>
-                    </td>
-                    <td className="px-3 py-3">{wo.assetName || jobDomainLabel(wo.jobDomain)}</td>
-                    <td className="px-3 py-3">{wo.priority}</td>
-                    <td className="px-3 py-3">{humanWorkOrderStatusLabel(wo.status)}</td>
-                    <td className="px-3 py-3">{formatDue(wo.dueDate)}</td>
-                    <td className="px-3 py-3">{wo.assigneeName || "Unassigned"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable ariaLabel="Priority work orders" columns={priorityColumns} getRowId={(wo) => wo.id} minWidth="720px" rows={priority} />
         )}
-      </Section>
+      </SectionCard>
 
-      <Section title="Workload" description="Open load by stage. Each chip opens that stage.">
+      <SectionCard description="Open load by stage. Each chip opens that stage." title="Workload">
         <div className="flex flex-wrap gap-2">
           {dashboardCardsForRole(role, WORKLOAD_CARDS).map((card) => {
             const value = counts[card.countKey] ?? 0;
@@ -293,52 +304,44 @@ function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: st
               <Link
                 key={card.id}
                 href={card.href as never}
-                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-white px-3 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
                 aria-label={`${card.label}: ${value}`}
+                className="rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
               >
-                <span>{card.label}</span>
-                <span className="font-semibold tabular-nums">{value}</span>
+                <QueueChip>
+                  <span>{card.label}</span>
+                  <span className="font-semibold tabular-nums">{value}</span>
+                </QueueChip>
               </Link>
             );
           })}
         </div>
-      </Section>
+      </SectionCard>
 
-      <Section title="Domain breakdown" description="Open jobs by domain.">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {[
+      <SectionCard description="Open jobs by domain." title="Domain breakdown">
+        <BarList
+          items={[
             ["Machinery", data.machineryJobs, "/maintenance/jobs/machinery?queue=open-load"],
             ["Vehicle", data.vehicleJobs, "/maintenance/jobs/vehicle?queue=open-load"],
             ["Service", data.serviceJobs, "/maintenance/jobs/service?queue=open-load"]
-          ].map(([label, value, href]) => (
-            <Link
-              key={label}
-              href={href as never}
-              className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-              aria-label={`${label}: ${value} open jobs`}
-            >
-              <span className="font-medium text-slate-800">{label}</span>
-              <span className="text-lg font-semibold tabular-nums text-slate-900">{value}</span>
-            </Link>
-          ))}
-        </div>
-      </Section>
+          ].map(([label, value, href]) => ({
+            name: String(label),
+            value: Number(value),
+            href: String(href),
+            ariaLabel: `${label}: ${value} open jobs`
+          }))}
+        />
+      </SectionCard>
 
-      <Section title="Pipeline" description="Requests, preventive work, and approvals that can unblock jobs.">
-        <div className="summary-strip">
-          <ActionCard label="Requests awaiting action" value={data.requestsOpen} href="/requests?stage=open" tone={actionCardTone(data.requestsOpen)} />
-          <ActionCard label="PM due soon" value={data.pmDueSoon} href={PM_DUE_SOON_HREF} tone={actionCardTone(data.pmDueSoon)} />
-          <ActionCard label="PM overdue" value={data.pmOverdue ?? 0} href={PM_OVERDUE_HREF} tone={actionCardTone(data.pmOverdue ?? 0)} />
+      <SectionCard description="Requests, preventive work, and approvals that can unblock jobs." title="Pipeline">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <LinkedKpi compact href="/requests?stage=open" id="requests" label="Requests awaiting action" value={data.requestsOpen} />
+          <LinkedKpi compact href={PM_DUE_SOON_HREF} id="pm-due" label="PM due soon" value={data.pmDueSoon} />
+          <LinkedKpi compact href={PM_OVERDUE_HREF} id="pm-overdue" label="PM overdue" value={data.pmOverdue ?? 0} />
           {data.availability.approvals && data.pendingApprovals != null ? (
-            <ActionCard
-              label="Approvals pending"
-              value={data.pendingApprovals}
-              href="/approvals"
-              tone={actionCardTone(data.pendingApprovals)}
-            />
+            <LinkedKpi compact href="/approvals" id="approvals" label="Approvals pending" value={data.pendingApprovals} />
           ) : null}
         </div>
-      </Section>
-    </>
+      </SectionCard>
+    </div>
   );
 }
