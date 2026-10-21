@@ -155,3 +155,5 @@ Phase 0: PR #76 merged. PR #77 open; full-stack-e2e failed on mobile-smoke (hidd
 ## Full-stack e2e fix 2026-10-19
 
 Branch `fix/sweep-e2e-tenant`. Local `npm run test:e2e:full-stack` against the rebuilt stack on 127.0.0.1:18080: 128 passed. Jest `workforce-employees.spec.ts` 17 passed. Jest `work-order-evidence-governance.spec.ts` 10 passed. qa-reviewer could not be started (billing). `fix/sweep-approvals` stays unpushed.
+
+2026-10-21 v1.0.2 tag `0cac1eb8` already on main. Downtime tab: unit 1 passed, web unit 346 passed, web tsc 0, register e2e 1 passed. Safety-card commit only; tag not moved.
