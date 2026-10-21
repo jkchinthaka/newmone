@@ -7,8 +7,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Database, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
+import { EmptyState, ErrorState, KpiCard, SkeletonCard } from "@/components/ui/dashboard";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
-import { ErrorState, InlineLoadingState, PermissionState } from "@/components/ui/page-state";
+import { PermissionState } from "@/components/ui/page-state";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { fetchAdminRolesPermissionsMatrix, syncPermissionCatalog } from "@/lib/admin-roles-api";
 import { filterRolesPermissionsMatrix, formatRoleLabel, type AdminRoleReviewRow } from "@/lib/admin-roles";
@@ -141,23 +142,8 @@ export function AdminRolesPage() {
 
       {filteredMatrix ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Roles in scope</p>
-            <p className="mt-1 page-title">{filteredMatrix.roles.length}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Permissions shown</p>
-            <p className="mt-1 page-title">{filteredMatrix.permissions.length}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:col-span-2 xl:col-span-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Built-in roles</p>
-            <p className="mt-1 text-sm text-slate-700">
-              {filteredMatrix.roles
-                .filter((role) => role.isBuiltIn)
-                .map((role) => formatRoleLabel(role.name))
-                .join(", ") || "None in current filter"}
-            </p>
-          </div>
+          <KpiCard label="Roles in scope" value={String(filteredMatrix.roles.length)} />
+          <KpiCard label="Permissions shown" value={String(filteredMatrix.permissions.length)} />
         </div>
       ) : null}
 
@@ -189,9 +175,11 @@ export function AdminRolesPage() {
       ) : null}
 
       {query.isLoading ? (
-        <InlineLoadingState label="Loading roles and permissions matrix…" />
+        <div className="grid gap-3 sm:grid-cols-2" aria-busy="true"><SkeletonCard /><SkeletonCard /></div>
       ) : query.isError ? (
-        <ErrorState title="Could not load roles matrix" error={query.error} onRetry={() => query.refetch()} />
+        <ErrorState message={`Could not load roles matrix. ${query.error instanceof Error ? query.error.message : ""}`} onRetry={() => query.refetch()} />
+      ) : filteredMatrix && filteredMatrix.roles.length === 0 ? (
+        <EmptyState title="No roles were returned for your admin scope." description="Refresh after the role list is available." />
       ) : filteredMatrix ? (
         <RolesPermissionsMatrix matrix={filteredMatrix} showTenantColumns={isSuperAdmin} />
       ) : null}
