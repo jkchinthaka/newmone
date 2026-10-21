@@ -20,6 +20,7 @@ import { apiClient } from "@/lib/api-client";
 import type { AdminUserAccessRow } from "@/lib/admin-users";
 import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
+import { showPermissionOverridesCard } from "@/lib/permission-overrides";
 
 import { AdminUserFormDialog } from "./admin-user-form-dialog";
 import { AdminUserPasswordDialog } from "./admin-user-password-dialog";
@@ -248,6 +249,13 @@ export function AdminUsersPage() {
             onSaved={refreshUsers}
             roles={matrixQuery.data?.roles ?? []}
             user={editingUser}
+            showPermissionOverrides={showPermissionOverridesCard({
+              role: roleName,
+              accessStudioEnabled: user.accessStudioEnabled === true,
+              editingUserId: editingUser?.id ?? null,
+              currentUserId: user.id
+            })}
+            permissionOptions={matrixQuery.data?.permissions ?? []}
           />
           <AdminUserPasswordDialog
             open={Boolean(passwordTarget)}

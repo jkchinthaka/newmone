@@ -92,6 +92,9 @@ export function mergeStoredPublicUserProfile(profile: unknown) {
       (value): value is string => typeof value === "string"
     );
   }
+  if (typeof incoming.accessStudioEnabled === "boolean") {
+    next.accessStudioEnabled = incoming.accessStudioEnabled;
+  }
 
   localStorage.setItem(USER_KEY, JSON.stringify(next));
   window.dispatchEvent(new Event("maintainpro:user-updated"));

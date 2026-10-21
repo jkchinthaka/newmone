@@ -1,0 +1,183 @@
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException
+} from "@nestjs/common";
+import { AuditAction } from "@prisma/client";
+
+import { accessStudioEnabled } from "../../common/auth/effective-permissions";
+import { writeAuditTrail } from "../../common/utils/audit-trail.util";
+import { PrismaService } from "../../database/prisma.service";
+import type { JwtPayload } from "../auth/auth.types";
+
+const EFFECTS = new Set(["GRANT", "DENY"]);
+
+export type PermissionOverrideInput = {
+  permissionKey?: string;
+  effect?: string;
+  reason?: string;
+};
+
+@Injectable()
+export class PermissionOverridesService {
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+
+  async list(actor: JwtPayload, userId: string) {
+    this.assertEnabled();
+    const target = await this.requireSameTenantUser(actor, userId);
+    const rows = await this.prisma.userPermissionOverride.findMany({
+      where: { tenantId: target.tenantId, userId: target.id },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        permissionKey: true,
+        effect: true,
+        reason: true,
+        createdAt: true,
+        createdById: true
+      }
+    });
+
+    return { data: rows, message: "Permission overrides loaded" };
+  }
+
+  async create(actor: JwtPayload, userId: string, input: PermissionOverrideInput) {
+    this.assertEnabled();
+    this.assertNotSelf(actor, userId);
+
+    const permissionKey = input.permissionKey?.trim() ?? "";
+    const effect = input.effect?.trim() ?? "";
+    const reason = input.reason?.trim() ?? "";
+
+    if (!permissionKey) {
+      throw new BadRequestException("permissionKey is required");
+    }
+    if (!EFFECTS.has(effect)) {
+      throw new BadRequestException("effect must be GRANT or DENY");
+    }
+    if (!reason) {
+      throw new BadRequestException("A reason is required");
+    }
+
+    const catalogue = await this.prisma.permission.findUnique({
+      where: { key: permissionKey },
+      select: { key: true }
+    });
+    if (!catalogue) {
+      throw new BadRequestException("Unknown permission");
+    }
+
+    const target = await this.requireSameTenantUser(actor, userId);
+    const existing = await this.prisma.userPermissionOverride.findUnique({
+      where: {
+        tenantId_userId_permissionKey: {
+          tenantId: target.tenantId,
+          userId: target.id,
+          permissionKey
+        }
+      },
+      select: { id: true }
+    });
+    if (existing) {
+      throw new ConflictException("An override already exists for this permission");
+    }
+
+    const row = await this.prisma.userPermissionOverride.create({
+      data: {
+        tenantId: target.tenantId,
+        userId: target.id,
+        permissionKey,
+        effect,
+        reason,
+        createdById: actor.sub
+      }
+    });
+
+    await writeAuditTrail(this.prisma, {
+      entity: "UserPermissionOverride",
+      entityId: row.id,
+      action: AuditAction.CREATE,
+      module: "admin",
+      actor,
+      reason,
+      tenantId: target.tenantId,
+      afterData: { userId: target.id, permissionKey, effect }
+    });
+
+    return { data: row, message: "Permission override saved" };
+  }
+
+  async remove(actor: JwtPayload, userId: string, permissionKey: string, reason: string) {
+    this.assertEnabled();
+    this.assertNotSelf(actor, userId);
+
+    const key = permissionKey.trim();
+    const auditReason = reason.trim();
+    if (!key) {
+      throw new BadRequestException("permissionKey is required");
+    }
+    if (!auditReason) {
+      throw new BadRequestException("A reason is required");
+    }
+
+    const target = await this.requireSameTenantUser(actor, userId);
+    const row = await this.prisma.userPermissionOverride.findUnique({
+      where: {
+        tenantId_userId_permissionKey: {
+          tenantId: target.tenantId,
+          userId: target.id,
+          permissionKey: key
+        }
+      }
+    });
+    if (!row) {
+      throw new NotFoundException("Permission override not found");
+    }
+
+    await this.prisma.userPermissionOverride.delete({ where: { id: row.id } });
+    await writeAuditTrail(this.prisma, {
+      entity: "UserPermissionOverride",
+      entityId: row.id,
+      action: AuditAction.DELETE,
+      module: "admin",
+      actor,
+      reason: auditReason,
+      tenantId: target.tenantId,
+      beforeData: { userId: target.id, permissionKey: row.permissionKey, effect: row.effect }
+    });
+
+    return { data: { id: row.id }, message: "Permission override removed" };
+  }
+
+  private assertEnabled() {
+    if (!accessStudioEnabled()) {
+      throw new NotFoundException();
+    }
+  }
+
+  private assertNotSelf(actor: JwtPayload, userId: string) {
+    if (actor.sub === userId) {
+      throw new ForbiddenException("You cannot edit your own permission overrides");
+    }
+  }
+
+  private async requireSameTenantUser(actor: JwtPayload, userId: string) {
+    if (!actor.tenantId) {
+      throw new BadRequestException("Active tenant is required");
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, tenantId: actor.tenantId },
+      select: { id: true, tenantId: true }
+    });
+
+    if (!user?.tenantId) {
+      throw new NotFoundException("User not found");
+    }
+
+    return { id: user.id, tenantId: user.tenantId };
+  }
+}

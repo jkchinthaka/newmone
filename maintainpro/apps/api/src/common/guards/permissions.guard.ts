@@ -9,6 +9,7 @@ import {
 import { Reflector } from "@nestjs/core";
 
 import { PrismaService } from "../../database/prisma.service";
+import { loadEffectivePermissionKeys } from "../auth/effective-permissions";
 import { rolePermissionKeys } from "../utils/role-permissions.util";
 import { PERMISSIONS_KEY } from "../decorators/permissions.decorator";
 
@@ -173,12 +174,20 @@ export class PermissionsGuard implements CanActivate {
     }
 
     // SUPER_ADMIN is determined from DB role only (not JWT claim alone).
+    // Overrides do not change this path.
     if (dbUser.role.name === "SUPER_ADMIN") {
       return true;
     }
 
+    const roleKeys = rolePermissionKeys(dbUser.role);
+    const effectiveKeys = await loadEffectivePermissionKeys(
+      this.prisma,
+      { id: dbUser.id, tenantId: dbUser.tenantId ?? null },
+      roleKeys
+    );
+
     return this.assertHasPermissions(
-      this.toPermissionSet(rolePermissionKeys(dbUser.role)),
+      this.toPermissionSet(effectiveKeys),
       requiredPermissions,
       dbUser.role.name
     );
@@ -193,6 +202,7 @@ export class PermissionsGuard implements CanActivate {
       where: { id: userId },
       select: {
         id: true,
+        tenantId: true,
         isActive: true,
         lockedUntil: true,
         role: {
