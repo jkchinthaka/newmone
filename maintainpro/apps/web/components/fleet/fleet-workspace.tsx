@@ -74,6 +74,9 @@ export function FleetWorkspace() {
   const state = useMemo(() => fleetStateFromSearch(new URLSearchParams(searchParams.toString())), [searchParams]);
   const [draftQuery, setDraftQuery] = useState(state.q);
   const [summary, setSummary] = useState<FleetOverviewSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryFailed, setSummaryFailed] = useState(false);
+  const [summaryAttempt, setSummaryAttempt] = useState(0);
   const [rows, setRows] = useState<VehicleRow[]>([]);
   const [records, setRecords] = useState<Array<Record<string, unknown>>>([]);
   const [meta, setMeta] = useState<PageMeta>({ page: 1, pageSize: state.pageSize, total: 0, totalPages: 1 });
@@ -103,15 +106,23 @@ export function FleetWorkspace() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void getFleetOverview()
+    setSummaryLoading(true);
+    setSummaryFailed(false);
+    void getFleetOverview(controller.signal)
       .then((overview) => {
-        if (!controller.signal.aborted) setSummary(overview);
+        if (controller.signal.aborted) return;
+        setSummary(overview);
+        setSummaryFailed(false);
+        setSummaryLoading(false);
       })
-      .catch(() => {
-        if (!controller.signal.aborted) setSummary(null);
+      .catch((cause: unknown) => {
+        if (controller.signal.aborted || isCanceledRequest(cause)) return;
+        setSummary(null);
+        setSummaryFailed(true);
+        setSummaryLoading(false);
       });
     return () => controller.abort();
-  }, [reloadKey]);
+  }, [reloadKey, summaryAttempt]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -209,15 +220,6 @@ export function FleetWorkspace() {
     }
   }
 
-  const metrics = [
-    ["overdue", "Service Overdue", summary?.overdueService],
-    ["due", "Due Soon", summary?.dueService],
-    ["docs", "Docs Expiring", summary?.expiringDocs],
-    ["gate", "Gate Blocked", summary?.blockedVehicles],
-    ["repairs", "Open Repairs", summary?.openRepairs],
-    ["out", "Out of Service", summary?.outOfService]
-  ] as const;
-
   return (
     <div className="min-w-0 space-y-4">
       <OperationalJobsHeader
@@ -253,18 +255,13 @@ export function FleetWorkspace() {
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-700" aria-label="Fleet summary">
-        {metrics.map(([key, label, value]) => (
-          <button
-            key={key}
-            type="button"
-            className="hover:text-slate-950"
-            onClick={() => write(fleetKpiTarget(key, state.pageSize))}
-          >
-            {label} <span className={value ? "font-semibold text-red-700" : "font-medium"}>{value ?? "–"}</span>
-          </button>
-        ))}
-      </div>
+      <FleetSummaryChips
+        summary={summary}
+        loading={summaryLoading}
+        failed={summaryFailed}
+        onRetry={() => setSummaryAttempt((value) => value + 1)}
+        onSelect={(key) => write(fleetKpiTarget(key, state.pageSize))}
+      />
 
       <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
@@ -508,4 +505,65 @@ function RecordTable({ view, rows }: { view: FleetView; rows: Array<Record<strin
       </tbody>
     </table>
   );
+}
+
+const FLEET_SUMMARY_METRICS = [
+  ["overdue", "Service Overdue", "overdueService"],
+  ["due", "Due Soon", "dueService"],
+  ["docs", "Docs Expiring", "expiringDocs"],
+  ["gate", "Gate Blocked", "blockedVehicles"],
+  ["repairs", "Open Repairs", "openRepairs"],
+  ["out", "Out of Service", "outOfService"]
+] as const;
+
+export function FleetSummaryChips({
+  summary,
+  loading,
+  failed,
+  onRetry,
+  onSelect
+}: {
+  summary: FleetOverviewSummary | null;
+  loading: boolean;
+  failed: boolean;
+  onRetry: () => void;
+  onSelect: (metric: (typeof FLEET_SUMMARY_METRICS)[number][0]) => void;
+}) {
+  if (failed) {
+    return (
+      <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+        <p className="text-sm text-rose-800">{"Couldn't load fleet summary"}</p>
+        <button type="button" className="h-9 rounded-md border border-rose-300 bg-white px-3 text-sm" onClick={onRetry}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-3 gap-2 lg:grid-cols-6" aria-label="Fleet summary">
+      {FLEET_SUMMARY_METRICS.map(([key, label, field]) => {
+        const count = summary ? summary[field] : null;
+        const shown = loading || count == null ? "–" : String(count);
+        const alert = typeof count === "number" && count > 0;
+        return (
+          <button
+            key={key}
+            type="button"
+            className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-left"
+            onClick={() => onSelect(key)}
+          >
+            <span className={`block text-xl font-semibold leading-none ${alert ? "text-red-700" : "text-slate-900"}`}>{shown}</span>
+            <span className="mt-1 block text-xs text-slate-600">{label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function isCanceledRequest(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: string; name?: string };
+  return candidate.code === "ERR_CANCELED" || candidate.name === "CanceledError" || candidate.name === "AbortError";
 }

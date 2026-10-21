@@ -4,13 +4,13 @@ This note is for the server team and the next developer. It does not assume the 
 
 ## 1. Status
 
-The go-live release is tag **`v1.0.1-golive`** (`a1e80ed8`, merge of pull request **#97** on `main`). `develop` and `qa` match that commit. **`v1.0.0-golive` (`f0eba613`) is not the go-live release.** Do not deploy it.
+The go-live release is tag **`v1.0.2-golive`** on `main` (vehicle register hotfix). `develop` and `qa` are fast-forwarded to that tag. Pull request **#100** stays on `develop`. **`v1.0.0-golive` (`f0eba613`) and `v1.0.1-golive` (`a1e80ed8`) stay in place and are not the current go-live release.** Do not deploy them.
 
-The runbook and master-data note for this release are `maintainpro/docs/handover/GO_LIVE_RUNBOOK.md` and `GO_LIVE_MASTER_DATA.md` on `v1.0.1-golive`.
+The runbook and master-data note for this release are `maintainpro/docs/handover/GO_LIVE_RUNBOOK.md` and `GO_LIVE_MASTER_DATA.md` on `v1.0.2-golive`.
 
 ## 2. Server and IT checklist
 
-Do these in order on tag `v1.0.1-golive`. Steps are in `maintainpro/docs/handover/GO_LIVE_RUNBOOK.md` and `GO_LIVE_MASTER_DATA.md`. Production web is `next start`. Never `next dev`.
+Do these in order on tag `v1.0.2-golive`. Steps are in `maintainpro/docs/handover/GO_LIVE_RUNBOOK.md` and `GO_LIVE_MASTER_DATA.md`. Production web is `next start`. Never `next dev`.
 
 1. **Server.** Runbook §1. Windows host, SQL Server Express, Node, and the release checkout.
 2. **IIS ARR and `X-Real-IP`.** Runbook §12. The proxy in front of Next.js sets `X-Real-IP` to `{REMOTE_ADDR}` (one client address). Do not copy `X-Forwarded-For`. ARR’s forwarded-for option does not count. Allow server variable `HTTP_X_REAL_IP`. Same text is in `DEPLOYMENT_RUNBOOK.md` on that branch.
@@ -46,7 +46,7 @@ Rollback is runbook §9: previous build, and a database restore only if a migrat
 | Unused Prisma models. Confirm each model has no caller, then remove it in its own pull request. | — |
 | Prisma upgrade. Not before a stable release. | — |
 
-Ship tag `v1.0.1-golive`. Do not cut another tag for a documentation-only change.
+Ship tag `v1.0.2-golive`. Keep `v1.0.0-golive` and `v1.0.1-golive`. Do not cut another tag for a documentation-only change.
 
 ## 4. Run and test
 

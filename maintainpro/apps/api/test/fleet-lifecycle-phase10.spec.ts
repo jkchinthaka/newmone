@@ -569,6 +569,27 @@ describe("RBAC — permission catalog", () => {
     "gate.override"
   ];
 
+  test("fleet home summary returns six zeros when the tenant has no vehicles", async () => {
+    const prisma = buildPrismaMock({
+      vehicleTyre: { count: jest.fn().mockResolvedValue(0) },
+      vehicleBattery: { count: jest.fn().mockResolvedValue(0) },
+      accidentReport: { count: jest.fn().mockResolvedValue(0) }
+    });
+    const vehicles = { countCannotGateOut: jest.fn().mockResolvedValue(0) };
+    const service = new FleetLifecycleService(prisma as never, undefined, vehicles as never);
+    const summary = await service.fleetHomeSummary({ sub: "user-1", tenantId: "tenant-empty", role: "ADMIN" });
+
+    expect(summary).toMatchObject({
+      dueService: 0,
+      overdueService: 0,
+      expiringDocs: 0,
+      blockedVehicles: 0,
+      openRepairs: 0,
+      outOfService: 0
+    });
+    expect(vehicles.countCannotGateOut).toHaveBeenCalledWith("tenant-empty");
+  });
+
   test("42. all Phase 10 permission keys are in the catalog", () => {
     for (const key of phase10Keys) {
       expect(PERMISSION_CATALOG).toContain(key);
