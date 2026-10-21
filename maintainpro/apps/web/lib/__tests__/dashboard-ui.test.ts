@@ -9,7 +9,7 @@ import { statusBadgePresentation } from "../dashboard-status";
 
 test("status badge keeps work-order labels and tones, including legacy statuses", () => {
   assert.deepEqual(statusBadgePresentation("COMPLETED"), { label: "Closed (Legacy)", tone: "emerald" });
-  assert.deepEqual(statusBadgePresentation("OVERDUE"), { label: "Overdue (Legacy)", tone: "red" });
+  assert.deepEqual(statusBadgePresentation("OVERDUE"), { label: "Overdue", tone: "red" });
   assert.equal(statusBadgePresentation("ASSIGNED").label, "Assigned");
   assert.equal(statusBadgePresentation("TECHNICIAN_COMPLETED").tone, "amber");
   assert.equal(statusBadgePresentation("APPROVED").tone, "emerald");

@@ -37,4 +37,5 @@ Maintenance dashboard (`/maintenance`): KPI cards, priority table, workload chip
 24 Roles (`/admin/roles`) | `admin-roles-page.tsx`, `permission-group-card.tsx` | hidden: none. Matrix stays read-only checkmarks; editing stays the existing role editor.
 25 Maintenance settings | `maintenance-config/page.tsx`, `maintenance-settings-nav.tsx`, job categories, priority SLA, approval rules, reason codes, fault codes, work permits | hidden: currency, time zone, work week (no fields). Tax rate and Save stay.
 e2e: run in CI later
-NEXT: screenshots if the app is up; otherwise stop after checks.
+Checks: web lint (tsc) pass. Web unit tests pass after dashboard-ui.test.ts expected OVERDUE label "Overdue" (current humanWorkOrderStatusLabel; the imported test said "Overdue (Legacy)").
+Screenshots: not captured. No running app on this branch, and .env.e2e is absent.
