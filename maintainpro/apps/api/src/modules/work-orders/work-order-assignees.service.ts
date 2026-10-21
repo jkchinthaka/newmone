@@ -14,6 +14,7 @@ import {
 
 import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
+import { assertWorkOrderAcceptsFieldMutation } from "../../common/utils/work-order-terminal-lock";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
 import { WorkforceEmployeesService } from "../workforce/workforce-employees.service";
@@ -109,12 +110,11 @@ export class WorkOrderAssigneesService {
       throw new NotFoundException("Work order not found");
     }
 
-    if (
-      !options?.allowClosed &&
-      (workOrder.status === WorkOrderStatus.COMPLETED ||
-        workOrder.status === WorkOrderStatus.CANCELLED)
-    ) {
-      throw new BadRequestException("Cannot modify assignees on a closed work order");
+    if (!options?.allowClosed) {
+      assertWorkOrderAcceptsFieldMutation(workOrder.status, "modify assignees");
+      if (workOrder.status === WorkOrderStatus.COMPLETED) {
+        throw new BadRequestException("Cannot modify assignees on a closed work order");
+      }
     }
 
     return workOrder;
