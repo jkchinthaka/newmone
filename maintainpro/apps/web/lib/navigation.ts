@@ -9,6 +9,7 @@
  * FG Digital Records integration was removed from MaintainPro entirely.
  */
 
+import { hasCompatiblePermission } from "./permission-aliases";
 import {
   extractRoleName,
   getPostLoginRedirect,
@@ -773,7 +774,10 @@ export function isNavigationItemVisible(
 
   if (item.requiredPermissions?.length) {
     const granted = new Set(permissions.map((p) => p.trim()));
-    const hasPermission = item.requiredPermissions.some((permission) => granted.has(permission));
+    // Same alias rule as the API guard, so a MANAGER with work_orders.manage sees Approvals.
+    const hasPermission = item.requiredPermissions.some((permission) =>
+      hasCompatiblePermission(granted, permission, normalized)
+    );
     if (!hasPermission && !FULL_NAVIGATION_ROLES.has(normalized)) {
       return false;
     }
