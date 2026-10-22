@@ -5,6 +5,7 @@ import { priorityBadgePresentation, statusBadgePresentation } from "../dashboard
 import {
   PART_REQUESTS_TO_ISSUE_AVAILABLE,
   approvalAmountTone,
+  columnHasData,
   deriveWorkOrderKpis,
   fleetDocumentBadge,
   fleetGateBadge,
@@ -129,4 +130,20 @@ test("spare parts panels stay hidden when the endpoint has no rows", () => {
   assert.equal(visibleTopUsedParts([]), null);
   assert.equal(visibleTopUsedParts([{ partName: " ", quantity: 4 }]), null);
   assert.equal(visibleTopUsedParts([{ partName: "Engine oil", quantity: 64 }])?.length, 1);
+});
+
+test("open card never shows more jobs needing assignment than it shows open", () => {
+  const queues = [{ key: "open-requests", count: 26 }, { key: "unassigned", count: 26 }];
+  const tooMany = deriveWorkOrderKpis({ queues, openUnassigned: 27 });
+  assert.equal(tooMany.find((card) => card.id === "open")?.delta, undefined);
+  const fine = deriveWorkOrderKpis({ queues, openUnassigned: 12 });
+  assert.equal(fine.find((card) => card.id === "open")?.delta, "12 need assignment");
+  const negative = deriveWorkOrderKpis({ queues, openUnassigned: -1 });
+  assert.equal(negative.find((card) => card.id === "open")?.delta, undefined);
+});
+
+test("a table column is hidden only when no row has data for it", () => {
+  assert.equal(columnHasData([{ v: null }, { v: "" }, { v: undefined }], (row) => row.v), false);
+  assert.equal(columnHasData([{ v: null }, { v: "Ready" }], (row) => row.v), true);
+  assert.equal(columnHasData([] as Array<{ v: string }>, (row) => row.v), false);
 });

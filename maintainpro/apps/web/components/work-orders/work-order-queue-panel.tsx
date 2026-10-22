@@ -417,10 +417,10 @@ export function WorkOrderQueuePanel({
             <button
               key={card.id}
               type="button"
-              className="rounded-card text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+              className="flex h-full flex-col rounded-card text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
               onClick={() => updateFilters({ queue: card.queue, smartView: undefined, page: 1 })}
             >
-              <KpiCard delta={card.delta} icon={KPI_ICONS[card.id]} label={card.label} tone={card.tone} value={String(card.value)} />
+              <KpiCard className="h-full w-full flex-1" delta={card.delta} icon={KPI_ICONS[card.id]} label={card.label} tone={card.tone} value={String(card.value)} />
             </button>
           ))}
         </div>

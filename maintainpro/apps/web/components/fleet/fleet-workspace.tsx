@@ -7,7 +7,7 @@ import { AlertTriangle, Clock, FileWarning, ShieldAlert, Truck, Wrench, type Luc
 
 import { ActiveFilterChips, JobsEmptyState, JobsLoadingSkeleton, JobsPagination, OperationalJobsHeader } from "@/components/operational";
 import { KpiCard, StatusBadge } from "@/components/ui/dashboard";
-import { fleetDocumentBadge, fleetEnumLabel, fleetGateBadge, fleetServiceBadge, fleetUsageLabel } from "@/lib/batch-3-presentation";
+import { columnHasData, fleetDocumentBadge, fleetEnumLabel, fleetGateBadge, fleetServiceBadge, fleetUsageLabel } from "@/lib/batch-3-presentation";
 import type { StatusTone } from "@/lib/dashboard-status";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { useCurrentUser } from "@/lib/use-current-user";
@@ -364,6 +364,14 @@ export function FleetWorkspace() {
 
 function VehicleTable({ rows, menuId, setMenuId }: { rows: VehicleRow[]; menuId: string | null; setMenuId: (id: string | null) => void }) {
   if (!rows.length) return null;
+  const documentBadgeFor = (row: VehicleRow) =>
+    fleetDocumentBadge([
+      { label: "Insurance", at: row.insuranceExpiry },
+      { label: "Road tax", at: row.roadTaxExpiry }
+    ]);
+  const showService = columnHasData(rows, (row) => fleetServiceBadge(row.nextServiceDate));
+  const showDocuments = columnHasData(rows, documentBadgeFor);
+  const showGate = columnHasData(rows, (row) => fleetGateBadge(row.gateBlocked));
   return (
     <div className="max-w-full overflow-x-auto [contain:paint]">
       <table className="min-w-full text-sm">
@@ -373,19 +381,16 @@ function VehicleTable({ rows, menuId, setMenuId }: { rows: VehicleRow[]; menuId:
             <th className="px-3 py-2">Type</th>
             <th className="hidden px-3 py-2 sm:table-cell">Fuel</th>
             <th className="px-3 py-2">Mileage</th>
-            <th className="px-3 py-2">Next service</th>
-            <th className="hidden px-3 py-2 md:table-cell">Documents</th>
-            <th className="px-3 py-2">Gate</th>
+            {showService ? <th className="px-3 py-2">Next service</th> : null}
+            {showDocuments ? <th className="hidden px-3 py-2 md:table-cell">Documents</th> : null}
+            {showGate ? <th className="px-3 py-2">Gate</th> : null}
             <th className="px-3 py-2"><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => {
             const service = fleetServiceBadge(row.nextServiceDate);
-            const documents = fleetDocumentBadge([
-              { label: "Insurance", at: row.insuranceExpiry },
-              { label: "Road tax", at: row.roadTaxExpiry }
-            ]);
+            const documents = documentBadgeFor(row);
             const gate = fleetGateBadge(row.gateBlocked);
             const usage = fleetUsageLabel(row.currentMileage);
             const type = fleetEnumLabel(row.type);
@@ -400,9 +405,9 @@ function VehicleTable({ rows, menuId, setMenuId }: { rows: VehicleRow[]; menuId:
                 <td className="px-3 py-2 text-slate-700">{type ?? "—"}</td>
                 <td className="hidden px-3 py-2 text-slate-700 sm:table-cell">{fuel ?? "—"}</td>
                 <td className="px-3 py-2 text-slate-700">{usage ?? "—"}</td>
-                <td className="px-3 py-2">{service ? <StatusBadge status={service.label} label={service.label} tone={service.tone} /> : null}</td>
-                <td className="hidden px-3 py-2 md:table-cell">{documents ? <StatusBadge status={documents.label} label={documents.label} tone={documents.tone} /> : null}</td>
-                <td className="px-3 py-2">{gate ? <StatusBadge status={gate.label} label={gate.label} tone={gate.tone} /> : null}</td>
+                {showService ? <td className="px-3 py-2">{service ? <StatusBadge status={service.label} label={service.label} tone={service.tone} /> : <span className="text-slate-400">—</span>}</td> : null}
+                {showDocuments ? <td className="hidden px-3 py-2 md:table-cell">{documents ? <StatusBadge status={documents.label} label={documents.label} tone={documents.tone} /> : <span className="text-slate-400">—</span>}</td> : null}
+                {showGate ? <td className="px-3 py-2">{gate ? <StatusBadge status={gate.label} label={gate.label} tone={gate.tone} /> : <span className="text-slate-400">—</span>}</td> : null}
                 <td className="relative px-3 py-2">
                   <button type="button" aria-label={`Actions for ${row.registrationNo}`} aria-expanded={menuId === row.id} onClick={() => setMenuId(menuId === row.id ? null : row.id)} className="h-8 w-8 rounded-md hover:bg-slate-100">⋯</button>
                   {menuId === row.id ? (

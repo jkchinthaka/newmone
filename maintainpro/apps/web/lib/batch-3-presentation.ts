@@ -36,7 +36,11 @@ export function deriveWorkOrderKpis(input: {
       id: "open",
       label: "Open",
       value: open,
-      delta: typeof input.openUnassigned === "number" ? `${input.openUnassigned} need assignment` : undefined,
+      // Two summary fields can disagree (different scopes). Never show a sub-count above the card value.
+      delta:
+        typeof input.openUnassigned === "number" && input.openUnassigned >= 0 && input.openUnassigned <= open
+          ? `${input.openUnassigned} need assignment`
+          : undefined,
       tone: "sky",
       queue: "open-requests"
     });
@@ -133,6 +137,14 @@ export function fleetServiceBadge(
   if (days < 0) return { label: `Overdue ${Math.abs(days)} d`, tone: "red" };
   if (days <= 7) return { label: days === 1 ? "In 1 day" : `In ${days} days`, tone: "amber" };
   return { label: days === 1 ? "In 1 day" : `In ${days} days`, tone: "emerald" };
+}
+
+/** True when at least one row has a value for the column, so an all-empty column can be hidden. */
+export function columnHasData<T>(rows: readonly T[], read: (row: T) => unknown): boolean {
+  return rows.some((row) => {
+    const value = read(row);
+    return value != null && value !== "";
+  });
 }
 
 export function fleetDocumentBadge(
