@@ -1,5 +1,7 @@
 # Go-Live Checklist — MaintainPro
 
+> Historical. This checklist is not the current go-live record. Read `docs/handover/FINAL_HANDOVER_2026-10-21.md`.
+
 **Branch:** `maintainpro/integration-v1`  
 **Version:** Phase 14  
 **Date:** 2026-09-15  

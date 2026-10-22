@@ -24,7 +24,7 @@
 | **Backup folder** | `C:\MaintainProData\backups` (NTFS, service account Modify) | `icacls C:\MaintainProData\backups` |
 | **Log folder** | `D:\MaintainProLogs\` (service account Modify) | `icacls D:\MaintainProLogs` |
 | **Service account** | `.\maintainpro-svc` (local, non-admin, logon as service) | `lusrmgr.msc` |
-| **Firewall** | Inbound 3000 (API), 3001 (Web) from load balancer / reverse proxy only | `netsh advfirewall firewall show rule name=all` |
+| **Firewall** | Inbound 3040 (API), 3041 (Web) from load balancer / reverse proxy only | `netsh advfirewall firewall show rule name=all` |
 
 > **Never use `sa` or SQL authentication.** Production uses Windows integrated auth only.
 >
@@ -54,7 +54,7 @@ npm run build
 
 # 5. Start the web app with next start. Never next dev and never npm run dev.
 cd apps/web
-npx next start -p 3001
+npx next start -p 3041
 ```
 
 **Output artifacts:**
@@ -146,7 +146,7 @@ npx tsx scripts/ops/grant-v103-permissions.ts --apply --confirm-database=Maintai
 
 ## 5. First SUPER_ADMIN Login & Password Rotation
 
-1. Open `https://app.maintainpro.local/login` (or `http://localhost:3001` if direct)
+1. Open `https://app.maintainpro.local/login` (or `http://127.0.0.1:3041` if direct)
 2. Sign in as `superadmin@maintainpro.local` with the password from `.seed-password.local`
 3. Immediately: **Profile → Change Password** to a strong unique password
 4. Store the new password in a password manager; delete `.seed-password.local`
@@ -162,13 +162,13 @@ npx tsx scripts/ops/grant-v103-permissions.ts --apply --confirm-database=Maintai
 nssm start MaintainProApi
 
 # Verify API health
-curl -f http://127.0.0.1:3000/health/live
-curl -f http://127.0.0.1:3000/health/ready
+curl -f http://127.0.0.1:3040/health/live
+curl -f http://127.0.0.1:3040/health/ready
 
 # Web service (install if not present)
 nssm install MaintainProWeb "C:\Program Files\nodejs\node.exe" "node_modules/.bin/next" "start"
 nssm set MaintainProWeb AppDirectory "C:\Users\chint\AppData\Local\MaintainPro\worktrees\release-final-20261013\maintainpro\apps\web"
-nssm set MaintainProWeb AppEnvironmentExtra "NODE_ENV=production PORT=3001 HOST=127.0.0.1 API_INTERNAL_URL=http://127.0.0.1:3000/api FRONTEND_URL=https://app.maintainpro.local COOKIE_SECURE=true ALLOW_INSECURE_HTTP=false NEXT_DIST_DIR=.next"
+nssm set MaintainProWeb AppEnvironmentExtra "NODE_ENV=production PORT=3041 HOST=127.0.0.1 API_INTERNAL_URL=http://127.0.0.1:3040/api FRONTEND_URL=https://app.maintainpro.local COOKIE_SECURE=true ALLOW_INSECURE_HTTP=false NEXT_DIST_DIR=.next"
 nssm set MaintainProWeb AppExit Default Restart
 nssm set MaintainProWeb AppRestartDelay 3000
 nssm set MaintainProWeb AppStopMethodConsole 15000
@@ -183,7 +183,7 @@ nssm start MaintainProWeb
 
 ```bash
 pm2 start dist/main.js --name maintainpro-api --cwd maintainpro/apps/api --max-restarts 20 --restart-delay 3000 --kill-timeout 15000 --time
-cd apps/web && NODE_ENV=production PORT=3001 pm2 start node_modules/.bin/next --name maintainpro-web -- start
+cd apps/web && NODE_ENV=production PORT=3041 pm2 start node_modules/.bin/next --name maintainpro-web -- start
 pm2 save && pm2 startup
 ```
 
@@ -191,12 +191,12 @@ pm2 save && pm2 startup
 
 ## 7. Smoke Checks
 
-Run **after both services report healthy** (production ports 3000/3001):
+Run **after both services report healthy** (local ports 3040 API and 3041 web):
 
 | Check | Command / Action | Expected |
 |-------|------------------|----------|
-| API liveness | `curl -f http://127.0.0.1:3000/health/live` | HTTP 200 |
-| API readiness | `curl -f http://127.0.0.1:3000/health/ready` | HTTP 200, `{"status":"ok","checks":{"database":"ok"}}` |
+| API liveness | `curl -f http://127.0.0.1:3040/health/live` | HTTP 200 |
+| API readiness | `curl -f http://127.0.0.1:3040/health/ready` | HTTP 200, `{"status":"ok","checks":{"database":"ok"}}` |
 | Web loads | Open `https://app.maintainpro.local` in browser | Login page renders, no console errors |
 | SUPER_ADMIN login | Sign in as `superadmin@maintainpro.local` | Redirects to dashboard, cookies set |
 | Create one WO | As SUPER_ADMIN: create a CORRECTIVE WO with title "Go-live smoke test" | WO created, appears in list, woNumber assigned |
@@ -206,7 +206,7 @@ Run **after both services report healthy** (production ports 3000/3001):
 **Automated smoke script:**
 ```powershell
 cd C:\Users\chint\AppData\Local\MaintainPro\worktrees\release-final-20261013\maintainpro
-.\scripts\ops\health-check.ps1 -ApiBase http://127.0.0.1:3000 -WebBase http://127.0.0.1:3001
+.\scripts\ops\health-check.ps1 -ApiBase http://127.0.0.1:3040 -WebBase http://127.0.0.1:3041
 # Should print: OK — all checks passed
 ```
 
