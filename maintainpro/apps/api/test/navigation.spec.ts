@@ -35,13 +35,14 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(hrefs).not.toContain("/billing");
   });
 
-  it("maps facility roles to Assets (facilities are not top-level)", () => {
+  it("keeps Assets away from facility roles the asset API does not admit (facilities are not top-level)", () => {
     const facilityManagerItems = getVisibleNavigationItems("FACILITY_MANAGER");
     const buildingSupervisorItems = getVisibleNavigationItems("BUILDING_SUPERVISOR");
     const cleanerItems = getVisibleNavigationItems("CLEANER");
 
-    expect(facilityManagerItems.map((item) => item.href)).toContain("/assets");
-    expect(buildingSupervisorItems.map((item) => item.href)).toContain("/assets");
+    // GET /assets @Roles has no facility roles, so the menu must not offer a page that returns 403.
+    expect(facilityManagerItems.map((item) => item.href)).not.toContain("/assets");
+    expect(buildingSupervisorItems.map((item) => item.href)).not.toContain("/assets");
     expect(cleanerItems.map((item) => item.href)).toContain("/notifications");
     expect(cleanerItems.map((item) => item.href)).not.toContain("/action-center");
     expect(cleanerItems.map((item) => item.href)).not.toContain("/facilities");
@@ -70,9 +71,10 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
   });
 
   it("maps supervisor roles to Requests, jobs, and PM", () => {
-    // Requests requires the list permission the API checks (seeded SUPERVISOR holds it).
+    // Requests and PM require the list permissions the API checks (seeded SUPERVISOR holds them;
+    // planning.view was granted on 2026-10-22).
     const supervisorItems = getVisibleNavigationItems("SUPERVISOR", {
-      permissions: ["maintenance_requests.view_own", "maintenance_requests.triage"]
+      permissions: ["maintenance_requests.view_own", "maintenance_requests.triage", "planning.view"]
     });
     const ids = supervisorItems.map((item) => item.id);
 
@@ -110,11 +112,13 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(ids).not.toContain("billing");
   });
 
-  it("maps security officer roles to Fleet", () => {
+  it("maps security officer roles to the Fleet gate only", () => {
     const securityItems = getVisibleNavigationItems("SECURITY_OFFICER");
     const ids = securityItems.map((item) => item.id);
 
-    expect(ids).toEqual(expect.arrayContaining(["fleet"]));
+    // Owner decision 2026-10-22: security officers use the gate; the fleet overview API excludes them.
+    expect(ids).toEqual(expect.arrayContaining(["fleet-gate"]));
+    expect(ids).not.toContain("fleet");
     expect(ids).not.toContain("home");
     expect(ids).not.toContain("admin");
   });

@@ -316,7 +316,8 @@ export class EvidenceService {
     const storageKey = buildEvidenceStorageKey({
       tenantId,
       workOrderId: workOrder.id,
-      fileName: validation.sanitizedFileName
+      fileName: validation.sanitizedFileName,
+      mimeType: body.mimeType
     });
 
     const attachment = await this.prisma.evidenceAttachment.create({
@@ -499,6 +500,9 @@ export class EvidenceService {
     const attachment = await this.findEvidenceOrThrow(workOrderId, evidenceId, actor);
     if (attachment.status !== EvidenceAttachmentStatus.PENDING) {
       throw new BadRequestException("Evidence attachment cannot accept file bytes in its current state.");
+    }
+    if (bytes.length > readiness.maxFileSizeMb * 1024 * 1024 || !readiness.allowedMimeTypes.includes(attachment.mimeType)) {
+      throw new BadRequestException("Evidence exceeds the configured size or MIME policy.");
     }
     if (bytes.length !== attachment.sizeBytes) {
       throw new BadRequestException("Uploaded file size does not match the declared size.");

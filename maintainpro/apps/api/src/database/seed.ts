@@ -511,7 +511,10 @@ rolePermissions.TECHNICIAN = Array.from(
     "reports.operations.view",
     "reports.performance.view",
     "maintenance_requests.create",
-    "maintenance_requests.view_own"
+    "maintenance_requests.view_own",
+    // Owner decision 2026-10-22: technicians run inspections and checklists.
+    "planning.view",
+    "planning.manage"
   ])
 );
 rolePermissions.MECHANIC = Array.from(
@@ -528,7 +531,9 @@ rolePermissions.SUPERVISOR = Array.from(
     "reports.assets.view",
     "reports.inventory.view",
     "reports.performance.view",
-    "reports.driver_intelligence.view"
+    "reports.driver_intelligence.view",
+    // Owner decision 2026-10-22: supervisors can open inspections and PM plans.
+    "planning.view"
   ])
 );
 

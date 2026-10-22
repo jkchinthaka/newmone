@@ -1,4 +1,5 @@
 import Joi from "joi";
+import { isPrivateAbsoluteStorageRoot } from "./local-storage-root";
 
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid("development", "test", "production").default("development"),
@@ -59,6 +60,7 @@ export const envValidationSchema = Joi.object({
     .valid("disabled", "mock", "local", "azure_blob", "r2", "s3", "minio", "cloudinary")
     .default("local"),
   STORAGE_UPLOADS_ENABLED: Joi.boolean().default(false),
+  STORAGE_LOCAL_PRODUCTION: Joi.boolean().default(false),
   STORAGE_LOCAL_ROOT: Joi.string().allow("").default(""),
   STORAGE_MAX_FILE_SIZE_MB: Joi.number().integer().min(1).max(100).default(10),
   STORAGE_ALLOWED_MIME_TYPES: Joi.string()
@@ -253,9 +255,10 @@ export const envValidationSchema = Joi.object({
 
     const storageUploadsEnabled = Boolean(value.STORAGE_UPLOADS_ENABLED);
     const storageMode = String(value.STORAGE_MODE ?? "local");
-    if (storageUploadsEnabled && storageMode === "local" && nodeEnv === "production") {
+    if (storageUploadsEnabled && storageMode === "local" && nodeEnv === "production" &&
+        (!value.STORAGE_LOCAL_PRODUCTION || !isPrivateAbsoluteStorageRoot(String(value.STORAGE_LOCAL_ROOT ?? "")))) {
       return helpers.error("any.invalid", {
-        message: "STORAGE_MODE=local cannot serve evidence uploads in production. Use minio or s3."
+        message: "STORAGE_MODE=local cannot serve evidence uploads in production without STORAGE_LOCAL_PRODUCTION=true and an absolute STORAGE_LOCAL_ROOT outside the app/repository."
       });
     }
 

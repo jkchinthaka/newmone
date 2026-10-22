@@ -3,18 +3,16 @@
 import { Pencil, Trash2 } from "lucide-react";
 
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { StatusBadge } from "@/components/ui/dashboard";
+import { priorityBadgePresentation } from "@/lib/dashboard-status";
 import { getValidWorkOrderActions } from "@/lib/work-order-actions";
 import { canManageWorkOrders, primaryWorkOrderAction, secondaryWorkOrderActions } from "@/lib/work-order-next-action";
 
 import {
   formatDate,
   getAssetLabel,
-  getPriorityClass,
-  getStatusClass,
   getTechnicianName,
-  humanWorkOrderStatusLabel,
-  isWorkOrderOverdue,
-  toTitleCase
+  isWorkOrderOverdue
 } from "./helpers";
 import {
   type SortDirection,
@@ -100,24 +98,17 @@ export function WorkOrderTable({
       header: "Status",
       mobileLabel: "Status",
       sortable: true,
-      cell: (workOrder) => (
-          <span
-            className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ring-1 ${getStatusClass(workOrder.status)}`}
-          >
-            {humanWorkOrderStatusLabel(workOrder.status)}
-          </span>
-        )
+      cell: (workOrder) => <StatusBadge status={workOrder.status} />
     },
     {
       id: "priority",
       header: "Priority",
       mobileLabel: "Priority",
       sortable: true,
-      cell: (workOrder) => (
-        <span className={`rounded-full px-2 py-1 text-xs font-semibold ring-1 ${getPriorityClass(workOrder.priority)}`}>
-          {toTitleCase(workOrder.priority)}
-        </span>
-      )
+      cell: (workOrder) => {
+        const priority = priorityBadgePresentation(workOrder.priority);
+        return priority ? <StatusBadge status={workOrder.priority} label={priority.label} tone={priority.tone} /> : null;
+      }
     },
     {
       id: "technician",
@@ -197,7 +188,7 @@ export function WorkOrderTable({
               title={next.disabledReason}
               disabled={Boolean(next.disabledReason)}
               onClick={() => onPrimary?.(workOrder, next.id)}
-              className="inline-flex min-h-11 items-center rounded-md bg-brand-700 px-2 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-9 items-center rounded-md bg-brand-600 px-3 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {next.label}
             </button>
@@ -208,7 +199,7 @@ export function WorkOrderTable({
             <button
               type="button"
               onClick={() => onPrimary?.(workOrder, "approve-assign")}
-              className="inline-flex min-h-11 items-center rounded-md bg-brand-700 px-2 py-1 text-xs font-semibold text-white"
+              className="inline-flex min-h-9 items-center rounded-md bg-brand-600 px-3 text-xs font-semibold text-white hover:bg-brand-700"
             >
               Approve & assign
             </button>
