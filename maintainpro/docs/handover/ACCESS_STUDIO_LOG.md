@@ -6,9 +6,8 @@ Assumption F1c: expiresAt date-only values are stored at 23:59:59.999Z so the ch
 Assumption F1c: a removal reason must be non-empty and must not equal the stored create reason.
 Assumption D2: "in a tenant" means the user's home tenantId. Another active SUPER_ADMIN with the same tenantId keeps the change allowed. Moving a user between tenants is not a demotion, deactivation, or deletion.
 
-F1c.1 | DONE | this-commit | api tsc 0; web tsc 0; web unit 368; jest overrides/effective/guard/admin-users/legacy/people/workforce pass; tenant audit 0; rbac audit 0 violations | DENY on work_orders.verify blocks the manage alias
-F1c.2 | DONE | this-commit | same | expiresAt + date input; past dates rejected
-F1c.3 | DONE | this-commit | same | D1 400 Change the role instead; D2 tenant-scoped last SUPER_ADMIN
-F1c.4 | DONE | this-commit | same | request cache; flag off does not read overrides or tenant version
-F1c.5 | DONE | this-commit | same | removal reason must differ from the create reason
-
+F1c.1 | DONE | ae1ea357 | api tsc 0; web tsc 0; web unit 368; jest overrides/effective/guard/admin-users/legacy/people/workforce pass; tenant audit 0; rbac audit 0 violations | DENY on work_orders.verify blocks the manage alias
+F1c.2 | DONE | ae1ea357 | same | expiresAt + date input; past dates rejected
+F1c.3 | DONE | ae1ea357 | same | D1 400 Change the role instead; D2 tenant-scoped last SUPER_ADMIN
+F1c.4 | DONE | ae1ea357 | same | request cache; flag off does not read overrides or tenant version
+F1c.5 | DONE | ae1ea357 | same | removal reason must differ from the create reason
