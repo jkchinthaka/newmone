@@ -214,8 +214,8 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       {
         id: "cost",
         title: "Maintenance Cost",
-        href: "/reports/operations",
-        description: "Period maintenance spend",
+        href: "/maintenance/jobs",
+        description: "Labour, parts, and vendor cost on a work order",
         kpiCodes: ["MAINTENANCE_COST", "COST_PER_KM"]
       },
       {
@@ -317,17 +317,34 @@ function getProfile(key: RoleHomeProfileKey): RoleHomeProfile {
  *
  * ADMIN and SUPER_ADMIN default to MANAGER for the broadest operational view.
  */
+const MAINTENANCE_COST_ROLES = new Set([
+  "SUPER_ADMIN",
+  "ADMIN",
+  "MANAGER",
+  "OPERATIONS_MANAGER",
+  "ASSET_MANAGER",
+  "MECHANIC",
+  "TECHNICIAN",
+  "SUPERVISOR"
+]);
+
+function visibleCards(role: string, profile: RoleHomeProfile): RoleHomeProfile {
+  if (MAINTENANCE_COST_ROLES.has(role)) return profile;
+  const cards = profile.cards.filter((card) => card.id !== "cost");
+  return cards.length === profile.cards.length ? profile : { ...profile, cards };
+}
+
 export function resolveRoleHome(roleName: string | null | undefined): RoleHomeProfile {
   const role = String(roleName ?? "").toUpperCase().trim();
 
   if (["TECHNICIAN", "MECHANIC"].includes(role)) {
-    return getProfile("TECHNICIAN");
+    return visibleCards(role, getProfile("TECHNICIAN"));
   }
   if (["SUPERVISOR", "MAINTENANCE_SUPERVISOR"].includes(role)) {
-    return getProfile("SUPERVISOR");
+    return visibleCards(role, getProfile("SUPERVISOR"));
   }
   if (["FLEET_MANAGER", "DRIVER", "SECURITY_OFFICER"].includes(role)) {
-    return getProfile("FLEET");
+    return visibleCards(role, getProfile("FLEET"));
   }
   if (
     [
@@ -339,15 +356,15 @@ export function resolveRoleHome(roleName: string | null | undefined): RoleHomePr
       "SUPER_ADMIN"
     ].includes(role)
   ) {
-    return getProfile("MANAGER");
+    return visibleCards(role, getProfile("MANAGER"));
   }
   if (["VIEWER", "AUDITOR", "FINANCE", "FINANCE_APPROVER"].includes(role)) {
-    return getProfile("MANAGEMENT_VIEWER");
+    return visibleCards(role, getProfile("MANAGEMENT_VIEWER"));
   }
   if (["PROCUREMENT_OFFICER"].includes(role)) {
-    return getProfile("PROCUREMENT");
+    return visibleCards(role, getProfile("PROCUREMENT"));
   }
 
   // Default for REQUESTER, VENDOR, unknown roles
-  return getProfile("REQUESTER");
+  return visibleCards(role, getProfile("REQUESTER"));
 }

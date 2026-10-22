@@ -85,7 +85,7 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       { id: "backlog", title: "Backlog", href: "/work-orders", description: "Open backlog", kpiCodes: ["WO_BACKLOG"] },
       { id: "pm-compliance", title: "PM Compliance", href: "/reports/operations?search=preventive", description: "PM compliance", kpiCodes: ["PM_COMPLIANCE"] },
       { id: "downtime", title: "Downtime", href: "/reports/assets?search=downtime", description: "Asset downtime", kpiCodes: ["DOWNTIME", "AVAILABILITY"] },
-      { id: "cost", title: "Maintenance Cost", href: "/reports/operations", description: "Period spend", kpiCodes: ["MAINTENANCE_COST", "COST_PER_KM"] },
+      { id: "cost", title: "Maintenance Cost", href: "/maintenance/jobs", description: "Labour, parts, and vendor cost on a work order", kpiCodes: ["MAINTENANCE_COST", "COST_PER_KM"] },
       { id: "repeat-failures", title: "Repeat Failures", href: "/reports/maintenance-exceptions", description: "Recurring problems", kpiCodes: ["REPEAT_FAILURE"] },
       { id: "management-intel", title: "Management Intelligence", href: "/reports/management-intelligence", description: "Executive metrics" }
     ]
@@ -116,26 +116,43 @@ const PROFILE_MAP = new Map<RoleHomeProfileKey, RoleHomeProfile>(
   ROLE_HOME_PROFILES.map((p) => [p.roleKey, p])
 );
 
+const MAINTENANCE_COST_ROLES = new Set([
+  "SUPER_ADMIN",
+  "ADMIN",
+  "MANAGER",
+  "OPERATIONS_MANAGER",
+  "ASSET_MANAGER",
+  "MECHANIC",
+  "TECHNICIAN",
+  "SUPERVISOR"
+]);
+
+function visibleCards(role: string, profile: RoleHomeProfile): RoleHomeProfile {
+  if (MAINTENANCE_COST_ROLES.has(role)) return profile;
+  const cards = profile.cards.filter((card) => card.id !== "cost");
+  return cards.length === profile.cards.length ? profile : { ...profile, cards };
+}
+
 /**
  * Client-side role → profile resolution (mirrors backend resolveRoleHome).
  */
 export function resolveRoleHome(roleName: string | null | undefined): RoleHomeProfile {
   const role = String(roleName ?? "").toUpperCase().trim();
 
-  if (["TECHNICIAN", "MECHANIC"].includes(role)) return PROFILE_MAP.get("TECHNICIAN")!;
-  if (["SUPERVISOR", "MAINTENANCE_SUPERVISOR"].includes(role)) return PROFILE_MAP.get("SUPERVISOR")!;
-  if (["FLEET_MANAGER", "DRIVER", "SECURITY_OFFICER"].includes(role)) return PROFILE_MAP.get("FLEET")!;
+  if (["TECHNICIAN", "MECHANIC"].includes(role)) return visibleCards(role, PROFILE_MAP.get("TECHNICIAN")!);
+  if (["SUPERVISOR", "MAINTENANCE_SUPERVISOR"].includes(role)) return visibleCards(role, PROFILE_MAP.get("SUPERVISOR")!);
+  if (["FLEET_MANAGER", "DRIVER", "SECURITY_OFFICER"].includes(role)) return visibleCards(role, PROFILE_MAP.get("FLEET")!);
   if (["MANAGER", "MAINTENANCE_MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "ADMIN", "SUPER_ADMIN"].includes(role)) {
-    return PROFILE_MAP.get("MANAGER")!;
+    return visibleCards(role, PROFILE_MAP.get("MANAGER")!);
   }
   if (["VIEWER", "AUDITOR", "FINANCE", "FINANCE_APPROVER"].includes(role)) {
-    return PROFILE_MAP.get("MANAGEMENT_VIEWER")!;
+    return visibleCards(role, PROFILE_MAP.get("MANAGEMENT_VIEWER")!);
   }
   if (["PROCUREMENT_OFFICER"].includes(role)) {
-    return PROFILE_MAP.get("PROCUREMENT")!;
+    return visibleCards(role, PROFILE_MAP.get("PROCUREMENT")!);
   }
 
-  return PROFILE_MAP.get("REQUESTER")!;
+  return visibleCards(role, PROFILE_MAP.get("REQUESTER")!);
 }
 
 /**
