@@ -11,12 +11,12 @@ import {
 import { DEFAULT_POST_LOGIN_REDIRECT, LEGACY_FMS_HOME_PATH } from "../../web/lib/role-redirect";
 
 describe("command palette helpers (Phase 1 CMMS scope)", () => {
-  it("includes Assets command for facility manager roles", () => {
-    const commands = getCommandPaletteItems("FACILITY_MANAGER");
-    const assets = commands.find((item) => item.href === "/assets");
-
-    expect(assets).toBeDefined();
-    expect(assets?.label).toBe("Asset Register");
+  it("offers the Asset Register to roles the asset API admits, not to facility managers", () => {
+    const technician = getCommandPaletteItems("TECHNICIAN").find((item) => item.href === "/assets");
+    expect(technician).toBeDefined();
+    expect(technician?.label).toBe("Asset Register");
+    // GET /assets @Roles has no FACILITY_MANAGER, so the palette must not open a 403 page.
+    expect(getCommandPaletteItems("FACILITY_MANAGER").find((item) => item.href === "/assets")).toBeUndefined();
   });
 
   it("finds Spare Parts via inventory keyword search", () => {

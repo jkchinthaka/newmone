@@ -50,6 +50,8 @@ const ASSET_READ_ROLES = [
   "ASSET_MANAGER",
   "SUPERVISOR",
   "MECHANIC",
+  // Owner decision 2026-10-22: technicians may view assets (read-only routes only).
+  "TECHNICIAN",
   "VIEWER"
 ] as const;
 

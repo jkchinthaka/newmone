@@ -14,6 +14,42 @@ export const V103_CREATE_PERMISSION = "maintenance_requests.create";
 const FINANCE_ONLY_ROLES = new Set(["FINANCE", "FINANCE_APPROVER"]);
 
 /**
+ * Owner decision 2026-10-22: technicians run inspections/checklists and may view assets;
+ * supervisors may open inspections and PM plans. Added only when missing, never removed.
+ */
+export const ROLE_ACCESS_GRANTS_20261022: ReadonlyArray<{ role: string; permission: string }> = [
+  { role: "TECHNICIAN", permission: "planning.view" },
+  { role: "TECHNICIAN", permission: "planning.manage" },
+  { role: "SUPERVISOR", permission: "planning.view" }
+];
+
+async function grantRolePermission(
+  prisma: PrismaClient,
+  roleName: string,
+  key: string,
+  options: { dryRun: boolean },
+  lines: string[]
+) {
+  const permission = await prisma.permission.findUnique({ where: { key } });
+  if (!permission) {
+    lines.push(`SKIP ${key} for ${roleName}: permission row missing (run the permission catalog sync first)`);
+    return;
+  }
+  const roles = await prisma.role.findMany({ where: { name: roleName }, select: { id: true, name: true, tenantId: true } });
+  for (const role of roles) {
+    const existing = await prisma.rolePermission.findFirst({ where: { roleId: role.id, permissionId: permission.id } });
+    if (existing) {
+      lines.push(`KEEP ${key} on ${role.name} (${role.tenantId ?? "platform"})`);
+      continue;
+    }
+    lines.push(`GRANT ${key} to ${role.name} (${role.tenantId ?? "platform"})`);
+    if (!options.dryRun) {
+      await prisma.rolePermission.create({ data: { roleId: role.id, permissionId: permission.id } });
+    }
+  }
+}
+
+/**
  * Adds the request permission and MANAGER+ADMIN approver levels.
  * Never deletes a permission or an existing approver level.
  * Does not insert a catch-all approval rule: an empty condition matches every job.
@@ -54,6 +90,10 @@ export async function applyV103Grants(prisma: PrismaClient, options: { dryRun: b
         data: { roleId: role.id, permissionId: permission.id }
       });
     }
+  }
+
+  for (const grant of ROLE_ACCESS_GRANTS_20261022) {
+    await grantRolePermission(prisma, grant.role, grant.permission, options, lines);
   }
 
   const rules = await prisma.approvalRule.findMany({

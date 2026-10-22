@@ -9,6 +9,7 @@
  * FG Digital Records integration was removed from MaintainPro entirely.
  */
 
+import { ADMIN_PAGE_API_GATES, NAV_ITEM_API_GATES, type NavApiGate } from "./nav-api-gates";
 import { hasCompatiblePermission } from "./permission-aliases";
 import {
   extractRoleName,
@@ -746,6 +747,33 @@ export function normalizeNavigationRole(roleName: string | null | undefined): st
   return trimmed.length > 0 ? trimmed.toUpperCase() : null;
 }
 
+/**
+ * Mirrors the API guards for the request that opens a page: @Roles (by role name) and
+ * @Permissions (with the same aliases). SUPER_ADMIN still needs to be listed in @Roles,
+ * exactly like the API RolesGuard.
+ */
+/** Role names the API knows (RoleName). Other names are tenant/custom labels the gates cannot judge. */
+const API_ROLE_NAMES = new Set([
+  "SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER", "FLEET_MANAGER", "COMPLIANCE_MANAGER", "MANAGER",
+  "TECHNICIAN", "MECHANIC", "ASSET_MANAGER", "INVENTORY_KEEPER", "PROCUREMENT_OFFICER", "FINANCE",
+  "SUPERVISOR", "SECURITY_OFFICER", "CLEANER", "DRIVER", "VIEWER", "FARM_OWNER", "FARM_MANAGER",
+  "FIELD_SUPERVISOR", "AGRONOMIST", "VETERINARIAN", "FARM_WORKER", "IRRIGATION_OPERATOR", "HARVEST_CREW",
+  "FACILITY_MANAGER", "BUILDING_SUPERVISOR"
+]);
+
+export function navApiGateAllows(gate: NavApiGate, role: string | null | undefined, permissions: readonly string[]): boolean {
+  if (!role) return false;
+  if (!API_ROLE_NAMES.has(role)) return true;
+  if (gate.roles.length > 0 && !gate.roles.includes(role)) return false;
+  // ADMIN / SUPER_ADMIN hold every key in practice; the existing nav already skips their
+  // permission checks. The @Roles part still applies (e.g. SUPER_ADMIN-only bulk imports).
+  // Callers that build a menu without the user's keys (landing defaults, role previews)
+  // only get the @Roles part; real sessions always carry keys, so the full check applies.
+  if (FULL_NAVIGATION_ROLES.has(role) || gate.permissions.length === 0 || permissions.length === 0) return true;
+  const granted = new Set(permissions.map((p) => p.trim()));
+  return gate.permissions.every((permission) => hasCompatiblePermission(granted, permission, role));
+}
+
 export function isNavigationItemVisible(
   item: NavigationItem,
   roleName: string | null | undefined,
@@ -770,6 +798,11 @@ export function isNavigationItemVisible(
     if (!enabledFeatures.includes(item.requiredFeature)) {
       return false;
     }
+  }
+
+  const apiGate = NAV_ITEM_API_GATES[item.id];
+  if (apiGate && !navApiGateAllows(apiGate, normalized, permissions)) {
+    return false;
   }
 
   if (item.requiredPermissions?.length) {
@@ -877,6 +910,11 @@ export function canAccessNavigationPath(
   if (isRetired) {
     // Soft retire: only technical admins retain browser access for migration/ops.
     return FULL_NAVIGATION_ROLES.has(normalized ?? "");
+  }
+
+  const adminPageGate = ADMIN_PAGE_API_GATES[normalizedPath];
+  if (adminPageGate && !navApiGateAllows(adminPageGate, normalized, permissions)) {
+    return false;
   }
 
   if (normalizedPath === "/system-health" || normalizedPath.startsWith("/system-health/")) {
