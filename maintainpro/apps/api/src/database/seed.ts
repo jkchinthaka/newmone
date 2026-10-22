@@ -31,6 +31,7 @@ import { BUILDING_SUPERVISOR_PERMISSIONS, FACILITY_MANAGER_PERMISSIONS } from ".
 import { PERMISSION_CATALOG } from "./permission-catalog";
 import { grantAccessStudioKeys } from "./grant-access-studio-keys";
 import { isAccessStudioKey } from "../common/auth/access-route-keys";
+import { accessStudioEnabled } from "../common/auth/effective-permissions";
 
 const prisma = new PrismaClient();
 
@@ -47,19 +48,28 @@ function getSeedPassword(): string {
 // Console's permission-catalog sync endpoint. Do not re-duplicate here.
 const permissionCatalog = PERMISSION_CATALOG.filter((permission) => !isAccessStudioKey(permission));
 
-async function syncRolePermissions(roleId: string, permissionIds: string[]): Promise<void> {
+export async function syncRolePermissions(roleId: string, permissionIds: string[], client: PrismaClient = prisma): Promise<void> {
   const uniquePermissionIds = [...new Set(permissionIds.filter(Boolean))];
 
-  await prisma.$transaction([
-    prisma.rolePermission.deleteMany({ where: { roleId } }),
-    ...(uniquePermissionIds.length > 0
-      ? [
-          prisma.rolePermission.createMany({
-            data: uniquePermissionIds.map((permissionId) => ({ roleId, permissionId }))
-          })
-        ]
-      : [])
-  ]);
+  await client.$transaction(async (tx) => {
+    const existing = await tx.rolePermission.findMany({
+      where: { roleId },
+      select: { id: true, permissionId: true, permission: { select: { key: true } } }
+    });
+    const existingIds = new Set(existing.map((row) => row.permissionId));
+    const requestedIds = new Set(uniquePermissionIds);
+    const removed = existing.filter((row) =>
+      !requestedIds.has(row.permissionId) &&
+      (accessStudioEnabled() || !isAccessStudioKey(row.permission.key))
+    );
+    const added = uniquePermissionIds.filter((id) => !existingIds.has(id));
+    if (removed.length) {
+      await tx.rolePermission.deleteMany({ where: { id: { in: removed.map((row) => row.id) } } });
+    }
+    if (added.length) {
+      await tx.rolePermission.createMany({ data: added.map((permissionId) => ({ roleId, permissionId })) });
+    }
+  });
 }
 
 async function syncUserSkills(userId: string, skills: string[]): Promise<void> {
