@@ -20,7 +20,7 @@
 | **SQL Server** | 2019/2022 **Express** (or Standard), localhost:1433, mixed mode **disabled** (Windows auth only). **Express limit: 10 GB per database** — monitor `MaintainProProd` size. | `sqlcmd -E -C -Q "SELECT @@VERSION"` |
 | **Process supervisor** | **NSSM** (Windows service) **or** PM2 (if Linux) | `nssm status MaintainProApi` / `pm2 list` |
 | **Disk** | ≥ 20 GB free for app + logs + evidence + backups | `dir C:\` |
-| **Evidence folder** | `C:\MaintainProData\evidence-prod` (NTFS, service account Modify) | `icacls C:\MaintainProData\evidence-prod` |
+| **Evidence folder** | `D:\MaintainPro\evidence` (NTFS, service account Modify) | `icacls D:\MaintainPro\evidence` |
 | **Backup folder** | `C:\MaintainProData\backups` (NTFS, service account Modify) | `icacls C:\MaintainProData\backups` |
 | **Log folder** | `D:\MaintainProLogs\` (service account Modify) | `icacls D:\MaintainProLogs` |
 | **Service account** | `.\maintainpro-svc` (local, non-admin, logon as service) | `lusrmgr.msc` |
@@ -28,7 +28,7 @@
 
 > **Never use `sa` or SQL authentication.** Production uses Windows integrated auth only.
 >
-> **STORAGE_MODE=local blocker:** `env.validation.ts` blocks `STORAGE_MODE=local` with `STORAGE_UPLOADS_ENABLED=true` in production (line 255-258). Production must use `minio`, `s3`, `r2`, or `azure_blob`. If local storage is required, this validation must be changed by Cursor before go-live. Flow 4 (photo upload) tests real local storage in QA; production will need object storage.
+> **Owner decision: production evidence uses private local disk.** Follow the production local evidence procedure below. This is a single-server setup; API downloads enforce authentication and tenant access.
 
 ---
 
@@ -196,7 +196,7 @@ Run **after both services report healthy** (production ports 3000/3001):
 | Web loads | Open `https://app.maintainpro.local` in browser | Login page renders, no console errors |
 | SUPER_ADMIN login | Sign in as `superadmin@maintainpro.local` | Redirects to dashboard, cookies set |
 | Create one WO | As SUPER_ADMIN: create a CORRECTIVE WO with title "Go-live smoke test" | WO created, appears in list, woNumber assigned |
-| Evidence upload | Attach a small test image to the WO | Upload succeeds, file in `C:\MaintainProData\evidence-prod\...` (or MinIO/S3 bucket) |
+| Evidence upload | Attach a small test image to the WO | Upload succeeds, file in `D:\MaintainPro\evidence\...` (or MinIO/S3 bucket) |
 | Audit log | Check `AuditLog` table for the WO create row | 1 row with `entity="WorkOrder"`, `action="CREATE"` |
 
 **Automated smoke script:**
@@ -215,7 +215,7 @@ cd C:\Users\chint\AppData\Local\MaintainPro\worktrees\release-final-20261013\mai
 | T+0 | Smoke checks (§7) | DevOps |
 | T+15m | Invite ADMIN, MANAGER, TECHNICIAN users via Admin Console | Admin |
 | T+30m | Each role creates one WO / part request / meter reading per UAT checklist | Role users |
-| T+60m | Verify evidence uploads land in `evidence-prod` with correct tenant folder | DevOps |
+| T+60m | Verify evidence uploads land in `D:\MaintainPro\evidence` with correct tenant folder | DevOps |
 | T+90m | Check audit log for all actions — no missing rows | Security |
 | T+120m | Confirm no error spikes in API logs (`D:\MaintainProLogs\api.err.log`) | DevOps |
 
@@ -328,7 +328,7 @@ After the proxy above is in place, sign in 8 times within 60 seconds from distin
 Express limit: **10 GB per database**. Express has **no SQL Agent**. Windows auth only (`sqlcmd -E`). Trust the server certificate with `-C`. Do not use `sa`.
 
 ```powershell
-schtasks /Create /TN "MaintainPro Nightly Backup" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\MaintainPro\maintainpro\scripts\ops\backup-maintainpro.ps1 -DatabaseName MaintainProProd -BackupRoot C:\MaintainProData\backups -EvidenceSource C:\MaintainProData\evidence-prod -RetentionDays 14" /SC DAILY /ST 02:00 /RU "maintainpro-svc" /F /RL HIGHEST
+schtasks /Create /TN "MaintainPro Nightly Backup" /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\MaintainPro\maintainpro\scripts\ops\backup-maintainpro.ps1 -DatabaseName MaintainProProd -BackupRoot C:\MaintainProData\backups -EvidenceSource D:\MaintainPro\evidence -RetentionDays 14" /SC DAILY /ST 02:00 /RU "maintainpro-svc" /F /RL HIGHEST
 schtasks /Query /TN "MaintainPro Nightly Backup" /V /FO LIST
 sqlcmd -E -C -d MaintainProProd -Q "SELECT SUM(size)*8.0/1024 AS size_mb FROM sys.database_files WHERE type=0"
 ```
@@ -362,7 +362,7 @@ Alert as `size_mb` approaches 10240. Do not write this job at `MaintainProDev` o
 |----------|------|
 | API dist | `C:\Users\chint\AppData\Local\MaintainPro\worktrees\release-final-20261013\maintainpro\apps\api\dist` |
 | Web dist | `C:\Users\chint\AppData\Local\MaintainPro\worktrees\release-final-20261013\maintainpro\apps\web\.next` |
-| Evidence | `C:\MaintainProData\evidence-prod` |
+| Evidence | `D:\MaintainPro\evidence` |
 | Backups | `C:\MaintainProData\backups` |
 | Logs | `D:\MaintainProLogs` |
 | Seed password (gitignored) | `C:\MaintainProData\.seed-password.local` |
@@ -371,3 +371,37 @@ Alert as `size_mb` approaches 10240. Do not write this job at `MaintainProDev` o
 ---
 
 **Sign-off:** All smoke checks pass → Go-live confirmed → Notify stakeholders.
+## Production local evidence storage (owner decision, 2026-10-22)
+
+Use a dedicated data volume, for example `D:\MaintainPro\evidence`, outside the app/repository and off C:. Create it before starting NSSM. Never expose it through IIS/nginx static routes, shares, or Next public assets. Files are downloaded only through the authenticated tenant-checked work-order evidence API.
+
+Run as the server administrator, substituting the actual NSSM API service identity. Remove inherited grants and any explicit Users/Authenticated Users/Everyone grants; inspect the final ACL. Only the API service account gets Modify. Keep administrative recovery access according to server policy. Do not grant Modify to a web service identity or interactive Users.
+
+```powershell
+New-Item -ItemType Directory -Force D:\MaintainPro\evidence
+icacls D:\MaintainPro\evidence /inheritance:r
+icacls D:\MaintainPro\evidence /remove:g '*S-1-5-32-545' '*S-1-5-11' '*S-1-1-0'
+icacls D:\MaintainPro\evidence /grant:r '.\maintainpro-svc:(OI)(CI)M'
+icacls D:\MaintainPro\evidence
+```
+
+Set in the private production environment file (examples retain opt-in OFF):
+
+```dotenv
+STORAGE_MODE=local
+STORAGE_UPLOADS_ENABLED=true
+STORAGE_LOCAL_PRODUCTION=true
+STORAGE_LOCAL_ROOT=D:\MaintainPro\evidence
+STORAGE_MAX_FILE_SIZE_MB=10
+STORAGE_ALLOWED_MIME_TYPES=image/jpeg,image/png,image/webp,application/pdf
+```
+
+After the separately approved deployment/restart, check `/health/readiness` and authenticated `/api/evidence/readiness`: local mode, root set, writable, available bytes. The path is never returned. A missing/non-writable folder fails storage readiness. Below 5 GiB, startup logs and readiness warn; alert operations on `lowDiskSpace=true`, failed probes, or fast disk growth. Configure an external scheduled disk-space alert on D:; do not rely solely on a startup warning. Verify upload → confirm → download with a disposable authorized work order, including a tenant-denied download. New objects use `<root>/<tenantId>/<yyyy>/<mm>/<server UUID>.<MIME extension>`; existing storage keys remain readable.
+
+The nightly DB backup task invokes `scripts/ops/backup-maintainpro.ps1 -EvidenceSource D:\MaintainPro\evidence` on the **same schedule** as the DB backup. The script uses `robocopy /MIR /XJ` into a new dated backup's `evidence-prod` subfolder, checks exit codes (0–7 success), and fails on a missing source. Give the backup process read access via the same service identity; use a separate backup disk/target. Coordinate a maintenance window with API writes stopped during DB + evidence backup for a consistent recovery point.
+
+Restore: stop the API service, restore the corresponding verified DB backup, then restore that **same dated** evidence snapshot to `D:\MaintainPro\evidence`. Verify both fully resolved source and destination before running `robocopy <dated-backup>\evidence-prod D:\MaintainPro\evidence /MIR /XJ /R:2 /W:5` (mirror removes destination-only files). Require exit code below 8, reapply/verify the private ACL, restart NSSM, check readiness, and download a known attachment to verify bytes/SHA-256. Do not restore DB and evidence from different backup dates. Production deployment and this restore are operator actions, not executed by this change.
+
+Other upload paths and follow-ups are inventoried in `EVIDENCE_LOCAL_DISK_UPLOAD_AUDIT.md`; this change enables work-order evidence only.
+
+New objects have SHA-256 sidecars verified on provider reads (including confirm/download). Back up and restore sidecars with the file bytes. Legacy `evidence/` objects without sidecars remain readable and are not backfilled. These checks detect corruption; the private ACL protects against unauthorized rewriting of both file and checksum.

@@ -28,6 +28,10 @@ export type EvidenceStorageReadinessState =
 export type EvidenceStorageIndicator = "ENABLED" | "DISABLED" | "MISCONFIGURED";
 
 export type EvidenceStorageReadiness = {
+  rootSet?: boolean;
+  writable?: boolean;
+  freeSpaceBytes?: number | null;
+  lowDiskSpace?: boolean;
   providerId: string;
   mode: EvidenceStorageMode;
   state: EvidenceStorageReadinessState;
@@ -253,9 +257,14 @@ export function buildEvidenceStorageKey(input: {
   tenantId: string | null;
   workOrderId: string;
   fileName: string;
+  mimeType?: string;
 }): string {
   const tenantSegment = input.tenantId ?? "global";
-  return `evidence/${tenantSegment}/${input.workOrderId}/${randomUUID()}/${input.fileName}`;
+  if (!/^[a-zA-Z0-9_-]+$/.test(tenantSegment)) throw new Error("Invalid evidence tenant segment");
+  const ext = ({ "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "application/pdf": "pdf" } as Record<string, string>)[input.mimeType?.trim().toLowerCase() ?? "application/pdf"];
+  if (!ext) throw new Error("Unsupported evidence MIME type");
+  const now = new Date();
+  return `${tenantSegment}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${randomUUID()}.${ext}`;
 }
 
 export function mapEvidenceAttachmentPublic(input: {
@@ -323,6 +332,7 @@ export function publicEvidenceAttachmentHasSensitiveFields(value: unknown): bool
 }
 
 const PUBLIC_READINESS_KEYS = new Set<string>([
+  "rootSet", "writable", "freeSpaceBytes", "lowDiskSpace",
   "providerId",
   "mode",
   "state",

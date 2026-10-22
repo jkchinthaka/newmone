@@ -513,7 +513,11 @@ export class WorkOrdersController {
     @Param("evidenceId") evidenceId: string
   ) {
     const chunks: Buffer[] = [];
+    const maxBytes = this.evidenceService.getReadiness().maxFileSizeMb * 1024 * 1024;
+    let size = 0;
     for await (const chunk of req) {
+      size += chunk.length;
+      if (size > maxBytes) throw new BadRequestException("Evidence exceeds the configured size limit.");
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     }
     const data = await this.evidenceService.storeWorkOrderEvidenceBytes(id, evidenceId, Buffer.concat(chunks), req.user);
