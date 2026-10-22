@@ -4,11 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
-import {
-  PERMISSION_OVERRIDE_SCOPE_NOTE,
-  permissionOverrideDeleteConfig,
-  removalReasonIsNew
-} from "@/lib/permission-overrides";
+import { permissionOverrideDeleteConfig, removalReasonIsNew } from "@/lib/permission-overrides";
 
 type OverrideRow = {
   id: string;
@@ -110,7 +106,6 @@ export function PermissionOverridesCard({
       <p className="mt-1 text-xs text-slate-500">
         Grant adds a permission. Deny removes it, including one the role already has.
       </p>
-      <p className="mt-1 text-xs text-slate-500">{PERMISSION_OVERRIDE_SCOPE_NOTE}</p>
 
       {loading ? <p className="mt-3 text-sm text-slate-500">Loading overrides…</p> : null}
       {!loading && rows.length === 0 ? (

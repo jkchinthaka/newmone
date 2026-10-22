@@ -1,6 +1,3 @@
-export const PERMISSION_OVERRIDE_SCOPE_NOTE =
-  "Overrides apply to permission-checked actions only; role-gated screens still follow the user's role.";
-
 export function removalReasonIsNew(createReason: string, removalReason: string): boolean {
   const next = removalReason.trim();
   return next.length > 0 && next !== createReason.trim();

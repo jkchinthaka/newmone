@@ -267,9 +267,11 @@ export function AdminUsersPage() {
           <AdminUserPermissionsView
             open={Boolean(permissionsTarget)}
             onClose={() => setPermissionsTarget(null)}
+            userId={permissionsTarget?.id ?? null}
             userLabel={permissionsTarget?.displayName || permissionsTarget?.email || ""}
             roleName={permissionsTarget?.roleName ?? null}
             matrix={matrixQuery.data ?? null}
+            accessStudioEnabled={user.accessStudioEnabled === true}
           />
         </>
       ) : null}
