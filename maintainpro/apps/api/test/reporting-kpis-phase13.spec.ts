@@ -579,10 +579,10 @@ describe("ROLE_HOME_PROFILES", () => {
   it("MANAGER report cards deep-link to distinct report views", () => {
     const profile = ROLE_HOME_PROFILES.find((p) => p.roleKey === "MANAGER")!;
     const hrefById = Object.fromEntries(profile.cards.map((card) => [card.id, card.href]));
-    expect(hrefById["kpi-reports"]).toBe("/reports/performance");
-    expect(hrefById["pm-compliance"]).toBe("/reports/performance?search=preventive");
+    expect(hrefById["kpi-reports"]).toBe("/reports/operations");
+    expect(hrefById["pm-compliance"]).toBe("/reports/operations?search=preventive");
     expect(hrefById["downtime"]).toBe("/reports/assets?search=downtime");
-    expect(hrefById["cost"]).toBe("/reports/financials");
+    expect(hrefById["cost"]).toBe("/reports/operations");
     expect(hrefById["repeat-failures"]).toBe("/reports/maintenance-exceptions");
   });
 
