@@ -4,8 +4,8 @@ import type { Route } from "next";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { canAccessNavigationPath } from "@/lib/navigation";
-import { extractRoleName, getPostLoginRedirect } from "@/lib/role-redirect";
+import { canAccessNavigationPath, resolveAuthorizedDestination } from "@/lib/navigation";
+import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
 
 type Props = {
@@ -19,8 +19,8 @@ export function NavigationRouteGuard({ children }: Props) {
   const roleName = extractRoleName({ role: user.role });
   const [checked, setChecked] = useState(false);
 
-  const allowed = !pathname || canAccessNavigationPath(pathname, roleName, user.permissions);
-  const landing = getPostLoginRedirect({ role: user.role });
+  const allowed = !pathname || canAccessNavigationPath(pathname, roleName, user.permissions, user);
+  const landing = resolveAuthorizedDestination(user, null, user.permissions);
 
   useEffect(() => {
     setChecked(true);

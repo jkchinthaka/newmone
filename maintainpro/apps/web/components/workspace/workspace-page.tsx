@@ -33,7 +33,7 @@ function WorkspaceLinkCard({ item }: { item: NavigationItem }) {
 export default function WorkspacePage() {
   const user = useCurrentUser();
   const roleName = extractRoleName({ role: user.role });
-  const workspaceItems = getVisibleNavigationItems(roleName, { permissions: user.permissions }).filter(
+  const workspaceItems = getVisibleNavigationItems(roleName, user).filter(
     (item) => item.category === "workspace" && item.id !== "my-workspace"
   );
   const favoriteIds = getDefaultFavoriteNavIds(roleName);

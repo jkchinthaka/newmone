@@ -185,7 +185,7 @@ export default function MyJobsPage() {
     };
   }, []);
 
-  const allWorkOrders = getVisibleNavigationItems(user.role, { permissions: user.permissions }).find(
+  const allWorkOrders = getVisibleNavigationItems(user.role, user).find(
     (item) => item.id === "all-jobs" || item.id === "work-orders"
   );
 

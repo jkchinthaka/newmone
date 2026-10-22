@@ -10,7 +10,7 @@ import { useCurrentUser } from "@/lib/use-current-user";
 export default function RetiredMaintenanceCostsPage() {
   const router = useRouter();
   const user = useCurrentUser();
-  const allowed = canAccessNavigationPath("/reports", user.role, user.permissions);
+  const allowed = canAccessNavigationPath("/reports", user.role, user.permissions, user);
 
   useEffect(() => {
     if (allowed) {

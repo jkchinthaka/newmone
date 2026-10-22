@@ -317,10 +317,11 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
   const groups = useMemo(
     () =>
       getNavigationGroups(roleName, {
+        ...user,
         permissions: user.permissions,
         enabledFeatures: user.enabledFeatures
       }),
-    [roleName, user.permissions, user.enabledFeatures]
+    [roleName, user]
   );
 
   const allItems = useMemo(() => groups.flatMap((group) => group.items), [groups]);

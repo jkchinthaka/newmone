@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "mode": "mocked UI only",
+  "desktop": "1280x900",
+  "mobile": "390x844",
+  "previewHeaderVerified": true,
+  "versionChangeRefetched": true,
+  "previewActiveAfterExit": false,
+  "pageErrors": []
+}

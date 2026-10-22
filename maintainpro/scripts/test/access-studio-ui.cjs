@@ -1,8 +1,8 @@
 // Isolated mocked UI check only. Browser plugin not available; use Playwright.
 const { chromium, expect } = require('@playwright/test');
 const fs = require('node:fs');
-const out = 'docs/handover/review/access-f3-ui';
-const profile = { id: 'admin', email: 'admin@example.invalid', role: 'SUPER_ADMIN', tenantId: 'tenant-a', permissions: [], enabledFeatures: [], accessStudioEnabled: true, accessConfigVersion: 2 };
+const out = process.env.ACCESS_STUDIO_UI_OUTPUT || 'docs/handover/review/access-f3-ui';
+const profile = { id: 'admin', email: 'admin@example.invalid', role: 'SUPER_ADMIN', tenantId: 'tenant-a', permissions: [], enabledFeatures: [], accessStudioEnabled: true, accessConfigVersion: 2, accessRoutes: ["GET /work-orders/my-jobs", "GET /assets"] };
 const users = ['Alex', 'Blair'].map((name, i) => ({ id: `u${i + 1}`, displayName: name, email: `${name.toLowerCase()}@example.invalid`, roleName: 'TECHNICIAN', tenantId: 'tenant-a', tenantName: 'Test', isActive: true, lastLogin: null, createdAt: '2026-01-01', updatedAt: '2026-01-01' }));
 (async () => {
   fs.mkdirSync(out, { recursive: true });
@@ -54,6 +54,14 @@ const users = ['Alex', 'Blair'].map((name, i) => ({ id: `u${i + 1}`, displayName
     await expect.poll(() => previewRead).toBe(true);
     await expect(page).toHaveURL(/\/work-orders\/my/);
     await expect(page.getByRole('heading', { name: 'My Jobs', exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.getByRole('button', { name: 'Assets', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Asset Register', exact: true }).first()).toBeVisible();
+    profile.accessRoutes = ['GET /work-orders/my-jobs'];
+    profile.accessConfigVersion = 3;
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('maintainpro_user')).accessConfigVersion)).toBe(3);
+    await expect(page.getByRole('link', { name: 'Asset Register', exact: true })).toHaveCount(0);
     await page.screenshot({ path: `${out}/preview.png`, fullPage: false });
     await page.getByRole('button', { name: 'Exit preview', exact: true }).click();
     await expect(page.getByText('Access Studio: bulk permissions and preview', { exact: true })).toBeVisible();
@@ -63,7 +71,7 @@ const users = ['Alex', 'Blair'].map((name, i) => ({ id: `u${i + 1}`, displayName
     await expect(page.getByRole('searchbox').first()).toBeVisible();
     await expect(page.getByText('Access Studio: bulk permissions and preview', { exact: true })).toHaveCount(0);
     expect(errors).toEqual([]);
-    fs.writeFileSync(`${out}/result.json`, JSON.stringify({ passed: true, mode: 'mocked UI only', desktop: '1280x900', mobile: '390x844', previewRead, pageErrors: errors }, null, 2));
+    fs.writeFileSync(`${out}/result.json`, JSON.stringify({ passed: true, mode: 'mocked UI only', desktop: '1280x900', mobile: '390x844', previewHeaderVerified: true, versionChangeRefetched: true, previewActiveAfterExit: previewRead, pageErrors: errors }, null, 2));
     console.log('Access Studio UI PASS: search, bulk, preview header/banner, exit; desktop/mobile');
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -10,7 +10,7 @@ import { useCurrentUser } from "@/lib/use-current-user";
 export function RetiredForecastRedirect() {
   const router = useRouter();
   const user = useCurrentUser();
-  const allowed = canAccessNavigationPath("/maintenance/plans", user.role, user.permissions);
+  const allowed = canAccessNavigationPath("/maintenance/plans", user.role, user.permissions, user);
 
   useEffect(() => {
     if (allowed) {

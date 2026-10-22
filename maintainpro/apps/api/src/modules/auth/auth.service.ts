@@ -14,7 +14,8 @@ import { AuditAction, RoleName, TenantInvitationStatus, TenantMembershipRole, Us
 import * as bcrypt from "bcryptjs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
-import { accessStudioEnabled, loadEffectivePermissionKeys, readAccessConfigVersion } from "../../common/auth/effective-permissions";
+import { accessStudioEnabled, loadEffectiveAccess, readAccessConfigVersion } from "../../common/auth/effective-permissions";
+import { effectiveWebRoutes } from "../../common/auth/access-web-routes";
 import { toJsonText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 import { requestContext } from "../../common/context/request-context";
@@ -871,10 +872,10 @@ export class AuthService {
     }
 
     const roleKeys = this.permissionKeysFromRole(user.role);
-    const permissionKeys =
+    const effectiveAccess =
       user.role?.name === "SUPER_ADMIN"
-        ? roleKeys
-        : await loadEffectivePermissionKeys(
+        ? { keys: roleKeys, denied: new Set<string>() }
+        : await loadEffectiveAccess(
             this.prisma,
             { id: user.id, tenantId: user.tenantId ?? null },
             roleKeys
@@ -892,10 +893,11 @@ export class AuthService {
     return {
       data: {
         ...this.toPublicUser(user),
-        permissions: permissionKeys,
+        permissions: effectiveAccess.keys,
         tenantId: resolvedTenantId,
         enabledFeatures,
         accessStudioEnabled: accessStudioEnabled(),
+        ...(accessStudioEnabled() ? { accessRoutes: effectiveWebRoutes(user.role?.name ?? "", effectiveAccess.keys, effectiveAccess.denied) } : {}),
         accessConfigVersion: await readAccessConfigVersion(this.prisma, resolvedTenantId)
       },
       message: "Profile fetched"

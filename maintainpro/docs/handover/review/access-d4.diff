@@ -1,0 +1,704 @@
+diff --git a/maintainpro/apps/api/src/modules/auth/auth.service.ts b/maintainpro/apps/api/src/modules/auth/auth.service.ts
+index c55b1c51..9569b51e 100644
+--- a/maintainpro/apps/api/src/modules/auth/auth.service.ts
++++ b/maintainpro/apps/api/src/modules/auth/auth.service.ts
+@@ -14,7 +14,8 @@ import { AuditAction, RoleName, TenantInvitationStatus, TenantMembershipRole, Us
+ import * as bcrypt from "bcryptjs";
+ import { createHash, randomBytes, randomUUID } from "node:crypto";
+
+-import { accessStudioEnabled, loadEffectivePermissionKeys, readAccessConfigVersion } from "../../common/auth/effective-permissions";
++import { accessStudioEnabled, loadEffectiveAccess, readAccessConfigVersion } from "../../common/auth/effective-permissions";
++import { effectiveWebRoutes } from "../../common/auth/access-web-routes";
+ import { toJsonText } from "../../common/utils/json-text";
+ import { PrismaService } from "../../database/prisma.service";
+ import { requestContext } from "../../common/context/request-context";
+@@ -871,10 +872,10 @@ export class AuthService {
+     }
+
+     const roleKeys = this.permissionKeysFromRole(user.role);
+-    const permissionKeys =
++    const effectiveAccess =
+       user.role?.name === "SUPER_ADMIN"
+-        ? roleKeys
+-        : await loadEffectivePermissionKeys(
++        ? { keys: roleKeys, denied: new Set<string>() }
++        : await loadEffectiveAccess(
+             this.prisma,
+             { id: user.id, tenantId: user.tenantId ?? null },
+             roleKeys
+@@ -892,10 +893,11 @@ export class AuthService {
+     return {
+       data: {
+         ...this.toPublicUser(user),
+-        permissions: permissionKeys,
++        permissions: effectiveAccess.keys,
+         tenantId: resolvedTenantId,
+         enabledFeatures,
+         accessStudioEnabled: accessStudioEnabled(),
++        ...(accessStudioEnabled() ? { accessRoutes: effectiveWebRoutes(user.role?.name ?? "", effectiveAccess.keys, effectiveAccess.denied) } : {}),
+         accessConfigVersion: await readAccessConfigVersion(this.prisma, resolvedTenantId)
+       },
+       message: "Profile fetched"
+diff --git a/maintainpro/apps/web/app/(dashboard)/layout.tsx b/maintainpro/apps/web/app/(dashboard)/layout.tsx
+index 6fdd7b24..e75a29f0 100644
+--- a/maintainpro/apps/web/app/(dashboard)/layout.tsx
++++ b/maintainpro/apps/web/app/(dashboard)/layout.tsx
+@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+ import { Toaster } from "sonner";
+
+ import { GlobalCommandPalette } from "@/components/layout/global-command-palette";
++import { AccessConfigRefresh } from "@/components/admin/access-config-refresh";
+ import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
+ import { MobileNav } from "@/components/layout/mobile-nav";
+ import { NavigationRouteGuard } from "@/components/layout/navigation-route-guard";
+@@ -167,6 +168,7 @@ export default function DashboardLayout({
+   return (
+     <QueryClientProvider client={queryClient}>
+       <TenantSessionProvider>
++        <AccessConfigRefresh />
+         <DashboardShell>{children}</DashboardShell>
+       </TenantSessionProvider>
+     </QueryClientProvider>
+diff --git a/maintainpro/apps/web/app/(dashboard)/maintenance/costs/page.tsx b/maintainpro/apps/web/app/(dashboard)/maintenance/costs/page.tsx
+index c65ab180..04746ff5 100644
+--- a/maintainpro/apps/web/app/(dashboard)/maintenance/costs/page.tsx
++++ b/maintainpro/apps/web/app/(dashboard)/maintenance/costs/page.tsx
+@@ -10,7 +10,7 @@ import { useCurrentUser } from "@/lib/use-current-user";
+ export default function RetiredMaintenanceCostsPage() {
+   const router = useRouter();
+   const user = useCurrentUser();
+-  const allowed = canAccessNavigationPath("/reports", user.role, user.permissions);
++  const allowed = canAccessNavigationPath("/reports", user.role, user.permissions, user);
+
+   useEffect(() => {
+     if (allowed) {
+diff --git a/maintainpro/apps/web/app/(dashboard)/work-orders/my/page.tsx b/maintainpro/apps/web/app/(dashboard)/work-orders/my/page.tsx
+index dd6fc96f..32a23037 100644
+--- a/maintainpro/apps/web/app/(dashboard)/work-orders/my/page.tsx
++++ b/maintainpro/apps/web/app/(dashboard)/work-orders/my/page.tsx
+@@ -185,7 +185,7 @@ export default function MyJobsPage() {
+     };
+   }, []);
+
+-  const allWorkOrders = getVisibleNavigationItems(user.role, { permissions: user.permissions }).find(
++  const allWorkOrders = getVisibleNavigationItems(user.role, user).find(
+     (item) => item.id === "all-jobs" || item.id === "work-orders"
+   );
+
+diff --git a/maintainpro/apps/web/components/dashboard/dashboard-quick-links.tsx b/maintainpro/apps/web/components/dashboard/dashboard-quick-links.tsx
+index b1154e6e..93b6fdce 100644
+--- a/maintainpro/apps/web/components/dashboard/dashboard-quick-links.tsx
++++ b/maintainpro/apps/web/components/dashboard/dashboard-quick-links.tsx
+@@ -1,9 +1,12 @@
++"use client";
++
+ import Link from "next/link";
+ import type { Route } from "next";
+ import { ArrowRight } from "lucide-react";
+
+ import { getVisibleNavigationItems } from "@/lib/navigation";
+ import { normalizeDashboardRole } from "@/lib/dashboard-roles";
++import { useCurrentUser } from "@/lib/use-current-user";
+
+ import { DashboardSection } from "./dashboard-section";
+
+@@ -21,7 +24,8 @@ export function DashboardQuickLinks({
+   description = "Open modules available to your role."
+ }: DashboardQuickLinksProps) {
+   const normalizedRole = normalizeDashboardRole(roleName);
+-  const links = getVisibleNavigationItems(normalizedRole, { permissions }).filter(
++  const user = useCurrentUser();
++  const links = getVisibleNavigationItems(normalizedRole, { ...user, permissions }).filter(
+     (item) => item.href !== "/dashboard" && !item.legacy
+   );
+
+diff --git a/maintainpro/apps/web/components/layout/global-command-palette.tsx b/maintainpro/apps/web/components/layout/global-command-palette.tsx
+index 01f4f9b2..8b978058 100644
+--- a/maintainpro/apps/web/components/layout/global-command-palette.tsx
++++ b/maintainpro/apps/web/components/layout/global-command-palette.tsx
+@@ -27,8 +27,8 @@ export function GlobalCommandPalette({ open, onOpenChange }: GlobalCommandPalett
+   const [query, setQuery] = useState("");
+
+   const allItems = useMemo(
+-    () => getCommandPaletteItems(roleName, { permissions: user.permissions }),
+-    [roleName, user.permissions]
++    () => getCommandPaletteItems(roleName, user),
++    [roleName, user]
+   );
+   const filteredItems = useMemo(
+     () => filterCommandPaletteItems(allItems, query),
+diff --git a/maintainpro/apps/web/components/layout/mobile-bottom-nav.tsx b/maintainpro/apps/web/components/layout/mobile-bottom-nav.tsx
+index 12b01fef..f7da3543 100644
+--- a/maintainpro/apps/web/components/layout/mobile-bottom-nav.tsx
++++ b/maintainpro/apps/web/components/layout/mobile-bottom-nav.tsx
+@@ -48,7 +48,7 @@ export function MobileBottomNav({ onOpenSearch }: Props) {
+   const pathname = usePathname();
+   const user = useCurrentUser();
+   const roleName = extractRoleName({ role: user.role });
+-  const items = getMobileBottomNavItems(roleName, { permissions: user.permissions });
++  const items = getMobileBottomNavItems(roleName, user);
+
+   return (
+     <nav
+diff --git a/maintainpro/apps/web/components/layout/nav-links.tsx b/maintainpro/apps/web/components/layout/nav-links.tsx
+index 89ac5324..1099b04f 100644
+--- a/maintainpro/apps/web/components/layout/nav-links.tsx
++++ b/maintainpro/apps/web/components/layout/nav-links.tsx
+@@ -317,10 +317,11 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
+   const groups = useMemo(
+     () =>
+       getNavigationGroups(roleName, {
++        ...user,
+         permissions: user.permissions,
+         enabledFeatures: user.enabledFeatures
+       }),
+-    [roleName, user.permissions, user.enabledFeatures]
++    [roleName, user]
+   );
+
+   const allItems = useMemo(() => groups.flatMap((group) => group.items), [groups]);
+diff --git a/maintainpro/apps/web/components/layout/navigation-route-guard.tsx b/maintainpro/apps/web/components/layout/navigation-route-guard.tsx
+index 5a8e4749..71cbe978 100644
+--- a/maintainpro/apps/web/components/layout/navigation-route-guard.tsx
++++ b/maintainpro/apps/web/components/layout/navigation-route-guard.tsx
+@@ -4,8 +4,8 @@ import type { Route } from "next";
+ import { useEffect, useState } from "react";
+ import { usePathname, useRouter } from "next/navigation";
+
+-import { canAccessNavigationPath } from "@/lib/navigation";
+-import { extractRoleName, getPostLoginRedirect } from "@/lib/role-redirect";
++import { canAccessNavigationPath, resolveAuthorizedDestination } from "@/lib/navigation";
++import { extractRoleName } from "@/lib/role-redirect";
+ import { useCurrentUser } from "@/lib/use-current-user";
+
+ type Props = {
+@@ -19,8 +19,8 @@ export function NavigationRouteGuard({ children }: Props) {
+   const roleName = extractRoleName({ role: user.role });
+   const [checked, setChecked] = useState(false);
+
+-  const allowed = !pathname || canAccessNavigationPath(pathname, roleName, user.permissions);
+-  const landing = getPostLoginRedirect({ role: user.role });
++  const allowed = !pathname || canAccessNavigationPath(pathname, roleName, user.permissions, user);
++  const landing = resolveAuthorizedDestination(user, null, user.permissions);
+
+   useEffect(() => {
+     setChecked(true);
+diff --git a/maintainpro/apps/web/components/layout/role-landing-redirect.tsx b/maintainpro/apps/web/components/layout/role-landing-redirect.tsx
+index 352a780d..e2ac6ca5 100644
+--- a/maintainpro/apps/web/components/layout/role-landing-redirect.tsx
++++ b/maintainpro/apps/web/components/layout/role-landing-redirect.tsx
+@@ -10,7 +10,7 @@ import { useCurrentUser } from "@/lib/use-current-user";
+ export function RoleLandingRedirect() {
+   const router = useRouter();
+   const user = useCurrentUser();
+-  const target = resolveAuthorizedDestination({ role: user.role }, null);
++  const target = resolveAuthorizedDestination(user, null, user.permissions);
+
+   useEffect(() => {
+     if (!target || target === "/action-center" || target === "/splash" || target === "/login") {
+diff --git a/maintainpro/apps/web/components/layout/topbar.tsx b/maintainpro/apps/web/components/layout/topbar.tsx
+index 199f3c78..9695b7f3 100644
+--- a/maintainpro/apps/web/components/layout/topbar.tsx
++++ b/maintainpro/apps/web/components/layout/topbar.tsx
+@@ -62,7 +62,7 @@ export function Topbar({
+   const queryClient = useQueryClient();
+   const currentUser = useCurrentUser();
+   const roleName = extractRoleName({ role: currentUser.role });
+-  const canViewBilling = getVisibleNavigationItems(roleName, { permissions: currentUser.permissions }).some(
++  const canViewBilling = getVisibleNavigationItems(roleName, currentUser).some(
+     (item) => item.id === "billing"
+   );
+
+diff --git a/maintainpro/apps/web/components/maintenance/retired-forecast-redirect.tsx b/maintainpro/apps/web/components/maintenance/retired-forecast-redirect.tsx
+index b0c80060..2c291762 100644
+--- a/maintainpro/apps/web/components/maintenance/retired-forecast-redirect.tsx
++++ b/maintainpro/apps/web/components/maintenance/retired-forecast-redirect.tsx
+@@ -10,7 +10,7 @@ import { useCurrentUser } from "@/lib/use-current-user";
+ export function RetiredForecastRedirect() {
+   const router = useRouter();
+   const user = useCurrentUser();
+-  const allowed = canAccessNavigationPath("/maintenance/plans", user.role, user.permissions);
++  const allowed = canAccessNavigationPath("/maintenance/plans", user.role, user.permissions, user);
+
+   useEffect(() => {
+     if (allowed) {
+diff --git a/maintainpro/apps/web/components/workspace/workspace-page.tsx b/maintainpro/apps/web/components/workspace/workspace-page.tsx
+index 992e808c..d7da24ba 100644
+--- a/maintainpro/apps/web/components/workspace/workspace-page.tsx
++++ b/maintainpro/apps/web/components/workspace/workspace-page.tsx
+@@ -33,7 +33,7 @@ function WorkspaceLinkCard({ item }: { item: NavigationItem }) {
+ export default function WorkspacePage() {
+   const user = useCurrentUser();
+   const roleName = extractRoleName({ role: user.role });
+-  const workspaceItems = getVisibleNavigationItems(roleName, { permissions: user.permissions }).filter(
++  const workspaceItems = getVisibleNavigationItems(roleName, user).filter(
+     (item) => item.category === "workspace" && item.id !== "my-workspace"
+   );
+   const favoriteIds = getDefaultFavoriteNavIds(roleName);
+diff --git a/maintainpro/apps/web/lib/auth-storage.ts b/maintainpro/apps/web/lib/auth-storage.ts
+index 6bfc3a9b..e4e54c8d 100644
+--- a/maintainpro/apps/web/lib/auth-storage.ts
++++ b/maintainpro/apps/web/lib/auth-storage.ts
+@@ -95,6 +95,9 @@ export function mergeStoredPublicUserProfile(profile: unknown) {
+   if (typeof incoming.accessStudioEnabled === "boolean") {
+     next.accessStudioEnabled = incoming.accessStudioEnabled;
+   }
++  if (Array.isArray(incoming.accessRoutes)) next.accessRoutes = incoming.accessRoutes.filter((v): v is string => typeof v === "string");
++  else if (typeof incoming.accessStudioEnabled === "boolean") delete next.accessRoutes;
++  if (typeof incoming.accessConfigVersion === "number") next.accessConfigVersion = incoming.accessConfigVersion;
+
+   localStorage.setItem(USER_KEY, JSON.stringify(next));
+   window.dispatchEvent(new Event("maintainpro:user-updated"));
+diff --git a/maintainpro/apps/web/lib/command-palette.ts b/maintainpro/apps/web/lib/command-palette.ts
+index f5e95227..807c0c03 100644
+--- a/maintainpro/apps/web/lib/command-palette.ts
++++ b/maintainpro/apps/web/lib/command-palette.ts
+@@ -4,6 +4,7 @@ import {
+   type NavigationItem
+ } from "./navigation";
+ import { DEFAULT_POST_LOGIN_REDIRECT, LEGACY_FMS_HOME_PATH } from "./role-redirect";
++import type { StudioNavigation } from "./studio-navigation";
+
+ export type CommandPaletteItem = {
+   id: string;
+@@ -56,9 +57,9 @@ export function navigationItemToCommand(item: NavigationItem): CommandPaletteIte
+
+ export function getCommandPaletteItems(
+   roleName: string | null | undefined,
+-  options?: { permissions?: readonly string[] }
++  options?: { permissions?: readonly string[] } & StudioNavigation
+ ): CommandPaletteItem[] {
+-  return getVisibleNavigationItems(roleName, { permissions: options?.permissions }).map(
++  return getVisibleNavigationItems(roleName, options).map(
+     navigationItemToCommand
+   );
+ }
+diff --git a/maintainpro/apps/web/lib/navigation.ts b/maintainpro/apps/web/lib/navigation.ts
+index e27af600..f384e72c 100644
+--- a/maintainpro/apps/web/lib/navigation.ts
++++ b/maintainpro/apps/web/lib/navigation.ts
+@@ -16,6 +16,7 @@ import {
+   safeInternalReturnPath,
+   type PostLoginUserLike
+ } from "./role-redirect";
++import { STUDIO_ADMIN_PAGE_ROUTES, studioNavigationAllowed, type StudioNavigation } from "./studio-navigation";
+
+ export type NavActiveMatch = "exact" | "startsWith";
+
+@@ -749,7 +750,8 @@ export function isNavigationItemVisible(
+   item: NavigationItem,
+   roleName: string | null | undefined,
+   permissions: readonly string[] = [],
+-  enabledFeatures?: readonly string[] | null
++  enabledFeatures?: readonly string[] | null,
++  studio?: StudioNavigation
+ ): boolean {
+   const normalized = normalizeNavigationRole(roleName);
+
+@@ -757,6 +759,11 @@ export function isNavigationItemVisible(
+     return item.id === "notifications" || item.id === "settings";
+   }
+
++  if (studio?.accessStudioEnabled && normalized !== "SUPER_ADMIN") {
++    if (item.requiredFeature && enabledFeatures?.length && !enabledFeatures.includes(item.requiredFeature)) return false;
++    return studioNavigationAllowed(item.id, studio);
++  }
++
+   if (!item.allowedRoles.includes(normalized)) {
+     // Requests are granted by permission, not by department role. An authorized
+     // Finance, Farm, or other employee must see the entry the API will allow.
+@@ -806,6 +813,8 @@ export function getVisibleNavigationItems(
+     fullNavigation?: boolean;
+     permissions?: readonly string[];
+     enabledFeatures?: readonly string[];
++    accessStudioEnabled?: boolean;
++    accessRoutes?: readonly string[];
+   }
+ ): NavigationItem[] {
+   const normalized = normalizeNavigationRole(roleName);
+@@ -817,7 +826,7 @@ export function getVisibleNavigationItems(
+     if (!EXISTING_NAV_ROUTES.has(baseHref)) {
+       return false;
+     }
+-    return isNavigationItemVisible(item, roleName, permissions, enabledFeatures);
++    return isNavigationItemVisible(item, roleName, permissions, enabledFeatures, options);
+   });
+
+   if (visible.length > 0) {
+@@ -834,6 +843,8 @@ export function getNavigationGroups(
+     fullNavigation?: boolean;
+     permissions?: readonly string[];
+     enabledFeatures?: readonly string[];
++    accessStudioEnabled?: boolean;
++    accessRoutes?: readonly string[];
+   }
+ ): NavigationGroup[] {
+   const visibleItems = getVisibleNavigationItems(roleName, options);
+@@ -848,7 +859,8 @@ export function getNavigationGroups(
+ export function canAccessNavigationPath(
+   pathname: string,
+   roleName: string | null | undefined,
+-  permissions: readonly string[] = []
++  permissions: readonly string[] = [],
++  studio?: StudioNavigation
+ ): boolean {
+   if (
+     pathname === "/login" ||
+@@ -872,7 +884,7 @@ export function canAccessNavigationPath(
+   );
+   if (isRetired) {
+     // Soft retire: only technical admins retain browser access for migration/ops.
+-    return FULL_NAVIGATION_ROLES.has(normalized ?? "");
++    return studio?.accessStudioEnabled ? normalized === "SUPER_ADMIN" : FULL_NAVIGATION_ROLES.has(normalized ?? "");
+   }
+
+   if (normalizedPath === "/system-health" || normalizedPath.startsWith("/system-health/")) {
+@@ -887,7 +899,12 @@ export function canAccessNavigationPath(
+     return true;
+   }
+
+-  const visible = getVisibleNavigationItems(roleName, { permissions });
++  const visible = getVisibleNavigationItems(roleName, { permissions, ...studio });
++
++  if (studio?.accessStudioEnabled && normalized !== "SUPER_ADMIN" && normalizedPath.startsWith("/admin/")) {
++    const route = STUDIO_ADMIN_PAGE_ROUTES[normalizedPath] ?? (/^\/admin\/users\/[^/]+$/.test(normalizedPath) ? "GET /admin/users/:id" : undefined);
++    return Boolean(route && studio.accessRoutes?.includes(route));
++  }
+
+   if (visible.some((item) => isNavItemActive(normalizedPath, item))) {
+     return true;
+@@ -929,6 +946,7 @@ export function canAccessNavigationPath(
+     });
+   }
+
++  if (studio?.accessStudioEnabled && normalized !== "SUPER_ADMIN") return false;
+   return FULL_NAVIGATION_ROLES.has(normalized ?? "");
+ }
+
+@@ -942,9 +960,9 @@ export type MobileBottomNavItem = {
+
+ export function getMobileBottomNavItems(
+   roleName: string | null | undefined,
+-  options?: { permissions?: readonly string[] }
++  options?: { permissions?: readonly string[] } & StudioNavigation
+ ): MobileBottomNavItem[] {
+-  const visible = getVisibleNavigationItems(roleName, { permissions: options?.permissions });
++  const visible = getVisibleNavigationItems(roleName, options);
+   const hasWorkOrders = visible.some(
+     (item) => item.id === "work-orders" || item.id === "all-jobs" || item.id === "my-jobs"
+   );
+@@ -1044,11 +1062,16 @@ export function resolveAuthorizedDestination(
+   returnTo: string | null | undefined,
+   permissions: readonly string[] = []
+ ): string {
+-  const landing = getPostLoginRedirect(user);
++  const studio = user && typeof user === "object" ? user as StudioNavigation : undefined;
++  const role = extractRoleName(user);
++  let landing = getPostLoginRedirect(user);
++  if (studio?.accessStudioEnabled && role !== "SUPER_ADMIN" && !canAccessNavigationPath(landing, role, permissions, studio)) {
++    landing = getVisibleNavigationItems(role, { permissions, ...studio }).find((item) => item.id !== "settings")?.href ?? "/notifications";
++  }
+   const safe = safeInternalReturnPath(returnTo);
+   if (!safe) return landing;
+   const path = safe.split("?")[0]?.split("#")[0] ?? "";
+-  if (!canAccessNavigationPath(path, extractRoleName(user), permissions)) {
++  if (!canAccessNavigationPath(path, role, permissions, studio)) {
+     return landing;
+   }
+   return safe;
+diff --git a/maintainpro/apps/web/lib/use-current-user.ts b/maintainpro/apps/web/lib/use-current-user.ts
+index 45f69e01..a6de049a 100644
+--- a/maintainpro/apps/web/lib/use-current-user.ts
++++ b/maintainpro/apps/web/lib/use-current-user.ts
+@@ -14,6 +14,8 @@ export interface CurrentUser {
+   permissions: string[];
+   enabledFeatures: string[];
+   accessStudioEnabled: boolean;
++  accessRoutes?: string[];
++  accessConfigVersion?: number;
+ }
+
+ function readStoredUser(): CurrentUser {
+@@ -70,7 +72,9 @@ function readStoredUser(): CurrentUser {
+       tenantId: typeof parsed.tenantId === "string" ? parsed.tenantId : null,
+       permissions,
+       enabledFeatures,
+-      accessStudioEnabled: parsed.accessStudioEnabled === true
++      accessStudioEnabled: parsed.accessStudioEnabled === true,
++      accessRoutes: Array.isArray(parsed.accessRoutes) ? parsed.accessRoutes.filter((v): v is string => typeof v === "string") : [],
++      accessConfigVersion: typeof parsed.accessConfigVersion === "number" ? parsed.accessConfigVersion : 0
+     };
+   } catch {
+     return { id: null, email: null, role: null, tenantId: null, permissions: [], enabledFeatures: [], accessStudioEnabled: false };
+diff --git a/maintainpro/scripts/test/access-studio-ui.cjs b/maintainpro/scripts/test/access-studio-ui.cjs
+index 32cd0e98..0c8508b0 100644
+--- a/maintainpro/scripts/test/access-studio-ui.cjs
++++ b/maintainpro/scripts/test/access-studio-ui.cjs
+@@ -1,8 +1,8 @@
+ // Isolated mocked UI check only. Browser plugin not available; use Playwright.
+ const { chromium, expect } = require('@playwright/test');
+ const fs = require('node:fs');
+-const out = 'docs/handover/review/access-f3-ui';
+-const profile = { id: 'admin', email: 'admin@example.invalid', role: 'SUPER_ADMIN', tenantId: 'tenant-a', permissions: [], enabledFeatures: [], accessStudioEnabled: true, accessConfigVersion: 2 };
++const out = process.env.ACCESS_STUDIO_UI_OUTPUT || 'docs/handover/review/access-f3-ui';
++const profile = { id: 'admin', email: 'admin@example.invalid', role: 'SUPER_ADMIN', tenantId: 'tenant-a', permissions: [], enabledFeatures: [], accessStudioEnabled: true, accessConfigVersion: 2, accessRoutes: ["GET /work-orders/my-jobs", "GET /assets"] };
+ const users = ['Alex', 'Blair'].map((name, i) => ({ id: `u${i + 1}`, displayName: name, email: `${name.toLowerCase()}@example.invalid`, roleName: 'TECHNICIAN', tenantId: 'tenant-a', tenantName: 'Test', isActive: true, lastLogin: null, createdAt: '2026-01-01', updatedAt: '2026-01-01' }));
+ (async () => {
+   fs.mkdirSync(out, { recursive: true });
+@@ -54,6 +54,14 @@ const users = ['Alex', 'Blair'].map((name, i) => ({ id: `u${i + 1}`, displayName
+     await expect.poll(() => previewRead).toBe(true);
+     await expect(page).toHaveURL(/\/work-orders\/my/);
+     await expect(page.getByRole('heading', { name: 'My Jobs', exact: true })).toBeVisible();
++    await page.setViewportSize({ width: 1280, height: 900 });
++    await page.getByRole('button', { name: 'Assets', exact: true }).click();
++    await expect(page.getByRole('link', { name: 'Asset Register', exact: true }).first()).toBeVisible();
++    profile.accessRoutes = ['GET /work-orders/my-jobs'];
++    profile.accessConfigVersion = 3;
++    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
++    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('maintainpro_user')).accessConfigVersion)).toBe(3);
++    await expect(page.getByRole('link', { name: 'Asset Register', exact: true })).toHaveCount(0);
+     await page.screenshot({ path: `${out}/preview.png`, fullPage: false });
+     await page.getByRole('button', { name: 'Exit preview', exact: true }).click();
+     await expect(page.getByText('Access Studio: bulk permissions and preview', { exact: true })).toBeVisible();
+@@ -63,7 +71,7 @@ const users = ['Alex', 'Blair'].map((name, i) => ({ id: `u${i + 1}`, displayName
+     await expect(page.getByRole('searchbox').first()).toBeVisible();
+     await expect(page.getByText('Access Studio: bulk permissions and preview', { exact: true })).toHaveCount(0);
+     expect(errors).toEqual([]);
+-    fs.writeFileSync(`${out}/result.json`, JSON.stringify({ passed: true, mode: 'mocked UI only', desktop: '1280x900', mobile: '390x844', previewRead, pageErrors: errors }, null, 2));
++    fs.writeFileSync(`${out}/result.json`, JSON.stringify({ passed: true, mode: 'mocked UI only', desktop: '1280x900', mobile: '390x844', previewHeaderVerified: true, versionChangeRefetched: true, previewActiveAfterExit: previewRead, pageErrors: errors }, null, 2));
+     console.log('Access Studio UI PASS: search, bulk, preview header/banner, exit; desktop/mobile');
+   } finally { await browser.close(); }
+ })().catch((error) => { console.error(error); process.exitCode = 1; });
+diff --git a/apps/api/src/common/auth/access-web-routes.ts b/apps/api/src/common/auth/access-web-routes.ts
+new file mode 100644
+index 00000000..74e19950
+--- /dev/null
++++ b/apps/api/src/common/auth/access-web-routes.ts
+@@ -0,0 +1,11 @@
++import inventory from "../../database/access-route-inventory.json";
++import { newAccessDecision } from "./access-studio-parity";
++import { hasCompatiblePermission } from "../guards/permissions.guard";
++
++/** Derived from the same effective keys and DENYs as PermissionsGuard, never JWT claims. */
++export function effectiveWebRoutes(role: string, keys: readonly string[], denied: ReadonlySet<string>): string[] {
++  const granted = new Set(keys);
++  return inventory.routes.filter((route) => newAccessDecision(route, role, granted,
++    (set, permission, name) => hasCompatiblePermission(set, permission, name, denied)
++  )).map((route) => `${route.method} ${route.path}`);
++}
+diff --git a/apps/api/test/access-web-routes.spec.ts b/apps/api/test/access-web-routes.spec.ts
+new file mode 100644
+index 00000000..0f7ea4c2
+--- /dev/null
++++ b/apps/api/test/access-web-routes.spec.ts
+@@ -0,0 +1,48 @@
++import { AuthService } from "../src/modules/auth/auth.service";
++import { effectiveWebRoutes } from "../src/common/auth/access-web-routes";
++import { accessKeyForMethodPath } from "../src/common/auth/access-route-keys";
++import { setAccessStudioRuntimeAllowed } from "../src/common/auth/effective-permissions";
++
++describe("effective web routes from /auth/me", () => {
++  const previous = process.env.ACCESS_STUDIO_ENABLED;
++  afterEach(() => { if (previous === undefined) delete process.env.ACCESS_STUDIO_ENABLED; else process.env.ACCESS_STUDIO_ENABLED = previous; setAccessStudioRuntimeAllowed(true); });
++  it("derives page access from effective route keys and DENYs rather than department role", () => {
++    const key = accessKeyForMethodPath("GET", "/assets")!;
++    expect(effectiveWebRoutes("CLEANER", [key], new Set())).toContain("GET /assets");
++    expect(effectiveWebRoutes("ADMIN", [key], new Set([key]))).not.toContain("GET /assets");
++    expect(effectiveWebRoutes("ADMIN", [], new Set())).not.toContain("GET /assets");
++  });
++  it("requires declared permissions as well as the route key", () => {
++    const key = accessKeyForMethodPath("GET", "/ai/field-insights")!;
++    expect(effectiveWebRoutes("CLEANER", [key], new Set())).not.toContain("GET /ai/field-insights");
++    expect(effectiveWebRoutes("CLEANER", [key, "predictive_insights.view"], new Set())).toContain("GET /ai/field-insights");
++  });
++  function fixture() {
++    const key = accessKeyForMethodPath("GET", "/assets")!;
++    const prisma = {
++      user: { findUnique: jest.fn(async () => ({ id: "user", email: "user@example.invalid", passwordHash: "fixture", tenantId: "tenant-a", role: { name: "CLEANER", permissionLinks: [] } })) },
++      userPermissionOverride: { findMany: jest.fn(async () => [{ permissionKey: key, effect: "GRANT" }]) },
++      tenant: { findUnique: jest.fn(async () => ({ accessConfigVersion: 7 })) }
++    };
++    const service = new AuthService(prisma as any, {} as any, {} as any, {} as any);
++    return { prisma, service };
++  }
++  it("exposes effective routes and version while ON without minting auth tokens", async () => {
++    process.env.ACCESS_STUDIO_ENABLED = "true"; setAccessStudioRuntimeAllowed(true);
++    const { service } = fixture();
++    const result = await service.me("user", "tenant-a");
++    expect(result.data.accessRoutes).toContain("GET /assets");
++    expect(result.data.accessConfigVersion).toBe(7);
++    expect(result.data).not.toHaveProperty("passwordHash");
++    expect(result.data).not.toHaveProperty("accessToken");
++  });
++  it("OFF omits the route list and reads neither overrides nor tenant version", async () => {
++    process.env.ACCESS_STUDIO_ENABLED = "false";
++    const { prisma, service } = fixture();
++    const result = await service.me("user", "tenant-a");
++    expect(result.data).not.toHaveProperty("accessRoutes");
++    expect(result.data.permissions).toEqual([]);
++    expect(prisma.userPermissionOverride.findMany).not.toHaveBeenCalled();
++    expect(prisma.tenant.findUnique).not.toHaveBeenCalled();
++  });
++});
+diff --git a/apps/web/components/admin/access-config-refresh.tsx b/apps/web/components/admin/access-config-refresh.tsx
+new file mode 100644
+index 00000000..c58bfa93
+--- /dev/null
++++ b/apps/web/components/admin/access-config-refresh.tsx
+@@ -0,0 +1,37 @@
++"use client";
++import { useEffect, useRef } from "react";
++import { useQueryClient } from "@tanstack/react-query";
++import { useCurrentUser } from "@/lib/use-current-user";
++import { apiClient } from "@/lib/api-client";
++import { mergeStoredPublicUserProfile } from "@/lib/auth-storage";
++
++/** No extra polling while OFF. An ON config change refreshes profile and page queries. */
++export function AccessConfigRefresh() {
++  const user = useCurrentUser();
++  const client = useQueryClient();
++  const version = useRef(user.accessConfigVersion);
++  version.current = user.accessConfigVersion;
++  useEffect(() => {
++    if (!user.accessStudioEnabled || !user.id) return;
++    let stopped = false;
++    let pending = false;
++    const refresh = async () => {
++      if (pending || stopped) return;
++      pending = true;
++      try {
++        const response = await apiClient.get<{ data: { accessConfigVersion?: number; accessStudioEnabled?: boolean } }>("/auth/me");
++        if (stopped) return;
++        const profile = response.data.data;
++        const changed = profile.accessConfigVersion !== version.current || profile.accessStudioEnabled === false;
++        mergeStoredPublicUserProfile(profile);
++        if (changed) await client.invalidateQueries();
++      } catch { /* Keep the current gates; normal request errors and preview banner remain authoritative. */ }
++      finally { pending = false; }
++    };
++    const timer = window.setInterval(() => void refresh(), 15_000);
++    const onFocus = () => void refresh();
++    window.addEventListener("focus", onFocus);
++    return () => { stopped = true; window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
++  }, [user.id, user.accessStudioEnabled, client]);
++  return null;
++}
+diff --git a/apps/web/lib/studio-navigation.ts b/apps/web/lib/studio-navigation.ts
+new file mode 100644
+index 00000000..2fa3debf
+--- /dev/null
++++ b/apps/web/lib/studio-navigation.ts
+@@ -0,0 +1,73 @@
++export type StudioNavigation = { accessStudioEnabled?: boolean; accessRoutes?: readonly string[] };
++
++export const STUDIO_ADMIN_PAGE_ROUTES: Readonly<Record<string, string>> = {
++  "/admin/users": "GET /admin/users",
++  "/admin/roles": "GET /admin/roles-permissions",
++  "/admin/tenants": "GET /admin/tenants",
++  "/admin/people": "GET /people",
++  "/admin/people/new": "POST /people",
++  "/admin/invitations": "GET /admin/invitations",
++  "/admin/organization": "GET /organization/summary",
++  "/admin/asset-masters": "GET /asset-taxonomy/categories",
++  "/admin/data-quality": "GET /admin-governance/data-quality",
++  "/admin/audit": "GET /audit-logs",
++  "/admin/security": "GET /admin-governance/system",
++  "/admin/maintenance-config": "GET /admin/maintenance-config/overview",
++  "/admin/job-categories": "GET /admin/maintenance-config/job-categories",
++  "/admin/priority-sla": "GET /admin/maintenance-config/priority-sla",
++  "/admin/fault-codes": "GET /admin/maintenance-config/analysis-codes",
++  "/admin/reason-codes": "GET /admin/maintenance-config/reason-codes",
++  "/admin/config-history": "GET /admin/maintenance-config/config-history",
++  "/admin/checklist-templates": "GET /planning/checklist-templates",
++  "/admin/maintenance-templates": "GET /admin/maintenance-config/maintenance-templates",
++  "/admin/feature-flags": "GET /admin/maintenance-config/feature-flags",
++  "/admin/warranties": "GET /warranties",
++  "/admin/reliability": "GET /reliability/policy",
++  "/admin/work-permits": "GET /work-permits",
++  "/admin/condition-monitoring": "GET /condition-rules",
++  "/admin/integrations": "GET /admin/maintenance-config/integrations-status",
++  "/admin/approvals": "GET /admin/approvals/rules",
++  "/admin/approval-rules": "GET /admin/approvals/rules",
++  "/admin/bulk-imports": "GET /bulk-import",
++  "/admin/assets/new": "POST /assets",
++  "/admin/vehicles/new": "POST /vehicles",
++  "/admin/asset-tags": "GET /admin/asset-tags/template.csv"
++};
++
++// Each entry names the production request which opens the page. The server derives
++// accessRoutes from effective permissions, DENYs and the route inventory.
++export const STUDIO_NAV_ROUTES: Readonly<Record<string, string>> = {
++  "maintenance-dashboard": "GET /work-orders/queues",
++  requests: "GET /maintenance-requests",
++  "my-requests": "GET /maintenance-requests",
++  "all-jobs": "GET /work-orders",
++  "machinery-jobs": "GET /work-orders",
++  "service-jobs": "GET /work-orders",
++  "vehicle-jobs": "GET /work-orders",
++  inspections: "GET /planning/inspections",
++  "meter-readings": "GET /utilities/readings",
++  reliability: "GET /reliability/summary",
++  approvals: "GET /approvals/inbox",
++  "preventive-maintenance": "GET /planning/pm-plans",
++  "my-jobs": "GET /work-orders/my-jobs",
++  "vendors-external": "GET /suppliers",
++  "maintenance-history": "GET /work-orders/history",
++  reports: "GET /reports/dashboard",
++  assets: "GET /assets",
++  facilities: "GET /organization/summary",
++  fleet: "GET /fleet-lifecycle/overview",
++  "fleet-gate": "GET /vehicles/gate-queue",
++  "spare-parts": "GET /inventory/parts",
++  "erp-integration": "GET /erp/status",
++  "maintenance-supply": "GET /maintenance-supply/parts",
++  admin: "GET /admin-governance/overview",
++  "admin-asset-register": "POST /assets",
++  "admin-vehicle-register": "POST /vehicles",
++  "admin-asset-tags": "GET /admin/asset-tags/template.csv"
++};
++
++export function studioNavigationAllowed(id: string, context: StudioNavigation): boolean {
++  if (id === "notifications" || id === "settings") return true;
++  const route = STUDIO_NAV_ROUTES[id];
++  return Boolean(route && context.accessRoutes?.includes(route));
++}
+diff --git a/apps/web/lib/__tests__/studio-navigation.test.ts b/apps/web/lib/__tests__/studio-navigation.test.ts
+new file mode 100644
+index 00000000..43f7413d
+--- /dev/null
++++ b/apps/web/lib/__tests__/studio-navigation.test.ts
+@@ -0,0 +1,34 @@
++import assert from "node:assert/strict";
++import test from "node:test";
++import { canAccessNavigationPath, getVisibleNavigationItems, resolveAuthorizedDestination } from "../navigation";
++import { STUDIO_ADMIN_PAGE_ROUTES, STUDIO_NAV_ROUTES } from "../studio-navigation";
++import inventory from "../../../api/src/database/access-route-inventory.json";
++
++test("Studio page mappings name actual production routes", () => {
++  const routes = new Set(inventory.routes.map((r) => `${r.method} ${r.path}`));
++  for (const route of [...Object.values(STUDIO_NAV_ROUTES), ...Object.values(STUDIO_ADMIN_PAGE_ROUTES)]) assert.ok(routes.has(route), route);
++});
++test("ON gates use the server effective-route decision across department roles", () => {
++  const studio = { accessStudioEnabled: true, accessRoutes: ["GET /assets"] };
++  assert.ok(getVisibleNavigationItems("CLEANER", studio).some((i) => i.id === "assets"));
++  assert.equal(canAccessNavigationPath("/assets", "CLEANER", [], studio), true);
++  assert.equal(canAccessNavigationPath("/assets", "ADMIN", [], { ...studio, accessRoutes: [] }), false);
++  assert.equal(getVisibleNavigationItems("ADMIN", { ...studio, accessRoutes: [] }).some((i) => i.id === "assets"), false);
++  assert.equal(canAccessNavigationPath("/system-health", "CLEANER", [], studio), false);
++});
++test("OFF ignores effective-route data and preserves role navigation; SUPER_ADMIN stays unchanged", () => {
++  assert.equal(canAccessNavigationPath("/assets", "CLEANER", [], { accessStudioEnabled: false, accessRoutes: ["GET /assets"] }), false);
++  assert.equal(canAccessNavigationPath("/assets", "ADMIN", [], { accessStudioEnabled: false, accessRoutes: [] }), true);
++  assert.equal(canAccessNavigationPath("/assets", "SUPER_ADMIN", [], { accessStudioEnabled: true, accessRoutes: [] }), true);
++});
++test("ON landing uses an allowed page when the role's preferred destination is denied", () => {
++  const user = { role: "TECHNICIAN", accessStudioEnabled: true, accessRoutes: ["GET /assets"] };
++  assert.equal(resolveAuthorizedDestination(user, null), "/assets");
++  assert.equal(resolveAuthorizedDestination(user, "/admin"), "/assets");
++});
++test("an Admin overview grant does not unlock unrelated Admin pages", () => {
++  const studio = { accessStudioEnabled: true, accessRoutes: ["GET /admin-governance/overview"] };
++  assert.equal(canAccessNavigationPath("/admin", "ADMIN", [], studio), true);
++  assert.equal(canAccessNavigationPath("/admin/users", "ADMIN", [], studio), false);
++  assert.equal(canAccessNavigationPath("/admin/users", "ADMIN", [], { ...studio, accessRoutes: ["GET /admin/users"] }), true);
++});

@@ -95,6 +95,9 @@ export function mergeStoredPublicUserProfile(profile: unknown) {
   if (typeof incoming.accessStudioEnabled === "boolean") {
     next.accessStudioEnabled = incoming.accessStudioEnabled;
   }
+  if (Array.isArray(incoming.accessRoutes)) next.accessRoutes = incoming.accessRoutes.filter((v): v is string => typeof v === "string");
+  else if (typeof incoming.accessStudioEnabled === "boolean") delete next.accessRoutes;
+  if (typeof incoming.accessConfigVersion === "number") next.accessConfigVersion = incoming.accessConfigVersion;
 
   localStorage.setItem(USER_KEY, JSON.stringify(next));
   window.dispatchEvent(new Event("maintainpro:user-updated"));
