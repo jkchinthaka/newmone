@@ -131,6 +131,33 @@ export function lastSevenSpark(readingsNewestFirst: readonly DisplayReading[]): 
   return points.reverse().map((value) => ({ value }));
 }
 
+/** Intrinsic sparkline box. Hidden until two finite points can be drawn. */
+export const SPARKLINE_WIDTH = 280;
+export const SPARKLINE_HEIGHT = 40;
+
+export function sparklineBox(
+  points: readonly { value: number }[] | null | undefined,
+  width = SPARKLINE_WIDTH,
+  height = SPARKLINE_HEIGHT
+): { width: number; height: number; points: string } | null {
+  if (!points || points.length < 2 || !(width >= 2) || !(height >= 2)) return null;
+  const values = points.map((point) => point.value).filter((value) => Number.isFinite(value));
+  if (values.length < 2) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const padX = 1;
+  const padY = 2;
+  const innerWidth = width - padX * 2;
+  const innerHeight = height - padY * 2;
+  const drawn = values.map((value, index) => {
+    const x = padX + (index / (values.length - 1)) * innerWidth;
+    const y = padY + (1 - (value - min) / span) * innerHeight;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  return { width, height, points: drawn.join(" ") };
+}
+
 export function liveUsageWarning(consumption: number | null, samples: readonly number[]): string | null {
   return consumptionWarning(consumption, samples) ? HIGH_USAGE_COPY : null;
 }

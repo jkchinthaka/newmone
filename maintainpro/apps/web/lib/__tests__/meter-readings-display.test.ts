@@ -10,6 +10,9 @@ import {
   lastSevenSpark,
   liveUsageWarning,
   meterNormalRange,
+  SPARKLINE_HEIGHT,
+  SPARKLINE_WIDTH,
+  sparklineBox,
   myRecentReadings,
   readingListStatus,
   savedReadingMessage,
@@ -55,12 +58,22 @@ describe("meter readings display", () => {
       null
     );
     assert.equal(lastSevenSpark([{ readingValue: 10, readingDate: "2026-10-22T02:00:00.000Z", consumption: 4 }]), null);
+    assert.equal(sparklineBox(null), null);
+    assert.equal(sparklineBox([{ value: 4 }]), null);
+    assert.equal(sparklineBox([{ value: Number.NaN }, { value: 4 }]), null);
     const spanned = [
       { readingValue: 20, readingDate: "2026-10-22T02:00:00.000Z", consumption: 10 },
       { readingValue: 10, readingDate: "2026-10-20T02:00:00.000Z", consumption: 10 }
     ];
     assert.equal(averageDailyUse(spanned), 10);
-    assert.equal(lastSevenSpark(spanned)?.length, 2);
+    const spark = lastSevenSpark(spanned);
+    assert.equal(spark?.length, 2);
+    const box = sparklineBox(spark);
+    assert.ok(box);
+    assert.equal(box?.width, SPARKLINE_WIDTH);
+    assert.equal(box?.height, SPARKLINE_HEIGHT);
+    assert.ok((box?.width ?? 0) > 0 && (box?.height ?? 0) > 0);
+    assert.match(box?.points ?? "", /^\d+\.\d+,\d+\.\d+ \d+\.\d+,\d+\.\d+$/);
     assert.equal(formatMeterQuantity(8904, "m3"), "8,904 m³");
   });
 

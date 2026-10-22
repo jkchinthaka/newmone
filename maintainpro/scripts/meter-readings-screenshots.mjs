@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import esbuild from "esbuild";
 import { chromium } from "playwright";
 
+const repoRoot = resolve(".");
 const webRoot = resolve("apps/web");
 const outDir = resolve("docs/handover/ui-redesign/meter-readings");
 const cssPath = join(tmpdir(), "meter-readings-preview.css");
@@ -18,10 +19,11 @@ function run(command, args, cwd) {
   }
 }
 
+if (process.env.METER_SCREENSHOT_SHELL_ONLY !== "1") {
 run("npx", ["tailwindcss", "-i", "app/globals.css", "-o", cssPath], webRoot);
 await esbuild.build({
-  absWorkingDir: webRoot,
-  entryPoints: ["components/utilities/meter-readings/screenshot-preview.tsx"],
+  absWorkingDir: repoRoot,
+  entryPoints: ["scripts/fixtures/screenshot-preview.tsx"],
   bundle: true,
   outfile: jsPath,
   format: "iife",
@@ -120,4 +122,63 @@ if (overflows.length) {
   writeFileSync(join(outDir, "overflow.json"), JSON.stringify(overflows, null, 2));
   console.error(JSON.stringify(overflows, null, 2));
   process.exit(1);
+}
+}
+
+const shellBase = (process.env.METER_SCREENSHOT_WEB || "").trim().replace(/\/$/, "");
+if (shellBase) {
+  const password = (process.env.MAINTAINPRO_SEED_PASSWORD || "").trim();
+  if (!password) {
+    throw new Error("MAINTAINPRO_SEED_PASSWORD is required for in-shell screenshots.");
+  }
+  const accounts = [
+    { role: "admin", email: "admin@maintainpro.local" },
+    { role: "technician", email: "tech@maintainpro.local" }
+  ];
+  const shellBrowser = await chromium.launch();
+  for (const account of accounts) {
+    const context = await shellBrowser.newContext();
+    const shellPage = await context.newPage();
+    shellPage.on("pageerror", (error) => console.error("SHELL", account.role, error.message));
+    await shellPage.goto(`${shellBase}/login`, { waitUntil: "domcontentloaded" });
+    await shellPage.locator("#login-email").fill(account.email);
+    await shellPage.locator("#login-password").fill(password);
+    await shellPage.getByRole("button", { name: "Sign in" }).click();
+    await shellPage.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
+    for (const width of [390, 1440]) {
+      await shellPage.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      await shellPage.goto(`${shellBase}/utilities/readings`, { waitUntil: "domcontentloaded" });
+      await shellPage.getByRole("heading", { name: "Meter Readings" }).waitFor({ timeout: 20_000 });
+      const shellCount = await shellPage.locator("[data-app-shell]").count();
+      if (shellCount < 1) {
+        throw new Error(`App shell missing for ${account.role} search at ${width}.`);
+      }
+      await shellPage.getByRole("button", { name: "Record reading" }).first().waitFor({ timeout: 20_000 });
+      await shellPage.screenshot({ path: join(outDir, `${account.role}-search-${width}.png`) });
+      console.log(`${account.role} search ${width} shell`);
+
+      await shellPage.getByRole("button", { name: "Record reading" }).first().click();
+      await shellPage.getByRole("heading", { name: "Record reading" }).waitFor({ timeout: 20_000 });
+      await shellPage.getByText("Last 7 readings").waitFor({ timeout: 20_000 });
+      const spark = shellPage.getByRole("img", { name: "Sparkline" });
+      await spark.waitFor({ timeout: 10_000 });
+      const sparkBox = await spark.evaluate((node) => ({
+        width: Number(node.getAttribute("width")),
+        height: Number(node.getAttribute("height")),
+        box: node.getBoundingClientRect().width
+      }));
+      if (!(sparkBox.width >= 2) || !(sparkBox.height >= 2) || !(sparkBox.box > 0)) {
+        throw new Error(`Sparkline has no real size for ${account.role} at ${width}: ${JSON.stringify(sparkBox)}`);
+      }
+      await shellPage.screenshot({ path: join(outDir, `${account.role}-record-${width}.png`) });
+      console.log(`${account.role} record ${width} shell spark ${sparkBox.width}x${sparkBox.height}`);
+
+      await shellPage.locator("#reading-value").fill("20000");
+      await shellPage.getByText("more than 3×").waitFor({ timeout: 10_000 });
+      await shellPage.screenshot({ path: join(outDir, `${account.role}-warning-${width}.png`) });
+      console.log(`${account.role} warning ${width} shell`);
+    }
+    await context.close();
+  }
+  await shellBrowser.close();
 }

@@ -139,7 +139,7 @@ export function RecordView({
                 {averageText ? <KpiCard compact label="Avg per day" value={averageText} /> : null}
               </div>
             ) : null}
-            {spark ? (
+            {historyState === "ready" && spark && spark.length >= 2 ? (
               <div className="mt-4">
                 <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
                   <span>Last 7 readings</span>

@@ -14,10 +14,9 @@ import {
   usagePreview
 } from "@/lib/meter-readings-display";
 import { meterFractionDigits } from "@/lib/meter-reading-input";
-
-import { RecordView } from "./record-view";
-import { SearchView } from "./search-view";
-import type { MeterRecord, ReadingRecord, RecentReadingRow } from "./types";
+import { RecordView } from "@/components/utilities/meter-readings/record-view";
+import { SearchView } from "@/components/utilities/meter-readings/search-view";
+import type { MeterRecord, ReadingRecord, RecentReadingRow } from "@/components/utilities/meter-readings/types";
 
 const meters: MeterRecord[] = [
   { id: "m1", meterNumber: "M-MVAEQRXN", description: "Main Gate Water Pump", location: "Gate · Nelna Farm", type: "ELECTRICITY", unit: "kWh", isActive: true },
