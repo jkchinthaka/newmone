@@ -70,7 +70,7 @@ export function RecordView({
   sinceLast: string | null;
   averageText: string | null;
   spark: Array<{ value: number }> | null;
-  readingCount: number | null;
+  readingCount: string | null;
   readingAt: string;
   onReadingAt: (value: string) => void;
   reset: boolean;
@@ -159,7 +159,7 @@ export function RecordView({
               <dt className="text-slate-500">Unit</dt>
               <dd className="font-medium text-slate-900">{unit || "—"}</dd>
               <dt className="text-slate-500">Readings</dt>
-              <dd className="font-medium text-slate-900">{readingCount == null ? "—" : `${readingCount} saved`}</dd>
+              <dd className="font-medium text-slate-900">{readingCount ?? "—"}</dd>
             </dl>
           </SectionCard>
         </div>

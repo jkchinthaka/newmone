@@ -90,7 +90,7 @@ function RecordPreview({ warning }: { warning: boolean }) {
           sinceLast={sinceLastLabel(history[0].readingDate)}
           averageText={average == null ? null : formatMeterQuantity(average, meter.unit)}
           spark={lastSevenSpark(history)}
-          readingCount={128}
+          readingCount="50+ saved"
           readingAt={colomboDateTimeToIso(colomboTodayYmd(), colomboNowTime())}
           onReadingAt={() => undefined}
           reset={false}

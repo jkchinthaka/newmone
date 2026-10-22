@@ -50,6 +50,13 @@ function matches(meter: MeterRecord, needle: string) {
   return `${meter.id} ${meter.meterNumber} ${meter.location ?? ""} ${meter.description ?? ""}`.toLowerCase().includes(needle);
 }
 
+const METER_HISTORY_TAKE = 50;
+const MY_READINGS_TAKE = 50;
+
+function meterReadingCountLabel(count: number): string {
+  return count >= METER_HISTORY_TAKE ? `${METER_HISTORY_TAKE}+ saved` : `${count} saved`;
+}
+
 export default function MeterReadingsPage() {
   const user = useCurrentUser();
   const allowed = READING_ROLES.has(user.role ?? "");
@@ -58,7 +65,8 @@ export default function MeterReadingsPage() {
   const [appliedNeedle, setAppliedNeedle] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
   const [allMeters, setAllMeters] = useState<MeterRecord[]>([]);
-  const [allReadings, setAllReadings] = useState<ReadingRecord[]>([]);
+  const [myReadings, setMyReadings] = useState<ReadingRecord[]>([]);
+  const [latestReadings, setLatestReadings] = useState<ReadingRecord[]>([]);
   const [metersState, setMetersState] = useState<"loading" | "ready" | "error">("loading");
   const [metersError, setMetersError] = useState("");
   const [readingsState, setReadingsState] = useState<"loading" | "ready" | "error">("loading");
@@ -109,12 +117,12 @@ export default function MeterReadingsPage() {
   );
   const latestByMeter = useMemo(() => {
     const map = new Map<string, ReadingRecord>();
-    for (const row of [...allReadings].sort((left, right) => new Date(right.readingDate).getTime() - new Date(left.readingDate).getTime())) {
+    for (const row of [...latestReadings, ...myReadings].sort((left, right) => new Date(right.readingDate).getTime() - new Date(left.readingDate).getTime())) {
       if (!row.meterId || map.has(row.meterId)) continue;
       map.set(row.meterId, row);
     }
     return map;
-  }, [allReadings]);
+  }, [latestReadings, myReadings]);
   const visibleMeters = useMemo(() => {
     const found = appliedNeedle ? allMeters.filter((meter) => matches(meter, appliedNeedle)) : allMeters;
     return [...found].sort((left, right) => {
@@ -124,11 +132,12 @@ export default function MeterReadingsPage() {
     });
   }, [allMeters, appliedNeedle, latestByMeter]);
   const recentRows = useMemo<RecentReadingRow[]>(() => {
-    return myRecentReadings(allReadings, user.id ?? "").map((row) => {
+    const known = [...myReadings, ...latestReadings];
+    return myRecentReadings(myReadings, user.id ?? "").map((row) => {
       const meter = row.meter ?? allMeters.find((item) => item.id === row.meterId) ?? null;
       const amount = Number(row.consumption ?? NaN);
-      const sameMeter = allReadings
-        .filter((item) => item.meterId && item.meterId === row.meterId)
+      const sameMeter = known
+        .filter((item, index, rows) => item.meterId && item.meterId === row.meterId && rows.findIndex((other) => other.id === item.id) === index)
         .sort((left, right) => new Date(right.readingDate).getTime() - new Date(left.readingDate).getTime());
       return {
         id: row.id,
@@ -140,7 +149,7 @@ export default function MeterReadingsPage() {
         status: readingListStatus(row, sameMeter)
       };
     });
-  }, [allMeters, allReadings, user.id]);
+  }, [allMeters, latestReadings, myReadings, user.id]);
 
   async function loadMeters() {
     setMetersState("loading");
@@ -159,8 +168,13 @@ export default function MeterReadingsPage() {
     setReadingsState("loading");
     setReadingsError("");
     try {
-      const response = await apiClient.get("/utilities/readings");
-      setAllReadings((response.data?.data ?? []) as ReadingRecord[]);
+      // Bounded lists: the latest reading per meter, and this user's last 7 days (max 50).
+      const [latestResponse, mineResponse] = await Promise.all([
+        apiClient.get("/utilities/meters/latest-readings"),
+        apiClient.get("/utilities/readings", { params: { mine: "true", days: 7, take: MY_READINGS_TAKE } })
+      ]);
+      setLatestReadings((latestResponse.data?.data ?? []) as ReadingRecord[]);
+      setMyReadings((mineResponse.data?.data ?? []) as ReadingRecord[]);
       setReadingsState("ready");
     } catch (cause) {
       setReadingsError(getApiErrorMessage(cause, "Readings could not be loaded."));
@@ -195,7 +209,7 @@ export default function MeterReadingsPage() {
       setHistoryError("");
     }
     try {
-      const response = await apiClient.get(`/utilities/meters/${meter.id}/readings`);
+      const response = await apiClient.get(`/utilities/meters/${meter.id}/readings`, { params: { take: METER_HISTORY_TAKE } });
       if (historyRequest.current !== meter.id) return;
       const rows = (response.data?.data ?? []) as ReadingRecord[];
       rows.sort((left, right) => new Date(right.readingDate).getTime() - new Date(left.readingDate).getTime());
@@ -321,7 +335,7 @@ export default function MeterReadingsPage() {
             sinceLast={last ? sinceLastLabel(last.readingDate) : null}
             averageText={averageText}
             spark={spark}
-            readingCount={historyState === "ready" ? history.length : null}
+            readingCount={historyState === "ready" ? meterReadingCountLabel(history.length) : null}
             readingAt={readingAt}
             onReadingAt={setReadingAt}
             reset={reset}
