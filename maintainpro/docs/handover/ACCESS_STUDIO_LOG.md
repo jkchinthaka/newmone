@@ -16,7 +16,7 @@ F2.2 | DONE | b3f248a3 | RoleName enum, 27 roles | MaintainProDev was not querie
 F2.3 | DONE | b3f248a3 | real RolesGuard and PermissionsGuard, 971 routes x 27 roles, 0 mismatches | zero overrides, seed keys plus the new grants
 F2.4 | SUPERSEDED | b3f248a3 | 669 access.* keys were injected into @Permissions | reverted: those keys forced 403 when the flag was off
 F2.5 | SUPERSEDED | b3f248a3 | @Permissions added beside @Roles | reverted so controllers match origin/develop for @Roles and @Permissions
-F2 fix | DONE | pending sha | 200 keys in access-route-keys.ts, one per module and role set, seed version 2 | flag off matches develop guards (971 routes x 27 roles, 0 mismatches); flag on with grants matches flag off (0 mismatches); startup refuses version 2 when grants are missing
+F2 fix | DONE | 0750d282 | 200 keys in access-route-keys.ts, one per module and role set, seed version 2 | flag off matches develop guards (971 routes x 27 roles, 0 mismatches); flag on with grants matches flag off (0 mismatches); startup refuses version 2 when grants are missing
 F2.6 | DONE | b3f248a3 | seed grants and scripts/ops/grant-access-studio-keys.ts | dry-run is the default; --apply refuses nelna and MaintainProDev; grants now use the consolidated keys
 F2.7 | BLOCKED | b3f248a3 | helper text still shown | the overrides card still says role-gated screens follow the role; remove that sentence only after a live tenant dry-run is clean
 F2.8 | DONE | b3f248a3 | startup stays off unless seed version >= 2 and live keys match | one error log, API still boots
