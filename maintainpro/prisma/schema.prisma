@@ -8,12 +8,13 @@ datasource db {
 }
 
 model Tenant {
-  id        String   @id @default(cuid()) @db.NVarChar(36)
-  name      String
-  slug      String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String   @id @default(cuid()) @db.NVarChar(36)
+  name                String
+  slug                String   @unique
+  isActive            Boolean  @default(true)
+  accessConfigVersion Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   memberships                  TenantMembership[]
   invitations                  TenantInvitation[]
@@ -320,9 +321,10 @@ model UserPermissionOverride {
   userId        String   @db.NVarChar(36)
   user          User     @relation("PermissionOverrideSubject", fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   permissionKey String   @db.NVarChar(191)
-  effect        String   @db.NVarChar(8)
-  reason        String   @db.NVarChar(Max)
-  createdById   String   @db.NVarChar(36)
+  effect        String    @db.NVarChar(8)
+  reason        String    @db.NVarChar(Max)
+  expiresAt     DateTime?
+  createdById   String    @db.NVarChar(36)
   createdBy     User     @relation("PermissionOverrideAuthor", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   createdAt     DateTime @default(now())
 

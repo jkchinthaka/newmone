@@ -172,6 +172,35 @@ describe("PermissionOverridesService", () => {
     expect(prisma.user.findFirst).not.toHaveBeenCalled();
     expect(prisma.userPermissionOverride.findMany).not.toHaveBeenCalled();
   });
+
+  it("rejects an override for a super admin", async () => {
+    const prisma = database();
+    prisma.permission.findUnique.mockResolvedValue({ key: "assets.view" });
+    prisma.user.findFirst.mockResolvedValue({ id: "user-2", tenantId: "tenant-a", role: { name: "SUPER_ADMIN" } });
+    const service = new PermissionOverridesService(prisma as never);
+
+    await expect(
+      service.create(actor, "user-2", { permissionKey: "assets.view", effect: "DENY", reason: "limit access" })
+    ).rejects.toThrow("Change the role instead");
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects a removal reason that repeats the create reason", async () => {
+    const prisma = database();
+    prisma.user.findFirst.mockResolvedValue({ id: "user-2", tenantId: "tenant-a", role: { name: "MANAGER" } });
+    prisma.userPermissionOverride.findUnique.mockResolvedValue({
+      id: "override-1",
+      permissionKey: "assets.view",
+      effect: "GRANT",
+      reason: "cover the night shift"
+    });
+    const service = new PermissionOverridesService(prisma as never);
+
+    await expect(service.remove(actor, "user-2", "assets.view", "cover the night shift")).rejects.toThrow(
+      "Enter a new removal reason"
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
 });
 
 describe("PermissionOverridesController", () => {

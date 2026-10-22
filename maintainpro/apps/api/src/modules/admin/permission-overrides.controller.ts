@@ -16,6 +16,12 @@ type AuthedRequest = { user: JwtPayload };
 export class PermissionOverridesController {
   constructor(private readonly permissionOverrides: PermissionOverridesService) {}
 
+  @Post("users/permission-overrides/bulk")
+  @Roles(RoleName.SUPER_ADMIN)
+  bulk(@Req() request: AuthedRequest, @Body() body: PermissionOverrideInput & { userIds?: string[] }) {
+    return this.permissionOverrides.bulk(request.user, body);
+  }
+
   @Get("users/:id/permission-overrides")
   @Roles(RoleName.SUPER_ADMIN)
   list(@Req() request: AuthedRequest, @Param("id") id: string) {

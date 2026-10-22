@@ -16,6 +16,7 @@ import {
   safeInternalReturnPath,
   type PostLoginUserLike
 } from "./role-redirect";
+import { STUDIO_ADMIN_PAGE_ROUTES, studioNavigationAllowed, type StudioNavigation } from "./studio-navigation";
 
 export type NavActiveMatch = "exact" | "startsWith";
 
@@ -749,12 +750,18 @@ export function isNavigationItemVisible(
   item: NavigationItem,
   roleName: string | null | undefined,
   permissions: readonly string[] = [],
-  enabledFeatures?: readonly string[] | null
+  enabledFeatures?: readonly string[] | null,
+  studio?: StudioNavigation
 ): boolean {
   const normalized = normalizeNavigationRole(roleName);
 
   if (!normalized) {
     return item.id === "notifications" || item.id === "settings";
+  }
+
+  if (studio?.accessStudioEnabled && normalized !== "SUPER_ADMIN") {
+    if (item.requiredFeature && enabledFeatures?.length && !enabledFeatures.includes(item.requiredFeature)) return false;
+    return studioNavigationAllowed(item.id, studio);
   }
 
   if (!item.allowedRoles.includes(normalized)) {
@@ -806,6 +813,8 @@ export function getVisibleNavigationItems(
     fullNavigation?: boolean;
     permissions?: readonly string[];
     enabledFeatures?: readonly string[];
+    accessStudioEnabled?: boolean;
+    accessRoutes?: readonly string[];
   }
 ): NavigationItem[] {
   const normalized = normalizeNavigationRole(roleName);
@@ -817,7 +826,7 @@ export function getVisibleNavigationItems(
     if (!EXISTING_NAV_ROUTES.has(baseHref)) {
       return false;
     }
-    return isNavigationItemVisible(item, roleName, permissions, enabledFeatures);
+    return isNavigationItemVisible(item, roleName, permissions, enabledFeatures, options);
   });
 
   if (visible.length > 0) {
@@ -834,6 +843,8 @@ export function getNavigationGroups(
     fullNavigation?: boolean;
     permissions?: readonly string[];
     enabledFeatures?: readonly string[];
+    accessStudioEnabled?: boolean;
+    accessRoutes?: readonly string[];
   }
 ): NavigationGroup[] {
   const visibleItems = getVisibleNavigationItems(roleName, options);
@@ -848,7 +859,8 @@ export function getNavigationGroups(
 export function canAccessNavigationPath(
   pathname: string,
   roleName: string | null | undefined,
-  permissions: readonly string[] = []
+  permissions: readonly string[] = [],
+  studio?: StudioNavigation
 ): boolean {
   if (
     pathname === "/login" ||
@@ -872,7 +884,7 @@ export function canAccessNavigationPath(
   );
   if (isRetired) {
     // Soft retire: only technical admins retain browser access for migration/ops.
-    return FULL_NAVIGATION_ROLES.has(normalized ?? "");
+    return studio?.accessStudioEnabled ? normalized === "SUPER_ADMIN" : FULL_NAVIGATION_ROLES.has(normalized ?? "");
   }
 
   if (normalizedPath === "/system-health" || normalizedPath.startsWith("/system-health/")) {
@@ -887,7 +899,12 @@ export function canAccessNavigationPath(
     return true;
   }
 
-  const visible = getVisibleNavigationItems(roleName, { permissions });
+  const visible = getVisibleNavigationItems(roleName, { permissions, ...studio });
+
+  if (studio?.accessStudioEnabled && normalized !== "SUPER_ADMIN" && normalizedPath.startsWith("/admin/")) {
+    const route = STUDIO_ADMIN_PAGE_ROUTES[normalizedPath] ?? (/^\/admin\/users\/[^/]+$/.test(normalizedPath) ? "GET /admin/users/:id" : undefined);
+    return Boolean(route && studio.accessRoutes?.includes(route));
+  }
 
   if (visible.some((item) => isNavItemActive(normalizedPath, item))) {
     return true;
@@ -929,6 +946,7 @@ export function canAccessNavigationPath(
     });
   }
 
+  if (studio?.accessStudioEnabled && normalized !== "SUPER_ADMIN") return false;
   return FULL_NAVIGATION_ROLES.has(normalized ?? "");
 }
 
@@ -942,9 +960,9 @@ export type MobileBottomNavItem = {
 
 export function getMobileBottomNavItems(
   roleName: string | null | undefined,
-  options?: { permissions?: readonly string[] }
+  options?: { permissions?: readonly string[] } & StudioNavigation
 ): MobileBottomNavItem[] {
-  const visible = getVisibleNavigationItems(roleName, { permissions: options?.permissions });
+  const visible = getVisibleNavigationItems(roleName, options);
   const hasWorkOrders = visible.some(
     (item) => item.id === "work-orders" || item.id === "all-jobs" || item.id === "my-jobs"
   );
@@ -1044,11 +1062,16 @@ export function resolveAuthorizedDestination(
   returnTo: string | null | undefined,
   permissions: readonly string[] = []
 ): string {
-  const landing = getPostLoginRedirect(user);
+  const studio = user && typeof user === "object" ? user as StudioNavigation : undefined;
+  const role = extractRoleName(user);
+  let landing = getPostLoginRedirect(user);
+  if (studio?.accessStudioEnabled && role !== "SUPER_ADMIN" && !canAccessNavigationPath(landing, role, permissions, studio)) {
+    landing = getVisibleNavigationItems(role, { permissions, ...studio }).find((item) => item.id !== "settings")?.href ?? "/notifications";
+  }
   const safe = safeInternalReturnPath(returnTo);
   if (!safe) return landing;
   const path = safe.split("?")[0]?.split("#")[0] ?? "";
-  if (!canAccessNavigationPath(path, extractRoleName(user), permissions)) {
+  if (!canAccessNavigationPath(path, role, permissions, studio)) {
     return landing;
   }
   return safe;

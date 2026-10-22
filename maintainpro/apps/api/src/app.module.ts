@@ -10,6 +10,7 @@ import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
 import { HttpThrottlerGuard } from "./common/guards/http-throttler.guard";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
+import { AccessPreviewGuard } from "./common/guards/access-preview.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { resolveTrustedClientIp } from "./common/security/client-ip.util";
 import { envValidationSchema } from "./config/env.validation";
@@ -226,6 +227,10 @@ normalizeDatabaseEnvironment();
     {
       provide: APP_GUARD,
       useClass: HttpThrottlerGuard
+    },
+    {
+      provide: APP_GUARD,
+      useClass: AccessPreviewGuard
     },
     {
       provide: APP_GUARD,

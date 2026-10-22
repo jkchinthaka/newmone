@@ -26,6 +26,7 @@ import { AdminUserFormDialog } from "./admin-user-form-dialog";
 import { AdminUserPasswordDialog } from "./admin-user-password-dialog";
 import { AdminUserPermissionsView } from "./admin-user-permissions-view";
 import { UserAccessTable } from "./user-access-table";
+import { AccessBulkPanel } from "./access-bulk-panel";
 
 export function AdminUsersPage() {
   const user = useCurrentUser();
@@ -219,6 +220,7 @@ export function AdminUsersPage() {
         ))}
       </div>
 
+      {isSuperAdmin && user.accessStudioEnabled && <AccessBulkPanel users={query.data ?? []} permissions={matrixQuery.data?.permissions ?? []} currentUserId={user.id} tenantId={user.tenantId} />}
       {query.isLoading ? (
         <div className="grid gap-3 sm:grid-cols-2" aria-busy="true"><SkeletonCard /><SkeletonCard /></div>
       ) : query.isError ? (
@@ -267,9 +269,11 @@ export function AdminUsersPage() {
           <AdminUserPermissionsView
             open={Boolean(permissionsTarget)}
             onClose={() => setPermissionsTarget(null)}
+            userId={permissionsTarget?.id ?? null}
             userLabel={permissionsTarget?.displayName || permissionsTarget?.email || ""}
             roleName={permissionsTarget?.roleName ?? null}
             matrix={matrixQuery.data ?? null}
+            accessStudioEnabled={user.accessStudioEnabled === true}
           />
         </>
       ) : null}

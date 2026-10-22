@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
   Inject,
   Injectable,
   NotFoundException
@@ -19,15 +20,43 @@ export type PermissionOverrideInput = {
   permissionKey?: string;
   effect?: string;
   reason?: string;
+  expiresAt?: string | null;
 };
 
 @Injectable()
 export class PermissionOverridesService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
+  async bulk(actor: JwtPayload, input: PermissionOverrideInput & { userIds?: string[] }) {
+    this.assertEnabled();
+    if (actor.role !== "SUPER_ADMIN") throw new ForbiddenException();
+    if (!Array.isArray(input?.userIds) || !input.userIds.length || input.userIds.length > 50 ||
+      input.userIds.some((id) => typeof id !== "string" || !id.trim())) {
+      throw new BadRequestException("Choose between 1 and 50 users");
+    }
+    const ids = [...new Set(input.userIds)];
+    // Reject invalid scope before the first write; each user save is audited and atomic.
+    for (const id of ids) {
+      this.assertNotSelf(actor, id);
+      this.assertNotSuperAdminTarget((await this.requireSameTenantUser(actor, id)).roleName);
+    }
+    const results: Array<{ userId: string; saved: boolean; message: string }> = [];
+    for (const id of ids) {
+      try {
+        await this.create(actor, id, input);
+        results.push({ userId: id, saved: true, message: "Saved" });
+      } catch (error) {
+        if (!(error instanceof HttpException)) throw error;
+        results.push({ userId: id, saved: false, message: error.message });
+      }
+    }
+    return { data: results, message: "Bulk permission results" };
+  }
+
   async list(actor: JwtPayload, userId: string) {
     this.assertEnabled();
     const target = await this.requireSameTenantUser(actor, userId);
+    this.assertNotSuperAdminTarget(target.roleName);
     const rows = await this.prisma.userPermissionOverride.findMany({
       where: { tenantId: target.tenantId, userId: target.id },
       orderBy: { createdAt: "desc" },
@@ -36,6 +65,7 @@ export class PermissionOverridesService {
         permissionKey: true,
         effect: true,
         reason: true,
+        expiresAt: true,
         createdAt: true,
         createdById: true
       }
@@ -51,6 +81,7 @@ export class PermissionOverridesService {
     const permissionKey = input.permissionKey?.trim() ?? "";
     const effect = input.effect?.trim() ?? "";
     const reason = input.reason?.trim() ?? "";
+    const expiresAt = this.parseExpiresAt(input.expiresAt);
 
     if (!permissionKey) {
       throw new BadRequestException("permissionKey is required");
@@ -71,6 +102,7 @@ export class PermissionOverridesService {
     }
 
     const target = await this.requireSameTenantUser(actor, userId);
+    this.assertNotSuperAdminTarget(target.roleName);
     const existing = await this.prisma.userPermissionOverride.findUnique({
       where: {
         tenantId_userId_permissionKey: {
@@ -94,6 +126,7 @@ export class PermissionOverridesService {
             permissionKey,
             effect,
             reason,
+            expiresAt,
             createdById: actor.sub
           }
         });
@@ -106,8 +139,9 @@ export class PermissionOverridesService {
           actor,
           reason,
           tenantId: target.tenantId,
-          afterData: { userId: target.id, permissionKey, effect }
+          afterData: { userId: target.id, permissionKey, effect, expiresAt }
         });
+        await this.bumpAccessConfigVersion(tx as unknown as PrismaService, target.tenantId);
 
         return created;
       });
@@ -135,6 +169,7 @@ export class PermissionOverridesService {
     }
 
     const target = await this.requireSameTenantUser(actor, userId);
+    this.assertNotSuperAdminTarget(target.roleName);
     const row = await this.prisma.userPermissionOverride.findUnique({
       where: {
         tenantId_userId_permissionKey: {
@@ -146,6 +181,9 @@ export class PermissionOverridesService {
     });
     if (!row) {
       throw new NotFoundException("Permission override not found");
+    }
+    if (auditReason === (row.reason ?? "").trim()) {
+      throw new BadRequestException("Enter a new removal reason");
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -160,6 +198,7 @@ export class PermissionOverridesService {
         tenantId: target.tenantId,
         beforeData: { userId: target.id, permissionKey: row.permissionKey, effect: row.effect }
       });
+      await this.bumpAccessConfigVersion(tx as unknown as PrismaService, target.tenantId);
     });
 
     return { data: { id: row.id }, message: "Permission override removed" };
@@ -184,13 +223,39 @@ export class PermissionOverridesService {
 
     const user = await this.prisma.user.findFirst({
       where: { id: userId, tenantId: actor.tenantId },
-      select: { id: true, tenantId: true }
+      select: { id: true, tenantId: true, role: { select: { name: true } } }
     });
 
     if (!user?.tenantId) {
       throw new NotFoundException("User not found");
     }
 
-    return { id: user.id, tenantId: user.tenantId };
+    return { id: user.id, tenantId: user.tenantId, roleName: user.role?.name ?? "" };
+  }
+
+  private assertNotSuperAdminTarget(roleName: string) {
+    if (roleName === "SUPER_ADMIN") {
+      throw new BadRequestException("Change the role instead");
+    }
+  }
+
+  private parseExpiresAt(value: string | null | undefined): Date | null {
+    if (value == null || value.trim() === "") return null;
+    const parsed = new Date(value.length === 10 ? `${value}T23:59:59.999Z` : value);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException("expiresAt must be a date");
+    }
+    if (parsed.getTime() <= Date.now()) {
+      throw new BadRequestException("expiresAt must be in the future");
+    }
+    return parsed;
+  }
+
+  private async bumpAccessConfigVersion(tx: PrismaService, tenantId: string) {
+    if (!tx.tenant?.update) return;
+    await tx.tenant.update({
+      where: { id: tenantId },
+      data: { accessConfigVersion: { increment: 1 } }
+    });
   }
 }

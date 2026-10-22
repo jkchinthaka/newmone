@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "mode": "mocked UI only",
+  "desktop": "1280x900",
+  "mobile": "390x844",
+  "previewRead": false,
+  "pageErrors": []
+}

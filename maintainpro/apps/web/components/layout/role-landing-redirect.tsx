@@ -10,7 +10,7 @@ import { useCurrentUser } from "@/lib/use-current-user";
 export function RoleLandingRedirect() {
   const router = useRouter();
   const user = useCurrentUser();
-  const target = resolveAuthorizedDestination({ role: user.role }, null);
+  const target = resolveAuthorizedDestination(user, null, user.permissions);
 
   useEffect(() => {
     if (!target || target === "/action-center" || target === "/splash" || target === "/login") {

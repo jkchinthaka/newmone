@@ -29,6 +29,7 @@ import {
 import { applyHttpServerTimeouts } from "./bootstrap/http-server-timeouts";
 import { docsJsonAllowed, healthBodyForEnvironment, minimalLiveness } from "./bootstrap/production-surface";
 import { requestContext } from "./common/context/request-context";
+import { applyAccessStudioStartup } from "./bootstrap/access-studio-startup";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
@@ -69,6 +70,7 @@ async function bootstrap(): Promise<void> {
       "Authorization",
       "X-Requested-With",
       "X-Tenant-Id",
+      "X-Access-Preview-User",
       "X-CSRF-Token",
       "X-Request-Id",
       "Idempotency-Key",
@@ -102,6 +104,7 @@ async function bootstrap(): Promise<void> {
   const configService = app.get(ConfigService);
   const prismaService = app.get(PrismaService);
   await prismaService.enableShutdownHooks(app);
+  await applyAccessStudioStartup(prismaService as never);
 
   registerFatalProcessHandlers({
     captureBootstrapRedisError: (origin, error) =>

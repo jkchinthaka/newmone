@@ -4,6 +4,8 @@ import { AuditAction, RoleName } from "@prisma/client";
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
+import { isAccessStudioKey } from "../../common/auth/access-route-keys";
+import { accessStudioEnabled } from "../../common/auth/effective-permissions";
 
 export type PublicPermissionSummary = {
   id: string;
@@ -152,11 +154,14 @@ export class RolesService {
       });
       const existing = await tx.rolePermission.findMany({
         where: { roleId },
-        select: { id: true, roleId: true, permissionId: true }
+        select: { id: true, roleId: true, permissionId: true, permission: { select: { key: true } } }
       });
       const nextIds = new Set(uniquePermissionIds);
       const existingIds = new Set(existing.map((row) => row.permissionId));
-      const removed = existing.filter((row) => !nextIds.has(row.permissionId));
+      const removed = existing.filter((row) =>
+        !nextIds.has(row.permissionId) &&
+        (accessStudioEnabled() || !isAccessStudioKey(row.permission.key))
+      );
       const addedIds = uniquePermissionIds.filter((permissionId) => !existingIds.has(permissionId));
 
       if (removed.length > 0) {

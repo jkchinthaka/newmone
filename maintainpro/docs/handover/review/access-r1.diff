@@ -1,0 +1,169 @@
+diff --git a/maintainpro/apps/api/src/database/seed.ts b/maintainpro/apps/api/src/database/seed.ts
+index 994db912..443753d3 100644
+--- a/maintainpro/apps/api/src/database/seed.ts
++++ b/maintainpro/apps/api/src/database/seed.ts
+@@ -31,6 +31,7 @@ import { BUILDING_SUPERVISOR_PERMISSIONS, FACILITY_MANAGER_PERMISSIONS } from ".
+ import { PERMISSION_CATALOG } from "./permission-catalog";
+ import { grantAccessStudioKeys } from "./grant-access-studio-keys";
+ import { isAccessStudioKey } from "../common/auth/access-route-keys";
++import { accessStudioEnabled } from "../common/auth/effective-permissions";
+
+ const prisma = new PrismaClient();
+
+@@ -47,19 +48,28 @@ function getSeedPassword(): string {
+ // Console's permission-catalog sync endpoint. Do not re-duplicate here.
+ const permissionCatalog = PERMISSION_CATALOG.filter((permission) => !isAccessStudioKey(permission));
+
+-async function syncRolePermissions(roleId: string, permissionIds: string[]): Promise<void> {
++export async function syncRolePermissions(roleId: string, permissionIds: string[], client: PrismaClient = prisma): Promise<void> {
+   const uniquePermissionIds = [...new Set(permissionIds.filter(Boolean))];
+
+-  await prisma.$transaction([
+-    prisma.rolePermission.deleteMany({ where: { roleId } }),
+-    ...(uniquePermissionIds.length > 0
+-      ? [
+-          prisma.rolePermission.createMany({
+-            data: uniquePermissionIds.map((permissionId) => ({ roleId, permissionId }))
+-          })
+-        ]
+-      : [])
+-  ]);
++  await client.$transaction(async (tx) => {
++    const existing = await tx.rolePermission.findMany({
++      where: { roleId },
++      select: { id: true, permissionId: true, permission: { select: { key: true } } }
++    });
++    const existingIds = new Set(existing.map((row) => row.permissionId));
++    const requestedIds = new Set(uniquePermissionIds);
++    const removed = existing.filter((row) =>
++      !requestedIds.has(row.permissionId) &&
++      (accessStudioEnabled() || !isAccessStudioKey(row.permission.key))
++    );
++    const added = uniquePermissionIds.filter((id) => !existingIds.has(id));
++    if (removed.length) {
++      await tx.rolePermission.deleteMany({ where: { id: { in: removed.map((row) => row.id) } } });
++    }
++    if (added.length) {
++      await tx.rolePermission.createMany({ data: added.map((permissionId) => ({ roleId, permissionId })) });
++    }
++  });
+ }
+
+ async function syncUserSkills(userId: string, skills: string[]): Promise<void> {
+diff --git a/maintainpro/apps/api/src/modules/roles/roles.service.ts b/maintainpro/apps/api/src/modules/roles/roles.service.ts
+index 93bf4faa..2263debb 100644
+--- a/maintainpro/apps/api/src/modules/roles/roles.service.ts
++++ b/maintainpro/apps/api/src/modules/roles/roles.service.ts
+@@ -4,6 +4,8 @@ import { AuditAction, RoleName } from "@prisma/client";
+ import { writeAuditTrail } from "../../common/utils/audit-trail.util";
+ import { requestContext } from "../../common/context/request-context";
+ import { PrismaService } from "../../database/prisma.service";
++import { isAccessStudioKey } from "../../common/auth/access-route-keys";
++import { accessStudioEnabled } from "../../common/auth/effective-permissions";
+
+ export type PublicPermissionSummary = {
+   id: string;
+@@ -152,11 +154,14 @@ export class RolesService {
+       });
+       const existing = await tx.rolePermission.findMany({
+         where: { roleId },
+-        select: { id: true, roleId: true, permissionId: true }
++        select: { id: true, roleId: true, permissionId: true, permission: { select: { key: true } } }
+       });
+       const nextIds = new Set(uniquePermissionIds);
+       const existingIds = new Set(existing.map((row) => row.permissionId));
+-      const removed = existing.filter((row) => !nextIds.has(row.permissionId));
++      const removed = existing.filter((row) =>
++        !nextIds.has(row.permissionId) &&
++        (accessStudioEnabled() || !isAccessStudioKey(row.permission.key))
++      );
+       const addedIds = uniquePermissionIds.filter((permissionId) => !existingIds.has(permissionId));
+
+       if (removed.length > 0) {
+diff --git a/apps/api/test/access-role-save.spec.ts b/apps/api/test/access-role-save.spec.ts
+new file mode 100644
+index 00000000..b1d4eddc
+--- /dev/null
++++ b/apps/api/test/access-role-save.spec.ts
+@@ -0,0 +1,81 @@
++import { RoleName } from "@prisma/client";
++import { RolesService } from "../src/modules/roles/roles.service";
++import { rolePermissions, syncRolePermissions } from "../src/database/seed";
++import { ACCESS_STUDIO_ROUTE_GRANTS, isAccessStudioKey } from "../src/common/auth/access-route-keys";
++import { accessStudioEnabled, setAccessStudioRuntimeAllowed } from "../src/common/auth/effective-permissions";
++import { applyAccessStudioStartup } from "../src/bootstrap/access-studio-startup";
++
++describe("Access Studio role saves", () => {
++  const previous = process.env.ACCESS_STUDIO_ENABLED;
++  afterEach(() => {
++    if (previous === undefined) delete process.env.ACCESS_STUDIO_ENABLED;
++    else process.env.ACCESS_STUDIO_ENABLED = previous;
++    setAccessStudioRuntimeAllowed(true);
++  });
++
++  function fixture() {
++    const keys = [...new Set([
++      ...(rolePermissions[RoleName.MANAGER] ?? []),
++      ...Object.entries(ACCESS_STUDIO_ROUTE_GRANTS).filter(([, roles]) => roles.includes(RoleName.MANAGER)).map(([key]) => key)
++    ])];
++    let rows = keys.map((key, i) => ({
++      id: `link-${i}`, roleId: "role-1", permissionId: `permission-${i}`, permission: { key }
++    }));
++    const role = { id: "role-1", name: RoleName.MANAGER, tenantId: "tenant-1" };
++    const tx = {
++      role: { findUnique: jest.fn(async () => ({ ...role, permissionLinks: rows })) },
++      rolePermission: {
++        findMany: jest.fn(async () => rows),
++        deleteMany: jest.fn(async ({ where }) => { rows = rows.filter((r) => !where.id.in.includes(r.id)); }),
++        createMany: jest.fn()
++      },
++      auditLog: { create: jest.fn() }
++    };
++    const prisma = { ...tx, $transaction: async (fn: (client: typeof tx) => unknown) => fn(tx) };
++    return { rows: () => rows, tx, prisma, service: new RolesService(prisma as any) };
++  }
++
++  it("preserves omitted Studio rows while off and passes startup parity afterwards", async () => {
++    process.env.ACCESS_STUDIO_ENABLED = "false";
++    const f = fixture();
++    const studio = f.rows().filter((r) => isAccessStudioKey(r.permission.key));
++    expect(studio.length).toBeGreaterThan(0);
++    await f.service.update("role-1", {
++      permissionIds: f.rows().filter((r) => !isAccessStudioKey(r.permission.key)).map((r) => r.permissionId)
++    });
++    for (const row of studio) expect(f.rows()).toContain(row);
++    expect(f.tx.rolePermission.deleteMany).not.toHaveBeenCalled();
++    process.env.ACCESS_STUDIO_ENABLED = "true";
++    await applyAccessStudioStartup({
++      appSetting: { findUnique: async () => ({ value: "2" }) },
++      role: { findMany: async () => [{ name: RoleName.MANAGER, tenantId: "tenant-1", permissionLinks: f.rows() }] }
++    });
++    expect(accessStudioEnabled()).toBe(true);
++  });
++
++  it("still removes omitted ordinary permissions while off, including an empty save", async () => {
++    process.env.ACCESS_STUDIO_ENABLED = "false";
++    const f = fixture();
++    await f.service.update("role-1", { permissionIds: [] });
++    expect(f.rows().length).toBeGreaterThan(0);
++    expect(f.rows().every((r) => isAccessStudioKey(r.permission.key))).toBe(true);
++    expect(f.tx.auditLog.create).toHaveBeenCalled();
++  });
++
++  it("allows explicit removal of Studio permissions while on", async () => {
++    process.env.ACCESS_STUDIO_ENABLED = "true";
++    setAccessStudioRuntimeAllowed(true);
++    const f = fixture();
++    await f.service.update("role-1", { permissionIds: [] });
++    expect(f.rows()).toEqual([]);
++  });
++
++  it("preserves Studio link identities in the seed replacement path while off", async () => {
++    process.env.ACCESS_STUDIO_ENABLED = "false";
++    const f = fixture();
++    const studio = f.rows().filter((r) => isAccessStudioKey(r.permission.key));
++    await syncRolePermissions("role-1", [], f.prisma as any);
++    expect(f.rows()).toEqual(studio);
++    expect(studio.length).toBeGreaterThan(0);
++  });
++});

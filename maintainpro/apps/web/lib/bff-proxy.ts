@@ -240,6 +240,7 @@ export async function proxyBffRequest(
     "content-type",
     "accept",
     "x-tenant-id",
+    "x-access-preview-user",
     "idempotency-key",
     "stripe-signature",
     "x-requested-with"
@@ -319,7 +320,7 @@ export async function proxyBffRequest(
   // Rotate the session once, server side, instead of surfacing an expired-access 401.
   // Concurrent 401 GETs share one upstream refresh via runExclusiveSilentRefresh.
   let refreshedTokens: AuthTokenPayload | null = null;
-  if (upstream.status === 401 && canSilentlyRefreshSession(method, pathSegments, session)) {
+  if (upstream.status === 401 && !headers.has("x-access-preview-user") && canSilentlyRefreshSession(method, pathSegments, session)) {
     refreshedTokens = await runExclusiveSilentRefresh(() =>
       requestUpstreamTokenRefresh(upstreamBase, String(session.refreshToken), requestId)
     );

@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  PERMISSION_OVERRIDE_SCOPE_NOTE,
   permissionOverrideDeleteConfig,
+  removalReasonIsNew,
   showPermissionOverridesCard
 } from "../permission-overrides";
 
@@ -29,8 +29,10 @@ test("removing an override sends permissionKey and reason in the JSON body", () 
     data: { permissionKey: "assets.view", reason: "shift ended" }
   });
   assert.equal(Object.hasOwn(config, "params"), false);
-  assert.equal(
-    PERMISSION_OVERRIDE_SCOPE_NOTE,
-    "Overrides apply to permission-checked actions only; role-gated screens still follow the user's role."
-  );
+});
+
+test("a removal reason must be new", () => {
+  assert.equal(removalReasonIsNew("cover the night shift", "cover the night shift"), false);
+  assert.equal(removalReasonIsNew("cover the night shift", "  "), false);
+  assert.equal(removalReasonIsNew("cover the night shift", "shift ended"), true);
 });

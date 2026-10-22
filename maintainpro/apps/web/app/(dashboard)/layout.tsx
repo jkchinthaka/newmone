@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 
 import { GlobalCommandPalette } from "@/components/layout/global-command-palette";
+import { AccessConfigRefresh } from "@/components/admin/access-config-refresh";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { NavigationRouteGuard } from "@/components/layout/navigation-route-guard";
@@ -167,6 +168,7 @@ export default function DashboardLayout({
   return (
     <QueryClientProvider client={queryClient}>
       <TenantSessionProvider>
+        <AccessConfigRefresh />
         <DashboardShell>{children}</DashboardShell>
       </TenantSessionProvider>
     </QueryClientProvider>

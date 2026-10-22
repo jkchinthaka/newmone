@@ -48,7 +48,7 @@ export function MobileBottomNav({ onOpenSearch }: Props) {
   const pathname = usePathname();
   const user = useCurrentUser();
   const roleName = extractRoleName({ role: user.role });
-  const items = getMobileBottomNavItems(roleName, { permissions: user.permissions });
+  const items = getMobileBottomNavItems(roleName, user);
 
   return (
     <nav

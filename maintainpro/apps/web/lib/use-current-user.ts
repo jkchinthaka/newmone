@@ -14,6 +14,8 @@ export interface CurrentUser {
   permissions: string[];
   enabledFeatures: string[];
   accessStudioEnabled: boolean;
+  accessRoutes?: string[];
+  accessConfigVersion?: number;
 }
 
 function readStoredUser(): CurrentUser {
@@ -70,7 +72,9 @@ function readStoredUser(): CurrentUser {
       tenantId: typeof parsed.tenantId === "string" ? parsed.tenantId : null,
       permissions,
       enabledFeatures,
-      accessStudioEnabled: parsed.accessStudioEnabled === true
+      accessStudioEnabled: parsed.accessStudioEnabled === true,
+      accessRoutes: Array.isArray(parsed.accessRoutes) ? parsed.accessRoutes.filter((v): v is string => typeof v === "string") : [],
+      accessConfigVersion: typeof parsed.accessConfigVersion === "number" ? parsed.accessConfigVersion : 0
     };
   } catch {
     return { id: null, email: null, role: null, tenantId: null, permissions: [], enabledFeatures: [], accessStudioEnabled: false };

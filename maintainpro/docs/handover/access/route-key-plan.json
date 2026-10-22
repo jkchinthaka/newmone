@@ -1,0 +1,5694 @@
+{
+  "keyCount": 200,
+  "routeCount": 679,
+  "keys": [
+    {
+      "key": "admin_governance.data_quality.view",
+      "label": "Admin governance data quality view",
+      "module": "admin_governance",
+      "roles": [
+        "ADMIN",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "admin_governance.deactivate_preview.access",
+      "label": "Admin governance deactivate preview access",
+      "module": "admin_governance",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "admin.analysis_codes.view",
+      "label": "Admin analysis codes view",
+      "module": "admin",
+      "roles": [
+        "ADMIN",
+        "MAINTENANCE_SUPERVISOR",
+        "MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "admin.config_dependencies.view",
+      "label": "Admin config dependencies view",
+      "module": "admin",
+      "roles": [
+        "ADMIN",
+        "AUDITOR",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "admin.invitations.access",
+      "label": "Admin invitations access",
+      "module": "admin",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "admin.job_categories.access",
+      "label": "Admin job categories access",
+      "module": "admin",
+      "roles": [
+        "ADMIN",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "admin.maintenance_templates.view",
+      "label": "Admin maintenance templates view",
+      "module": "admin",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "admin.permission_overrides.access",
+      "label": "Admin permission overrides access",
+      "module": "admin",
+      "roles": []
+    },
+    {
+      "key": "admin.repair_replace_evidence.manage",
+      "label": "Admin repair replace evidence manage",
+      "module": "admin",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "admin.rules.access",
+      "label": "Admin rules access",
+      "module": "admin",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "ai.assign_technician.manage",
+      "label": "Ai assign technician manage",
+      "module": "ai",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "ai.field_insights.view",
+      "label": "Ai field insights view",
+      "module": "ai",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "DRIVER",
+        "MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "ai.generate_report.manage",
+      "label": "Ai generate report manage",
+      "module": "ai",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "ai.logs.view",
+      "label": "Ai logs view",
+      "module": "ai",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "ai.predictive_logs.view",
+      "label": "Ai predictive logs view",
+      "module": "ai",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MECHANIC",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "approval_delegations.records.manage",
+      "label": "Approval delegations records manage",
+      "module": "approval_delegations",
+      "roles": [
+        "ADMIN",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "approvals.decide.manage",
+      "label": "Approvals decide manage",
+      "module": "approvals",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "FACILITY_MANAGER",
+        "FINANCE",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "approvals.escalate.access",
+      "label": "Approvals escalate access",
+      "module": "approvals",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "approvals.inbox.view",
+      "label": "Approvals inbox view",
+      "module": "approvals",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "FACILITY_MANAGER",
+        "FINANCE",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "asset_taxonomy.attributes.access",
+      "label": "Asset taxonomy attributes access",
+      "module": "asset_taxonomy",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "asset_taxonomy.domain_profiles.view",
+      "label": "Asset taxonomy domain profiles view",
+      "module": "asset_taxonomy",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "assets.documents.manage",
+      "label": "Assets documents manage",
+      "module": "assets",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "assets.records.manage",
+      "label": "Assets records manage",
+      "module": "assets",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "assets.records.view",
+      "label": "Assets records view",
+      "module": "assets",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "billing.checkout_session.access",
+      "label": "Billing checkout session access",
+      "module": "billing",
+      "roles": [
+        "ADMIN",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "bulk_import.records.access",
+      "label": "Bulk import records access",
+      "module": "bulk_import",
+      "roles": []
+    },
+    {
+      "key": "cleaning.analytics.access",
+      "label": "Cleaning analytics access",
+      "module": "cleaning",
+      "roles": [
+        "ADMIN",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "cleaning.create_work_order.manage",
+      "label": "Cleaning create work order manage",
+      "module": "cleaning",
+      "roles": [
+        "ADMIN",
+        "BUILDING_SUPERVISOR",
+        "FACILITY_MANAGER",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "cleaning.issues.access",
+      "label": "Cleaning issues access",
+      "module": "cleaning",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "CLEANER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "cleaning.locations.access",
+      "label": "Cleaning locations access",
+      "module": "cleaning",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "cleaning.scan.access",
+      "label": "Cleaning scan access",
+      "module": "cleaning",
+      "roles": [
+        "ADMIN",
+        "CLEANER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "condition_events.records.manage",
+      "label": "Condition events records manage",
+      "module": "condition_events",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "condition_events.records.view",
+      "label": "Condition events records view",
+      "module": "condition_events",
+      "roles": [
+        "ADMIN",
+        "AUDITOR",
+        "MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "condition_rules.records.manage",
+      "label": "Condition rules records manage",
+      "module": "condition_rules",
+      "roles": [
+        "ADMIN",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "condition_rules.records.view",
+      "label": "Condition rules records view",
+      "module": "condition_rules",
+      "roles": [
+        "ADMIN",
+        "AUDITOR",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "custom_fields.records.manage",
+      "label": "Custom fields records manage",
+      "module": "custom_fields",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "custom_fields.records.view",
+      "label": "Custom fields records view",
+      "module": "custom_fields",
+      "roles": [
+        "ADMIN",
+        "AUDITOR",
+        "MANAGER",
+        "TECHNICIAN",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "departments.records.manage",
+      "label": "Departments records manage",
+      "module": "departments",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "departments.records.view",
+      "label": "Departments records view",
+      "module": "departments",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "TECHNICIAN",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "downtime.close.manage",
+      "label": "Downtime close manage",
+      "module": "downtime",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "drivers.records.access",
+      "label": "Drivers records access",
+      "module": "drivers",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER"
+      ]
+    },
+    {
+      "key": "enterprise_ops.acknowledge.access",
+      "label": "Enterprise ops acknowledge access",
+      "module": "enterprise_ops",
+      "roles": [
+        "ADMIN",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "enterprise_ops.budget.view",
+      "label": "Enterprise ops budget view",
+      "module": "enterprise_ops",
+      "roles": [
+        "ADMIN",
+        "FINANCE",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "enterprise_ops.compatibilities.access",
+      "label": "Enterprise ops compatibilities access",
+      "module": "enterprise_ops",
+      "roles": [
+        "ADMIN",
+        "INVENTORY_KEEPER",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "enterprise_ops.create_po.access",
+      "label": "Enterprise ops create po access",
+      "module": "enterprise_ops",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "PROCUREMENT_OFFICER"
+      ]
+    },
+    {
+      "key": "enterprise_ops.dispatch.access",
+      "label": "Enterprise ops dispatch access",
+      "module": "enterprise_ops",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "enterprise_ops.exceptions.view",
+      "label": "Enterprise ops exceptions view",
+      "module": "enterprise_ops",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "enterprise_ops.forecasts.view",
+      "label": "Enterprise ops forecasts view",
+      "module": "enterprise_ops",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "enterprise_ops.health.view.assets",
+      "label": "Enterprise ops health assets view",
+      "module": "enterprise_ops",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "enterprise_ops.health.view.fleet_manager",
+      "label": "Enterprise ops health fleet manager view",
+      "module": "enterprise_ops",
+      "roles": [
+        "ADMIN",
+        "FLEET_MANAGER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "enterprise_ops.installed_parts.view",
+      "label": "Enterprise ops installed parts view",
+      "module": "enterprise_ops",
+      "roles": [
+        "ADMIN",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "enterprise_ops.matching.view",
+      "label": "Enterprise ops matching view",
+      "module": "enterprise_ops",
+      "roles": [
+        "ADMIN",
+        "FINANCE",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "PROCUREMENT_OFFICER"
+      ]
+    },
+    {
+      "key": "enterprise_ops.procurement.view",
+      "label": "Enterprise ops procurement view",
+      "module": "enterprise_ops",
+      "roles": [
+        "ADMIN",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "PROCUREMENT_OFFICER"
+      ]
+    },
+    {
+      "key": "evidence.readiness.view",
+      "label": "Evidence readiness view",
+      "module": "evidence",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "FACILITY_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "facilities.buildings.manage",
+      "label": "Facilities buildings manage",
+      "module": "facilities",
+      "roles": [
+        "ADMIN",
+        "FACILITY_MANAGER"
+      ]
+    },
+    {
+      "key": "facilities.buildings.view",
+      "label": "Facilities buildings view",
+      "module": "facilities",
+      "roles": [
+        "ADMIN",
+        "BUILDING_SUPERVISOR",
+        "FACILITY_MANAGER",
+        "MANAGER",
+        "SUPERVISOR",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "farm.animals.access",
+      "label": "Farm animals access",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "FARM_MANAGER",
+        "FARM_OWNER",
+        "VETERINARIAN"
+      ]
+    },
+    {
+      "key": "farm.animals.manage",
+      "label": "Farm animals manage",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "FARM_OWNER"
+      ]
+    },
+    {
+      "key": "farm.animals.view",
+      "label": "Farm animals view",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "FARM_MANAGER",
+        "FARM_OWNER",
+        "VETERINARIAN",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "farm.attendance.manage",
+      "label": "Farm attendance manage",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "FARM_MANAGER",
+        "FARM_OWNER",
+        "FIELD_SUPERVISOR"
+      ]
+    },
+    {
+      "key": "farm.attendance.view",
+      "label": "Farm attendance view",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "FARM_MANAGER",
+        "FARM_OWNER",
+        "FIELD_SUPERVISOR",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "farm.crops.access",
+      "label": "Farm crops access",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "AGRONOMIST",
+        "FARM_MANAGER",
+        "FARM_OWNER"
+      ]
+    },
+    {
+      "key": "farm.crops.view",
+      "label": "Farm crops view",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "AGRONOMIST",
+        "FARM_MANAGER",
+        "FARM_OWNER",
+        "FIELD_SUPERVISOR",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "farm.expenses.manage",
+      "label": "Farm expenses manage",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "FARM_MANAGER",
+        "FARM_OWNER"
+      ]
+    },
+    {
+      "key": "farm.expenses.view",
+      "label": "Farm expenses view",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "FARM_MANAGER",
+        "FARM_OWNER",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "farm.feeding.manage",
+      "label": "Farm feeding manage",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "FARM_MANAGER",
+        "FARM_OWNER",
+        "FARM_WORKER",
+        "VETERINARIAN"
+      ]
+    },
+    {
+      "key": "farm.harvest.manage",
+      "label": "Farm harvest manage",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "FARM_MANAGER",
+        "FARM_OWNER",
+        "FIELD_SUPERVISOR",
+        "HARVEST_CREW"
+      ]
+    },
+    {
+      "key": "farm.harvest.view",
+      "label": "Farm harvest view",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "AGRONOMIST",
+        "FARM_MANAGER",
+        "FARM_OWNER",
+        "FIELD_SUPERVISOR",
+        "HARVEST_CREW",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "farm.irrigation.manage",
+      "label": "Farm irrigation manage",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "FARM_MANAGER",
+        "FARM_OWNER",
+        "FIELD_SUPERVISOR",
+        "IRRIGATION_OPERATOR"
+      ]
+    },
+    {
+      "key": "farm.irrigation.view",
+      "label": "Farm irrigation view",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "AGRONOMIST",
+        "FARM_MANAGER",
+        "FARM_OWNER",
+        "FIELD_SUPERVISOR",
+        "IRRIGATION_OPERATOR",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "farm.poll.manage",
+      "label": "Farm poll manage",
+      "module": "farm",
+      "roles": []
+    },
+    {
+      "key": "farm.soil_tests.view",
+      "label": "Farm soil tests view",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "AGRONOMIST",
+        "FARM_MANAGER",
+        "FARM_OWNER",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "farm.spray_logs.manage",
+      "label": "Farm spray logs manage",
+      "module": "farm",
+      "roles": [
+        "ADMIN",
+        "AGRONOMIST",
+        "FARM_MANAGER",
+        "FARM_OWNER",
+        "FIELD_SUPERVISOR"
+      ]
+    },
+    {
+      "key": "fleet_lifecycle.assign_driver.manage",
+      "label": "Fleet lifecycle assign driver manage",
+      "module": "fleet_lifecycle",
+      "roles": [
+        "ADMIN",
+        "FLEET_MANAGER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "fleet_lifecycle.backfill_assets.manage",
+      "label": "Fleet lifecycle backfill assets manage",
+      "module": "fleet_lifecycle",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "fleet_lifecycle.cost_per_km.view",
+      "label": "Fleet lifecycle cost per km view",
+      "module": "fleet_lifecycle",
+      "roles": [
+        "ADMIN",
+        "FLEET_MANAGER",
+        "MANAGER",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "fleet_lifecycle.ensure_mileage_meter.manage",
+      "label": "Fleet lifecycle ensure mileage meter manage",
+      "module": "fleet_lifecycle",
+      "roles": [
+        "ADMIN",
+        "FLEET_MANAGER",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "fleet_lifecycle.gate_eligibility.view",
+      "label": "Fleet lifecycle gate eligibility view",
+      "module": "fleet_lifecycle",
+      "roles": [
+        "ADMIN",
+        "DRIVER",
+        "FLEET_MANAGER",
+        "MANAGER",
+        "SECURITY_OFFICER",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "fleet_lifecycle.install.manage",
+      "label": "Fleet lifecycle install manage",
+      "module": "fleet_lifecycle",
+      "roles": [
+        "ADMIN",
+        "FLEET_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "fleet_lifecycle.overview.view",
+      "label": "Fleet lifecycle overview view",
+      "module": "fleet_lifecycle",
+      "roles": [
+        "ADMIN",
+        "FLEET_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "TECHNICIAN",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "fleet.geofences.access",
+      "label": "Fleet geofences access",
+      "module": "fleet",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "fuel.analytics.view",
+      "label": "Fuel analytics view",
+      "module": "fuel",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "DRIVER",
+        "MANAGER",
+        "SUPERVISOR",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "health.deployment_readiness.view",
+      "label": "Health deployment readiness view",
+      "module": "health",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "inventory.apply.access",
+      "label": "Inventory apply access",
+      "module": "inventory",
+      "roles": [
+        "ADMIN",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "inventory.apply.manage",
+      "label": "Inventory apply manage",
+      "module": "inventory",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER"
+      ]
+    },
+    {
+      "key": "inventory.approve_finance.manage",
+      "label": "Inventory approve finance manage",
+      "module": "inventory",
+      "roles": [
+        "ADMIN",
+        "FINANCE",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "inventory.approve_operational.manage",
+      "label": "Inventory approve operational manage",
+      "module": "inventory",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "inventory.dry_run.access",
+      "label": "Inventory dry run access",
+      "module": "inventory",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "PROCUREMENT_OFFICER"
+      ]
+    },
+    {
+      "key": "inventory.erp_sync.manage",
+      "label": "Inventory erp sync manage",
+      "module": "inventory",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "inventory.imports.access",
+      "label": "Inventory imports access",
+      "module": "inventory",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "inventory.lines.manage",
+      "label": "Inventory lines manage",
+      "module": "inventory",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "inventory.parts.access",
+      "label": "Inventory parts access",
+      "module": "inventory",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MECHANIC"
+      ]
+    },
+    {
+      "key": "inventory.purchase_orders.manage",
+      "label": "Inventory purchase orders manage",
+      "module": "inventory",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "PROCUREMENT_OFFICER"
+      ]
+    },
+    {
+      "key": "inventory.purchase_orders.view",
+      "label": "Inventory purchase orders view",
+      "module": "inventory",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "FINANCE",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "PROCUREMENT_OFFICER"
+      ]
+    },
+    {
+      "key": "job_codes.records.manage",
+      "label": "Job codes records manage",
+      "module": "job_codes",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER"
+      ]
+    },
+    {
+      "key": "job_codes.records.view",
+      "label": "Job codes records view",
+      "module": "job_codes",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "TECHNICIAN",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "loto.records.manage",
+      "label": "Loto records manage",
+      "module": "loto",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "loto.records.view",
+      "label": "Loto records view",
+      "module": "loto",
+      "roles": [
+        "ADMIN",
+        "AUDITOR",
+        "MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "maintenance_requests.approve.access",
+      "label": "Maintenance requests approve access",
+      "module": "maintenance_requests",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "BUILDING_SUPERVISOR",
+        "FACILITY_MANAGER",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "maintenance_supply.assign_vendor.manage",
+      "label": "Maintenance supply assign vendor manage",
+      "module": "maintenance_supply",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "maintenance_supply.cost.view",
+      "label": "Maintenance supply cost view",
+      "module": "maintenance_supply",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "STOREKEEPER",
+        "SUPERVISOR",
+        "TECHNICIAN",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "maintenance_supply.return.manage",
+      "label": "Maintenance supply return manage",
+      "module": "maintenance_supply",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "MECHANIC",
+        "STOREKEEPER",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "maintenance.calendar.view",
+      "label": "Maintenance calendar view",
+      "module": "maintenance",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MECHANIC",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "maintenance.dashboard.view",
+      "label": "Maintenance dashboard view",
+      "module": "maintenance",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "BUILDING_SUPERVISOR",
+        "FACILITY_MANAGER",
+        "FLEET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MAINTENANCE_SUPERVISOR",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "maintenance.logs.access",
+      "label": "Maintenance logs access",
+      "module": "maintenance",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MECHANIC"
+      ]
+    },
+    {
+      "key": "maintenance.schedules.manage",
+      "label": "Maintenance schedules manage",
+      "module": "maintenance",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER"
+      ]
+    },
+    {
+      "key": "meter_corrections.decision.manage",
+      "label": "Meter corrections decision manage",
+      "module": "meter_corrections",
+      "roles": [
+        "ADMIN",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "meter_corrections.records.manage",
+      "label": "Meter corrections records manage",
+      "module": "meter_corrections",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "notifications.email_test.access",
+      "label": "Notifications email test access",
+      "module": "notifications",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "operations.acknowledge.access",
+      "label": "Operations acknowledge access",
+      "module": "operations",
+      "roles": [
+        "ADMIN",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "operations.evaluate.access",
+      "label": "Operations evaluate access",
+      "module": "operations",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "operations.scan_lookup.manage",
+      "label": "Operations scan lookup manage",
+      "module": "operations",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "COMPLIANCE_MANAGER",
+        "DRIVER",
+        "FLEET_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "SECURITY_OFFICER",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "organization.facility_hierarchy.manage",
+      "label": "Organization facility hierarchy manage",
+      "module": "organization",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "organization.locations.access",
+      "label": "Organization locations access",
+      "module": "organization",
+      "roles": [
+        "ADMIN",
+        "FACILITY_MANAGER"
+      ]
+    },
+    {
+      "key": "organization.locations.view",
+      "label": "Organization locations view",
+      "module": "organization",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "BUILDING_SUPERVISOR",
+        "FACILITY_MANAGER",
+        "MANAGER",
+        "SUPERVISOR",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "outbound_webhooks.records.manage",
+      "label": "Outbound webhooks records manage",
+      "module": "outbound_webhooks",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "planning.complete.manage",
+      "label": "Planning complete manage",
+      "module": "planning",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "planning.inspections.view",
+      "label": "Planning inspections view",
+      "module": "planning",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "FACILITY_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "planning.revise.manage",
+      "label": "Planning revise manage",
+      "module": "planning",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "FACILITY_MANAGER",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "predictive_ai.assign_technician.manage",
+      "label": "Predictive ai assign technician manage",
+      "module": "predictive_ai",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "predictive_ai.field_insights.view",
+      "label": "Predictive ai field insights view",
+      "module": "predictive_ai",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "DRIVER",
+        "MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "predictive_ai.generate_report.manage",
+      "label": "Predictive ai generate report manage",
+      "module": "predictive_ai",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "predictive_ai.logs.view",
+      "label": "Predictive ai logs view",
+      "module": "predictive_ai",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "predictive_ai.predictive_logs.view",
+      "label": "Predictive ai predictive logs view",
+      "module": "predictive_ai",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MECHANIC",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "qa.from_health_check.manage",
+      "label": "Qa from health check manage",
+      "module": "qa",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "reliability.asset_criticality.view",
+      "label": "Reliability asset criticality view",
+      "module": "reliability",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "AUDITOR",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "reliability.bulk.manage",
+      "label": "Reliability bulk manage",
+      "module": "reliability",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "reliability.capa.manage",
+      "label": "Reliability capa manage",
+      "module": "reliability",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "reliability.policy.manage",
+      "label": "Reliability policy manage",
+      "module": "reliability",
+      "roles": [
+        "ADMIN",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "reliability.policy.view",
+      "label": "Reliability policy view",
+      "module": "reliability",
+      "roles": [
+        "ADMIN",
+        "AUDITOR",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "reliability.rca.manage",
+      "label": "Reliability rca manage",
+      "module": "reliability",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "reliability.rca.view",
+      "label": "Reliability rca view",
+      "module": "reliability",
+      "roles": [
+        "ADMIN",
+        "AUDITOR",
+        "MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "reporting_kpis.home.view",
+      "label": "Reporting kpis home view",
+      "module": "reporting_kpis",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "AUDITOR",
+        "COMPLIANCE_MANAGER",
+        "DRIVER",
+        "FINANCE",
+        "FINANCE_APPROVER",
+        "FLEET_MANAGER",
+        "MAINTENANCE_MANAGER",
+        "MAINTENANCE_SUPERVISOR",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "REQUESTER",
+        "SECURITY_OFFICER",
+        "SUPERVISOR",
+        "TECHNICIAN",
+        "VENDOR",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "reporting_kpis.records.access",
+      "label": "Reporting kpis records access",
+      "module": "reporting_kpis",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "AUDITOR",
+        "COMPLIANCE_MANAGER",
+        "FINANCE",
+        "FINANCE_APPROVER",
+        "FLEET_MANAGER",
+        "MAINTENANCE_MANAGER",
+        "MAINTENANCE_SUPERVISOR",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "reports.admin_overrides.view",
+      "label": "Reports admin overrides view",
+      "module": "reports",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "FINANCE",
+        "FINANCE_APPROVER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "reports.cost_by_asset.view",
+      "label": "Reports cost by asset view",
+      "module": "reports",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "FINANCE",
+        "FINANCE_APPROVER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "reports.cost_by_department.view",
+      "label": "Reports cost by department view",
+      "module": "reports",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "FINANCE",
+        "FINANCE_APPROVER",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "reports.costs.view",
+      "label": "Reports costs view",
+      "module": "reports",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "reports.dashboard.view",
+      "label": "Reports dashboard view",
+      "module": "reports",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "FINANCE",
+        "FINANCE_APPROVER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "SECURITY_OFFICER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "reports.erp_monitoring.view",
+      "label": "Reports erp monitoring view",
+      "module": "reports",
+      "roles": [
+        "ADMIN",
+        "FINANCE",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "PROCUREMENT_OFFICER"
+      ]
+    },
+    {
+      "key": "reports.exceptions.view",
+      "label": "Reports exceptions view",
+      "module": "reports",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "reports.export.view.maintenance_costs",
+      "label": "Reports export maintenance costs view",
+      "module": "reports",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "DRIVER",
+        "FINANCE",
+        "FLEET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "PROCUREMENT_OFFICER",
+        "SUPERVISOR",
+        "TECHNICIAN",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "reports.export.view.management",
+      "label": "Reports export management view",
+      "module": "reports",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "FINANCE",
+        "FINANCE_APPROVER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "reports.risk_score.view",
+      "label": "Reports risk score view",
+      "module": "reports",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "reports.templates.manage",
+      "label": "Reports templates manage",
+      "module": "reports",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "search.records.view",
+      "label": "Search records view",
+      "module": "search",
+      "roles": [
+        "ADMIN",
+        "AUDITOR",
+        "DRIVER",
+        "MANAGER",
+        "TECHNICIAN",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "service_api_keys.records.manage",
+      "label": "Service api keys records manage",
+      "module": "service_api_keys",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "sod_policies.evaluate.manage",
+      "label": "Sod policies evaluate manage",
+      "module": "sod_policies",
+      "roles": [
+        "ADMIN",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "sod_policies.records.manage",
+      "label": "Sod policies records manage",
+      "module": "sod_policies",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "sod_policies.records.view",
+      "label": "Sod policies records view",
+      "module": "sod_policies",
+      "roles": [
+        "ADMIN",
+        "AUDITOR"
+      ]
+    },
+    {
+      "key": "suppliers.blacklist.manage",
+      "label": "Suppliers blacklist manage",
+      "module": "suppliers",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "suppliers.records.manage",
+      "label": "Suppliers records manage",
+      "module": "suppliers",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "suppliers.records.view",
+      "label": "Suppliers records view",
+      "module": "suppliers",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "technicians.assignable.view",
+      "label": "Technicians assignable view",
+      "module": "technicians",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "temporary_repairs.records.manage",
+      "label": "Temporary repairs records manage",
+      "module": "temporary_repairs",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "tenants.invitations.access",
+      "label": "Tenants invitations access",
+      "module": "tenants",
+      "roles": [
+        "ADMIN",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "trips.records.view",
+      "label": "Trips records view",
+      "module": "trips",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "DRIVER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "utilities.bills.view",
+      "label": "Utilities bills view",
+      "module": "utilities",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "utilities.meters.access",
+      "label": "Utilities meters access",
+      "module": "utilities",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER"
+      ]
+    },
+    {
+      "key": "utilities.readings.access",
+      "label": "Utilities readings access",
+      "module": "utilities",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "vehicles.records.manage",
+      "label": "Vehicles records manage",
+      "module": "vehicles",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "vendor_portal.access.manage",
+      "label": "Vendor portal access manage",
+      "module": "vendor_portal",
+      "roles": [
+        "ADMIN",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "vendor_portal.jobs.view",
+      "label": "Vendor portal jobs view",
+      "module": "vendor_portal",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "TECHNICIAN",
+        "VENDOR",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "vendor_portal.progress.manage",
+      "label": "Vendor portal progress manage",
+      "module": "vendor_portal",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "VENDOR"
+      ]
+    },
+    {
+      "key": "warranties.claims.manage",
+      "label": "Warranties claims manage",
+      "module": "warranties",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "warranties.claims.view",
+      "label": "Warranties claims view",
+      "module": "warranties",
+      "roles": [
+        "ADMIN",
+        "AUDITOR",
+        "FINANCE",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "warranties.records.manage",
+      "label": "Warranties records manage",
+      "module": "warranties",
+      "roles": [
+        "ADMIN",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "warranties.records.view",
+      "label": "Warranties records view",
+      "module": "warranties",
+      "roles": [
+        "ADMIN",
+        "AUDITOR",
+        "MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "TECHNICIAN",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "work_orders.action_required.view",
+      "label": "Work orders action required view",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "work_orders.activity.access",
+      "label": "Work orders activity access",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "work_orders.approve_operational.manage",
+      "label": "Work orders approve operational manage",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "work_orders.approve.manage",
+      "label": "Work orders approve manage",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "work_orders.assignees.access.assign",
+      "label": "Work orders assignees assign access",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "work_orders.assignees.access.complete_technician",
+      "label": "Work orders assignees complete technician access",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "work_orders.attachments.manage",
+      "label": "Work orders attachments manage",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MECHANIC"
+      ]
+    },
+    {
+      "key": "work_orders.category_summary.view",
+      "label": "Work orders category summary view",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "work_orders.confirm_return.manage",
+      "label": "Work orders confirm return manage",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "work_orders.content.view",
+      "label": "Work orders content view",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "FACILITY_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "work_orders.domain_context.view",
+      "label": "Work orders domain context view",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "BUILDING_SUPERVISOR",
+        "FACILITY_MANAGER",
+        "FLEET_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "work_orders.downtime.manage",
+      "label": "Work orders downtime manage",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "work_orders.downtime.view",
+      "label": "Work orders downtime view",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "AUDITOR",
+        "MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "work_orders.evidence.manage",
+      "label": "Work orders evidence manage",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "FACILITY_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "work_orders.history.view",
+      "label": "Work orders history view",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "BUILDING_SUPERVISOR",
+        "FACILITY_MANAGER",
+        "FLEET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "work_orders.part_requests.manage",
+      "label": "Work orders part requests manage",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "work_orders.parts.manage",
+      "label": "Work orders parts manage",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "INVENTORY_KEEPER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "work_orders.parts.view",
+      "label": "Work orders parts view",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "work_orders.queues.view",
+      "label": "Work orders queues view",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "BUILDING_SUPERVISOR",
+        "COMPLIANCE_MANAGER",
+        "FACILITY_MANAGER",
+        "FINANCE",
+        "FLEET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "work_orders.readiness.view",
+      "label": "Work orders readiness view",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "MECHANIC",
+        "PLANNER",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "work_orders.reject.access",
+      "label": "Work orders reject access",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "work_orders.return_to_service.manage",
+      "label": "Work orders return to service manage",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "FLEET_MANAGER",
+        "MANAGER",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "work_orders.return.manage",
+      "label": "Work orders return manage",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "INVENTORY_KEEPER",
+        "MECHANIC",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "work_orders.search.view",
+      "label": "Work orders search view",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "DRIVER",
+        "INVENTORY_KEEPER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER",
+        "SUPERVISOR",
+        "TECHNICIAN",
+        "VIEWER"
+      ]
+    },
+    {
+      "key": "work_orders.taxonomy.access",
+      "label": "Work orders taxonomy access",
+      "module": "work_orders",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "work_permits.records.manage",
+      "label": "Work permits records manage",
+      "module": "work_permits",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "key": "work_permits.records.view",
+      "label": "Work permits records view",
+      "module": "work_permits",
+      "roles": [
+        "ADMIN",
+        "AUDITOR",
+        "MANAGER",
+        "MECHANIC",
+        "SUPERVISOR",
+        "TECHNICIAN"
+      ]
+    },
+    {
+      "key": "workflows.ensure_default.manage",
+      "label": "Workflows ensure default manage",
+      "module": "workflows",
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "key": "workflows.records.view",
+      "label": "Workflows records view",
+      "module": "workflows",
+      "roles": [
+        "ADMIN",
+        "AUDITOR",
+        "MANAGER"
+      ]
+    },
+    {
+      "key": "workforce.assignment_preview.view",
+      "label": "Workforce assignment preview view",
+      "module": "workforce",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "workforce.employees.manage",
+      "label": "Workforce employees manage",
+      "module": "workforce",
+      "roles": [
+        "ADMIN",
+        "MANAGER",
+        "OPERATIONS_MANAGER"
+      ]
+    },
+    {
+      "key": "workforce.employees.view",
+      "label": "Workforce employees view",
+      "module": "workforce",
+      "roles": [
+        "ADMIN",
+        "ASSET_MANAGER",
+        "MANAGER",
+        "MECHANIC",
+        "OPERATIONS_MANAGER"
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/admin-governance/config-change/guard",
+      "key": "admin_governance.deactivate_preview.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin-governance/data-quality",
+      "key": "admin_governance.data_quality.view"
+    },
+    {
+      "method": "GET",
+      "path": "/admin-governance/overview",
+      "key": "admin_governance.deactivate_preview.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin-governance/system",
+      "key": "admin_governance.deactivate_preview.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin-governance/users/:id/deactivate-preview",
+      "key": "admin_governance.deactivate_preview.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/approvals/rules",
+      "key": "admin.rules.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/approvals/rules",
+      "key": "admin.rules.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/approvals/rules/:id",
+      "key": "admin.rules.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/approvals/rules/:id/deactivate",
+      "key": "admin.rules.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/approvals/rules/:id/version",
+      "key": "admin.rules.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/approvals/rules/preview",
+      "key": "admin.rules.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/approvals/rules/simulate",
+      "key": "admin.rules.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/asset-tags/apply",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/asset-tags/preview",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/asset-tags/template.csv",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/asset-tags/template.xlsx",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/invitations",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/invitations",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/maintenance-config/analysis-codes",
+      "key": "admin.analysis_codes.view"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/maintenance-config/analysis-codes",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/maintenance-config/config-history",
+      "key": "admin.config_dependencies.view"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/maintenance-config/feature-flags",
+      "key": "admin.rules.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/maintenance-config/feature-flags",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/maintenance-config/integrations-status",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/maintenance-config/job-categories",
+      "key": "admin.job_categories.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/maintenance-config/job-categories",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/maintenance-config/job-categories/:id",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/maintenance-config/job-categories/seed-defaults",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/maintenance-config/maintenance-templates",
+      "key": "admin.maintenance_templates.view"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/maintenance-config/maintenance-templates",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/maintenance-config/maintenance-templates/:id/active",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/maintenance-config/maintenance-templates/:id/revise",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/maintenance-config/maintenance-templates/seed-defaults",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/maintenance-config/overview",
+      "key": "admin.rules.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/maintenance-config/priority-sla",
+      "key": "admin.job_categories.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/maintenance-config/priority-sla",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/maintenance-config/reason-codes",
+      "key": "admin.analysis_codes.view"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/maintenance-config/reason-codes",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/maintenance-config/tax-rate",
+      "key": "admin.rules.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/maintenance-config/tax-rate",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/permissions/sync",
+      "key": "admin.permission_overrides.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/replication/status",
+      "key": "admin.permission_overrides.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/roles-permissions",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/roles/:id/permissions",
+      "key": "admin.permission_overrides.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/simulators/config-dependencies",
+      "key": "admin.config_dependencies.view"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/simulators/repair-replace-evidence",
+      "key": "admin.repair_replace_evidence.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/simulators/workflow-transition",
+      "key": "admin.job_categories.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenants",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/users",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/users",
+      "key": "admin.permission_overrides.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/users/:id",
+      "key": "admin.permission_overrides.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/users/:id",
+      "key": "admin.permission_overrides.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/users/:id/password",
+      "key": "admin.permission_overrides.access"
+    },
+    {
+      "method": "DELETE",
+      "path": "/admin/users/:id/permission-overrides",
+      "key": "admin.permission_overrides.access"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/users/:id/permission-overrides",
+      "key": "admin.permission_overrides.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/users/:id/permission-overrides",
+      "key": "admin.permission_overrides.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/users/:id/status",
+      "key": "admin.invitations.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/users/permission-overrides/bulk",
+      "key": "admin.permission_overrides.access"
+    },
+    {
+      "method": "POST",
+      "path": "/ai/actions/assign-technician",
+      "key": "ai.assign_technician.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/ai/actions/create-work-order",
+      "key": "ai.assign_technician.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/ai/actions/generate-report",
+      "key": "ai.generate_report.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/ai/actions/schedule-maintenance",
+      "key": "ai.assign_technician.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/ai/field-insights",
+      "key": "ai.field_insights.view"
+    },
+    {
+      "method": "GET",
+      "path": "/ai/logs",
+      "key": "ai.logs.view"
+    },
+    {
+      "method": "GET",
+      "path": "/ai/predictive-logs",
+      "key": "ai.predictive_logs.view"
+    },
+    {
+      "method": "POST",
+      "path": "/approval-delegations",
+      "key": "approval_delegations.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/approvals/:id",
+      "key": "approvals.inbox.view"
+    },
+    {
+      "method": "POST",
+      "path": "/approvals/:id/decide",
+      "key": "approvals.decide.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/approvals/:id/emergency-override",
+      "key": "approvals.decide.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/approvals/:id/escalate",
+      "key": "approvals.escalate.access"
+    },
+    {
+      "method": "GET",
+      "path": "/approvals/hooks/gate-override",
+      "key": "approvals.escalate.access"
+    },
+    {
+      "method": "GET",
+      "path": "/approvals/inbox",
+      "key": "approvals.inbox.view"
+    },
+    {
+      "method": "POST",
+      "path": "/approvals/inbox/bulk-approve",
+      "key": "approvals.decide.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/approvals/inbox/decide",
+      "key": "approvals.decide.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/asset-taxonomy/attributes",
+      "key": "asset_taxonomy.domain_profiles.view"
+    },
+    {
+      "method": "POST",
+      "path": "/asset-taxonomy/attributes",
+      "key": "asset_taxonomy.attributes.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/asset-taxonomy/attributes/:id",
+      "key": "asset_taxonomy.attributes.access"
+    },
+    {
+      "method": "GET",
+      "path": "/asset-taxonomy/categories",
+      "key": "asset_taxonomy.domain_profiles.view"
+    },
+    {
+      "method": "POST",
+      "path": "/asset-taxonomy/categories",
+      "key": "asset_taxonomy.attributes.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/asset-taxonomy/categories/:id",
+      "key": "asset_taxonomy.attributes.access"
+    },
+    {
+      "method": "GET",
+      "path": "/asset-taxonomy/domain-profiles",
+      "key": "asset_taxonomy.domain_profiles.view"
+    },
+    {
+      "method": "GET",
+      "path": "/asset-taxonomy/domain-profiles/:code",
+      "key": "asset_taxonomy.domain_profiles.view"
+    },
+    {
+      "method": "POST",
+      "path": "/asset-taxonomy/domains",
+      "key": "asset_taxonomy.attributes.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/asset-taxonomy/domains/:id",
+      "key": "asset_taxonomy.attributes.access"
+    },
+    {
+      "method": "GET",
+      "path": "/asset-taxonomy/domains/:id/can-delete",
+      "key": "asset_taxonomy.attributes.access"
+    },
+    {
+      "method": "POST",
+      "path": "/asset-taxonomy/domains/:id/deactivate",
+      "key": "asset_taxonomy.attributes.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/asset-taxonomy/domains/:id/profile",
+      "key": "asset_taxonomy.attributes.access"
+    },
+    {
+      "method": "POST",
+      "path": "/asset-taxonomy/seed-defaults",
+      "key": "asset_taxonomy.attributes.access"
+    },
+    {
+      "method": "GET",
+      "path": "/asset-taxonomy/types",
+      "key": "asset_taxonomy.domain_profiles.view"
+    },
+    {
+      "method": "POST",
+      "path": "/asset-taxonomy/types",
+      "key": "asset_taxonomy.attributes.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/asset-taxonomy/types/:id",
+      "key": "asset_taxonomy.attributes.access"
+    },
+    {
+      "method": "GET",
+      "path": "/assets",
+      "key": "assets.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/assets",
+      "key": "assets.records.manage"
+    },
+    {
+      "method": "DELETE",
+      "path": "/assets/:id",
+      "key": "assets.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/assets/:id",
+      "key": "assets.records.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/assets/:id",
+      "key": "assets.documents.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/assets/:id/children",
+      "key": "assets.records.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/assets/:id/criticality",
+      "key": "assets.documents.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/assets/:id/dispose",
+      "key": "assets.documents.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/assets/:id/documents",
+      "key": "assets.documents.manage"
+    },
+    {
+      "method": "DELETE",
+      "path": "/assets/:id/documents/:documentId",
+      "key": "assets.documents.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/assets/:id/documents/:documentId",
+      "key": "assets.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/assets/:id/link-vehicle",
+      "key": "assets.documents.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/assets/:id/maintenance-history",
+      "key": "assets.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/assets/:id/move",
+      "key": "assets.documents.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/assets/:id/movements",
+      "key": "assets.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/assets/:id/parent",
+      "key": "assets.documents.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/assets/:id/qr-code",
+      "key": "assets.records.view"
+    },
+    {
+      "method": "GET",
+      "path": "/assets/:id/qr-code/download",
+      "key": "assets.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/assets/:id/qr-code/regenerate",
+      "key": "assets.documents.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/assets/:id/restore",
+      "key": "assets.documents.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/assets/:id/retire",
+      "key": "assets.documents.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/assets/:id/status",
+      "key": "assets.documents.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/assets/bulk-action",
+      "key": "assets.documents.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/assets/bulk-import",
+      "key": "assets.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/assets/data-quality",
+      "key": "assets.records.view"
+    },
+    {
+      "method": "GET",
+      "path": "/assets/export",
+      "key": "assets.records.view"
+    },
+    {
+      "method": "GET",
+      "path": "/assets/filter-options",
+      "key": "assets.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/assets/migrations/legacy-categories",
+      "key": "assets.documents.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/assets/summary",
+      "key": "assets.records.view"
+    },
+    {
+      "method": "GET",
+      "path": "/assets/validate-tag",
+      "key": "assets.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/billing/checkout-session",
+      "key": "billing.checkout_session.access"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/subscription",
+      "key": "billing.checkout_session.access"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/usage",
+      "key": "billing.checkout_session.access"
+    },
+    {
+      "method": "GET",
+      "path": "/bulk-import",
+      "key": "bulk_import.records.access"
+    },
+    {
+      "method": "GET",
+      "path": "/bulk-import/:entity/:importId",
+      "key": "bulk_import.records.access"
+    },
+    {
+      "method": "POST",
+      "path": "/bulk-import/:entity/:importId/commit",
+      "key": "bulk_import.records.access"
+    },
+    {
+      "method": "GET",
+      "path": "/bulk-import/:entity/:importId/errors",
+      "key": "bulk_import.records.access"
+    },
+    {
+      "method": "POST",
+      "path": "/bulk-import/:entity/preview",
+      "key": "bulk_import.records.access"
+    },
+    {
+      "method": "GET",
+      "path": "/bulk-import/:entity/template",
+      "key": "bulk_import.records.access"
+    },
+    {
+      "method": "GET",
+      "path": "/cleaning/analytics",
+      "key": "cleaning.analytics.access"
+    },
+    {
+      "method": "GET",
+      "path": "/cleaning/dashboard",
+      "key": "cleaning.analytics.access"
+    },
+    {
+      "method": "POST",
+      "path": "/cleaning/enforcement/run",
+      "key": "cleaning.analytics.access"
+    },
+    {
+      "method": "GET",
+      "path": "/cleaning/issues",
+      "key": "cleaning.issues.access"
+    },
+    {
+      "method": "POST",
+      "path": "/cleaning/issues",
+      "key": "cleaning.issues.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/cleaning/issues/:id",
+      "key": "cleaning.analytics.access"
+    },
+    {
+      "method": "POST",
+      "path": "/cleaning/issues/:id/create-work-order",
+      "key": "cleaning.create_work_order.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/cleaning/issues/duplicate-check",
+      "key": "cleaning.issues.access"
+    },
+    {
+      "method": "GET",
+      "path": "/cleaning/locations",
+      "key": "cleaning.analytics.access"
+    },
+    {
+      "method": "POST",
+      "path": "/cleaning/locations",
+      "key": "cleaning.locations.access"
+    },
+    {
+      "method": "DELETE",
+      "path": "/cleaning/locations/:id",
+      "key": "cleaning.locations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/cleaning/locations/:id",
+      "key": "cleaning.scan.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/cleaning/locations/:id",
+      "key": "cleaning.locations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/cleaning/locations/:id/qr",
+      "key": "cleaning.locations.access"
+    },
+    {
+      "method": "POST",
+      "path": "/cleaning/locations/:id/regenerate-qr",
+      "key": "cleaning.locations.access"
+    },
+    {
+      "method": "POST",
+      "path": "/cleaning/scan",
+      "key": "cleaning.scan.access"
+    },
+    {
+      "method": "GET",
+      "path": "/cleaning/schedule/calendar",
+      "key": "cleaning.analytics.access"
+    },
+    {
+      "method": "GET",
+      "path": "/cleaning/users/cleaners",
+      "key": "cleaning.analytics.access"
+    },
+    {
+      "method": "GET",
+      "path": "/cleaning/visits",
+      "key": "cleaning.scan.access"
+    },
+    {
+      "method": "GET",
+      "path": "/cleaning/visits/:id",
+      "key": "cleaning.scan.access"
+    },
+    {
+      "method": "POST",
+      "path": "/cleaning/visits/:id/sign-off",
+      "key": "cleaning.analytics.access"
+    },
+    {
+      "method": "POST",
+      "path": "/cleaning/visits/:id/submit",
+      "key": "cleaning.scan.access"
+    },
+    {
+      "method": "GET",
+      "path": "/cleaning/visits/export",
+      "key": "cleaning.analytics.access"
+    },
+    {
+      "method": "POST",
+      "path": "/cleaning/visits/scan",
+      "key": "cleaning.scan.access"
+    },
+    {
+      "method": "GET",
+      "path": "/condition-events",
+      "key": "condition_events.records.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/condition-events/:id",
+      "key": "condition_events.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/condition-rules",
+      "key": "condition_rules.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/condition-rules",
+      "key": "condition_rules.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/custom-fields",
+      "key": "custom_fields.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/custom-fields",
+      "key": "custom_fields.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/departments",
+      "key": "departments.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/departments",
+      "key": "departments.records.manage"
+    },
+    {
+      "method": "DELETE",
+      "path": "/departments/:id",
+      "key": "departments.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/departments/:id",
+      "key": "departments.records.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/departments/:id",
+      "key": "departments.records.manage"
+    },
+    {
+      "method": "PUT",
+      "path": "/departments/:id",
+      "key": "departments.records.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/departments/:id/deactivate",
+      "key": "departments.records.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/downtime/:segmentId/close",
+      "key": "downtime.close.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/drivers",
+      "key": "drivers.records.access"
+    },
+    {
+      "method": "POST",
+      "path": "/drivers",
+      "key": "drivers.records.access"
+    },
+    {
+      "method": "GET",
+      "path": "/drivers/:id",
+      "key": "drivers.records.access"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/assets/health",
+      "key": "enterprise_ops.health.view.assets"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/budget",
+      "key": "enterprise_ops.budget.view"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/compatibilities",
+      "key": "enterprise_ops.compatibilities.access"
+    },
+    {
+      "method": "POST",
+      "path": "/enterprise-ops/compatibilities",
+      "key": "enterprise_ops.compatibilities.access"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/costs",
+      "key": "enterprise_ops.budget.view"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/dashboard",
+      "key": "enterprise_ops.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/dispatch",
+      "key": "enterprise_ops.dispatch.access"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/events",
+      "key": "enterprise_ops.acknowledge.access"
+    },
+    {
+      "method": "POST",
+      "path": "/enterprise-ops/events/:id/acknowledge",
+      "key": "enterprise_ops.acknowledge.access"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/exceptions",
+      "key": "enterprise_ops.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/exceptions/:id",
+      "key": "enterprise_ops.exceptions.view"
+    },
+    {
+      "method": "POST",
+      "path": "/enterprise-ops/exceptions/:id/resolve",
+      "key": "enterprise_ops.dispatch.access"
+    },
+    {
+      "method": "POST",
+      "path": "/enterprise-ops/exceptions/scan",
+      "key": "enterprise_ops.acknowledge.access"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/forecasts",
+      "key": "enterprise_ops.forecasts.view"
+    },
+    {
+      "method": "POST",
+      "path": "/enterprise-ops/forecasts/refresh",
+      "key": "enterprise_ops.dispatch.access"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/health",
+      "key": "enterprise_ops.health.view.fleet_manager"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/health/:vehicleId",
+      "key": "enterprise_ops.health.view.fleet_manager"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/installed-parts",
+      "key": "enterprise_ops.installed_parts.view"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/mappings",
+      "key": "enterprise_ops.dispatch.access"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/matching",
+      "key": "enterprise_ops.matching.view"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/policy",
+      "key": "enterprise_ops.acknowledge.access"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/procurement",
+      "key": "enterprise_ops.procurement.view"
+    },
+    {
+      "method": "POST",
+      "path": "/enterprise-ops/procurement/:id/create-po",
+      "key": "enterprise_ops.create_po.access"
+    },
+    {
+      "method": "POST",
+      "path": "/enterprise-ops/procurement/:id/review",
+      "key": "enterprise_ops.create_po.access"
+    },
+    {
+      "method": "POST",
+      "path": "/enterprise-ops/procurement/evaluate",
+      "key": "enterprise_ops.create_po.access"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/sla",
+      "key": "enterprise_ops.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/vendors",
+      "key": "enterprise_ops.create_po.access"
+    },
+    {
+      "method": "GET",
+      "path": "/enterprise-ops/warranty",
+      "key": "enterprise_ops.installed_parts.view"
+    },
+    {
+      "method": "GET",
+      "path": "/evidence/readiness",
+      "key": "evidence.readiness.view"
+    },
+    {
+      "method": "GET",
+      "path": "/facilities/buildings",
+      "key": "facilities.buildings.view"
+    },
+    {
+      "method": "POST",
+      "path": "/facilities/buildings",
+      "key": "facilities.buildings.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/facilities/buildings/:buildingId",
+      "key": "facilities.buildings.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/facilities/buildings/:buildingId",
+      "key": "facilities.buildings.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/facilities/dashboard",
+      "key": "facilities.buildings.view"
+    },
+    {
+      "method": "GET",
+      "path": "/facilities/floors",
+      "key": "facilities.buildings.view"
+    },
+    {
+      "method": "POST",
+      "path": "/facilities/floors",
+      "key": "facilities.buildings.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/facilities/floors/:floorId",
+      "key": "facilities.buildings.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/facilities/floors/:floorId",
+      "key": "facilities.buildings.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/facilities/properties",
+      "key": "facilities.buildings.view"
+    },
+    {
+      "method": "POST",
+      "path": "/facilities/properties",
+      "key": "facilities.buildings.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/facilities/properties/:propertyId",
+      "key": "facilities.buildings.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/facilities/properties/:propertyId",
+      "key": "facilities.buildings.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/facilities/reports/aging",
+      "key": "facilities.buildings.view"
+    },
+    {
+      "method": "GET",
+      "path": "/facilities/rooms",
+      "key": "facilities.buildings.view"
+    },
+    {
+      "method": "POST",
+      "path": "/facilities/rooms",
+      "key": "facilities.buildings.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/facilities/rooms/:roomId",
+      "key": "facilities.buildings.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/facilities/rooms/:roomId",
+      "key": "facilities.buildings.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/crops",
+      "key": "farm.crops.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/crops",
+      "key": "farm.crops.access"
+    },
+    {
+      "method": "DELETE",
+      "path": "/farm/crops/:id",
+      "key": "farm.animals.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/crops/:id",
+      "key": "farm.crops.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/farm/crops/:id",
+      "key": "farm.crops.access"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/fields",
+      "key": "farm.crops.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/fields",
+      "key": "farm.expenses.manage"
+    },
+    {
+      "method": "DELETE",
+      "path": "/farm/fields/:id",
+      "key": "farm.animals.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/fields/:id",
+      "key": "farm.crops.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/farm/fields/:id",
+      "key": "farm.expenses.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/finance/expenses",
+      "key": "farm.expenses.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/finance/expenses",
+      "key": "farm.expenses.manage"
+    },
+    {
+      "method": "DELETE",
+      "path": "/farm/finance/expenses/:id",
+      "key": "farm.animals.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/farm/finance/expenses/:id",
+      "key": "farm.expenses.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/finance/income",
+      "key": "farm.expenses.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/finance/income",
+      "key": "farm.expenses.manage"
+    },
+    {
+      "method": "DELETE",
+      "path": "/farm/finance/income/:id",
+      "key": "farm.animals.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/farm/finance/income/:id",
+      "key": "farm.expenses.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/finance/summary",
+      "key": "farm.expenses.view"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/harvest",
+      "key": "farm.harvest.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/harvest",
+      "key": "farm.harvest.manage"
+    },
+    {
+      "method": "DELETE",
+      "path": "/farm/harvest/:id",
+      "key": "farm.animals.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/harvest/:id",
+      "key": "farm.harvest.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/farm/harvest/:id",
+      "key": "farm.attendance.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/irrigation",
+      "key": "farm.irrigation.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/irrigation",
+      "key": "farm.irrigation.manage"
+    },
+    {
+      "method": "DELETE",
+      "path": "/farm/irrigation/:id",
+      "key": "farm.animals.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/irrigation/:id",
+      "key": "farm.irrigation.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/farm/irrigation/:id",
+      "key": "farm.irrigation.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/livestock/animals",
+      "key": "farm.animals.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/livestock/animals",
+      "key": "farm.animals.access"
+    },
+    {
+      "method": "DELETE",
+      "path": "/farm/livestock/animals/:id",
+      "key": "farm.animals.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/livestock/animals/:id",
+      "key": "farm.animals.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/farm/livestock/animals/:id",
+      "key": "farm.animals.access"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/livestock/animals/:id/health",
+      "key": "farm.animals.access"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/livestock/animals/:id/health",
+      "key": "farm.animals.access"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/livestock/animals/:id/production",
+      "key": "farm.animals.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/livestock/animals/:id/production",
+      "key": "farm.feeding.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/livestock/feeding",
+      "key": "farm.animals.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/livestock/feeding",
+      "key": "farm.feeding.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/livestock/health",
+      "key": "farm.animals.view"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/soil-tests",
+      "key": "farm.soil_tests.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/soil-tests",
+      "key": "farm.crops.access"
+    },
+    {
+      "method": "DELETE",
+      "path": "/farm/soil-tests/:id",
+      "key": "farm.animals.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/soil-tests/:id",
+      "key": "farm.soil_tests.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/farm/soil-tests/:id",
+      "key": "farm.crops.access"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/spray-logs",
+      "key": "farm.crops.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/spray-logs",
+      "key": "farm.spray_logs.manage"
+    },
+    {
+      "method": "DELETE",
+      "path": "/farm/spray-logs/:id",
+      "key": "farm.animals.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/spray-logs/:id",
+      "key": "farm.crops.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/farm/spray-logs/:id",
+      "key": "farm.crops.access"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/spray-logs/compliance",
+      "key": "farm.crops.access"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/traceability",
+      "key": "farm.expenses.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/traceability",
+      "key": "farm.expenses.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/weather",
+      "key": "farm.crops.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/weather",
+      "key": "farm.crops.access"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/weather/alerts",
+      "key": "farm.crops.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/weather/poll",
+      "key": "farm.poll.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/workers",
+      "key": "farm.attendance.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/workers",
+      "key": "farm.expenses.manage"
+    },
+    {
+      "method": "DELETE",
+      "path": "/farm/workers/:id",
+      "key": "farm.animals.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/workers/:id",
+      "key": "farm.attendance.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/farm/workers/:id",
+      "key": "farm.expenses.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/workers/:id/attendance",
+      "key": "farm.attendance.view"
+    },
+    {
+      "method": "GET",
+      "path": "/farm/workers/attendance",
+      "key": "farm.attendance.view"
+    },
+    {
+      "method": "POST",
+      "path": "/farm/workers/attendance",
+      "key": "farm.attendance.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/farm/workers/attendance/:id",
+      "key": "farm.attendance.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/fleet-lifecycle/accidents/:id/link-repair",
+      "key": "fleet_lifecycle.ensure_mileage_meter.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/fleet-lifecycle/assignments/:id/return",
+      "key": "fleet_lifecycle.assign_driver.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/fleet-lifecycle/batteries/:id/replace",
+      "key": "fleet_lifecycle.install.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/fleet-lifecycle/batteries/install",
+      "key": "fleet_lifecycle.install.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/fleet-lifecycle/cost-per-km",
+      "key": "fleet_lifecycle.cost_per_km.view"
+    },
+    {
+      "method": "GET",
+      "path": "/fleet-lifecycle/fuel-efficiency",
+      "key": "fleet_lifecycle.cost_per_km.view"
+    },
+    {
+      "method": "GET",
+      "path": "/fleet-lifecycle/overview",
+      "key": "fleet_lifecycle.overview.view"
+    },
+    {
+      "method": "POST",
+      "path": "/fleet-lifecycle/tyres/:id/move",
+      "key": "fleet_lifecycle.install.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/fleet-lifecycle/tyres/:id/remove",
+      "key": "fleet_lifecycle.install.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/fleet-lifecycle/tyres/install",
+      "key": "fleet_lifecycle.install.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/fleet-lifecycle/vehicles/:id/assign-driver",
+      "key": "fleet_lifecycle.assign_driver.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/fleet-lifecycle/vehicles/:id/ensure-mileage-meter",
+      "key": "fleet_lifecycle.ensure_mileage_meter.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/fleet-lifecycle/vehicles/:id/gate-eligibility",
+      "key": "fleet_lifecycle.gate_eligibility.view"
+    },
+    {
+      "method": "POST",
+      "path": "/fleet-lifecycle/vehicles/backfill-assets",
+      "key": "fleet_lifecycle.backfill_assets.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/fleet/alerts",
+      "key": "fleet.geofences.access"
+    },
+    {
+      "method": "GET",
+      "path": "/fleet/geofences",
+      "key": "fleet.geofences.access"
+    },
+    {
+      "method": "POST",
+      "path": "/fleet/geofences",
+      "key": "fleet.geofences.access"
+    },
+    {
+      "method": "DELETE",
+      "path": "/fleet/geofences/:id",
+      "key": "fleet.geofences.access"
+    },
+    {
+      "method": "GET",
+      "path": "/fuel/analytics",
+      "key": "fuel.analytics.view"
+    },
+    {
+      "method": "GET",
+      "path": "/fuel/logs",
+      "key": "fuel.analytics.view"
+    },
+    {
+      "method": "GET",
+      "path": "/health/deployment-readiness",
+      "key": "health.deployment_readiness.view"
+    },
+    {
+      "method": "GET",
+      "path": "/health/readiness",
+      "key": "health.deployment_readiness.view"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/adjustments",
+      "key": "inventory.apply.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/analytics/top-used",
+      "key": "inventory.parts.access"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/analytics/usage",
+      "key": "inventory.parts.access"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/daily",
+      "key": "inventory.imports.access"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/dashboard",
+      "key": "inventory.imports.access"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/erp-import/:id",
+      "key": "inventory.apply.access"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/erp-import/:id/apply",
+      "key": "inventory.apply.access"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/erp-import/:id/validate",
+      "key": "inventory.apply.access"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/erp-import/history",
+      "key": "inventory.apply.access"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/erp-import/upload",
+      "key": "inventory.apply.access"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/erp/readiness",
+      "key": "inventory.dry_run.access"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/erp/stock-sync/apply",
+      "key": "inventory.apply.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/erp/stock-sync/dry-run",
+      "key": "inventory.dry_run.access"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/imports",
+      "key": "inventory.imports.access"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/imports/:id",
+      "key": "inventory.imports.access"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/imports/:id/apply",
+      "key": "inventory.apply.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/inventory/imports/:id/rows/:rowId/map",
+      "key": "inventory.apply.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/imports/preview",
+      "key": "inventory.lines.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/low-stock",
+      "key": "inventory.imports.access"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/movements",
+      "key": "inventory.imports.access"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/parts",
+      "key": "inventory.imports.access"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/parts",
+      "key": "inventory.parts.access"
+    },
+    {
+      "method": "DELETE",
+      "path": "/inventory/parts/:id",
+      "key": "inventory.apply.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/parts/:id",
+      "key": "inventory.imports.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/inventory/parts/:id",
+      "key": "inventory.parts.access"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/parts/:id/movements",
+      "key": "inventory.imports.access"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/parts/:id/purchase-history",
+      "key": "inventory.parts.access"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/parts/:id/stock-in",
+      "key": "inventory.parts.access"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/parts/:id/stock-out",
+      "key": "inventory.imports.access"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/parts/:id/work-orders",
+      "key": "inventory.parts.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/inventory/parts/bulk-category",
+      "key": "inventory.apply.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/parts/bulk-delete",
+      "key": "inventory.apply.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/purchase-orders",
+      "key": "inventory.purchase_orders.view"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/purchase-orders",
+      "key": "inventory.purchase_orders.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/purchase-orders/:id",
+      "key": "inventory.purchase_orders.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/inventory/purchase-orders/:id",
+      "key": "inventory.purchase_orders.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/inventory/purchase-orders/:id/approve-finance",
+      "key": "inventory.approve_finance.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/inventory/purchase-orders/:id/approve-operational",
+      "key": "inventory.approve_operational.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/purchase-orders/:id/erp-sync",
+      "key": "inventory.erp_sync.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/purchase-orders/:id/erp-sync/retry",
+      "key": "inventory.erp_sync.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/purchase-orders/:id/receipts",
+      "key": "inventory.purchase_orders.view"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/purchase-orders/:id/receipts",
+      "key": "inventory.apply.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/inventory/purchase-orders/:id/reject",
+      "key": "inventory.approve_operational.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/reversals",
+      "key": "inventory.apply.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/stock-counts",
+      "key": "inventory.imports.access"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/stock-counts",
+      "key": "inventory.lines.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/stock-counts/:id",
+      "key": "inventory.imports.access"
+    },
+    {
+      "method": "PUT",
+      "path": "/inventory/stock-counts/:id/lines",
+      "key": "inventory.lines.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/stock-counts/:id/transition",
+      "key": "inventory.lines.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/transfers",
+      "key": "inventory.lines.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/warehouses",
+      "key": "inventory.imports.access"
+    },
+    {
+      "method": "GET",
+      "path": "/job-codes",
+      "key": "job_codes.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/job-codes",
+      "key": "job_codes.records.manage"
+    },
+    {
+      "method": "DELETE",
+      "path": "/job-codes/:id",
+      "key": "job_codes.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/job-codes/:id",
+      "key": "job_codes.records.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/job-codes/:id",
+      "key": "job_codes.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/loto",
+      "key": "loto.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/loto",
+      "key": "loto.records.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/loto/:id/status",
+      "key": "loto.records.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-requests/:id/approve",
+      "key": "maintenance_requests.approve.access"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-requests/:id/convert-to-work-order",
+      "key": "maintenance_requests.approve.access"
+    },
+    {
+      "method": "GET",
+      "path": "/maintenance-requests/:id/duplicate-candidates",
+      "key": "maintenance_requests.approve.access"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-requests/:id/mark-duplicate",
+      "key": "maintenance_requests.approve.access"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-requests/:id/needs-information",
+      "key": "maintenance_requests.approve.access"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-requests/:id/reject",
+      "key": "maintenance_requests.approve.access"
+    },
+    {
+      "method": "GET",
+      "path": "/maintenance-requests/:id/repeat-history",
+      "key": "maintenance_requests.approve.access"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-requests/:id/resume-review",
+      "key": "maintenance_requests.approve.access"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-requests/:id/start-review",
+      "key": "maintenance_requests.approve.access"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-requests/:id/triage",
+      "key": "maintenance_requests.approve.access"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-requests/problem-categories/seed",
+      "key": "maintenance_requests.approve.access"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-supply/contracts",
+      "key": "maintenance_supply.assign_vendor.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-supply/contracts/refresh-expiry",
+      "key": "maintenance_supply.assign_vendor.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-supply/map-erp-item",
+      "key": "maintenance_supply.assign_vendor.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-supply/map-warehouse",
+      "key": "maintenance_supply.assign_vendor.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/maintenance-supply/outstanding-tools",
+      "key": "maintenance_supply.cost.view"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-supply/part-issues/:id/return",
+      "key": "maintenance_supply.return.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/maintenance-supply/parts",
+      "key": "maintenance_supply.cost.view"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-supply/work-orders/:id/assign-vendor",
+      "key": "maintenance_supply.assign_vendor.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/maintenance-supply/work-orders/:id/cost",
+      "key": "maintenance_supply.cost.view"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-supply/work-orders/:id/cost-snapshot",
+      "key": "maintenance_supply.assign_vendor.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance-supply/work-orders/:id/cost-snapshot/auto",
+      "key": "maintenance_supply.assign_vendor.manage"
+    },
+    {
+      "method": "PUT",
+      "path": "/maintenance-supply/work-orders/:id/execution-mode",
+      "key": "maintenance_supply.assign_vendor.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/maintenance/calendar",
+      "key": "maintenance.calendar.view"
+    },
+    {
+      "method": "GET",
+      "path": "/maintenance/dashboard",
+      "key": "maintenance.dashboard.view"
+    },
+    {
+      "method": "GET",
+      "path": "/maintenance/logs",
+      "key": "maintenance.logs.access"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance/logs",
+      "key": "maintenance.logs.access"
+    },
+    {
+      "method": "GET",
+      "path": "/maintenance/predictive-alerts",
+      "key": "maintenance.logs.access"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance/predictive-alerts/:id/acknowledge",
+      "key": "maintenance.logs.access"
+    },
+    {
+      "method": "GET",
+      "path": "/maintenance/schedules",
+      "key": "maintenance.logs.access"
+    },
+    {
+      "method": "POST",
+      "path": "/maintenance/schedules",
+      "key": "maintenance.schedules.manage"
+    },
+    {
+      "method": "DELETE",
+      "path": "/maintenance/schedules/:id",
+      "key": "maintenance.schedules.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/maintenance/schedules/:id",
+      "key": "maintenance.logs.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/maintenance/schedules/:id",
+      "key": "maintenance.schedules.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/meter-corrections",
+      "key": "meter_corrections.records.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/meter-corrections/:id/decision",
+      "key": "meter_corrections.decision.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/notifications/readiness",
+      "key": "notifications.email_test.access"
+    },
+    {
+      "method": "GET",
+      "path": "/notifications/templates/samples",
+      "key": "notifications.email_test.access"
+    },
+    {
+      "method": "POST",
+      "path": "/notifications/uat/email-test",
+      "key": "notifications.email_test.access"
+    },
+    {
+      "method": "POST",
+      "path": "/notifications/uat/sms-test",
+      "key": "notifications.email_test.access"
+    },
+    {
+      "method": "GET",
+      "path": "/operations/alerts",
+      "key": "operations.acknowledge.access"
+    },
+    {
+      "method": "POST",
+      "path": "/operations/alerts/:id/acknowledge",
+      "key": "operations.acknowledge.access"
+    },
+    {
+      "method": "POST",
+      "path": "/operations/alerts/evaluate",
+      "key": "operations.evaluate.access"
+    },
+    {
+      "method": "GET",
+      "path": "/operations/alerts/mock-notifications",
+      "key": "operations.evaluate.access"
+    },
+    {
+      "method": "GET",
+      "path": "/operations/metrics",
+      "key": "operations.acknowledge.access"
+    },
+    {
+      "method": "GET",
+      "path": "/operations/queue-reconciliation",
+      "key": "operations.acknowledge.access"
+    },
+    {
+      "method": "POST",
+      "path": "/operations/queue-reconciliation/run",
+      "key": "operations.evaluate.access"
+    },
+    {
+      "method": "POST",
+      "path": "/operations/scan-lookup",
+      "key": "operations.scan_lookup.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/organization/data-quality",
+      "key": "organization.locations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/organization/locations",
+      "key": "organization.locations.view"
+    },
+    {
+      "method": "POST",
+      "path": "/organization/locations",
+      "key": "organization.locations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/organization/locations/:locationId",
+      "key": "organization.locations.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/organization/locations/:locationId",
+      "key": "organization.locations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/organization/locations/:locationId/children",
+      "key": "organization.locations.view"
+    },
+    {
+      "method": "POST",
+      "path": "/organization/locations/:locationId/move",
+      "key": "organization.locations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/organization/locations/tree",
+      "key": "organization.locations.view"
+    },
+    {
+      "method": "POST",
+      "path": "/organization/migrations/facility-hierarchy",
+      "key": "organization.facility_hierarchy.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/organization/migrations/free-text-locations",
+      "key": "organization.locations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/organization/sites",
+      "key": "organization.locations.view"
+    },
+    {
+      "method": "POST",
+      "path": "/organization/sites",
+      "key": "organization.locations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/organization/sites/:siteId",
+      "key": "organization.locations.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/organization/sites/:siteId",
+      "key": "organization.locations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/organization/summary",
+      "key": "organization.locations.view"
+    },
+    {
+      "method": "POST",
+      "path": "/outbound-webhooks",
+      "key": "outbound_webhooks.records.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/outbound-webhooks/retry-failed",
+      "key": "outbound_webhooks.records.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/calibrations",
+      "key": "planning.complete.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/checklist-executions",
+      "key": "planning.complete.manage"
+    },
+    {
+      "method": "PUT",
+      "path": "/planning/checklist-executions/:id/complete",
+      "key": "planning.complete.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/planning/checklist-templates",
+      "key": "planning.inspections.view"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/checklist-templates",
+      "key": "planning.revise.manage"
+    },
+    {
+      "method": "PUT",
+      "path": "/planning/checklist-templates/:id/revise",
+      "key": "planning.revise.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/compliance",
+      "key": "planning.revise.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/planning/due-work",
+      "key": "planning.inspections.view"
+    },
+    {
+      "method": "GET",
+      "path": "/planning/inspection-templates",
+      "key": "planning.inspections.view"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/inspection-templates",
+      "key": "planning.revise.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/planning/inspections",
+      "key": "planning.inspections.view"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/inspections",
+      "key": "planning.complete.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/planning/inspections/:id",
+      "key": "planning.inspections.view"
+    },
+    {
+      "method": "PUT",
+      "path": "/planning/inspections/:id/answers",
+      "key": "planning.complete.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/inspections/:id/complete",
+      "key": "planning.complete.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/inspections/:id/evidence",
+      "key": "planning.complete.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/inspections/:id/reinspect",
+      "key": "planning.revise.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/inspections/:id/start",
+      "key": "planning.complete.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/inspections/schedule",
+      "key": "planning.revise.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/meters",
+      "key": "planning.revise.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/meters/:id/readings",
+      "key": "planning.complete.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/planning/pm-plans",
+      "key": "planning.inspections.view"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/pm-plans",
+      "key": "planning.revise.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/pm-plans/:id/auto-wo",
+      "key": "planning.revise.manage"
+    },
+    {
+      "method": "PUT",
+      "path": "/planning/pm-plans/:id/revise",
+      "key": "planning.revise.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/planning/pm-plans/:id/revisions",
+      "key": "planning.inspections.view"
+    },
+    {
+      "method": "GET",
+      "path": "/planning/work-orders/:workOrderId/checklist-executions",
+      "key": "planning.inspections.view"
+    },
+    {
+      "method": "POST",
+      "path": "/predictive-ai/actions/assign-technician",
+      "key": "predictive_ai.assign_technician.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/predictive-ai/actions/create-work-order",
+      "key": "predictive_ai.assign_technician.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/predictive-ai/actions/generate-report",
+      "key": "predictive_ai.generate_report.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/predictive-ai/actions/schedule-maintenance",
+      "key": "predictive_ai.assign_technician.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/predictive-ai/field-insights",
+      "key": "predictive_ai.field_insights.view"
+    },
+    {
+      "method": "GET",
+      "path": "/predictive-ai/logs",
+      "key": "predictive_ai.logs.view"
+    },
+    {
+      "method": "GET",
+      "path": "/predictive-ai/predictive-logs",
+      "key": "predictive_ai.predictive_logs.view"
+    },
+    {
+      "method": "POST",
+      "path": "/qa/issues/from-health-check",
+      "key": "qa.from_health_check.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/reliability/asset-criticality",
+      "key": "reliability.asset_criticality.view"
+    },
+    {
+      "method": "POST",
+      "path": "/reliability/asset-criticality/bulk",
+      "key": "reliability.bulk.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/reliability/capa/:id",
+      "key": "reliability.capa.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/reliability/policy",
+      "key": "reliability.policy.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/reliability/policy",
+      "key": "reliability.policy.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/reliability/rca",
+      "key": "reliability.rca.view"
+    },
+    {
+      "method": "POST",
+      "path": "/reliability/rca",
+      "key": "reliability.rca.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/reliability/rca/:id",
+      "key": "reliability.rca.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/reliability/rca/:id",
+      "key": "reliability.capa.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/reliability/rca/:id/capa",
+      "key": "reliability.capa.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/reliability/rca/:id/effectiveness",
+      "key": "reliability.capa.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/reliability/repeat-candidates",
+      "key": "reliability.policy.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reliability/summary",
+      "key": "reliability.policy.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reporting-kpis",
+      "key": "reporting_kpis.records.access"
+    },
+    {
+      "method": "GET",
+      "path": "/reporting-kpis/:code",
+      "key": "reporting_kpis.records.access"
+    },
+    {
+      "method": "GET",
+      "path": "/reporting-kpis/home",
+      "key": "reporting_kpis.home.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reporting-kpis/home/:role",
+      "key": "reporting_kpis.home.view"
+    },
+    {
+      "method": "POST",
+      "path": "/reporting-kpis/overview",
+      "key": "reporting_kpis.records.access"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/:module",
+      "key": "reports.export.view.maintenance_costs"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/:module/export",
+      "key": "reports.export.view.maintenance_costs"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/dashboard",
+      "key": "reports.export.view.maintenance_costs"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/downtime",
+      "key": "reports.export.view.maintenance_costs"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/erp-monitoring",
+      "key": "reports.erp_monitoring.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/fleet-efficiency",
+      "key": "reports.export.view.maintenance_costs"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/fraud-control/admin-overrides",
+      "key": "reports.admin_overrides.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/fraud-control/admin-overrides/export",
+      "key": "reports.admin_overrides.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/fraud-control/dashboard",
+      "key": "reports.dashboard.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/fraud-control/parts-misuse",
+      "key": "reports.export.view.management"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/inventory",
+      "key": "reports.export.view.maintenance_costs"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/maintenance-cost",
+      "key": "reports.export.view.maintenance_costs"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/maintenance-costs",
+      "key": "reports.export.view.maintenance_costs"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/maintenance-costs/export",
+      "key": "reports.export.view.maintenance_costs"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/maintenance/assets",
+      "key": "reports.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/maintenance/costs",
+      "key": "reports.costs.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/maintenance/exceptions",
+      "key": "reports.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/maintenance/exceptions/:type",
+      "key": "reports.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/maintenance/exceptions/:type/export",
+      "key": "reports.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/maintenance/kpis",
+      "key": "reports.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/maintenance/parts",
+      "key": "reports.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/maintenance/risk-score/:workOrderId",
+      "key": "reports.risk_score.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/maintenance/workforce",
+      "key": "reports.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/:reportKey/export",
+      "key": "reports.export.view.management"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/cost-by-asset",
+      "key": "reports.cost_by_asset.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/cost-by-branch",
+      "key": "reports.cost_by_asset.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/cost-by-category",
+      "key": "reports.cost_by_asset.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/cost-by-department",
+      "key": "reports.cost_by_department.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/cost-by-vehicle",
+      "key": "reports.cost_by_asset.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/downtime-cost",
+      "key": "reports.cost_by_asset.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/monthly-cost-trend",
+      "key": "reports.cost_by_asset.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/parts-usage-by-technician",
+      "key": "reports.export.view.management"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/profitability/summary",
+      "key": "reports.cost_by_asset.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/repair-vs-replace",
+      "key": "reports.cost_by_asset.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/repeated-breakdowns",
+      "key": "reports.cost_by_department.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/top-high-cost-assets",
+      "key": "reports.cost_by_asset.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/top-high-cost-vehicles",
+      "key": "reports.cost_by_asset.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/management/vendor-cost-comparison",
+      "key": "reports.cost_by_asset.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/options",
+      "key": "reports.export.view.maintenance_costs"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/templates",
+      "key": "reports.export.view.maintenance_costs"
+    },
+    {
+      "method": "POST",
+      "path": "/reports/templates",
+      "key": "reports.templates.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/utilities",
+      "key": "reports.export.view.maintenance_costs"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/work-orders",
+      "key": "reports.export.view.maintenance_costs"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/work-orders/category-changes",
+      "key": "reports.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/work-orders/category-summary",
+      "key": "reports.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/work-orders/category-summary/export",
+      "key": "reports.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/work-orders/top-issues",
+      "key": "reports.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/work-orders/triage",
+      "key": "reports.exceptions.view"
+    },
+    {
+      "method": "GET",
+      "path": "/search",
+      "key": "search.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/service-api-keys",
+      "key": "service_api_keys.records.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/service-api-keys/:id/revoke",
+      "key": "service_api_keys.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/sod-policies",
+      "key": "sod_policies.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/sod-policies",
+      "key": "sod_policies.records.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/sod-policies/evaluate",
+      "key": "sod_policies.evaluate.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/suppliers",
+      "key": "suppliers.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/suppliers",
+      "key": "suppliers.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/suppliers/:id",
+      "key": "suppliers.records.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/suppliers/:id",
+      "key": "suppliers.records.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/suppliers/:id/blacklist",
+      "key": "suppliers.blacklist.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/technicians/assignable",
+      "key": "technicians.assignable.view"
+    },
+    {
+      "method": "POST",
+      "path": "/temporary-repairs",
+      "key": "temporary_repairs.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/tenants/:id/invitations",
+      "key": "tenants.invitations.access"
+    },
+    {
+      "method": "POST",
+      "path": "/tenants/:id/invitations",
+      "key": "tenants.invitations.access"
+    },
+    {
+      "method": "GET",
+      "path": "/trips",
+      "key": "trips.records.view"
+    },
+    {
+      "method": "GET",
+      "path": "/utilities/analytics",
+      "key": "utilities.bills.view"
+    },
+    {
+      "method": "GET",
+      "path": "/utilities/bills",
+      "key": "utilities.bills.view"
+    },
+    {
+      "method": "POST",
+      "path": "/utilities/bills",
+      "key": "utilities.meters.access"
+    },
+    {
+      "method": "GET",
+      "path": "/utilities/bills/:id",
+      "key": "utilities.bills.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/utilities/bills/:id/pay",
+      "key": "utilities.meters.access"
+    },
+    {
+      "method": "GET",
+      "path": "/utilities/bills/overdue",
+      "key": "utilities.meters.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/utilities/bills/pay",
+      "key": "utilities.meters.access"
+    },
+    {
+      "method": "GET",
+      "path": "/utilities/meters",
+      "key": "utilities.readings.access"
+    },
+    {
+      "method": "POST",
+      "path": "/utilities/meters",
+      "key": "utilities.meters.access"
+    },
+    {
+      "method": "GET",
+      "path": "/utilities/meters/:id",
+      "key": "utilities.bills.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/utilities/meters/:id",
+      "key": "utilities.meters.access"
+    },
+    {
+      "method": "GET",
+      "path": "/utilities/meters/:id/consumption-chart",
+      "key": "utilities.bills.view"
+    },
+    {
+      "method": "GET",
+      "path": "/utilities/meters/:id/readings",
+      "key": "utilities.readings.access"
+    },
+    {
+      "method": "POST",
+      "path": "/utilities/meters/:id/readings",
+      "key": "utilities.readings.access"
+    },
+    {
+      "method": "GET",
+      "path": "/utilities/readings",
+      "key": "utilities.readings.access"
+    },
+    {
+      "method": "POST",
+      "path": "/utilities/readings",
+      "key": "utilities.readings.access"
+    },
+    {
+      "method": "POST",
+      "path": "/vehicles",
+      "key": "vehicles.records.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/vendor-portal/access",
+      "key": "vendor_portal.access.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/vendor-portal/jobs",
+      "key": "vendor_portal.jobs.view"
+    },
+    {
+      "method": "GET",
+      "path": "/vendor-portal/jobs/:id",
+      "key": "vendor_portal.jobs.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/vendor-portal/jobs/:id/progress",
+      "key": "vendor_portal.progress.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/vendor-portal/jobs/:id/quotations",
+      "key": "vendor_portal.progress.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/warranties",
+      "key": "warranties.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/warranties",
+      "key": "warranties.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/warranties/claims",
+      "key": "warranties.claims.view"
+    },
+    {
+      "method": "POST",
+      "path": "/warranties/claims",
+      "key": "warranties.claims.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/warranties/claims/:id/status",
+      "key": "warranties.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders",
+      "key": "work_orders.action_required.view"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders",
+      "key": "work_orders.assignees.access.assign"
+    },
+    {
+      "method": "DELETE",
+      "path": "/work-orders/:id",
+      "key": "work_orders.taxonomy.access"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id",
+      "key": "work_orders.activity.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/work-orders/:id",
+      "key": "work_orders.assignees.access.assign"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id/activity",
+      "key": "work_orders.activity.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/work-orders/:id/approve",
+      "key": "work_orders.approve.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/assign",
+      "key": "work_orders.assignees.access.assign"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id/assignees",
+      "key": "work_orders.assignees.access.complete_technician"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/assignees",
+      "key": "work_orders.assignees.access.assign"
+    },
+    {
+      "method": "DELETE",
+      "path": "/work-orders/:id/assignees/:assigneeId",
+      "key": "work_orders.assignees.access.assign"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/attachments",
+      "key": "work_orders.attachments.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/work-orders/:id/classify-triage",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/close",
+      "key": "work_orders.assignees.access.assign"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/complete-technician",
+      "key": "work_orders.assignees.access.complete_technician"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id/domain-context",
+      "key": "work_orders.domain_context.view"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id/downtime",
+      "key": "work_orders.downtime.view"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/downtime",
+      "key": "work_orders.downtime.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id/evidence",
+      "key": "work_orders.content.view"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/evidence",
+      "key": "work_orders.evidence.manage"
+    },
+    {
+      "method": "DELETE",
+      "path": "/work-orders/:id/evidence/:evidenceId",
+      "key": "work_orders.evidence.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/work-orders/:id/evidence/:evidenceId",
+      "key": "work_orders.evidence.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/evidence/:evidenceId/accept",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id/evidence/:evidenceId/content",
+      "key": "work_orders.content.view"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/evidence/:evidenceId/content",
+      "key": "work_orders.evidence.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/evidence/:evidenceId/reject",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/evidence/confirm",
+      "key": "work_orders.evidence.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/evidence/upload-request",
+      "key": "work_orders.evidence.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id/history",
+      "key": "work_orders.activity.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/hold",
+      "key": "work_orders.assignees.access.complete_technician"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id/insights",
+      "key": "work_orders.activity.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/labour/:entryId/correct",
+      "key": "work_orders.activity.access"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id/next-actions",
+      "key": "work_orders.activity.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/notes",
+      "key": "work_orders.assignees.access.complete_technician"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id/part-requests",
+      "key": "work_orders.action_required.view"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/part-requests",
+      "key": "work_orders.part_requests.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/work-orders/:id/part-requests/:requestId/approve-finance",
+      "key": "work_orders.approve.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/work-orders/:id/part-requests/:requestId/approve-operational",
+      "key": "work_orders.approve_operational.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/part-requests/:requestId/issue",
+      "key": "work_orders.confirm_return.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/work-orders/:id/part-requests/:requestId/reject",
+      "key": "work_orders.assignees.access.assign"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id/parts",
+      "key": "work_orders.parts.view"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/parts",
+      "key": "work_orders.parts.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/parts/:lineId/confirm-return",
+      "key": "work_orders.confirm_return.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/parts/:lineId/return",
+      "key": "work_orders.return.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/work-orders/:id/parts/:lineId/use",
+      "key": "work_orders.return.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id/parts/summary",
+      "key": "work_orders.parts.view"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/plan",
+      "key": "work_orders.assignees.access.assign"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id/readiness",
+      "key": "work_orders.readiness.view"
+    },
+    {
+      "method": "PATCH",
+      "path": "/work-orders/:id/reject",
+      "key": "work_orders.approve.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/reject-supervisor",
+      "key": "work_orders.assignees.access.assign"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/reopen",
+      "key": "work_orders.taxonomy.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/requester-confirmation",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/resume",
+      "key": "work_orders.assignees.access.complete_technician"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/return-to-service",
+      "key": "work_orders.return_to_service.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/start",
+      "key": "work_orders.assignees.access.complete_technician"
+    },
+    {
+      "method": "PATCH",
+      "path": "/work-orders/:id/status",
+      "key": "work_orders.assignees.access.complete_technician"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/submit-for-approval",
+      "key": "work_orders.assignees.access.complete_technician"
+    },
+    {
+      "method": "PATCH",
+      "path": "/work-orders/:id/taxonomy",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/:id/vendor-repair",
+      "key": "work_orders.activity.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/vendor-repair/authorize",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/vendor-repair/close",
+      "key": "work_orders.approve.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/vendor-repair/invoices",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/vendor-repair/invoices/:invoiceId/approve",
+      "key": "work_orders.approve.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/vendor-repair/invoices/:invoiceId/reject",
+      "key": "work_orders.approve.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/vendor-repair/quotations",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/vendor-repair/quotations/:quotationId/approve",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/vendor-repair/quotations/:quotationId/reject",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/vendor-repair/request",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/vendor-repair/select-vendor",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/vendor-repair/vendor-completed",
+      "key": "work_orders.activity.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/verify-qr",
+      "key": "work_orders.evidence.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/:id/verify-supervisor",
+      "key": "work_orders.assignees.access.assign"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/action-required",
+      "key": "work_orders.action_required.view"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/bulk/assign",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/bulk/status",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/category-summary",
+      "key": "work_orders.category_summary.view"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/governance/exceptions",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/governance/parts-exceptions",
+      "key": "work_orders.category_summary.view"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/history",
+      "key": "work_orders.history.view"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/job-categories",
+      "key": "work_orders.assignees.access.assign"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/my-jobs",
+      "key": "work_orders.activity.access"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/queues",
+      "key": "work_orders.queues.view"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/queues/:queueKey",
+      "key": "work_orders.action_required.view"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/queues/diagnostics",
+      "key": "work_orders.taxonomy.access"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/smart-views",
+      "key": "work_orders.action_required.view"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/taxonomy",
+      "key": "work_orders.reject.access"
+    },
+    {
+      "method": "POST",
+      "path": "/work-orders/taxonomy",
+      "key": "work_orders.taxonomy.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/work-orders/taxonomy/:id",
+      "key": "work_orders.taxonomy.access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/work-orders/taxonomy/:id/deactivate",
+      "key": "work_orders.taxonomy.access"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/taxonomy/:id/usage",
+      "key": "work_orders.assignees.access.assign"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/taxonomy/search",
+      "key": "work_orders.search.view"
+    },
+    {
+      "method": "GET",
+      "path": "/work-orders/taxonomy/suggest",
+      "key": "work_orders.search.view"
+    },
+    {
+      "method": "GET",
+      "path": "/work-permits",
+      "key": "work_permits.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/work-permits",
+      "key": "work_permits.records.manage"
+    },
+    {
+      "method": "PATCH",
+      "path": "/work-permits/:id/status",
+      "key": "work_permits.records.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/workflows",
+      "key": "workflows.records.view"
+    },
+    {
+      "method": "POST",
+      "path": "/workflows/:definitionId/publish",
+      "key": "workflows.ensure_default.manage"
+    },
+    {
+      "method": "POST",
+      "path": "/workflows/ensure-default",
+      "key": "workflows.ensure_default.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/workforce/assignment-preview",
+      "key": "workforce.assignment_preview.view"
+    },
+    {
+      "method": "GET",
+      "path": "/workforce/employees",
+      "key": "workforce.employees.view"
+    },
+    {
+      "method": "POST",
+      "path": "/workforce/employees",
+      "key": "workforce.employees.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/workforce/employees/:id",
+      "key": "workforce.employees.view"
+    },
+    {
+      "method": "PUT",
+      "path": "/workforce/employees/:id",
+      "key": "workforce.employees.manage"
+    },
+    {
+      "method": "GET",
+      "path": "/workforce/workload-summary",
+      "key": "workforce.assignment_preview.view"
+    }
+  ]
+}

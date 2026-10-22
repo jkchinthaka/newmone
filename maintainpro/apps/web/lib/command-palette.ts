@@ -4,6 +4,7 @@ import {
   type NavigationItem
 } from "./navigation";
 import { DEFAULT_POST_LOGIN_REDIRECT, LEGACY_FMS_HOME_PATH } from "./role-redirect";
+import type { StudioNavigation } from "./studio-navigation";
 
 export type CommandPaletteItem = {
   id: string;
@@ -56,9 +57,9 @@ export function navigationItemToCommand(item: NavigationItem): CommandPaletteIte
 
 export function getCommandPaletteItems(
   roleName: string | null | undefined,
-  options?: { permissions?: readonly string[] }
+  options?: { permissions?: readonly string[] } & StudioNavigation
 ): CommandPaletteItem[] {
-  return getVisibleNavigationItems(roleName, { permissions: options?.permissions }).map(
+  return getVisibleNavigationItems(roleName, options).map(
     navigationItemToCommand
   );
 }

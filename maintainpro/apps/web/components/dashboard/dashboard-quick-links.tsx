@@ -1,9 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import type { Route } from "next";
 import { ArrowRight } from "lucide-react";
 
 import { getVisibleNavigationItems } from "@/lib/navigation";
 import { normalizeDashboardRole } from "@/lib/dashboard-roles";
+import { useCurrentUser } from "@/lib/use-current-user";
 
 import { DashboardSection } from "./dashboard-section";
 
@@ -21,7 +24,8 @@ export function DashboardQuickLinks({
   description = "Open modules available to your role."
 }: DashboardQuickLinksProps) {
   const normalizedRole = normalizeDashboardRole(roleName);
-  const links = getVisibleNavigationItems(normalizedRole, { permissions }).filter(
+  const user = useCurrentUser();
+  const links = getVisibleNavigationItems(normalizedRole, { ...user, permissions }).filter(
     (item) => item.href !== "/dashboard" && !item.legacy
   );
 

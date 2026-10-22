@@ -18,6 +18,10 @@ Authoritative stack (verified 2026-09-29 against source, not older docs):
 - MongoDB and Flutter text in older docs is historical. Flutter was removed in PR #58 (`1a5c8803`).
 - Permissions: `PermissionsGuard` loads permissions from the database. JWTs do not carry them. Service checks must use `withCurrentPermissions` and `hasCompatiblePermission`.
 
+## Access & Form Studio checkpoint — 2026-10-22
+
+R1 b318a154, R2 ae9ade56 and F3 ecd0b4a8 are locally verified and pushed on feat/access-studio; PR126 stays draft. The navigation/version follow-up is verified (API/web tsc0, web377, related API53, audits0, parity972x27 zero mismatches, independent qa-reviewer PASS, mocked desktop/mobile UI pass). Field security F4, layouts F5, revisions F6 and full UAT/docs F7 remain unfinished. Entity action controls still need review. Feature defaults OFF. No DB writes or migration applied; temporary3053 stopped;3040/3041 untouched. This does not change the roadmap or release-readiness status below.
+
 ---
 
 ## A. Project baseline

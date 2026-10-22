@@ -4,6 +4,7 @@ import * as bcrypt from "bcryptjs";
 import { randomBytes, randomUUID } from "node:crypto";
 
 import { requestContext } from "../../common/context/request-context";
+import { assertLoadedSuperAdminCanChange } from "../../common/auth/last-super-admin";
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
@@ -261,16 +262,16 @@ export class UsersService {
     }
 
     if (!isActive && target.role.name === RoleName.SUPER_ADMIN) {
-      const activeSuperAdminCount = await this.prisma.user.count({
-        where: {
-          isActive: true,
-          role: { name: RoleName.SUPER_ADMIN }
-        }
-      });
-
-      if (activeSuperAdminCount <= 1) {
-        throw new BadRequestException("Cannot deactivate the last active super admin");
-      }
+      await assertLoadedSuperAdminCanChange(
+        this.prisma,
+        {
+          id: target.id,
+          tenantId: target.tenantId,
+          isActive: target.isActive,
+          role: { name: target.role.name }
+        },
+        { nextIsActive: false }
+      );
     }
 
     // Phase 12: protect last tenant ADMIN and block technicians with open WOs
@@ -342,17 +343,21 @@ export class UsersService {
     return updated;
   }
 
-  /** Throws if deactivating/reassigning-away-from/deleting this target would leave zero active SUPER_ADMIN accounts. */
-  private async assertNotLastActiveSuperAdmin(target: { id: string; role: { name: RoleName } }) {
-    if (target.role.name !== RoleName.SUPER_ADMIN) {
-      return;
-    }
-    const activeSuperAdminCount = await this.prisma.user.count({
-      where: { isActive: true, role: { name: RoleName.SUPER_ADMIN } }
-    });
-    if (activeSuperAdminCount <= 1) {
-      throw new BadRequestException("Cannot remove the last active SUPER_ADMIN account's administration");
-    }
+  /** Throws if this change would leave the tenant with no active SUPER_ADMIN. */
+  private async assertNotLastActiveSuperAdmin(
+    target: { id: string; tenantId?: string | null; isActive?: boolean; role: { name: RoleName } },
+    change: { deleting?: boolean; nextRoleName?: string | null }
+  ) {
+    await assertLoadedSuperAdminCanChange(
+      this.prisma,
+      {
+        id: target.id,
+        tenantId: target.tenantId ?? null,
+        isActive: target.isActive !== false,
+        role: { name: target.role.name }
+      },
+      change
+    );
   }
 
   private async findAdminMutationTarget(userId: string) {
@@ -509,13 +514,13 @@ export class UsersService {
     }
     const target = await this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, role: { select: this.userRoleSelect } }
+      select: { id: true, tenantId: true, isActive: true, role: { select: this.userRoleSelect } }
     });
     if (!target) {
       throw new NotFoundException("User not found");
     }
     this.assertTenantAdminCannotTouchSuperAdmin(target);
-    await this.assertNotLastActiveSuperAdmin(target);
+    await this.assertNotLastActiveSuperAdmin(target, { deleting: true });
 
     const { tenantId, isSuperAdmin } = this.currentTenantScope();
     const openWorkOrders = await this.prisma.workOrder.count({
@@ -584,7 +589,7 @@ export class UsersService {
     await this.assertTenantUserAccessOrThrow(id);
     const current = await this.prisma.user.findUnique({
       where: { id },
-      select: { roleId: true, role: { select: { name: true } } }
+      select: { id: true, roleId: true, tenantId: true, isActive: true, role: { select: { name: true } } }
     });
     if (!current) {
       throw new NotFoundException("User not found");
@@ -602,6 +607,9 @@ export class UsersService {
         currentRoleName: current.role.name,
         nextRoleName: role.name
       });
+      if (current.role.name === RoleName.SUPER_ADMIN && role.name !== RoleName.SUPER_ADMIN) {
+        await this.assertNotLastActiveSuperAdmin(current, { nextRoleName: role.name });
+      }
     }
 
     const user = await this.prisma.user.update({
@@ -757,7 +765,7 @@ export class UsersService {
         nextRoleName: nextRole.name
       });
       if (target.role.name === RoleName.SUPER_ADMIN && nextRole.name !== RoleName.SUPER_ADMIN) {
-        await this.assertNotLastActiveSuperAdmin(target);
+        await this.assertNotLastActiveSuperAdmin(target, { nextRoleName: nextRole.name });
       }
     }
 

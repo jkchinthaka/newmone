@@ -62,7 +62,7 @@ export function Topbar({
   const queryClient = useQueryClient();
   const currentUser = useCurrentUser();
   const roleName = extractRoleName({ role: currentUser.role });
-  const canViewBilling = getVisibleNavigationItems(roleName, { permissions: currentUser.permissions }).some(
+  const canViewBilling = getVisibleNavigationItems(roleName, currentUser).some(
     (item) => item.id === "billing"
   );
 

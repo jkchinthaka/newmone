@@ -4,6 +4,7 @@ import { clearAuthSession } from "@/lib/auth-storage";
 import { safeInternalReturnPath } from "@/lib/role-redirect";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
 import { shareAccessTokenRefresh } from "@/lib/access-token-refresh";
+import { readAccessPreview } from "@/lib/access-preview";
 import { isUpstreamUnavailableError, markUpstreamDegraded, markUpstreamHealthy } from "@/lib/upstream-status";
 
 const DEFAULT_API_TIMEOUT_MS = 60_000;
@@ -239,11 +240,13 @@ async function attemptAccessTokenRefresh(): Promise<boolean> {
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const tenantId = getActiveTenantId();
   config.headers = config.headers ?? {};
+  const preview = readAccessPreview();
+  if (preview) config.headers["X-Access-Preview-User"] = preview.userId;
 
   // Access JWT is HttpOnly via BFF; do not attach from Web Storage.
   delete (config.headers as Record<string, unknown>).Authorization;
 
-  if (tenantId && !isAuthRequest(config.url)) {
+  if (tenantId && (preview || !isAuthRequest(config.url))) {
     config.headers["X-Tenant-Id"] = tenantId;
   } else {
     delete (config.headers as Record<string, unknown>)["X-Tenant-Id"];
