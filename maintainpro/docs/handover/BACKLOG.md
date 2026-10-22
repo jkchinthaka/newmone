@@ -17,6 +17,7 @@ Plan:
 3. Compute the nine tab counts with SQL `count` queries, not from the page.
 4. Remove the 500 cap. Keep `assignedTotal` as the unfiltered assignment count.
 5. Add a disposable-SQL test with more than one page and a row that would have fallen past the old cap.
+Done on develop. `listMyJobs` counts in SQL and pages with `skip` / `take`. The old 500-row in-memory cap is gone.
 
 ## Deferred audit outbox
 
