@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Controller, Get, Query, Req, Res, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
@@ -29,7 +28,6 @@ export class WorkOrderCategoryReportsController {
 
   @Get("category-summary")
   @Roles(...REPORT_ROLES)
-  @Permissions("access.workordercategoryreportscontroller.categorysummary")
   async categorySummary(@Req() req: AuthedRequest, @Query() query: CategoryReportQuery) {
     const data = await this.categoryReports.getCategorySummary(req.user, query);
     return { data, message: "Work order category summary fetched" };
@@ -37,7 +35,6 @@ export class WorkOrderCategoryReportsController {
 
   @Get("category-summary/export")
   @Roles(...REPORT_ROLES)
-  @Permissions("access.workordercategoryreportscontroller.exportcategorysummary")
   async exportCategorySummary(@Req() req: AuthedRequest, @Res() res: Response, @Query() query: CategoryReportQuery) {
     const file = await this.categoryReports.exportCategorySummaryCsv(req.user, query);
     res.setHeader("Content-Type", file.contentType);
@@ -47,7 +44,6 @@ export class WorkOrderCategoryReportsController {
 
   @Get("top-issues")
   @Roles(...REPORT_ROLES)
-  @Permissions("access.workordercategoryreportscontroller.topissues")
   async topIssues(@Req() req: AuthedRequest, @Query() query: CategoryReportQuery & { limit?: string }) {
     const data = await this.categoryReports.getTopIssues(req.user, query, query.limit ? Number(query.limit) : 20);
     return { data, message: "Top work order issues fetched" };
@@ -55,7 +51,6 @@ export class WorkOrderCategoryReportsController {
 
   @Get("triage")
   @Roles(...REPORT_ROLES)
-  @Permissions("access.workordercategoryreportscontroller.triage")
   async triage(@Req() req: AuthedRequest, @Query() query: CategoryReportQuery) {
     const data = await this.categoryReports.getTriageReport(req.user, query);
     return { data, message: "Triage work orders report fetched" };
@@ -63,7 +58,6 @@ export class WorkOrderCategoryReportsController {
 
   @Get("category-changes")
   @Roles(...REPORT_ROLES)
-  @Permissions("access.workordercategoryreportscontroller.categorychanges")
   async categoryChanges(@Req() req: AuthedRequest, @Query() query: CategoryReportQuery) {
     const data = await this.categoryReports.getCategoryChanges(req.user, query);
     return { data, message: "Work order category change report fetched" };

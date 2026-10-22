@@ -4,6 +4,8 @@ import { RoleName } from "@prisma/client";
 
 import { RolesGuard } from "../src/common/guards/roles.guard";
 import { requestContext } from "../src/common/context/request-context";
+import { ACCESS_KEY_CATALOG } from "../src/common/auth/access-route-keys";
+import { setAccessStudioRuntimeAllowed } from "../src/common/auth/effective-permissions";
 import { AdminAccessController } from "../src/modules/admin/admin-access.controller";
 import {
   ADMIN_ROLES_PERMISSIONS_MATRIX_FIELDS,
@@ -119,6 +121,59 @@ describe("Admin roles permissions matrix", () => {
     } as unknown as ExecutionContext;
 
     expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+  });
+
+  it("omits access studio keys from the roles matrix while the flag is off", async () => {
+    const studioKey = ACCESS_KEY_CATALOG[0]?.key ?? "";
+    const prisma = createPrismaMock();
+    prisma.permission.findMany.mockResolvedValue([
+      ...samplePermissions,
+      { id: "perm-studio", key: studioKey, description: "Studio" }
+    ]);
+    prisma.role.findMany.mockResolvedValue([
+      {
+        ...sampleRoles[0],
+        permissions: [{ key: "users.view" }, { key: studioKey }]
+      }
+    ]);
+    const service = new AdminRolesService(prisma as any);
+    const previous = process.env.ACCESS_STUDIO_ENABLED;
+    delete process.env.ACCESS_STUDIO_ENABLED;
+    setAccessStudioRuntimeAllowed(true);
+    const hidden = await requestContext.run(
+      {
+        actorId: "admin-1",
+        actorEmail: "admin@example.com",
+        actorRole: "ADMIN",
+        tenantId: "tenant-a",
+        module: "admin",
+        ipAddress: null,
+        userAgent: null,
+        requestPath: "/admin/roles-permissions"
+      },
+      () => service.findRolesPermissionsMatrixForReview()
+    );
+    expect(hidden.permissions.map((permission) => permission.key)).not.toContain(studioKey);
+    expect(hidden.roles[0]?.permissionKeys).not.toContain(studioKey);
+
+    process.env.ACCESS_STUDIO_ENABLED = "true";
+    const shown = await requestContext.run(
+      {
+        actorId: "admin-1",
+        actorEmail: "admin@example.com",
+        actorRole: "ADMIN",
+        tenantId: "tenant-a",
+        module: "admin",
+        ipAddress: null,
+        userAgent: null,
+        requestPath: "/admin/roles-permissions"
+      },
+      () => service.findRolesPermissionsMatrixForReview()
+    );
+    expect(shown.permissions.map((permission) => permission.key)).toContain(studioKey);
+    if (previous === undefined) delete process.env.ACCESS_STUDIO_ENABLED;
+    else process.env.ACCESS_STUDIO_ENABLED = previous;
+    setAccessStudioRuntimeAllowed(true);
   });
 });
 

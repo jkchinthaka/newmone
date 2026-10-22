@@ -1,4 +1,6 @@
-export const ACCESS_STUDIO_SEED_VERSION = 1;
+import { accessKeyForMethodPath } from "./access-route-keys";
+
+export const ACCESS_STUDIO_SEED_VERSION = 2;
 
 export type AccessRoute = {
   method: string;
@@ -17,10 +19,10 @@ export function oldAccessDecision(route: AccessRoute, role: string, permissionKe
 
 export function newAccessDecision(route: AccessRoute, role: string, permissionKeys: ReadonlySet<string>, allows: (keys: ReadonlySet<string>, permission: string, role: string) => boolean): boolean {
   if (route.isPublic) return true;
-  if (role === "SUPER_ADMIN") return route.roles.length === 0 || route.roles.includes(role);
-  if (route.permissions.length > 0) return route.permissions.every((permission) => allows(permissionKeys, permission, role));
-  if (route.roles.length > 0 && !route.roles.includes(role)) return false;
-  return true;
+  if (role === "SUPER_ADMIN") return oldAccessDecision(route, role, permissionKeys, allows);
+  const accessKey = accessKeyForMethodPath(route.method, route.path);
+  if (!accessKey) return oldAccessDecision(route, role, permissionKeys, allows);
+  return [...route.permissions, accessKey].every((permission) => allows(permissionKeys, permission, role));
 }
 
 export function firstAccessMismatch(

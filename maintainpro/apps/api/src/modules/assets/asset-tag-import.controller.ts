@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Body, Controller, Get, Inject, Post, Req, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
@@ -23,14 +22,12 @@ export class AssetTagImportController {
   constructor(@Inject(AssetTagImportService) private readonly assetTagImportService: AssetTagImportService) {}
 
   @Get("template.csv")
-  @Permissions("access.assettagimportcontroller.templatecsv")
   templateCsv(@Res() res: Response) {
     res.setHeader("Content-Type", "text/csv");
     res.send(this.assetTagImportService.templateCsv());
   }
 
   @Get("template.xlsx")
-  @Permissions("access.assettagimportcontroller.templatexlsx")
   async templateXlsx(@Res() res: Response) {
     const buffer = await this.assetTagImportService.templateXlsx();
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -39,7 +36,6 @@ export class AssetTagImportController {
 
   @Post("preview")
   @UseInterceptors(FileInterceptor("file", { storage: memoryStorage() }))
-  @Permissions("access.assettagimportcontroller.preview")
   async preview(@Req() req: AuthedRequest, @UploadedFile() file?: { originalname?: string; buffer: Buffer }) {
     if (!file?.buffer) return { data: [], message: "Choose a CSV or XLSX file." };
     const data = await this.assetTagImportService.preview(req.user?.tenantId ?? null, file);
@@ -48,7 +44,6 @@ export class AssetTagImportController {
 
   @Post("apply")
   @UseInterceptors(FileInterceptor("file", { storage: memoryStorage() }))
-  @Permissions("access.assettagimportcontroller.apply")
   async apply(
     @Req() req: AuthedRequest,
     @UploadedFile() file?: { originalname?: string; buffer: Buffer },

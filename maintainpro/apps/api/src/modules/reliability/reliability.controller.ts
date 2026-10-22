@@ -30,7 +30,7 @@ export class ReliabilityController {
 
   @Get("reliability/summary")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "AUDITOR")
-  @Permissions("reliability.view", "access.reliabilitycontroller.summary")
+  @Permissions("reliability.view")
   async summary(@Req() req: AuthedRequest) {
     const data = await this.reliability.summarize(req.user);
     return { data, message: "Reliability summary" };
@@ -38,7 +38,7 @@ export class ReliabilityController {
 
   @Get("reliability/repeat-candidates")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "AUDITOR")
-  @Permissions("reliability.view", "access.reliabilitycontroller.repeatcandidates")
+  @Permissions("reliability.view")
   async repeatCandidates(
     @Req() req: AuthedRequest,
     @Query("page") page?: string,
@@ -55,7 +55,7 @@ export class ReliabilityController {
 
   @Get("reliability/policy")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "AUDITOR")
-  @Permissions("reliability.view", "access.reliabilitycontroller.getpolicy")
+  @Permissions("reliability.view")
   async getPolicy(@Req() req: AuthedRequest) {
     const data = await this.reliability.getPolicy(req.user);
     return { data, message: "Reliability policy" };
@@ -63,7 +63,7 @@ export class ReliabilityController {
 
   @Patch("reliability/policy")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("reliability.manage", "access.reliabilitycontroller.updatepolicy")
+  @Permissions("reliability.manage")
   async updatePolicy(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     const data = await this.reliability.updatePolicy(req.user, {
       repeatWindowDays: body.repeatWindowDays != null ? Number(body.repeatWindowDays) : undefined,
@@ -93,7 +93,7 @@ export class ReliabilityController {
 
   @Get("work-orders/:id/downtime")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC", "AUDITOR")
-  @Permissions("reliability.view", "access.reliabilitycontroller.listdowntime")
+  @Permissions("reliability.view")
   async listDowntime(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.reliability.summarizeDowntime(req.user, id);
     return { data, message: "Downtime segments" };
@@ -101,7 +101,7 @@ export class ReliabilityController {
 
   @Post("work-orders/:id/downtime")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC")
-  @Permissions("reliability.manage", "access.reliabilitycontroller.opendowntime")
+  @Permissions("reliability.manage")
   async openDowntime(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -123,7 +123,7 @@ export class ReliabilityController {
 
   @Post("downtime/:segmentId/close")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC")
-  @Permissions("reliability.manage", "access.reliabilitycontroller.closedowntime")
+  @Permissions("reliability.manage")
   async closeDowntime(
     @Req() req: AuthedRequest,
     @Param("segmentId") segmentId: string,
@@ -138,7 +138,7 @@ export class ReliabilityController {
 
   @Get("reliability/rca")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN", "AUDITOR")
-  @Permissions("reliability.view", "access.reliabilitycontroller.listrca")
+  @Permissions("reliability.view")
   async listRca(
     @Req() req: AuthedRequest,
     @Query("workOrderId") workOrderId?: string,
@@ -165,7 +165,7 @@ export class ReliabilityController {
 
   @Get("reliability/rca/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN", "AUDITOR")
-  @Permissions("reliability.view", "access.reliabilitycontroller.getrca")
+  @Permissions("reliability.view")
   async getRca(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.reliability.getRca(req.user, id);
     return { data, message: "RCA case" };
@@ -173,7 +173,7 @@ export class ReliabilityController {
 
   @Post("reliability/rca")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN")
-  @Permissions("reliability.manage", "access.reliabilitycontroller.createrca")
+  @Permissions("reliability.manage")
   async createRca(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     if (!body.problemStatement) throw new BadRequestException("problemStatement is required");
     const data = await this.reliability.createRca(req.user, {
@@ -196,7 +196,7 @@ export class ReliabilityController {
 
   @Patch("reliability/rca/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR")
-  @Permissions("reliability.manage", "access.reliabilitycontroller.updaterca")
+  @Permissions("reliability.manage")
   async updateRca(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -221,7 +221,7 @@ export class ReliabilityController {
 
   @Post("reliability/rca/:id/effectiveness")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR")
-  @Permissions("reliability.manage", "access.reliabilitycontroller.verifyeffectiveness")
+  @Permissions("reliability.manage")
   async verifyEffectiveness(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -237,7 +237,7 @@ export class ReliabilityController {
 
   @Post("reliability/rca/:id/capa")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR")
-  @Permissions("reliability.manage", "access.reliabilitycontroller.addcapa")
+  @Permissions("reliability.manage")
   async addCapa(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -257,7 +257,7 @@ export class ReliabilityController {
 
   @Patch("reliability/capa/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR")
-  @Permissions("reliability.manage", "access.reliabilitycontroller.updatecapa")
+  @Permissions("reliability.manage")
   async updateCapa(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -275,7 +275,7 @@ export class ReliabilityController {
 
   @Get("work-permits")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC", "AUDITOR")
-  @Permissions("safety.permit.view", "access.reliabilitycontroller.listpermits")
+  @Permissions("safety.permit.view")
   async listPermits(
     @Req() req: AuthedRequest,
     @Query("workOrderId") workOrderId?: string,
@@ -287,7 +287,7 @@ export class ReliabilityController {
 
   @Post("work-permits")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR")
-  @Permissions("safety.permit.manage", "access.reliabilitycontroller.createpermit")
+  @Permissions("safety.permit.manage")
   async createPermit(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     if (!body.workOrderId || !body.permitType) {
       throw new BadRequestException("workOrderId and permitType are required");
@@ -306,7 +306,7 @@ export class ReliabilityController {
 
   @Patch("work-permits/:id/status")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR")
-  @Permissions("safety.permit.manage", "access.reliabilitycontroller.transitionpermit")
+  @Permissions("safety.permit.manage")
   async transitionPermit(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -322,7 +322,7 @@ export class ReliabilityController {
 
   @Get("reliability/asset-criticality")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "AUDITOR")
-  @Permissions("reliability.view", "access.reliabilitycontroller.listcriticality")
+  @Permissions("reliability.view")
   async listCriticality(
     @Req() req: AuthedRequest,
     @Query("criticalityLevel") criticalityLevel?: string,
@@ -341,7 +341,7 @@ export class ReliabilityController {
 
   @Post("reliability/asset-criticality/bulk")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER")
-  @Permissions("reliability.manage", "access.reliabilitycontroller.bulkcriticality")
+  @Permissions("reliability.manage")
   async bulkCriticality(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     const assetIds = Array.isArray(body.assetIds) ? body.assetIds.map(String) : [];
     if (!body.criticalityLevel) throw new BadRequestException("criticalityLevel is required");
@@ -356,7 +356,7 @@ export class ReliabilityController {
 
   @Patch("assets/:id/criticality")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER")
-  @Permissions("reliability.manage", "access.reliabilitycontroller.setcriticality")
+  @Permissions("reliability.manage")
   async setCriticality(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -372,7 +372,7 @@ export class ReliabilityController {
 
   @Get("condition-rules")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "AUDITOR")
-  @Permissions("reliability.view", "access.reliabilitycontroller.listconditionrules")
+  @Permissions("reliability.view")
   async listConditionRules(@Req() req: AuthedRequest) {
     const data = await this.reliability.listConditionRules(req.user);
     return { data, message: "Condition monitoring rules" };
@@ -380,7 +380,7 @@ export class ReliabilityController {
 
   @Post("condition-rules")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("reliability.manage", "access.reliabilitycontroller.upsertconditionrule")
+  @Permissions("reliability.manage")
   async upsertConditionRule(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     if (!body.code || !body.name || !body.measurementType) {
       throw new BadRequestException("code, name, measurementType are required");
@@ -406,7 +406,7 @@ export class ReliabilityController {
 
   @Get("condition-events")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN", "AUDITOR")
-  @Permissions("reliability.view", "access.reliabilitycontroller.listconditionevents")
+  @Permissions("reliability.view")
   async listConditionEvents(
     @Req() req: AuthedRequest,
     @Query("status") status?: string,
@@ -418,7 +418,7 @@ export class ReliabilityController {
 
   @Patch("condition-events/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR")
-  @Permissions("reliability.manage", "access.reliabilitycontroller.resolveconditionevent")
+  @Permissions("reliability.manage")
   async resolveConditionEvent(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -434,7 +434,7 @@ export class ReliabilityController {
 
   @Get("loto")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC", "AUDITOR")
-  @Permissions("safety.permit.view", "access.reliabilitycontroller.listloto")
+  @Permissions("safety.permit.view")
   async listLoto(@Req() req: AuthedRequest, @Query("workOrderId") workOrderId?: string) {
     const data = await this.reliability.listLoto(req.user, workOrderId);
     return { data, message: "LOTO records" };
@@ -442,7 +442,7 @@ export class ReliabilityController {
 
   @Post("loto")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN")
-  @Permissions("safety.permit.manage", "access.reliabilitycontroller.createloto")
+  @Permissions("safety.permit.manage")
   async createLoto(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     if (!body.workOrderId) throw new BadRequestException("workOrderId is required");
     const data = await this.reliability.createLoto(req.user, {
@@ -458,7 +458,7 @@ export class ReliabilityController {
 
   @Patch("loto/:id/status")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN")
-  @Permissions("safety.permit.manage", "access.reliabilitycontroller.transitionloto")
+  @Permissions("safety.permit.manage")
   async transitionLoto(
     @Req() req: AuthedRequest,
     @Param("id") id: string,

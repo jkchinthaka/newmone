@@ -43,7 +43,7 @@ export class OperationsController {
     "SECURITY_OFFICER",
     "DRIVER"
   )
-  @Permissions("operations.scan_lookup", "access.operationscontroller.scanlookup")
+  @Permissions("operations.scan_lookup")
   async scanLookup(@Req() req: AuthedRequest, @Body() body: { code: string }) {
     const data = await this.operationsService.scanLookup(body.code, req.user);
     return { data, message: "Operational scan target resolved" };
@@ -51,7 +51,6 @@ export class OperationsController {
 
   @Get("metrics")
   @Roles("SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER")
-  @Permissions("access.operationscontroller.metrics")
   async metrics() {
     const data = await this.metricsService.getSnapshot();
     return { data, message: "Operational metrics snapshot" };
@@ -59,7 +58,6 @@ export class OperationsController {
 
   @Get("alerts")
   @Roles("SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER")
-  @Permissions("access.operationscontroller.listalerts")
   async listAlerts() {
     const data = await this.alertService.listActive();
     return { data, message: "Active operational alerts" };
@@ -67,7 +65,6 @@ export class OperationsController {
 
   @Post("alerts/:id/acknowledge")
   @Roles("SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER")
-  @Permissions("access.operationscontroller.acknowledge")
   async acknowledge(@Param("id") id: string, @Req() req: AuthedRequest) {
     const data = await this.alertService.acknowledge(id, req.user.sub);
     return { data, message: "Operational alert acknowledged" };
@@ -75,7 +72,6 @@ export class OperationsController {
 
   @Post("alerts/evaluate")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("access.operationscontroller.evaluate")
   async evaluate() {
     const data = await this.alertEvaluator.evaluateOnce();
     return { data, message: "Operational alert evaluation completed" };
@@ -83,7 +79,6 @@ export class OperationsController {
 
   @Get("alerts/mock-notifications")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("access.operationscontroller.mocknotifications")
   async mockNotifications() {
     return {
       data: this.alertService.getMockNotificationEvidence(),
@@ -93,7 +88,6 @@ export class OperationsController {
 
   @Get("queue-reconciliation")
   @Roles("SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER")
-  @Permissions("access.operationscontroller.queuereconciliationstatus")
   async queueReconciliationStatus() {
     return {
       data: this.reconciliation.getStatus(),
@@ -103,7 +97,6 @@ export class OperationsController {
 
   @Post("queue-reconciliation/run")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("access.operationscontroller.runqueuereconciliation")
   async runQueueReconciliation() {
     const data = await this.reconciliation.reconcileNotifications({ force: true });
     return { data, message: "Queue reconciliation invoked" };

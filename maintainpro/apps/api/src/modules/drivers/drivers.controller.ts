@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
@@ -15,7 +14,6 @@ export class DriversController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("access.driverscontroller.findall")
   async findAll(@Query("q") q?: string, @Query("pageSize") pageSize?: string) {
     const data = await this.driversService.findAll({
       q,
@@ -26,7 +24,6 @@ export class DriversController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("access.driverscontroller.create")
   async create(@Body() body: { userId: string; licenseNumber: string; licenseClass: string; licenseExpiry: string }) {
     const data = await this.driversService.create(body);
     return { data, message: "Driver created" };
@@ -34,7 +31,6 @@ export class DriversController {
 
   @Get(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("access.driverscontroller.findone")
   async findOne(@Param("id") id: string) {
     const data = await this.driversService.findOne(id);
     return { data, message: "Driver fetched" };

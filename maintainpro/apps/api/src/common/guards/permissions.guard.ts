@@ -9,7 +9,8 @@ import {
 import { Reflector } from "@nestjs/core";
 
 import { PrismaService } from "../../database/prisma.service";
-import { loadEffectiveAccess } from "../auth/effective-permissions";
+import { accessKeyForRequest } from "../auth/access-route-keys";
+import { accessStudioEnabled, loadEffectiveAccess } from "../auth/effective-permissions";
 import { rolePermissionKeys } from "../utils/role-permissions.util";
 import { PERMISSIONS_KEY } from "../decorators/permissions.decorator";
 
@@ -129,19 +130,26 @@ export class PermissionsGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
+    const declaredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
       context.getHandler(),
       context.getClass()
-    ]);
-
-    if (!requiredPermissions || requiredPermissions.length === 0) {
-      return true;
-    }
+    ]) ?? [];
 
     const request = context.switchToHttp().getRequest<{
       user?: RequestUser;
       headers?: Record<string, unknown>;
+      method?: string;
+      baseUrl?: string;
+      route?: { path?: string | string[] };
     }>();
+    const accessKey = accessStudioEnabled() ? accessKeyForRequest(request) : undefined;
+    const requiredPermissions = accessKey
+      ? [...new Set([...declaredPermissions, accessKey])]
+      : declaredPermissions;
+
+    if (requiredPermissions.length === 0) {
+      return true;
+    }
     const user = request.user;
 
     if (!user?.sub) {

@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
@@ -23,7 +22,6 @@ export class MaintenanceController {
 
   @Get("schedules")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
-  @Permissions("access.maintenancecontroller.schedules")
   async schedules(@Req() req: AuthedRequest) {
     const data = await this.maintenanceService.schedules(req.user);
     return { data, message: "Schedules fetched" };
@@ -31,7 +29,6 @@ export class MaintenanceController {
 
   @Post("schedules")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("access.maintenancecontroller.createschedule")
   async createSchedule(
     @Req() req: AuthedRequest,
     @Body()
@@ -56,7 +53,6 @@ export class MaintenanceController {
 
   @Get("schedules/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
-  @Permissions("access.maintenancecontroller.schedule")
   async schedule(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.maintenanceService.schedule(id, req.user);
     return { data, message: "Schedule fetched" };
@@ -64,7 +60,6 @@ export class MaintenanceController {
 
   @Patch("schedules/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("access.maintenancecontroller.updateschedule")
   async updateSchedule(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -89,7 +84,6 @@ export class MaintenanceController {
 
   @Delete("schedules/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("access.maintenancecontroller.removeschedule")
   async removeSchedule(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.maintenanceService.removeSchedule(id, req.user);
     return { data, message: "Schedule deleted" };
@@ -97,7 +91,6 @@ export class MaintenanceController {
 
   @Get("logs")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
-  @Permissions("access.maintenancecontroller.logs")
   async logs(
     @Req() req: AuthedRequest,
     @Query("vehicleId") vehicleId?: string,
@@ -114,7 +107,6 @@ export class MaintenanceController {
 
   @Post("logs")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
-  @Permissions("access.maintenancecontroller.createlog")
   async createLog(
     @Req() req: AuthedRequest,
     @Body()
@@ -137,7 +129,6 @@ export class MaintenanceController {
 
   @Get("calendar")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "SUPERVISOR")
-  @Permissions("access.maintenancecontroller.calendar")
   async calendar(@Req() req: AuthedRequest) {
     const data = await this.maintenanceService.calendar(req.user);
     return { data, message: "Maintenance calendar fetched" };
@@ -145,7 +136,6 @@ export class MaintenanceController {
 
   @Get("predictive-alerts")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
-  @Permissions("access.maintenancecontroller.predictivealerts")
   async predictiveAlerts(@Req() req: AuthedRequest) {
     const data = await this.maintenanceService.predictiveAlerts(req.user);
     return { data, message: "Predictive alerts fetched" };
@@ -153,7 +143,6 @@ export class MaintenanceController {
 
   @Post("predictive-alerts/:id/acknowledge")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
-  @Permissions("access.maintenancecontroller.acknowledgepredictive")
   async acknowledgePredictive(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.maintenanceService.acknowledgePredictiveAlert(id, req.user);
     return { data, message: "Predictive alert acknowledged" };

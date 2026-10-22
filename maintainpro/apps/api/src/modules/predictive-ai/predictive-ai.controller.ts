@@ -73,7 +73,7 @@ export class PredictiveAiController {
     "MECHANIC",
     "DRIVER"
   )
-  @Permissions("predictive_insights.view", "access.predictiveaicontroller.fieldinsights")
+  @Permissions("predictive_insights.view")
   async fieldInsights(
     @Req() req: AuthedRequest,
     @Query() query: CopilotContextQueryDto,
@@ -140,7 +140,6 @@ export class PredictiveAiController {
 
   @Get("logs")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "SUPERVISOR", "MANAGER", "TECHNICIAN")
-  @Permissions("access.predictiveaicontroller.logs")
   async logs(@Req() req: AuthedRequest, @Query() query: CopilotLogsQueryDto) {
     const data = await this.predictiveAiService.logs(this.getActor(req), query);
     return { data, message: "Copilot logs fetched" };
@@ -148,7 +147,6 @@ export class PredictiveAiController {
 
   @Get("predictive-logs")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "SUPERVISOR")
-  @Permissions("access.predictiveaicontroller.predictivelogs")
   async predictiveLogs() {
     const data = await this.predictiveAiService.predictiveLogs();
     return { data, message: "Predictive maintenance logs fetched" };
@@ -156,7 +154,6 @@ export class PredictiveAiController {
 
   @Post("actions/create-work-order")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MANAGER")
-  @Permissions("access.predictiveaicontroller.createworkorderaction")
   async createWorkOrderAction(
     @Req() req: AuthedRequest,
     @Body() dto: CreateWorkOrderActionDto
@@ -167,7 +164,6 @@ export class PredictiveAiController {
 
   @Post("actions/schedule-maintenance")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MANAGER")
-  @Permissions("access.predictiveaicontroller.schedulemaintenanceaction")
   async scheduleMaintenanceAction(
     @Req() req: AuthedRequest,
     @Body() dto: ScheduleMaintenanceActionDto
@@ -178,7 +174,6 @@ export class PredictiveAiController {
 
   @Post("actions/assign-technician")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MANAGER")
-  @Permissions("access.predictiveaicontroller.assigntechnicianaction")
   async assignTechnicianAction(
     @Req() req: AuthedRequest,
     @Body() dto: AssignTechnicianActionDto
@@ -189,7 +184,6 @@ export class PredictiveAiController {
 
   @Post("actions/generate-report")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR", "MANAGER")
-  @Permissions("access.predictiveaicontroller.generatereportaction")
   async generateReportAction(
     @Req() req: AuthedRequest,
     @Body() dto: GenerateReportActionDto

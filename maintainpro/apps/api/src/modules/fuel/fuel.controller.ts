@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Controller, Get, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
@@ -18,7 +17,6 @@ export class FuelController {
 
   @Get("logs")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "SUPERVISOR", "DRIVER", "VIEWER")
-  @Permissions("access.fuelcontroller.logs")
   async logs(@Req() req: AuthedRequest) {
     const data = await this.fuelService.allLogs(req.user);
     return { data, message: "Fuel logs fetched" };
@@ -26,7 +24,6 @@ export class FuelController {
 
   @Get("analytics")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "SUPERVISOR", "DRIVER", "VIEWER")
-  @Permissions("access.fuelcontroller.analytics")
   async analytics(@Req() req: AuthedRequest) {
     const data = await this.fuelService.analytics(req.user);
     return { data, message: "Fuel analytics fetched" };

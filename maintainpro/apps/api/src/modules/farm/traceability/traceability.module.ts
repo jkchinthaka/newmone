@@ -1,4 +1,3 @@
-import { Permissions } from "../../../common/decorators/permissions.decorator";
 import {
   BadRequestException,
   Body,
@@ -190,7 +189,6 @@ export class TraceabilityController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VIEWER")
-  @Permissions("access.traceabilitycontroller.list")
   async list(@Req() req: AuthedRequest) {
     const data = await this.service.list(req.user?.tenantId ?? null);
     return { data, message: "Traceability records fetched" };
@@ -200,7 +198,6 @@ export class TraceabilityController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER")
-  @Permissions("access.traceabilitycontroller.create")
   async create(
     @Req() req: AuthedRequest,
     @Body() body: Parameters<TraceabilityService["create"]>[1] & { tenantId?: string }

@@ -77,7 +77,7 @@ export class ApprovalsController {
 
   @Get("approvals/inbox")
   @Roles(...READ_ROLES)
-  @Permissions("approvals.view", "access.approvalscontroller.listinbox")
+  @Permissions("approvals.view")
   async listInbox(@Req() req: AuthedRequest, @Query() query: ApprovalInboxQueryDto) {
     const data = await this.inbox.list(req.user!, query);
     return { data, message: "Approval inbox fetched", meta: data.meta };
@@ -85,7 +85,7 @@ export class ApprovalsController {
 
   @Post("approvals/inbox/decide")
   @Roles(...DECIDE_ROLES)
-  @Permissions("approvals.decide", "access.approvalscontroller.decideinbox")
+  @Permissions("approvals.decide")
   async decideInbox(
     @Req() req: AuthedRequest,
     @Body() body: InboxDecisionDto & { id?: string },
@@ -110,7 +110,7 @@ export class ApprovalsController {
 
   @Post("approvals/inbox/bulk-approve")
   @Roles(...DECIDE_ROLES)
-  @Permissions("approvals.decide", "access.approvalscontroller.bulkapprove")
+  @Permissions("approvals.decide")
   async bulkApprove(
     @Req() req: AuthedRequest,
     @Body() body: BulkApproveDto,
@@ -123,7 +123,7 @@ export class ApprovalsController {
   /** Phase 10 integration surface — documents GATE_OVERRIDE process wiring without fleet engine. */
   @Get("approvals/hooks/gate-override")
   @Roles(...MANAGE_ROLES)
-  @Permissions("approvals.rule.manage", "access.approvalscontroller.gatehook")
+  @Permissions("approvals.rule.manage")
   async gateHook() {
     return {
       data: {
@@ -137,7 +137,7 @@ export class ApprovalsController {
 
   @Get("approvals/:id")
   @Roles(...READ_ROLES)
-  @Permissions("approvals.view", "access.approvalscontroller.getrequest")
+  @Permissions("approvals.view")
   async getRequest(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.approvals.getRequest(id, req.user!);
     return { data, message: "Approval request fetched" };
@@ -145,7 +145,7 @@ export class ApprovalsController {
 
   @Post("approvals/:id/decide")
   @Roles(...DECIDE_ROLES)
-  @Permissions("approvals.decide", "access.approvalscontroller.decide")
+  @Permissions("approvals.decide")
   async decide(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -166,7 +166,7 @@ export class ApprovalsController {
 
   @Post("approvals/:id/emergency-override")
   @Roles(...DECIDE_ROLES)
-  @Permissions("approvals.override.emergency", "access.approvalscontroller.emergencyoverride")
+  @Permissions("approvals.override.emergency")
   async emergencyOverride(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -182,7 +182,7 @@ export class ApprovalsController {
 
   @Post("approvals/:id/escalate")
   @Roles(...MANAGE_ROLES)
-  @Permissions("approvals.rule.manage", "access.approvalscontroller.escalate")
+  @Permissions("approvals.rule.manage")
   async escalate(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.approvals.escalateOverdueSteps(req.user!, id);
     return { data, message: "Escalation processed" };
@@ -190,7 +190,7 @@ export class ApprovalsController {
 
   @Get("admin/approvals/rules")
   @Roles(...MANAGE_ROLES)
-  @Permissions("approvals.rule.manage", "access.approvalscontroller.listrules")
+  @Permissions("approvals.rule.manage")
   async listRules(@Req() req: AuthedRequest, @Query() query: ListRulesQueryDto) {
     const data = await this.approvals.listRules(req.user!, query);
     return { data, message: "Approval rules fetched" };
@@ -198,7 +198,7 @@ export class ApprovalsController {
 
   @Get("admin/approvals/rules/:id")
   @Roles(...MANAGE_ROLES)
-  @Permissions("approvals.rule.manage", "access.approvalscontroller.getrule")
+  @Permissions("approvals.rule.manage")
   async getRule(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.approvals.getRule(id, req.user!);
     return { data, message: "Approval rule fetched" };
@@ -206,7 +206,7 @@ export class ApprovalsController {
 
   @Post("admin/approvals/rules")
   @Roles(...MANAGE_ROLES)
-  @Permissions("approvals.rule.manage", "access.approvalscontroller.createrule")
+  @Permissions("approvals.rule.manage")
   async createRule(@Req() req: AuthedRequest, @Body() body: CreateApprovalRuleDto) {
     const data = await this.approvals.createRule(body, req.user!);
     return { data, message: "Approval rule created" };
@@ -214,7 +214,7 @@ export class ApprovalsController {
 
   @Post("admin/approvals/rules/:id/version")
   @Roles(...MANAGE_ROLES)
-  @Permissions("approvals.rule.manage", "access.approvalscontroller.versionrule")
+  @Permissions("approvals.rule.manage")
   async versionRule(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -226,7 +226,7 @@ export class ApprovalsController {
 
   @Patch("admin/approvals/rules/:id/deactivate")
   @Roles(...MANAGE_ROLES)
-  @Permissions("approvals.rule.manage", "access.approvalscontroller.deactivate")
+  @Permissions("approvals.rule.manage")
   async deactivate(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.approvals.deactivateRule(id, req.user!);
     return { data, message: "Approval rule deactivated" };
@@ -234,7 +234,7 @@ export class ApprovalsController {
 
   @Post("admin/approvals/rules/preview")
   @Roles(...MANAGE_ROLES)
-  @Permissions("approvals.rule.manage", "access.approvalscontroller.preview")
+  @Permissions("approvals.rule.manage")
   async preview(@Body() body: CreateApprovalRuleDto) {
     const data = this.approvals.previewImpact(body);
     return { data, message: "Approval rule impact preview" };
@@ -242,7 +242,7 @@ export class ApprovalsController {
 
   @Post("admin/approvals/rules/simulate")
   @Roles(...MANAGE_ROLES)
-  @Permissions("approvals.rule.manage", "access.approvalscontroller.simulate")
+  @Permissions("approvals.rule.manage")
   async simulate(@Req() req: AuthedRequest, @Body() body: SimulateApprovalDto) {
     const data = await this.approvals.simulate(req.user!, body);
     return { data, message: "Approval simulation result (no request created)" };

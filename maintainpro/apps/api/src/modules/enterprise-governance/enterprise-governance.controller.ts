@@ -27,14 +27,14 @@ export class EnterpriseGovernanceController {
 
   @Get("sod-policies")
   @Roles("SUPER_ADMIN", "ADMIN", "AUDITOR")
-  @Permissions("admin.organization.manage", "access.enterprisegovernancecontroller.listsod")
+  @Permissions("admin.organization.manage")
   async listSod(@Req() req: AuthedRequest) {
     return { data: await this.gov.listSodPolicies(req.user), message: "SoD policies" };
   }
 
   @Post("sod-policies")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage", "access.enterprisegovernancecontroller.upsertsod")
+  @Permissions("admin.organization.manage")
   async upsertSod(
     @Req() req: AuthedRequest,
     @Body()
@@ -45,7 +45,7 @@ export class EnterpriseGovernanceController {
 
   @Post("sod-policies/evaluate")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("admin.organization.manage", "access.enterprisegovernancecontroller.evaluatesod")
+  @Permissions("admin.organization.manage")
   async evaluateSod(
     @Req() req: AuthedRequest,
     @Body()
@@ -63,7 +63,7 @@ export class EnterpriseGovernanceController {
 
   @Post("meter-corrections")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
-  @Permissions("assets.manage", "access.enterprisegovernancecontroller.requestmetercorrection")
+  @Permissions("assets.manage")
   async requestMeterCorrection(
     @Req() req: AuthedRequest,
     @Body()
@@ -83,7 +83,7 @@ export class EnterpriseGovernanceController {
 
   @Post("meter-corrections/:id/decision")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("assets.manage", "access.enterprisegovernancecontroller.decidemetercorrection")
+  @Permissions("assets.manage")
   async decideMeterCorrection(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -97,7 +97,7 @@ export class EnterpriseGovernanceController {
 
   @Post("temporary-repairs")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN")
-  @Permissions("work_orders.manage", "access.enterprisegovernancecontroller.temporaryrepair")
+  @Permissions("work_orders.manage")
   async temporaryRepair(
     @Req() req: AuthedRequest,
     @Body()
@@ -118,14 +118,14 @@ export class EnterpriseGovernanceController {
 
   @Get("custom-fields")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN", "VIEWER", "AUDITOR")
-  @Permissions("admin.organization.manage", "access.enterprisegovernancecontroller.listfields")
+  @Permissions("admin.organization.manage")
   async listFields(@Req() req: AuthedRequest, @Query("entityType") entityType?: string) {
     return { data: await this.gov.listCustomFields(req.user, entityType), message: "Custom fields" };
   }
 
   @Post("custom-fields")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage", "access.enterprisegovernancecontroller.upsertfield")
+  @Permissions("admin.organization.manage")
   async upsertField(
     @Req() req: AuthedRequest,
     @Body()
@@ -146,7 +146,7 @@ export class EnterpriseGovernanceController {
 
   @Post("approval-delegations")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("approvals.rule.manage", "access.enterprisegovernancecontroller.createdelegation")
+  @Permissions("approvals.rule.manage")
   async createDelegation(
     @Req() req: AuthedRequest,
     @Body()
@@ -166,7 +166,7 @@ export class EnterpriseGovernanceController {
 
   @Post("service-api-keys")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage", "access.enterprisegovernancecontroller.issuekey")
+  @Permissions("admin.organization.manage")
   async issueKey(
     @Req() req: AuthedRequest,
     @Body() body: { name: string; scopes?: string[]; expiresAt?: string }
@@ -176,14 +176,14 @@ export class EnterpriseGovernanceController {
 
   @Post("service-api-keys/:id/revoke")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage", "access.enterprisegovernancecontroller.revokekey")
+  @Permissions("admin.organization.manage")
   async revokeKey(@Req() req: AuthedRequest, @Param("id") id: string) {
     return { data: await this.gov.revokeApiKey(req.user, id), message: "API key revoked" };
   }
 
   @Post("outbound-webhooks")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage", "access.enterprisegovernancecontroller.registerwebhook")
+  @Permissions("admin.organization.manage")
   async registerWebhook(
     @Req() req: AuthedRequest,
     @Body() body: { name: string; url: string; secret: string; events: string[] }
@@ -193,7 +193,7 @@ export class EnterpriseGovernanceController {
 
   @Post("outbound-webhooks/retry-failed")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage", "access.enterprisegovernancecontroller.retrywebhooks")
+  @Permissions("admin.organization.manage")
   async retryWebhooks(@Req() req: AuthedRequest) {
     return {
       data: await this.gov.retryFailedDeliveries(req.user),

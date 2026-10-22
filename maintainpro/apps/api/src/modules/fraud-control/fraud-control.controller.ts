@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Controller, Get, Query, Req, Res, UseGuards } from "@nestjs/common";
 import type { Response } from "express";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
@@ -30,7 +29,6 @@ export class FraudControlController {
 
   @Get("dashboard")
   @Roles(...FRAUD_REPORT_ROLES, "SUPERVISOR", "SECURITY_OFFICER")
-  @Permissions("access.fraudcontrolcontroller.dashboard")
   async dashboard(@Req() req: AuthedRequest) {
     const data = await this.fraudControlService.getDashboard(req.user);
     return { data, message: "Fraud control dashboard fetched" };
@@ -38,7 +36,6 @@ export class FraudControlController {
 
   @Get("admin-overrides")
   @Roles(...FRAUD_REPORT_ROLES)
-  @Permissions("access.fraudcontrolcontroller.adminoverrides")
   async adminOverrides(
     @Req() req: AuthedRequest,
     @Query()
@@ -72,7 +69,6 @@ export class FraudControlController {
 
   @Get("admin-overrides/export")
   @Roles(...FRAUD_REPORT_ROLES)
-  @Permissions("access.fraudcontrolcontroller.exportadminoverrides")
   async exportAdminOverrides(
     @Req() req: AuthedRequest,
     @Res() res: Response,
@@ -105,7 +101,6 @@ export class FraudControlController {
 
   @Get("parts-misuse")
   @Roles(...FRAUD_REPORT_ROLES, "SUPERVISOR")
-  @Permissions("access.fraudcontrolcontroller.partsmisuse")
   async partsMisuse(@Req() req: AuthedRequest) {
     const data = await this.fraudControlService.listPartsMisuse(req.user);
     return { data, message: "Parts misuse report fetched" };

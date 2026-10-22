@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import {
   Body,
   Controller,
@@ -67,7 +66,6 @@ export class AssetsController {
 
   @Get("summary")
   @Roles(...ASSET_READ_ROLES)
-  @Permissions("access.assetscontroller.summary")
   async summary(@Req() req: AuthedRequest, @Query() query: AssetListQueryDto) {
     const data = await this.assetsService.summary(req.user?.tenantId ?? null, query);
     return { data, message: "Asset summary fetched" };
@@ -75,7 +73,6 @@ export class AssetsController {
 
   @Get("filter-options")
   @Roles(...ASSET_READ_ROLES)
-  @Permissions("access.assetscontroller.filteroptions")
   async filterOptions(@Req() req: AuthedRequest) {
     const data = await this.assetsService.filterOptions(req.user?.tenantId ?? null);
     return { data, message: "Asset filter options fetched" };
@@ -83,7 +80,6 @@ export class AssetsController {
 
   @Get("validate-tag")
   @Roles(...ASSET_READ_ROLES)
-  @Permissions("access.assetscontroller.validatetag")
   async validateTag(@Req() req: AuthedRequest, @Query() query: AssetTagValidationQueryDto) {
     const data = await this.assetsService.validateAssetTag(
       req.user?.tenantId ?? null,
@@ -95,7 +91,6 @@ export class AssetsController {
 
   @Get("export")
   @Roles(...ASSET_READ_ROLES)
-  @Permissions("access.assetscontroller.export")
   async export(
     @Req() req: AuthedRequest,
     @Res() res: Response,
@@ -109,7 +104,6 @@ export class AssetsController {
 
   @Get()
   @Roles(...ASSET_READ_ROLES)
-  @Permissions("access.assetscontroller.findall")
   async findAll(@Req() req: AuthedRequest, @Query() query: AssetListQueryDto) {
     const result = await this.assetsService.findAll(req.user?.tenantId ?? null, query);
     return { data: result.items, meta: result.meta, message: "Assets fetched" };
@@ -117,7 +111,6 @@ export class AssetsController {
 
   @Post()
   @Roles(...ASSET_CREATE_ROLES)
-  @Permissions("access.assetscontroller.create")
   async create(@Req() req: AuthedRequest, @Body() body: CreateAssetDto) {
     const data = await this.assetsService.create(req.user?.tenantId ?? null, req.user!.sub, body);
     return { data, message: "Asset created" };
@@ -125,7 +118,6 @@ export class AssetsController {
 
   @Post("bulk-import")
   @Roles(...ASSET_CREATE_ROLES)
-  @Permissions("access.assetscontroller.bulkimport")
   async bulkImport(@Req() req: AuthedRequest, @Body() body: BulkImportAssetsDto) {
     const data = await this.assetsService.bulkImport(
       req.user?.tenantId ?? null,
@@ -137,7 +129,6 @@ export class AssetsController {
 
   @Post("bulk-action")
   @Roles(...ASSET_WRITE_ROLES)
-  @Permissions("access.assetscontroller.bulkaction")
   async bulkAction(@Req() req: AuthedRequest, @Body() body: BulkAssetActionDto) {
     const data = await this.assetsService.bulkAction(req.user?.tenantId ?? null, req.user!.sub, body);
     return { data, message: "Bulk asset action complete" };
@@ -145,7 +136,6 @@ export class AssetsController {
 
   @Get("data-quality")
   @Roles(...ASSET_READ_ROLES)
-  @Permissions("access.assetscontroller.dataquality")
   async dataQuality(@Req() req: AuthedRequest) {
     const data = await this.assetsService.dataQualityHooks(req.user?.tenantId ?? null);
     return { data, message: "Asset data-quality hooks fetched" };
@@ -153,7 +143,6 @@ export class AssetsController {
 
   @Post("migrations/legacy-categories")
   @Roles(...ASSET_WRITE_ROLES)
-  @Permissions("access.assetscontroller.backfilllegacycategories")
   async backfillLegacyCategories(
     @Req() req: AuthedRequest,
     @Query("dryRun") dryRun?: string
@@ -168,7 +157,6 @@ export class AssetsController {
 
   @Get(":id")
   @Roles(...ASSET_READ_ROLES)
-  @Permissions("access.assetscontroller.findone")
   async findOne(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.assetsService.findOne(id, req.user?.tenantId ?? null);
     return { data, message: "Asset fetched" };
@@ -176,7 +164,6 @@ export class AssetsController {
 
   @Post(":id/move")
   @Roles(...ASSET_WRITE_ROLES)
-  @Permissions("access.assetscontroller.move")
   async move(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: MoveAssetDto) {
     const data = await this.assetsService.moveAsset(id, req.user?.tenantId ?? null, req.user!.sub, body);
     return { data, message: "Asset moved" };
@@ -184,7 +171,6 @@ export class AssetsController {
 
   @Get(":id/movements")
   @Roles(...ASSET_READ_ROLES)
-  @Permissions("access.assetscontroller.movements")
   async movements(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.assetsService.listMovementHistory(id, req.user?.tenantId ?? null);
     return { data, message: "Asset movement history fetched" };
@@ -192,7 +178,6 @@ export class AssetsController {
 
   @Post(":id/parent")
   @Roles(...ASSET_WRITE_ROLES)
-  @Permissions("access.assetscontroller.setparent")
   async setParent(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -209,7 +194,6 @@ export class AssetsController {
 
   @Get(":id/children")
   @Roles(...ASSET_READ_ROLES)
-  @Permissions("access.assetscontroller.children")
   async children(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.assetsService.listChildAssets(id, req.user?.tenantId ?? null);
     return { data, message: "Child assets fetched" };
@@ -217,7 +201,6 @@ export class AssetsController {
 
   @Post(":id/retire")
   @Roles(...ASSET_WRITE_ROLES)
-  @Permissions("access.assetscontroller.retire")
   async retire(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: RetireAssetDto) {
     const data = await this.assetsService.retireAsset(
       id,
@@ -231,7 +214,6 @@ export class AssetsController {
 
   @Post(":id/dispose")
   @Roles(...ASSET_WRITE_ROLES)
-  @Permissions("access.assetscontroller.dispose")
   async dispose(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: DisposeAssetDto) {
     const data = await this.assetsService.disposeAsset(
       id,
@@ -244,7 +226,6 @@ export class AssetsController {
 
   @Post(":id/link-vehicle")
   @Roles(...ASSET_WRITE_ROLES)
-  @Permissions("access.assetscontroller.linkvehicle")
   async linkVehicle(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -261,7 +242,6 @@ export class AssetsController {
 
   @Patch(":id")
   @Roles(...ASSET_WRITE_ROLES)
-  @Permissions("access.assetscontroller.update")
   async update(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -273,7 +253,6 @@ export class AssetsController {
 
   @Patch(":id/status")
   @Roles(...ASSET_WRITE_ROLES)
-  @Permissions("access.assetscontroller.updatestatus")
   async updateStatus(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -290,7 +269,6 @@ export class AssetsController {
 
   @Delete(":id")
   @Roles(...ASSET_DELETE_ROLES)
-  @Permissions("access.assetscontroller.remove")
   async remove(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -313,7 +291,6 @@ export class AssetsController {
 
   @Post(":id/restore")
   @Roles(...ASSET_WRITE_ROLES)
-  @Permissions("access.assetscontroller.restore")
   async restore(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.assetsService.restore(id, req.user?.tenantId ?? null, req.user!.sub);
     return { data, message: "Asset restored" };
@@ -321,7 +298,6 @@ export class AssetsController {
 
   @Get(":id/qr-code")
   @Roles(...ASSET_READ_ROLES)
-  @Permissions("access.assetscontroller.getqrcode")
   async getQrCode(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.assetsService.getQrCode(id, req.user?.tenantId ?? null);
     return { data, message: "Asset QR fetched" };
@@ -329,7 +305,6 @@ export class AssetsController {
 
   @Get(":id/qr-code/download")
   @Roles(...ASSET_READ_ROLES)
-  @Permissions("access.assetscontroller.downloadqr")
   async downloadQr(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -348,7 +323,6 @@ export class AssetsController {
 
   @Post(":id/qr-code/regenerate")
   @Roles(...ASSET_WRITE_ROLES)
-  @Permissions("access.assetscontroller.regenerateqrcode")
   async regenerateQrCode(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.assetsService.regenerateQrCode(id, req.user?.tenantId ?? null, req.user!.sub);
     return { data, message: "Asset QR regenerated" };
@@ -356,7 +330,6 @@ export class AssetsController {
 
   @Get(":id/maintenance-history")
   @Roles(...ASSET_READ_ROLES)
-  @Permissions("access.assetscontroller.maintenancehistory")
   async maintenanceHistory(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.assetsService.maintenanceHistory(id, req.user?.tenantId ?? null);
     return { data, message: "Maintenance history fetched" };
@@ -373,7 +346,6 @@ export class AssetsController {
       }
     })
   )
-  @Permissions("access.assetscontroller.uploaddocument")
   async uploadDocument(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -390,7 +362,6 @@ export class AssetsController {
 
   @Get(":id/documents/:documentId")
   @Roles(...ASSET_READ_ROLES)
-  @Permissions("access.assetscontroller.downloaddocument")
   async downloadDocument(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -409,7 +380,6 @@ export class AssetsController {
 
   @Delete(":id/documents/:documentId")
   @Roles(...ASSET_WRITE_ROLES)
-  @Permissions("access.assetscontroller.deletedocument")
   async deleteDocument(
     @Req() req: AuthedRequest,
     @Param("id") id: string,

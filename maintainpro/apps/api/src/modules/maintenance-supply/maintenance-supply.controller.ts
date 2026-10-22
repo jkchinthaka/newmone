@@ -32,7 +32,7 @@ export class MaintenanceSupplyController {
 
   @Get("parts")
   @Roles(...READ_ROLES)
-  @Permissions("parts.view", "access.maintenancesupplycontroller.listparts")
+  @Permissions("parts.view")
   async listParts(@Req() req: AuthedRequest) {
     const data = await this.supply.listPartsMapping(req.user);
     return { data, message: "Spare parts mapping status" };
@@ -40,7 +40,7 @@ export class MaintenanceSupplyController {
 
   @Get("outstanding-tools")
   @Roles(...READ_ROLES)
-  @Permissions("parts.view", "access.maintenancesupplycontroller.outstandingtools")
+  @Permissions("parts.view")
   async outstandingTools(@Req() req: AuthedRequest) {
     const data = await this.supply.listOutstandingTools(req.user);
     return { data, message: "Outstanding tool issues" };
@@ -48,7 +48,7 @@ export class MaintenanceSupplyController {
 
   @Get("work-orders/:id/cost")
   @Roles(...READ_ROLES)
-  @Permissions("cost.view", "access.maintenancesupplycontroller.getcost")
+  @Permissions("cost.view")
   async getCost(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.supply.getWorkOrderCost(req.user, id);
     return { data, message: "WO cost" };
@@ -56,7 +56,7 @@ export class MaintenanceSupplyController {
 
   @Post("work-orders/:id/cost-snapshot")
   @Roles(...MANAGE_ROLES)
-  @Permissions("cost.adjust", "access.maintenancesupplycontroller.snapshot")
+  @Permissions("cost.adjust")
   async snapshot(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: Record<string, unknown>) {
     const data = await this.supply.snapshotWorkOrderCosts(
       req.user,
@@ -77,7 +77,7 @@ export class MaintenanceSupplyController {
 
   @Post("work-orders/:id/cost-snapshot/auto")
   @Roles(...MANAGE_ROLES)
-  @Permissions("cost.adjust", "access.maintenancesupplycontroller.autosnapshot")
+  @Permissions("cost.adjust")
   async autoSnapshot(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -89,7 +89,7 @@ export class MaintenanceSupplyController {
 
   @Put("work-orders/:id/execution-mode")
   @Roles(...MANAGE_ROLES)
-  @Permissions("vendor.manage", "access.maintenancesupplycontroller.executionmode")
+  @Permissions("vendor.manage")
   async executionMode(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -101,7 +101,7 @@ export class MaintenanceSupplyController {
 
   @Post("part-issues/:id/return")
   @Roles(...FIELD_ROLES)
-  @Permissions("parts.return", "access.maintenancesupplycontroller.returntool")
+  @Permissions("parts.return")
   async returnTool(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -116,7 +116,7 @@ export class MaintenanceSupplyController {
 
   @Post("contracts")
   @Roles(...MANAGE_ROLES)
-  @Permissions("contract.manage", "access.maintenancesupplycontroller.createcontract")
+  @Permissions("contract.manage")
   async createContract(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     const data = await this.supply.createVendorContract(req.user, {
       supplierId: String(body.supplierId),
@@ -140,7 +140,7 @@ export class MaintenanceSupplyController {
 
   @Post("contracts/refresh-expiry")
   @Roles(...MANAGE_ROLES)
-  @Permissions("contract.manage", "access.maintenancesupplycontroller.refreshcontracts")
+  @Permissions("contract.manage")
   async refreshContracts(@Req() req: AuthedRequest) {
     const data = await this.supply.refreshContractStatuses(req.user);
     return { data, message: "Contract expiry statuses refreshed" };
@@ -148,7 +148,7 @@ export class MaintenanceSupplyController {
 
   @Post("work-orders/:id/assign-vendor")
   @Roles(...MANAGE_ROLES)
-  @Permissions("vendor.manage", "access.maintenancesupplycontroller.assignvendor")
+  @Permissions("vendor.manage")
   async assignVendor(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -165,7 +165,7 @@ export class MaintenanceSupplyController {
 
   @Post("map-erp-item")
   @Roles(...MANAGE_ROLES)
-  @Permissions("erp.mapping.manage", "access.maintenancesupplycontroller.maperpitem")
+  @Permissions("erp.mapping.manage")
   async mapErpItem(
     @Req() req: AuthedRequest,
     @Body() body: { partId?: string; erpCode?: string }
@@ -176,7 +176,7 @@ export class MaintenanceSupplyController {
 
   @Post("map-warehouse")
   @Roles(...MANAGE_ROLES)
-  @Permissions("erp.mapping.manage", "access.maintenancesupplycontroller.mapwarehouse")
+  @Permissions("erp.mapping.manage")
   async mapWarehouse(
     @Req() req: AuthedRequest,
     @Body() body: { warehouseId?: string; erpWarehouseCode?: string }

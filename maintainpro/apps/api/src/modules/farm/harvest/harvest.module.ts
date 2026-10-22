@@ -1,4 +1,3 @@
-import { Permissions } from "../../../common/decorators/permissions.decorator";
 import { BadRequestException, Body, Controller, Delete, Get, Injectable, Module, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Prisma } from "@prisma/client";
@@ -72,7 +71,6 @@ export class HarvestController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "AGRONOMIST", "VIEWER", "HARVEST_CREW")
-  @Permissions("access.harvestcontroller.list")
   async list(@Req() req: AuthedRequest, @Query("cropCycleId") cropCycleId?: string) {
     const data = await this.service.list(req.user?.tenantId ?? null, cropCycleId);
     return { data, message: "Harvest records fetched" };
@@ -80,7 +78,6 @@ export class HarvestController {
 
   @Get(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "AGRONOMIST", "VIEWER", "HARVEST_CREW")
-  @Permissions("access.harvestcontroller.get")
   async get(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.get(id, req.user?.tenantId ?? null);
     return { data, message: "Harvest record fetched" };
@@ -88,7 +85,6 @@ export class HarvestController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "HARVEST_CREW")
-  @Permissions("access.harvestcontroller.create")
   async create(@Req() req: AuthedRequest, @Body() body: Prisma.HarvestRecordUncheckedCreateInput) {
     const data = await this.service.create(req.user?.tenantId ?? null, body);
     return { data, message: "Harvest record created" };
@@ -96,7 +92,6 @@ export class HarvestController {
 
   @Patch(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR")
-  @Permissions("access.harvestcontroller.update")
   async update(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: Prisma.HarvestRecordUncheckedUpdateInput) {
     const data = await this.service.update(id, req.user?.tenantId ?? null, body);
     return { data, message: "Harvest record updated" };
@@ -104,7 +99,6 @@ export class HarvestController {
 
   @Delete(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER")
-  @Permissions("access.harvestcontroller.remove")
   async remove(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.remove(id, req.user?.tenantId ?? null);
     return { data, message: "Harvest record removed" };

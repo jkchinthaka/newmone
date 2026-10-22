@@ -29,7 +29,8 @@ import {
 import { parseJsonText, stringArrayToText, toJsonText } from "../common/utils/json-text";
 import { BUILDING_SUPERVISOR_PERMISSIONS, FACILITY_MANAGER_PERMISSIONS } from "./facility-seed.constants";
 import { PERMISSION_CATALOG } from "./permission-catalog";
-import { ACCESS_STUDIO_ROUTE_GRANTS } from "./access-studio-route-keys";
+import { grantAccessStudioKeys } from "./grant-access-studio-keys";
+import { isAccessStudioKey } from "../common/auth/access-route-keys";
 
 const prisma = new PrismaClient();
 
@@ -44,8 +45,7 @@ function getSeedPassword(): string {
 
 // Canonical list lives in ./permission-catalog.ts — shared with the Admin
 // Console's permission-catalog sync endpoint. Do not re-duplicate here.
-const permissionCatalog = PERMISSION_CATALOG;
-const rolePermissionSeed = permissionCatalog.filter((permission) => !permission.startsWith("access."));
+const permissionCatalog = PERMISSION_CATALOG.filter((permission) => !isAccessStudioKey(permission));
 
 async function syncRolePermissions(roleId: string, permissionIds: string[]): Promise<void> {
   const uniquePermissionIds = [...new Set(permissionIds.filter(Boolean))];
@@ -79,7 +79,7 @@ async function syncUserSkills(userId: string, skills: string[]): Promise<void> {
 
 export const rolePermissions: Record<RoleName, string[]> = {
   SUPER_ADMIN: [...permissionCatalog],
-  ADMIN: rolePermissionSeed.filter((permission) => permission !== "system.configure"),
+  ADMIN: permissionCatalog.filter((permission) => permission !== "system.configure"),
   OPERATIONS_MANAGER: [
     "dashboard.view",
     "modules.view_all",
@@ -424,7 +424,7 @@ export const rolePermissions: Record<RoleName, string[]> = {
   ],
   FACILITY_MANAGER: [...FACILITY_MANAGER_PERMISSIONS],
   BUILDING_SUPERVISOR: [...BUILDING_SUPERVISOR_PERMISSIONS],
-  FARM_OWNER: [...rolePermissionSeed],
+  FARM_OWNER: [...permissionCatalog],
   FARM_MANAGER: [
     "dashboard.view",
     "modules.view_all",
@@ -783,13 +783,6 @@ async function verifySeedBaseline(tenantId: string) {
 }
 
 async function main() {
-  for (const [key, roles] of Object.entries(ACCESS_STUDIO_ROUTE_GRANTS)) {
-    for (const role of roles) {
-      const list = rolePermissions[role as RoleName];
-      if (list && !list.includes(key)) list.push(key);
-    }
-  }
-
   const tenant = await prisma.tenant.upsert({
     where: { slug: "default" },
     update: { name: "Nelna Group" },
@@ -831,6 +824,11 @@ async function main() {
 
     await syncRolePermissions(role.id, permissionIds);
     roles.set(roleName, { id: role.id });
+  }
+
+  const studioGrant = await grantAccessStudioKeys(prisma as never, { dryRun: false });
+  if (!studioGrant.applied) {
+    throw new Error(studioGrant.lines.filter((line) => line.startsWith("MISMATCH")).join("\n") || "Access studio keys were not granted");
   }
 
   const adminPasswordHash = await bcrypt.hash(getSeedPassword(), 12);

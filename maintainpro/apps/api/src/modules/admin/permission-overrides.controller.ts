@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { RoleName } from "@prisma/client";
@@ -19,14 +18,12 @@ export class PermissionOverridesController {
 
   @Get("users/:id/permission-overrides")
   @Roles(RoleName.SUPER_ADMIN)
-  @Permissions("access.permissionoverridescontroller.list")
   list(@Req() request: AuthedRequest, @Param("id") id: string) {
     return this.permissionOverrides.list(request.user, id);
   }
 
   @Post("users/:id/permission-overrides")
   @Roles(RoleName.SUPER_ADMIN)
-  @Permissions("access.permissionoverridescontroller.create")
   create(
     @Req() request: AuthedRequest,
     @Param("id") id: string,
@@ -37,7 +34,6 @@ export class PermissionOverridesController {
 
   @Delete("users/:id/permission-overrides")
   @Roles(RoleName.SUPER_ADMIN)
-  @Permissions("access.permissionoverridescontroller.remove")
   remove(
     @Req() request: AuthedRequest,
     @Param("id") id: string,

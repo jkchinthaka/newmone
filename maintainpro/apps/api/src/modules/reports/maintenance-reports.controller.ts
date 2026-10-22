@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Controller, Get, Param, Query, Req, Res, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
@@ -33,7 +32,6 @@ export class MaintenanceReportsController {
 
   @Get("exceptions")
   @Roles(...MAINTENANCE_REPORT_ROLES)
-  @Permissions("access.maintenancereportscontroller.exceptions")
   async exceptions(@Req() req: AuthedRequest, @Query() query: MaintenanceReportQuery) {
     const data = await this.maintenanceReportsService.getExceptionsSummary(req.user, this.parseQuery(query));
     return { data, message: "Maintenance exception summary fetched" };
@@ -41,7 +39,6 @@ export class MaintenanceReportsController {
 
   @Get("exceptions/:type/export")
   @Roles(...MAINTENANCE_REPORT_ROLES)
-  @Permissions("access.maintenancereportscontroller.exportexception")
   async exportException(
     @Req() req: AuthedRequest,
     @Res() res: Response,
@@ -56,7 +53,6 @@ export class MaintenanceReportsController {
 
   @Get("exceptions/:type")
   @Roles(...MAINTENANCE_REPORT_ROLES)
-  @Permissions("access.maintenancereportscontroller.exceptiondetail")
   async exceptionDetail(@Req() req: AuthedRequest, @Param("type") type: string, @Query() query: MaintenanceReportQuery) {
     const data = await this.maintenanceReportsService.getExceptionDetail(req.user, type, this.parseQuery(query));
     return { data, message: "Maintenance exception detail fetched" };
@@ -64,7 +60,6 @@ export class MaintenanceReportsController {
 
   @Get("kpis")
   @Roles(...MAINTENANCE_REPORT_ROLES)
-  @Permissions("access.maintenancereportscontroller.kpis")
   async kpis(@Req() req: AuthedRequest, @Query() query: MaintenanceReportQuery) {
     const data = await this.maintenanceReportsService.getKpis(req.user, this.parseQuery(query));
     return { data, message: "Maintenance KPIs fetched" };
@@ -72,7 +67,6 @@ export class MaintenanceReportsController {
 
   @Get("costs")
   @Roles(...COST_REPORT_ROLES)
-  @Permissions("access.maintenancereportscontroller.costs")
   async costs(@Req() req: AuthedRequest, @Query() query: MaintenanceReportQuery) {
     const data = await this.maintenanceReportsService.getCosts(req.user, this.parseQuery(query));
     return { data, message: "Maintenance cost report fetched" };
@@ -80,7 +74,6 @@ export class MaintenanceReportsController {
 
   @Get("workforce")
   @Roles(...MAINTENANCE_REPORT_ROLES)
-  @Permissions("access.maintenancereportscontroller.workforce")
   async workforce(@Req() req: AuthedRequest, @Query() query: MaintenanceReportQuery) {
     const data = await this.maintenanceReportsService.getWorkforceReport(req.user, this.parseQuery(query));
     return { data, message: "Maintenance workforce report fetched" };
@@ -88,7 +81,6 @@ export class MaintenanceReportsController {
 
   @Get("parts")
   @Roles(...MAINTENANCE_REPORT_ROLES)
-  @Permissions("access.maintenancereportscontroller.parts")
   async parts(@Req() req: AuthedRequest, @Query() query: MaintenanceReportQuery) {
     const data = await this.maintenanceReportsService.getPartsReport(req.user, this.parseQuery(query));
     return { data, message: "Maintenance parts report fetched" };
@@ -96,7 +88,6 @@ export class MaintenanceReportsController {
 
   @Get("assets")
   @Roles(...MAINTENANCE_REPORT_ROLES)
-  @Permissions("access.maintenancereportscontroller.assets")
   async assets(@Req() req: AuthedRequest, @Query() query: MaintenanceReportQuery) {
     const data = await this.maintenanceReportsService.getAssetsReport(req.user, this.parseQuery(query));
     return { data, message: "Maintenance asset report fetched" };
@@ -104,7 +95,6 @@ export class MaintenanceReportsController {
 
   @Get("risk-score/:workOrderId")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR", "INVENTORY_KEEPER", "TECHNICIAN", "MECHANIC")
-  @Permissions("access.maintenancereportscontroller.riskscore")
   async riskScore(@Req() req: AuthedRequest, @Param("workOrderId") workOrderId: string) {
     const data = await this.maintenanceReportsService.getWorkOrderRiskScore(workOrderId, req.user);
     return { data, message: "Work order risk score fetched" };

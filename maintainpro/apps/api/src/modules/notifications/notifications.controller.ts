@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { NotificationType } from "@prisma/client";
@@ -181,7 +180,6 @@ export class NotificationsController {
 
   @Get("readiness")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("access.notificationscontroller.providerreadiness")
   async providerReadiness() {
     const data = this.notificationReadinessService.getSummary();
     return { data, message: "Notification provider readiness fetched" };
@@ -189,7 +187,6 @@ export class NotificationsController {
 
   @Get("templates/samples")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("access.notificationscontroller.templatesamples")
   async templateSamples() {
     const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:3001";
     const data = {
@@ -225,7 +222,6 @@ export class NotificationsController {
 
   @Post("uat/email-test")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("access.notificationscontroller.uatemailtest")
   async uatEmailTest(@Body() body: NotificationUatEmailTestDto) {
     const data = await this.notificationUatService.sendEmailTest(body);
     return { data, message: "Notification UAT email test completed" };
@@ -233,7 +229,6 @@ export class NotificationsController {
 
   @Post("uat/sms-test")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("access.notificationscontroller.uatsmstest")
   async uatSmsTest(@Body() body: NotificationUatSmsTestDto) {
     const data = await this.notificationUatService.sendSmsTest(body);
     return { data, message: "Notification UAT SMS test completed" };

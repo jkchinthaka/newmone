@@ -5,6 +5,8 @@ import { requestContext } from "../../common/context/request-context";
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { PrismaService } from "../../database/prisma.service";
 import { rolePermissionKeys } from "../../common/utils/role-permissions.util";
+import { isAccessStudioKey } from "../../common/auth/access-route-keys";
+import { accessStudioEnabled } from "../../common/auth/effective-permissions";
 import { PERMISSION_CATALOG } from "../../database/permission-catalog";
 import type { JwtPayload } from "../auth/auth.types";
 
@@ -125,7 +127,9 @@ export class AdminRolesService {
       take: isSuperAdmin ? 200 : 50
     });
 
-    const permissionRows = permissions.map((permission) => this.toPermissionReviewRow(permission));
+    const permissionRows = permissions
+      .filter((permission) => accessStudioEnabled() || !isAccessStudioKey(permission.key))
+      .map((permission) => this.toPermissionReviewRow(permission));
     const roleRows = roles.map((role) => this.toRoleReviewRow(role, isSuperAdmin));
     const coverage = this.buildCoverage(roleRows);
 
@@ -161,7 +165,9 @@ export class AdminRolesService {
     },
     isSuperAdmin: boolean
   ): AdminRoleReviewRow {
-    const permissionKeys = rolePermissionKeys(role).sort();
+    const permissionKeys = rolePermissionKeys(role)
+      .filter((key) => accessStudioEnabled() || !isAccessStudioKey(key))
+      .sort();
 
     return {
       id: role.id,

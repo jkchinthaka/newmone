@@ -72,7 +72,7 @@ export class InventoryController {
 
   @Get("parts")
   @Roles(...INVENTORY_READ_ROLES)
-  @Permissions("inventory.manage", "access.inventorycontroller.parts")
+  @Permissions("inventory.manage")
   async parts(
     @Req() req: AuthedRequest,
     @Query("page") pageRaw?: string,
@@ -107,7 +107,7 @@ export class InventoryController {
 
   @Post("parts")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
-  @Permissions("inventory.manage", "access.inventorycontroller.createpart")
+  @Permissions("inventory.manage")
   async createPart(
     @Req() req: AuthedRequest,
     @Body() body: { partNumber: string; name: string; category: string; unitCost: number; unit?: string; minimumStock?: number; reorderPoint?: number; quantityInStock?: number; location?: string; supplierId?: string }
@@ -118,7 +118,7 @@ export class InventoryController {
 
   @Post("parts/bulk-delete")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("inventory.manage", "access.inventorycontroller.bulkdelete")
+  @Permissions("inventory.manage")
   async bulkDelete(@Req() req: AuthedRequest, @Body() body: { ids: string[] }) {
     const data = await this.inventoryService.bulkDeleteParts(body.ids, req.user);
     return { data, message: "Parts deleted" };
@@ -126,7 +126,7 @@ export class InventoryController {
 
   @Patch("parts/bulk-category")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("inventory.manage", "access.inventorycontroller.bulkcategory")
+  @Permissions("inventory.manage")
   async bulkCategory(@Req() req: AuthedRequest, @Body() body: { ids: string[]; category: string }) {
     const data = await this.inventoryService.bulkUpdateCategory(body.ids, body.category, req.user);
     return { data, message: "Part categories updated" };
@@ -134,7 +134,7 @@ export class InventoryController {
 
   @Get("parts/:id")
   @Roles(...INVENTORY_READ_ROLES)
-  @Permissions("inventory.manage", "access.inventorycontroller.part")
+  @Permissions("inventory.manage")
   async part(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.inventoryService.part(id, req.user);
     return { data, message: "Part fetched" };
@@ -142,7 +142,7 @@ export class InventoryController {
 
   @Patch("parts/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
-  @Permissions("inventory.manage", "access.inventorycontroller.updatepart")
+  @Permissions("inventory.manage")
   async updatePart(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -154,7 +154,7 @@ export class InventoryController {
 
   @Delete("parts/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("inventory.manage", "access.inventorycontroller.removepart")
+  @Permissions("inventory.manage")
   async removePart(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.inventoryService.removePart(id, req.user);
     return { data, message: "Part deleted" };
@@ -162,7 +162,7 @@ export class InventoryController {
 
   @Post("parts/:id/stock-in")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
-  @Permissions("inventory.manage", "access.inventorycontroller.stockin")
+  @Permissions("inventory.manage")
   async stockIn(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { quantity: number; notes?: string }) {
     const data = await this.inventoryService.stockIn(id, body.quantity, body.notes, req.user);
     return { data, message: "Stock added" };
@@ -172,7 +172,7 @@ export class InventoryController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Stock issue accepted for ERP reconciliation. Local quantity is not deducted." })
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("inventory.stock_issue", "access.inventorycontroller.stockout")
+  @Permissions("inventory.stock_issue")
   async stockOut(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -203,7 +203,7 @@ export class InventoryController {
 
   @Get("parts/:id/movements")
   @Roles(...INVENTORY_READ_ROLES)
-  @Permissions("inventory.manage", "access.inventorycontroller.movements")
+  @Permissions("inventory.manage")
   async movements(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.inventoryService.movements(id, req.user);
     return { data, message: "Stock movements fetched" };
@@ -211,7 +211,7 @@ export class InventoryController {
 
   @Get("parts/:id/work-orders")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
-  @Permissions("inventory.manage", "access.inventorycontroller.linkedworkorders")
+  @Permissions("inventory.manage")
   async linkedWorkOrders(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.inventoryService.linkedWorkOrders(id, req.user);
     return { data, message: "Linked work orders fetched" };
@@ -219,7 +219,7 @@ export class InventoryController {
 
   @Get("parts/:id/purchase-history")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
-  @Permissions("inventory.manage", "access.inventorycontroller.purchasehistory")
+  @Permissions("inventory.manage")
   async purchaseHistory(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.inventoryService.purchaseHistoryForPart(id, req.user);
     return { data, message: "Part purchase history fetched" };
@@ -227,7 +227,7 @@ export class InventoryController {
 
   @Get("analytics/usage")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
-  @Permissions("inventory.manage", "access.inventorycontroller.usagetrend")
+  @Permissions("inventory.manage")
   async usageTrend(@Req() req: AuthedRequest, @Query("days") days?: string) {
     const safeDays = Number.isFinite(Number(days)) ? Number(days) : 30;
     const data = await this.inventoryService.usageTrend(safeDays, req.user);
@@ -236,7 +236,7 @@ export class InventoryController {
 
   @Get("analytics/top-used")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
-  @Permissions("inventory.manage", "access.inventorycontroller.topused")
+  @Permissions("inventory.manage")
   async topUsed(@Req() req: AuthedRequest, @Query("days") days?: string, @Query("limit") limit?: string) {
     const safeDays = Number.isFinite(Number(days)) ? Number(days) : 30;
     const safeLimit = Number.isFinite(Number(limit)) ? Number(limit) : 5;
@@ -246,7 +246,7 @@ export class InventoryController {
 
   @Get("low-stock")
   @Roles(...INVENTORY_READ_ROLES)
-  @Permissions("inventory.manage", "access.inventorycontroller.lowstock")
+  @Permissions("inventory.manage")
   async lowStock(@Req() req: AuthedRequest) {
     const data = await this.inventoryService.lowStock(req.user);
     return { data, message: "Low stock fetched" };
@@ -263,7 +263,7 @@ export class InventoryController {
     "PROCUREMENT_OFFICER",
     "FINANCE"
   )
-  @Permissions("purchase_orders.view", "access.inventorycontroller.purchaseorders")
+  @Permissions("purchase_orders.view")
   async purchaseOrders(@Req() req: AuthedRequest) {
     const data = await this.inventoryService.purchaseOrders(req.user);
     return { data, message: "Purchase orders fetched" };
@@ -280,7 +280,7 @@ export class InventoryController {
     "PROCUREMENT_OFFICER",
     "FINANCE"
   )
-  @Permissions("purchase_orders.view", "access.inventorycontroller.purchaseorder")
+  @Permissions("purchase_orders.view")
   async purchaseOrder(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.inventoryService.getPurchaseOrder(id, req.user);
     return { data, message: "Purchase order fetched" };
@@ -289,7 +289,7 @@ export class InventoryController {
   @Post("purchase-orders")
   @HttpCode(HttpStatus.CREATED)
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "PROCUREMENT_OFFICER")
-  @Permissions("purchase_orders.create", "access.inventorycontroller.createpurchaseorder")
+  @Permissions("purchase_orders.create")
   async createPurchaseOrder(@Req() req: AuthedRequest, @Body() body: CreatePurchaseOrderDto) {
     const data = await this.inventoryService.createPurchaseOrder(body, req.user);
     return { data, message: "Purchase order created" };
@@ -297,7 +297,7 @@ export class InventoryController {
 
   @Patch("purchase-orders/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "PROCUREMENT_OFFICER")
-  @Permissions("purchase_orders.create", "access.inventorycontroller.updatepurchaseorder")
+  @Permissions("purchase_orders.create")
   async updatePurchaseOrder(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -309,7 +309,7 @@ export class InventoryController {
 
   @Patch("purchase-orders/:id/approve-operational")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("purchase_orders.approve_operational", "access.inventorycontroller.approvepurchaseorderoperational")
+  @Permissions("purchase_orders.approve_operational")
   async approvePurchaseOrderOperational(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -321,7 +321,7 @@ export class InventoryController {
 
   @Patch("purchase-orders/:id/approve-finance")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "FINANCE")
-  @Permissions("purchase_orders.approve_finance", "access.inventorycontroller.approvepurchaseorderfinance")
+  @Permissions("purchase_orders.approve_finance")
   async approvePurchaseOrderFinance(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -333,7 +333,7 @@ export class InventoryController {
 
   @Patch("purchase-orders/:id/reject")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("purchase_orders.reject", "access.inventorycontroller.rejectpurchaseorder")
+  @Permissions("purchase_orders.reject")
   async rejectPurchaseOrder(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -354,7 +354,7 @@ export class InventoryController {
     "PROCUREMENT_OFFICER",
     "FINANCE"
   )
-  @Permissions("purchase_orders.view", "access.inventorycontroller.listpurchasereceipts")
+  @Permissions("purchase_orders.view")
   async listPurchaseReceipts(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.inventoryService.listPurchaseReceipts(id, req.user);
     return { data, message: "Purchase receipts fetched" };
@@ -363,7 +363,7 @@ export class InventoryController {
   @Post("purchase-orders/:id/receipts")
   @HttpCode(HttpStatus.CREATED)
   @Roles("SUPER_ADMIN", "ADMIN", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("purchase_orders.receive", "access.inventorycontroller.createpurchasereceipt")
+  @Permissions("purchase_orders.receive")
   async createPurchaseReceipt(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -375,7 +375,7 @@ export class InventoryController {
 
   @Post("purchase-orders/:id/erp-sync")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("purchase_orders.erp_sync", "access.inventorycontroller.syncpurchaseordertoerp")
+  @Permissions("purchase_orders.erp_sync")
   async syncPurchaseOrderToErp(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -387,7 +387,7 @@ export class InventoryController {
 
   @Post("purchase-orders/:id/erp-sync/retry")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("purchase_orders.erp_sync_retry", "access.inventorycontroller.retrypurchaseordererpsync")
+  @Permissions("purchase_orders.erp_sync_retry")
   async retryPurchaseOrderErpSync(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -407,7 +407,7 @@ export class InventoryController {
     "OPERATIONS_MANAGER",
     "PROCUREMENT_OFFICER"
   )
-  @Permissions("inventory.manage", "access.inventorycontroller.geterpstocksyncreadiness")
+  @Permissions("inventory.manage")
   async getErpStockSyncReadiness() {
     const data = this.erpStockSyncService.getReadiness();
     return { data, message: "ERP stock sync readiness" };
@@ -423,7 +423,7 @@ export class InventoryController {
     "OPERATIONS_MANAGER",
     "PROCUREMENT_OFFICER"
   )
-  @Permissions("inventory.erp_dry_run", "access.inventorycontroller.dryrunerpstocksync")
+  @Permissions("inventory.erp_dry_run")
   async dryRunErpStockSync(@Req() req: AuthedRequest) {
     const data = await this.erpStockSyncService.dryRunStockSync(req.user);
     return { data, message: "ERP stock sync dry-run completed" };
@@ -431,7 +431,7 @@ export class InventoryController {
 
   @Post("erp/stock-sync/apply")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("inventory.erp_apply", "access.inventorycontroller.applyerpstocksync")
+  @Permissions("inventory.erp_apply")
   async applyErpStockSync(
     @Req() req: AuthedRequest,
     @Body()
@@ -451,7 +451,7 @@ export class InventoryController {
 
   @Get("dashboard")
   @Roles(...INVENTORY_READ_ROLES)
-  @Permissions("inventory.manage", "access.inventorycontroller.dashboard")
+  @Permissions("inventory.manage")
   async dashboard(@Req() req: AuthedRequest) {
     const data = await this.inventoryService.dashboard(req.user);
     return { data, message: "Inventory dashboard fetched" };
@@ -459,7 +459,7 @@ export class InventoryController {
 
   @Get("warehouses")
   @Roles(...INVENTORY_READ_ROLES)
-  @Permissions("inventory.manage", "access.inventorycontroller.warehouses")
+  @Permissions("inventory.manage")
   async warehouses(@Req() req: AuthedRequest) {
     const data = await this.inventoryService.listWarehouses(req.user);
     return { data, message: "Warehouses fetched" };
@@ -467,7 +467,7 @@ export class InventoryController {
 
   @Get("movements")
   @Roles(...INVENTORY_READ_ROLES)
-  @Permissions("inventory.manage", "access.inventorycontroller.allmovements")
+  @Permissions("inventory.manage")
   async allMovements(
     @Req() req: AuthedRequest,
     @Query("type") type?: string,
@@ -490,7 +490,7 @@ export class InventoryController {
 
   @Get("daily")
   @Roles(...INVENTORY_READ_ROLES)
-  @Permissions("inventory.manage", "access.inventorycontroller.daily")
+  @Permissions("inventory.manage")
   async daily(
     @Req() req: AuthedRequest,
     @Query("preset") preset?: "today" | "yesterday" | "last_7_days" | "this_month" | "custom",
@@ -506,7 +506,7 @@ export class InventoryController {
 
   @Get("stock-counts")
   @Roles(...INVENTORY_READ_ROLES)
-  @Permissions("inventory.manage", "access.inventorycontroller.liststockcounts")
+  @Permissions("inventory.manage")
   async listStockCounts(
     @Req() req: AuthedRequest,
     @Query("status") status?: string,
@@ -523,7 +523,7 @@ export class InventoryController {
 
   @Get("stock-counts/:id")
   @Roles(...INVENTORY_READ_ROLES)
-  @Permissions("inventory.manage", "access.inventorycontroller.getstockcount")
+  @Permissions("inventory.manage")
   async getStockCount(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.stockCountService.get(req.user, id);
     return { data, message: "Stock count session fetched" };
@@ -531,7 +531,7 @@ export class InventoryController {
 
   @Post("stock-counts")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("inventory.manage", "access.inventorycontroller.createstockcount")
+  @Permissions("inventory.manage")
   async createStockCount(
     @Req() req: AuthedRequest,
     @Body()
@@ -549,7 +549,7 @@ export class InventoryController {
 
   @Post("stock-counts/:id/transition")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("inventory.manage", "access.inventorycontroller.transitionstockcount")
+  @Permissions("inventory.manage")
   async transitionStockCount(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -561,7 +561,7 @@ export class InventoryController {
 
   @Put("stock-counts/:id/lines")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("inventory.manage", "access.inventorycontroller.upsertstockcountline")
+  @Permissions("inventory.manage")
   async upsertStockCountLine(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -573,7 +573,7 @@ export class InventoryController {
 
   @Post("transfers")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("inventory.manage", "access.inventorycontroller.transfer")
+  @Permissions("inventory.manage")
   async transfer(
     @Req() req: AuthedRequest,
     @Headers("idempotency-key") idempotencyHeader: string | undefined,
@@ -596,7 +596,7 @@ export class InventoryController {
 
   @Post("adjustments")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("inventory.manage", "access.inventorycontroller.adjust")
+  @Permissions("inventory.manage")
   async adjust(
     @Req() req: AuthedRequest,
     @Headers("idempotency-key") idempotencyHeader: string | undefined,
@@ -611,7 +611,7 @@ export class InventoryController {
 
   @Post("reversals")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("inventory.manage", "access.inventorycontroller.reverse")
+  @Permissions("inventory.manage")
   async reverse(
     @Req() req: AuthedRequest,
     @Headers("idempotency-key") idempotencyHeader: string | undefined,
@@ -626,7 +626,7 @@ export class InventoryController {
 
   @Get("imports")
   @Roles(...INVENTORY_READ_ROLES)
-  @Permissions("inventory.erp_dry_run", "access.inventorycontroller.listimports")
+  @Permissions("inventory.erp_dry_run")
   async listImports(@Req() req: AuthedRequest) {
     const data = await this.excelImportService.listRuns(req.user);
     return { data, message: "Inventory import runs fetched" };
@@ -634,7 +634,7 @@ export class InventoryController {
 
   @Get("imports/:id")
   @Roles(...INVENTORY_READ_ROLES)
-  @Permissions("inventory.erp_dry_run", "access.inventorycontroller.getimport")
+  @Permissions("inventory.erp_dry_run")
   async getImport(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.excelImportService.getRun(id, req.user);
     return { data, message: "Inventory import run fetched" };
@@ -642,7 +642,7 @@ export class InventoryController {
 
   @Post("imports/preview")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("inventory.erp_dry_run", "access.inventorycontroller.previewimport")
+  @Permissions("inventory.erp_dry_run")
   @UseInterceptors(
     FileInterceptor("file", {
       storage: memoryStorage(),
@@ -659,7 +659,7 @@ export class InventoryController {
 
   @Post("imports/:id/apply")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("inventory.erp_apply", "access.inventorycontroller.applyimport")
+  @Permissions("inventory.erp_apply")
   async applyImport(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.excelImportService.apply(id, req.user);
     return { data, message: "Inventory import applied" };
@@ -667,7 +667,7 @@ export class InventoryController {
 
   @Patch("imports/:id/rows/:rowId/map")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  @Permissions("inventory.erp_apply", "access.inventorycontroller.mapimportrow")
+  @Permissions("inventory.erp_apply")
   async mapImportRow(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -680,7 +680,7 @@ export class InventoryController {
 
   @Post("erp-import/upload")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "INVENTORY_KEEPER")
-  @Permissions("inventory.erp_import.upload", "access.inventorycontroller.uploaderpexcelimport")
+  @Permissions("inventory.erp_import.upload")
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(
     FileInterceptor("file", {
@@ -695,7 +695,7 @@ export class InventoryController {
 
   @Get("erp-import/history")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "INVENTORY_KEEPER")
-  @Permissions("inventory.erp_import.history", "access.inventorycontroller.erpexcelimporthistory")
+  @Permissions("inventory.erp_import.history")
   async erpExcelImportHistory(@Req() req: AuthedRequest, @Query("take") take?: string) {
     const data = await this.erpExcelImportService.history(req.user, take ? Number(take) : 50);
     return { data, message: "ERP Excel import history" };
@@ -703,7 +703,7 @@ export class InventoryController {
 
   @Get("erp-import/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "INVENTORY_KEEPER")
-  @Permissions("inventory.erp_import.view", "access.inventorycontroller.geterpexcelimport")
+  @Permissions("inventory.erp_import.view")
   async getErpExcelImport(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.erpExcelImportService.getRun(id, req.user);
     return { data, message: "ERP Excel import run" };
@@ -711,7 +711,7 @@ export class InventoryController {
 
   @Post("erp-import/:id/validate")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "INVENTORY_KEEPER")
-  @Permissions("inventory.erp_import.upload", "access.inventorycontroller.validateerpexcelimport")
+  @Permissions("inventory.erp_import.upload")
   async validateErpExcelImport(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -737,7 +737,7 @@ export class InventoryController {
 
   @Post("erp-import/:id/apply")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "INVENTORY_KEEPER")
-  @Permissions("inventory.erp_import.apply", "access.inventorycontroller.applyerpexcelimport")
+  @Permissions("inventory.erp_import.apply")
   async applyErpExcelImport(
     @Req() req: AuthedRequest,
     @Param("id") id: string,

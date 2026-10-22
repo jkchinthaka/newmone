@@ -1,4 +1,3 @@
-import { Permissions } from "../../../common/decorators/permissions.decorator";
 import {
   Body,
   Controller,
@@ -196,7 +195,6 @@ export class WeatherController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "AGRONOMIST", "VIEWER")
-  @Permissions("access.weathercontroller.list")
   async list(@Req() req: AuthedRequest, @Query("limit") limitRaw?: string) {
     const data = await this.service.list(req.user?.tenantId ?? null, limitRaw ? Number(limitRaw) : 100);
     return { data, message: "Weather logs fetched" };
@@ -204,7 +202,6 @@ export class WeatherController {
 
   @Get("alerts")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "AGRONOMIST", "VIEWER")
-  @Permissions("access.weathercontroller.alerts")
   async alerts(@Req() req: AuthedRequest) {
     const data = await this.service.alerts(req.user?.tenantId ?? null);
     return { data, message: "Weather alerts fetched" };
@@ -212,7 +209,6 @@ export class WeatherController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "AGRONOMIST")
-  @Permissions("access.weathercontroller.record")
   async record(@Req() req: AuthedRequest, @Body() body: Parameters<WeatherService["manualEntry"]>[1]) {
     const data = await this.service.manualEntry(req.user?.tenantId ?? null, body);
     return { data, message: "Weather log recorded" };
@@ -221,7 +217,6 @@ export class WeatherController {
   @Post("poll")
   @PlatformScoped()
   @Roles("SUPER_ADMIN")
-  @Permissions("access.weathercontroller.poll")
   async poll() {
     const data = await this.service.pollOpenWeather();
     return { data, message: "Weather poll triggered" };

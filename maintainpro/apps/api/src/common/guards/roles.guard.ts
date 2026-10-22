@@ -2,8 +2,8 @@ import { CanActivate, ExecutionContext, ForbiddenException, Inject, Injectable, 
 import { Reflector } from "@nestjs/core";
 
 import { PrismaService } from "../../database/prisma.service";
+import { accessKeyForRequest } from "../auth/access-route-keys";
 import { accessStudioEnabled } from "../auth/effective-permissions";
-import { PERMISSIONS_KEY } from "../decorators/permissions.decorator";
 import { ROLES_KEY } from "../decorators/roles.decorator";
 
 @Injectable()
@@ -29,11 +29,11 @@ export class RolesGuard implements CanActivate {
 
     if (this.prisma?.user?.findUnique && user?.sub) {
       return this.roleFromDatabase(user.sub).then((roleName) =>
-        this.decide(context, roleName, requiredRoles)
+        this.decide(request, roleName, requiredRoles)
       );
     }
 
-    return this.decide(context, jwtRole, requiredRoles);
+    return this.decide(request, jwtRole, requiredRoles);
   }
 
   private async roleFromDatabase(userId: string): Promise<string | undefined> {
@@ -54,15 +54,13 @@ export class RolesGuard implements CanActivate {
     return dbUser.role.name;
   }
 
-  private decide(context: ExecutionContext, userRole: string | undefined, requiredRoles: string[]): boolean {
-    if (accessStudioEnabled() && userRole !== "SUPER_ADMIN") {
-      const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
-        context.getHandler(),
-        context.getClass()
-      ]);
-      if (requiredPermissions && requiredPermissions.length > 0) {
-        return true;
-      }
+  private decide(
+    request: { method?: string; baseUrl?: string; route?: { path?: string | string[] } },
+    userRole: string | undefined,
+    requiredRoles: string[]
+  ): boolean {
+    if (accessStudioEnabled() && userRole !== "SUPER_ADMIN" && accessKeyForRequest(request)) {
+      return true;
     }
     return this.assertRole(userRole, requiredRoles);
   }

@@ -25,7 +25,7 @@ export class ConfigSimulatorController {
 
   @Post("workflow-transition")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("admin.organization.manage", "access.configsimulatorcontroller.simworkflow")
+  @Permissions("admin.organization.manage")
   async simWorkflow(
     @Req() req: AuthedRequest,
     @Body() body: { fromStatus?: string; toStatus?: string; entityType?: string }
@@ -52,7 +52,7 @@ export class ConfigSimulatorController {
 
   @Get("config-dependencies")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "AUDITOR")
-  @Permissions("admin.organization.manage", "access.configsimulatorcontroller.dependencies")
+  @Permissions("admin.organization.manage")
   async dependencies(
     @Req() req: AuthedRequest,
     @Query("entityType") entityType?: string,

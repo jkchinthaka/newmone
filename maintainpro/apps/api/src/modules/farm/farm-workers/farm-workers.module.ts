@@ -1,4 +1,3 @@
-import { Permissions } from "../../../common/decorators/permissions.decorator";
 import { BadRequestException, Body, Controller, Delete, Get, Injectable, Module, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Prisma } from "@prisma/client";
@@ -103,7 +102,6 @@ export class FarmWorkersController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "VIEWER")
-  @Permissions("access.farmworkerscontroller.list")
   async list(@Req() req: AuthedRequest, @Query("status") status?: string) {
     const data = await this.service.list(req.user?.tenantId ?? null, status);
     return { data, message: "Workers fetched" };
@@ -111,7 +109,6 @@ export class FarmWorkersController {
 
   @Get("attendance")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "VIEWER")
-  @Permissions("access.farmworkerscontroller.tenantattendance")
   async tenantAttendance(
     @Req() req: AuthedRequest,
     @Query("from") from?: string,
@@ -123,7 +120,6 @@ export class FarmWorkersController {
 
   @Post("attendance")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR")
-  @Permissions("access.farmworkerscontroller.recordattendance")
   async recordAttendance(@Req() req: AuthedRequest, @Body() body: Prisma.AttendanceLogUncheckedCreateInput) {
     const data = await this.service.recordAttendance(req.user?.tenantId ?? null, body);
     return { data, message: "Attendance recorded" };
@@ -131,7 +127,6 @@ export class FarmWorkersController {
 
   @Patch("attendance/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR")
-  @Permissions("access.farmworkerscontroller.updateattendance")
   async updateAttendance(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: Prisma.AttendanceLogUncheckedUpdateInput) {
     const data = await this.service.updateAttendance(id, req.user?.tenantId ?? null, body);
     return { data, message: "Attendance updated" };
@@ -139,7 +134,6 @@ export class FarmWorkersController {
 
   @Get(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "VIEWER")
-  @Permissions("access.farmworkerscontroller.get")
   async get(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.get(id, req.user?.tenantId ?? null);
     return { data, message: "Worker fetched" };
@@ -147,7 +141,6 @@ export class FarmWorkersController {
 
   @Get(":id/attendance")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "VIEWER")
-  @Permissions("access.farmworkerscontroller.listattendance")
   async listAttendance(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.listAttendance(id, req.user?.tenantId ?? null);
     return { data, message: "Worker attendance fetched" };
@@ -155,7 +148,6 @@ export class FarmWorkersController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER")
-  @Permissions("access.farmworkerscontroller.create")
   async create(@Req() req: AuthedRequest, @Body() body: Prisma.FarmWorkerUncheckedCreateInput) {
     const data = await this.service.create(req.user?.tenantId ?? null, body);
     return { data, message: "Worker created" };
@@ -163,7 +155,6 @@ export class FarmWorkersController {
 
   @Patch(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER")
-  @Permissions("access.farmworkerscontroller.update")
   async update(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: Prisma.FarmWorkerUncheckedUpdateInput) {
     const data = await this.service.update(id, req.user?.tenantId ?? null, body);
     return { data, message: "Worker updated" };
@@ -171,7 +162,6 @@ export class FarmWorkersController {
 
   @Delete(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER")
-  @Permissions("access.farmworkerscontroller.remove")
   async remove(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.remove(id, req.user?.tenantId ?? null);
     return { data, message: "Worker removed" };

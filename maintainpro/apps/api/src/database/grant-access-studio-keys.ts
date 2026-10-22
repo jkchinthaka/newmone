@@ -1,9 +1,9 @@
 import type { PrismaClient } from "@prisma/client";
 
+import { ACCESS_KEY_CATALOG, ACCESS_STUDIO_ROUTE_GRANTS } from "../common/auth/access-route-keys";
 import { ACCESS_STUDIO_SEED_VERSION, firstAccessMismatch, type AccessRoute } from "../common/auth/access-studio-parity";
 import { hasCompatiblePermission } from "../common/guards/permissions.guard";
 import inventory from "./access-route-inventory.json";
-import { ACCESS_STUDIO_ROUTE_GRANTS } from "./access-studio-route-keys";
 
 type RoleRow = {
   id: string;
@@ -17,7 +17,7 @@ type GrantClient = {
     findMany: () => Promise<Array<{ id: string; key: string }>>;
     create: (args: { data: { key: string; description: string } }) => Promise<{ id: string }>;
   };
-  role: { findMany: () => Promise<RoleRow[]> };
+  role: { findMany: (args?: unknown) => Promise<RoleRow[]> };
   rolePermission: { create: (args: { data: { roleId: string; permissionId: string } }) => Promise<unknown> };
   appSetting: {
     upsert: (args: {
@@ -38,7 +38,7 @@ export function assertGrantDatabase(url: string, apply: boolean): string {
 }
 
 function keysAfterGrants(role: RoleRow): string[] {
-  const keys = new Set(role.permissionLinks.map((link) => link.permission.key));
+  const keys = new Set((role.permissionLinks ?? []).map((link) => link.permission.key));
   for (const [key, roleNames] of Object.entries(ACCESS_STUDIO_ROUTE_GRANTS)) {
     if (roleNames.includes(role.name)) keys.add(key);
   }
@@ -51,7 +51,9 @@ function keysAfterGrants(role: RoleRow): string[] {
 export async function grantAccessStudioKeys(prisma: GrantClient, options: { dryRun: boolean }) {
   const lines: string[] = [];
   const routes = (inventory as { routes: AccessRoute[] }).routes;
-  const roles = await prisma.role.findMany();
+  const roles = await prisma.role.findMany({
+    include: { permissionLinks: { include: { permission: { select: { key: true } } } } }
+  });
   const byTenant = new Map<string, Map<string, string[]>>();
   for (const role of roles) {
     const tenant = role.tenantId ?? "global";
@@ -73,21 +75,22 @@ export async function grantAccessStudioKeys(prisma: GrantClient, options: { dryR
   }
   if (blocked) return { lines, applied: false };
 
+  const labels = new Map(ACCESS_KEY_CATALOG.map((entry) => [entry.key, entry.label]));
   const permissions = await prisma.permission.findMany();
   const permissionId = new Map(permissions.map((permission) => [permission.key, permission.id]));
   for (const key of Object.keys(ACCESS_STUDIO_ROUTE_GRANTS)) {
     if (permissionId.has(key)) continue;
     lines.push(`CREATE permission ${key}`);
     if (!options.dryRun) {
-      const created = await prisma.permission.create({ data: { key, description: key } });
+      const created = await prisma.permission.create({ data: { key, description: labels.get(key) ?? key } });
       permissionId.set(key, created.id);
     }
   }
   for (const role of roles) {
     const wanted = new Set(keysAfterGrants(role));
-    const held = new Set(role.permissionLinks.map((link) => link.permission.key));
+    const held = new Set((role.permissionLinks ?? []).map((link) => link.permission.key));
     for (const key of wanted) {
-      if (held.has(key) || !key.startsWith("access.")) continue;
+      if (held.has(key) || !Object.prototype.hasOwnProperty.call(ACCESS_STUDIO_ROUTE_GRANTS, key)) continue;
       const id = permissionId.get(key);
       lines.push(`GRANT tenant=${role.tenantId ?? "global"} role=${role.name} ${key}`);
       if (!options.dryRun && id) {

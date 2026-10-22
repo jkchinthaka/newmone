@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Body, Controller, ForbiddenException, Get, Post, Req } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
@@ -27,7 +26,6 @@ export class BillingController {
 
   @Post("checkout-session")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("access.billingcontroller.checkoutsession")
   async checkoutSession(
     @Req() req: BillingRequest,
     @Body() dto: CreateCheckoutSessionDto
@@ -76,7 +74,6 @@ export class BillingController {
 
   @Get("subscription")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("access.billingcontroller.subscription")
   async subscription(@Req() req: BillingRequest) {
     const tenantId = req.user.tenantId ?? req.tenantId ?? null;
 
@@ -94,7 +91,6 @@ export class BillingController {
 
   @Get("usage")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("access.billingcontroller.usage")
   async usage(@Req() req: BillingRequest) {
     const tenantId = req.user.tenantId ?? req.tenantId ?? null;
 

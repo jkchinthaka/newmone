@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { BadRequestException, Body, Controller, Delete, Get, Header, Param, Patch, Post, Put, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiQuery, ApiTags } from "@nestjs/swagger";
 
@@ -26,7 +25,6 @@ export class DepartmentsController {
   @ApiQuery({ name: "includeInactive", required: false })
   @ApiQuery({ name: "exclude", required: false })
   @ApiQuery({ name: "ids", required: false, description: "Comma-separated ids to fetch" })
-  @Permissions("access.departmentscontroller.findall")
   async findAll(
     @Req() req: AuthedRequest,
     @Query("q") q?: string,
@@ -50,7 +48,6 @@ export class DepartmentsController {
   @Get(":id")
   @Header("Cache-Control", "private, max-age=60")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER", "SUPERVISOR", "MECHANIC", "TECHNICIAN", "VIEWER")
-  @Permissions("access.departmentscontroller.findone")
   async findOne(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.departmentsService.findOne(req.user?.tenantId ?? null, id);
     return { data, message: "Department fetched" };
@@ -58,7 +55,6 @@ export class DepartmentsController {
 
   @Post()
   @Roles(...DEPARTMENT_MANAGE_ROLES)
-  @Permissions("access.departmentscontroller.create")
   async create(
     @Req() req: AuthedRequest,
     @Body() body: { name?: string; code?: string; description?: string; parentId?: string; managerId?: string }
@@ -76,7 +72,6 @@ export class DepartmentsController {
 
   @Patch(":id")
   @Roles(...DEPARTMENT_MANAGE_ROLES)
-  @Permissions("access.departmentscontroller.update")
   async update(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -88,7 +83,6 @@ export class DepartmentsController {
 
   @Put(":id")
   @Roles(...DEPARTMENT_MANAGE_ROLES)
-  @Permissions("access.departmentscontroller.replace")
   async replace(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -101,7 +95,6 @@ export class DepartmentsController {
 
   @Patch(":id/deactivate")
   @Roles(...DEPARTMENT_MANAGE_ROLES)
-  @Permissions("access.departmentscontroller.deactivate")
   async deactivate(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.departmentsService.deactivate(req.user?.tenantId ?? null, id);
     return { data, message: "Department deactivated" };
@@ -109,7 +102,6 @@ export class DepartmentsController {
 
   @Delete(":id")
   @Roles(...DEPARTMENT_MANAGE_ROLES)
-  @Permissions("access.departmentscontroller.remove")
   async remove(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.departmentsService.deactivate(req.user?.tenantId ?? null, id);
     return { data, message: "Department deactivated" };

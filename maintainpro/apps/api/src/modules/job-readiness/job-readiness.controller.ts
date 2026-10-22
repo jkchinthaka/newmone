@@ -19,7 +19,7 @@ export class JobReadinessController {
 
   @Get(":id/readiness")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC", "PLANNER")
-  @Permissions("work_orders.manage", "access.jobreadinesscontroller.getreadiness")
+  @Permissions("work_orders.manage")
   async getReadiness(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.readiness.evaluate(req.user, id);
     return { data, message: "Job readiness" };

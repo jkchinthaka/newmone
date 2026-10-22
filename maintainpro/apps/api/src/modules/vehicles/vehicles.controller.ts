@@ -76,7 +76,7 @@ export class VehiclesController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("vehicles.create", "access.vehiclescontroller.create")
+  @Permissions("vehicles.create")
   async create(@Body() body: CreateVehicleDto) {
     const data = await this.vehiclesService.create(body);
     return { data, message: "Vehicle created" };

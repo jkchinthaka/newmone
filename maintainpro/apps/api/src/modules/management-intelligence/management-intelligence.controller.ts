@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Controller, Get, Param, Query, Req, Res, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
@@ -35,7 +34,6 @@ export class ManagementIntelligenceController {
 
   @Get("profitability/summary")
   @Roles(...MANAGEMENT_ROLES)
-  @Permissions("access.managementintelligencecontroller.summary")
   async summary(@Req() req: AuthedRequest, @Query() query: ManagementReportQuery) {
     const data = await this.managementIntelligenceService.getProfitabilitySummary(req.user, query);
     return { data, message: "Profitability summary fetched" };
@@ -43,7 +41,6 @@ export class ManagementIntelligenceController {
 
   @Get("cost-by-asset")
   @Roles(...MANAGEMENT_ROLES)
-  @Permissions("access.managementintelligencecontroller.costbyasset")
   async costByAsset(@Req() req: AuthedRequest, @Query() query: ManagementReportQuery) {
     const data = await this.managementIntelligenceService.getCostByAsset(req.user, query);
     return { data, message: "Cost by asset report fetched" };
@@ -51,7 +48,6 @@ export class ManagementIntelligenceController {
 
   @Get("cost-by-vehicle")
   @Roles(...MANAGEMENT_ROLES)
-  @Permissions("access.managementintelligencecontroller.costbyvehicle")
   async costByVehicle(@Req() req: AuthedRequest, @Query() query: ManagementReportQuery) {
     const data = await this.managementIntelligenceService.getCostByVehicle(req.user, query);
     return { data, message: "Cost by vehicle report fetched" };
@@ -59,7 +55,6 @@ export class ManagementIntelligenceController {
 
   @Get("cost-by-department")
   @Roles(...SUPERVISOR_ROLES)
-  @Permissions("access.managementintelligencecontroller.costbydepartment")
   async costByDepartment(@Req() req: AuthedRequest, @Query() query: ManagementReportQuery) {
     const data = await this.managementIntelligenceService.getCostByDepartment(req.user, query);
     return { data, message: "Cost by department report fetched" };
@@ -67,7 +62,6 @@ export class ManagementIntelligenceController {
 
   @Get("cost-by-branch")
   @Roles(...MANAGEMENT_ROLES)
-  @Permissions("access.managementintelligencecontroller.costbybranch")
   async costByBranch(@Req() req: AuthedRequest, @Query() query: ManagementReportQuery) {
     const data = await this.managementIntelligenceService.getCostByBranch(req.user, query);
     return { data, message: "Cost by branch report fetched" };
@@ -75,7 +69,6 @@ export class ManagementIntelligenceController {
 
   @Get("cost-by-category")
   @Roles(...MANAGEMENT_ROLES)
-  @Permissions("access.managementintelligencecontroller.costbycategory")
   async costByCategory(@Req() req: AuthedRequest, @Query() query: ManagementReportQuery) {
     const data = await this.managementIntelligenceService.getCostByCategory(req.user, query);
     return { data, message: "Cost by category report fetched" };
@@ -83,7 +76,6 @@ export class ManagementIntelligenceController {
 
   @Get("top-high-cost-assets")
   @Roles(...MANAGEMENT_ROLES)
-  @Permissions("access.managementintelligencecontroller.topassets")
   async topAssets(@Req() req: AuthedRequest, @Query() query: ManagementReportQuery) {
     const data = await this.managementIntelligenceService.getTopHighCostAssets(req.user, query);
     return { data, message: "Top high-cost assets fetched" };
@@ -91,7 +83,6 @@ export class ManagementIntelligenceController {
 
   @Get("repeated-breakdowns")
   @Roles(...SUPERVISOR_ROLES)
-  @Permissions("access.managementintelligencecontroller.repeatedbreakdowns")
   async repeatedBreakdowns(@Req() req: AuthedRequest, @Query() query: ManagementReportQuery) {
     const data = await this.managementIntelligenceService.getRepeatedBreakdowns(req.user, query);
     return { data, message: "Repeated breakdown report fetched" };
@@ -99,7 +90,6 @@ export class ManagementIntelligenceController {
 
   @Get("top-high-cost-vehicles")
   @Roles(...MANAGEMENT_ROLES)
-  @Permissions("access.managementintelligencecontroller.topvehicles")
   async topVehicles(@Req() req: AuthedRequest, @Query() query: ManagementReportQuery) {
     const data = await this.managementIntelligenceService.getTopHighCostVehicles(req.user, query);
     return { data, message: "Top high-cost vehicles fetched" };
@@ -107,7 +97,6 @@ export class ManagementIntelligenceController {
 
   @Get("vendor-cost-comparison")
   @Roles(...MANAGEMENT_ROLES)
-  @Permissions("access.managementintelligencecontroller.vendorcomparison")
   async vendorComparison(@Req() req: AuthedRequest, @Query() query: ManagementReportQuery) {
     const data = await this.managementIntelligenceService.getVendorCostComparison(req.user, query);
     return { data, message: "Vendor cost comparison fetched" };
@@ -115,7 +104,6 @@ export class ManagementIntelligenceController {
 
   @Get("parts-usage-by-technician")
   @Roles(...PARTS_ROLES)
-  @Permissions("access.managementintelligencecontroller.partsbytechnician")
   async partsByTechnician(@Req() req: AuthedRequest, @Query() query: ManagementReportQuery) {
     const data = await this.managementIntelligenceService.getPartsUsageByTechnician(req.user, query);
     return { data, message: "Parts usage by technician fetched" };
@@ -123,7 +111,6 @@ export class ManagementIntelligenceController {
 
   @Get("monthly-cost-trend")
   @Roles(...MANAGEMENT_ROLES)
-  @Permissions("access.managementintelligencecontroller.monthlytrend")
   async monthlyTrend(@Req() req: AuthedRequest, @Query() query: ManagementReportQuery) {
     const data = await this.managementIntelligenceService.getMonthlyCostTrend(req.user, query);
     return { data, message: "Monthly maintenance cost trend fetched" };
@@ -131,7 +118,6 @@ export class ManagementIntelligenceController {
 
   @Get("repair-vs-replace")
   @Roles(...MANAGEMENT_ROLES)
-  @Permissions("access.managementintelligencecontroller.repairvsreplace")
   async repairVsReplace(@Req() req: AuthedRequest, @Query() query: ManagementReportQuery) {
     const data = await this.managementIntelligenceService.getRepairVsReplace(req.user, query);
     return { data, message: "Repair vs replace review fetched" };
@@ -139,7 +125,6 @@ export class ManagementIntelligenceController {
 
   @Get("downtime-cost")
   @Roles(...MANAGEMENT_ROLES)
-  @Permissions("access.managementintelligencecontroller.downtimecost")
   async downtimeCost(@Req() req: AuthedRequest, @Query() query: ManagementReportQuery) {
     const data = await this.managementIntelligenceService.getDowntimeCost(req.user, query);
     return { data, message: "Downtime cost report fetched" };
@@ -147,7 +132,6 @@ export class ManagementIntelligenceController {
 
   @Get(":reportKey/export")
   @Roles(...MANAGEMENT_ROLES, "SUPERVISOR", "INVENTORY_KEEPER")
-  @Permissions("access.managementintelligencecontroller.exportreport")
   async exportReport(
     @Req() req: AuthedRequest,
     @Res() res: Response,

@@ -58,7 +58,7 @@ export class OrganizationController {
   @Get("summary")
   @Header("Cache-Control", "private, max-age=30")
   @Roles(...ORG_READ_ROLES)
-  @Permissions("organization.view", "access.organizationcontroller.summary")
+  @Permissions("organization.view")
   async summary(@Req() req: AuthedRequest) {
     const data = await this.organizationService.getOrganizationSummary(req.user.tenantId ?? null);
     return { data, message: "Organization summary fetched" };
@@ -67,7 +67,7 @@ export class OrganizationController {
   @Get("sites")
   @Header("Cache-Control", "private, max-age=30")
   @Roles(...ORG_READ_ROLES)
-  @Permissions("organization.view", "access.organizationcontroller.listsites")
+  @Permissions("organization.view")
   @ApiQuery({ name: "q", required: false })
   @ApiQuery({ name: "type", required: false, enum: SiteType })
   @ApiQuery({ name: "includeInactive", required: false })
@@ -93,7 +93,7 @@ export class OrganizationController {
 
   @Post("sites")
   @Roles(...ORG_MANAGE_ROLES)
-  @Permissions("organization.manage", "access.organizationcontroller.createsite")
+  @Permissions("organization.manage")
   async createSite(@Req() req: AuthedRequest, @Body() body: CreateSiteDto) {
     const data = await this.organizationService.createSite(req.user.tenantId ?? null, body, req.user);
     return { data, message: "Site created" };
@@ -101,7 +101,7 @@ export class OrganizationController {
 
   @Get("sites/:siteId")
   @Roles(...ORG_READ_ROLES)
-  @Permissions("organization.view", "access.organizationcontroller.getsite")
+  @Permissions("organization.view")
   async getSite(@Req() req: AuthedRequest, @Param("siteId") siteId: string) {
     const data = await this.organizationService.getSite(req.user.tenantId ?? null, siteId);
     return { data, message: "Site fetched" };
@@ -109,7 +109,7 @@ export class OrganizationController {
 
   @Patch("sites/:siteId")
   @Roles(...ORG_MANAGE_ROLES)
-  @Permissions("organization.manage", "access.organizationcontroller.updatesite")
+  @Permissions("organization.manage")
   async updateSite(
     @Req() req: AuthedRequest,
     @Param("siteId") siteId: string,
@@ -127,7 +127,7 @@ export class OrganizationController {
   @Get("locations")
   @Header("Cache-Control", "private, max-age=30")
   @Roles(...ORG_READ_ROLES)
-  @Permissions("locations.view", "access.organizationcontroller.listlocations")
+  @Permissions("locations.view")
   @ApiQuery({ name: "siteId", required: false })
   @ApiQuery({ name: "parentId", required: false })
   @ApiQuery({ name: "type", required: false, enum: FunctionalLocationType })
@@ -157,7 +157,7 @@ export class OrganizationController {
 
   @Get("locations/tree")
   @Roles(...ORG_READ_ROLES)
-  @Permissions("locations.view", "access.organizationcontroller.gettree")
+  @Permissions("locations.view")
   @ApiQuery({ name: "siteId", required: true })
   async getTree(
     @Req() req: AuthedRequest,
@@ -173,7 +173,7 @@ export class OrganizationController {
 
   @Post("locations")
   @Roles(...ORG_MANAGE_ROLES)
-  @Permissions("locations.manage", "access.organizationcontroller.createlocation")
+  @Permissions("locations.manage")
   async createLocation(@Req() req: AuthedRequest, @Body() body: CreateFunctionalLocationDto) {
     const data = await this.organizationService.createLocation(
       req.user.tenantId ?? null,
@@ -185,7 +185,7 @@ export class OrganizationController {
 
   @Get("locations/:locationId")
   @Roles(...ORG_READ_ROLES)
-  @Permissions("locations.view", "access.organizationcontroller.getlocation")
+  @Permissions("locations.view")
   async getLocation(@Req() req: AuthedRequest, @Param("locationId") locationId: string) {
     const data = await this.organizationService.getLocation(req.user.tenantId ?? null, locationId);
     return { data, message: "Functional location fetched" };
@@ -193,7 +193,7 @@ export class OrganizationController {
 
   @Get("locations/:locationId/children")
   @Roles(...ORG_READ_ROLES)
-  @Permissions("locations.view", "access.organizationcontroller.getchildren")
+  @Permissions("locations.view")
   async getChildren(
     @Req() req: AuthedRequest,
     @Param("locationId") locationId: string,
@@ -209,7 +209,7 @@ export class OrganizationController {
 
   @Patch("locations/:locationId")
   @Roles(...ORG_MANAGE_ROLES)
-  @Permissions("locations.manage", "access.organizationcontroller.updatelocation")
+  @Permissions("locations.manage")
   async updateLocation(
     @Req() req: AuthedRequest,
     @Param("locationId") locationId: string,
@@ -226,7 +226,7 @@ export class OrganizationController {
 
   @Post("locations/:locationId/move")
   @Roles(...ORG_MANAGE_ROLES)
-  @Permissions("locations.manage", "access.organizationcontroller.movelocation")
+  @Permissions("locations.manage")
   async moveLocation(
     @Req() req: AuthedRequest,
     @Param("locationId") locationId: string,
@@ -243,7 +243,7 @@ export class OrganizationController {
 
   @Get("data-quality")
   @Roles(...ORG_MANAGE_ROLES)
-  @Permissions("organization.manage", "access.organizationcontroller.dataquality")
+  @Permissions("organization.manage")
   async dataQuality(@Req() req: AuthedRequest) {
     const data = await this.organizationService.getDataQualityFindings(req.user.tenantId ?? null);
     return { data, message: "Organization data-quality findings" };
@@ -251,7 +251,7 @@ export class OrganizationController {
 
   @Post("migrations/facility-hierarchy")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("organization.manage", "access.organizationcontroller.migratefacilityhierarchy")
+  @Permissions("organization.manage")
   async migrateFacilityHierarchy(
     @Req() req: AuthedRequest,
     @Body() body: { dryRun?: boolean } = {}
@@ -269,7 +269,7 @@ export class OrganizationController {
 
   @Get("migrations/free-text-locations")
   @Roles(...ORG_MANAGE_ROLES)
-  @Permissions("organization.manage", "access.organizationcontroller.classifyfreetext")
+  @Permissions("organization.manage")
   async classifyFreeText(@Req() req: AuthedRequest) {
     const data = await this.migrationService.classifyFreeTextAssetLocations(
       req.user.tenantId ?? null

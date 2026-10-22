@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Controller, Get, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
@@ -23,7 +22,6 @@ export class EvidenceController {
     "FACILITY_MANAGER",
     "MANAGER"
   )
-  @Permissions("access.evidencecontroller.getreadiness")
   getReadiness() {
     const data = this.evidenceService.getReadiness();
     return { data, message: "Evidence storage readiness" };

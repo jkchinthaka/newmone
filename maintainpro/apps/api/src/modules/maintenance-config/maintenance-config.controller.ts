@@ -36,7 +36,7 @@ export class MaintenanceConfigController {
 
   @Get("tax-rate")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("admin.overview.view", "access.maintenanceconfigcontroller.gettaxrate")
+  @Permissions("admin.overview.view")
   async getTaxRate(@Req() req: AuthedRequest) {
     const data = await this.config.getDefaultTaxRate(req.user);
     return { data, message: "Default tax rate" };
@@ -44,7 +44,7 @@ export class MaintenanceConfigController {
 
   @Patch("tax-rate")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage", "access.maintenanceconfigcontroller.updatetaxrate")
+  @Permissions("admin.organization.manage")
   async updateTaxRate(@Req() req: AuthedRequest, @Body() body: { defaultTaxRatePercent?: unknown }) {
     const data = await this.config.updateDefaultTaxRate(req.user, body.defaultTaxRatePercent);
     return { data, message: "Default tax rate updated" };
@@ -52,7 +52,7 @@ export class MaintenanceConfigController {
 
   @Get("overview")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("admin.overview.view", "access.maintenanceconfigcontroller.overview")
+  @Permissions("admin.overview.view")
   async overview(@Req() req: AuthedRequest) {
     const data = await this.config.opsOverview(req.user);
     return { data, message: "Maintenance operations overview" };
@@ -60,7 +60,7 @@ export class MaintenanceConfigController {
 
   @Get("job-categories")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("admin.organization.manage", "access.maintenanceconfigcontroller.listcategories")
+  @Permissions("admin.organization.manage")
   async listCategories(@Req() req: AuthedRequest, @Query("jobDomain") jobDomain?: string) {
     const data = await this.config.listJobCategories(req.user, jobDomain);
     return { data, message: "Job categories" };
@@ -68,7 +68,7 @@ export class MaintenanceConfigController {
 
   @Post("job-categories")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage", "access.maintenanceconfigcontroller.createcategory")
+  @Permissions("admin.organization.manage")
   async createCategory(
     @Req() req: AuthedRequest,
     @Body()
@@ -87,7 +87,7 @@ export class MaintenanceConfigController {
 
   @Patch("job-categories/:id")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage", "access.maintenanceconfigcontroller.updatecategory")
+  @Permissions("admin.organization.manage")
   async updateCategory(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -105,7 +105,7 @@ export class MaintenanceConfigController {
 
   @Post("job-categories/seed-defaults")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage", "access.maintenanceconfigcontroller.seeddefaults")
+  @Permissions("admin.organization.manage")
   async seedDefaults(@Req() req: AuthedRequest) {
     const data = await this.config.seedDefaultCategories(req.user);
     return { data, message: "Default job categories seeded" };
@@ -113,7 +113,7 @@ export class MaintenanceConfigController {
 
   @Get("priority-sla")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("admin.organization.manage", "access.maintenanceconfigcontroller.listprioritysla")
+  @Permissions("admin.organization.manage")
   async listPrioritySla(@Req() req: AuthedRequest) {
     const data = await this.config.listPrioritySla(req.user);
     return { data, message: "Priority SLA rules" };
@@ -121,7 +121,7 @@ export class MaintenanceConfigController {
 
   @Post("priority-sla")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage", "access.maintenanceconfigcontroller.upsertprioritysla")
+  @Permissions("admin.organization.manage")
   async upsertPrioritySla(
     @Req() req: AuthedRequest,
     @Body()
@@ -144,7 +144,7 @@ export class MaintenanceConfigController {
 
   @Get("analysis-codes")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "MAINTENANCE_SUPERVISOR", "SUPERVISOR", "TECHNICIAN", "MECHANIC")
-  @Permissions("work_orders.complete", "access.maintenanceconfigcontroller.listanalysiscodes")
+  @Permissions("work_orders.complete")
   async listAnalysisCodes(@Req() req: AuthedRequest, @Query("kind") kind?: string) {
     const data = await this.config.listAnalysisCodes(req.user, kind);
     return { data, message: "Analysis codes" };
@@ -152,7 +152,7 @@ export class MaintenanceConfigController {
 
   @Post("analysis-codes")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage", "access.maintenanceconfigcontroller.upsertanalysiscode")
+  @Permissions("admin.organization.manage")
   async upsertAnalysisCode(
     @Req() req: AuthedRequest,
     @Body()
@@ -172,7 +172,7 @@ export class MaintenanceConfigController {
 
   @Get("reason-codes")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "MAINTENANCE_SUPERVISOR", "SUPERVISOR", "TECHNICIAN", "MECHANIC")
-  @Permissions("work_orders.hold", "access.maintenanceconfigcontroller.listreasoncodes")
+  @Permissions("work_orders.hold")
   async listReasonCodes(@Req() req: AuthedRequest, @Query("kind") kind?: string) {
     const data = await this.config.listReasonCodes(req.user, kind);
     return { data, message: "Reason codes" };
@@ -180,7 +180,7 @@ export class MaintenanceConfigController {
 
   @Post("reason-codes")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage", "access.maintenanceconfigcontroller.upsertreasoncode")
+  @Permissions("admin.organization.manage")
   async upsertReasonCode(
     @Req() req: AuthedRequest,
     @Body()
@@ -201,7 +201,7 @@ export class MaintenanceConfigController {
 
   @Get("config-history")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "AUDITOR")
-  @Permissions("admin.audit.view", "access.maintenanceconfigcontroller.confighistory")
+  @Permissions("admin.audit.view")
   async configHistory(
     @Req() req: AuthedRequest,
     @Query("entityType") entityType?: string,
@@ -218,7 +218,7 @@ export class MaintenanceConfigController {
 
   @Get("integrations-status")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.system.view", "access.maintenanceconfigcontroller.integrationsstatus")
+  @Permissions("admin.system.view")
   integrationsStatus() {
     const data = this.config.integrationsStatus();
     return { data, message: "Integration readiness" };
@@ -226,7 +226,7 @@ export class MaintenanceConfigController {
 
   @Get("feature-flags")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("admin.overview.view", "access.maintenanceconfigcontroller.listfeatureflags")
+  @Permissions("admin.overview.view")
   async listFeatureFlags(@Req() req: AuthedRequest) {
     const data = await this.features.listForTenant(req.user);
     return { data, message: "Tenant feature flags" };
@@ -234,7 +234,7 @@ export class MaintenanceConfigController {
 
   @Post("feature-flags")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.features.manage", "access.maintenanceconfigcontroller.upsertfeatureflag")
+  @Permissions("admin.features.manage")
   async upsertFeatureFlag(
     @Req() req: AuthedRequest,
     @Body()
@@ -262,7 +262,7 @@ export class MaintenanceConfigController {
 
   @Get("maintenance-templates")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "TECHNICIAN")
-  @Permissions("planning.view", "access.maintenanceconfigcontroller.listtemplates")
+  @Permissions("planning.view")
   async listTemplates(
     @Req() req: AuthedRequest,
     @Query("jobDomain") jobDomain?: string,
@@ -277,7 +277,7 @@ export class MaintenanceConfigController {
 
   @Post("maintenance-templates")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("maintenance.templates.manage", "access.maintenanceconfigcontroller.createtemplate")
+  @Permissions("maintenance.templates.manage")
   async createTemplate(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     const data = await this.templates.create(req.user, body as never);
     return { data, message: "Maintenance template created" };
@@ -285,7 +285,7 @@ export class MaintenanceConfigController {
 
   @Post("maintenance-templates/seed-defaults")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("maintenance.templates.manage", "access.maintenanceconfigcontroller.seedtemplates")
+  @Permissions("maintenance.templates.manage")
   async seedTemplates(@Req() req: AuthedRequest) {
     const data = await this.templates.seedDefaults(req.user);
     return { data, message: "Default maintenance templates seeded" };
@@ -293,7 +293,7 @@ export class MaintenanceConfigController {
 
   @Post("maintenance-templates/:id/revise")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("maintenance.templates.manage", "access.maintenanceconfigcontroller.revisetemplate")
+  @Permissions("maintenance.templates.manage")
   async reviseTemplate(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -305,7 +305,7 @@ export class MaintenanceConfigController {
 
   @Post("maintenance-templates/:id/active")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("maintenance.templates.manage", "access.maintenanceconfigcontroller.settemplateactive")
+  @Permissions("maintenance.templates.manage")
   async setTemplateActive(
     @Req() req: AuthedRequest,
     @Param("id") id: string,

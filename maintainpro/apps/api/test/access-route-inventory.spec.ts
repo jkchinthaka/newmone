@@ -67,6 +67,22 @@ describe("access route inventory", () => {
       out,
       `${JSON.stringify({ generatedAt: new Date().toISOString(), routeCount: routes.length, routes }, null, 2)}\n`
     );
+    const runtime = path.resolve(__dirname, "../src/database/access-route-inventory.json");
+    writeFileSync(
+      runtime,
+      `${JSON.stringify({
+        routes: routes.map((route) => ({
+          method: route.method,
+          path: route.path,
+          roles: route.roles,
+          permissions: route.permissions,
+          isPublic: route.isPublic
+        }))
+      })}\n`
+    );
     expect(routes.length).toBeGreaterThan(100);
+    expect(routes.some((route) => (route.permissions as string[]).some((permission) => permission.startsWith("access.")))).toBe(
+      false
+    );
   });
 });

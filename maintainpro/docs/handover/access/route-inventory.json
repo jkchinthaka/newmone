@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-22T03:24:55.566Z",
+  "generatedAt": "2026-10-22T04:25:37.266Z",
   "routeCount": 971,
   "routes": [
     {
@@ -78,8 +78,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.system.view",
-        "access.admingovernancecontroller.configguard"
+        "admin.system.view"
       ],
       "isPublic": false
     },
@@ -94,8 +93,7 @@
         "MANAGER"
       ],
       "permissions": [
-        "admin.dataquality.view",
-        "access.admingovernancecontroller.dataquality"
+        "admin.dataquality.view"
       ],
       "isPublic": false
     },
@@ -109,8 +107,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.overview.view",
-        "access.admingovernancecontroller.overview"
+        "admin.overview.view"
       ],
       "isPublic": false
     },
@@ -124,8 +121,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.system.view",
-        "access.admingovernancecontroller.system"
+        "admin.system.view"
       ],
       "isPublic": false
     },
@@ -139,8 +135,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.users.manage",
-        "access.admingovernancecontroller.deactivatepreview"
+        "admin.users.manage"
       ],
       "isPublic": false
     },
@@ -156,8 +151,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "approvals.rule.manage",
-        "access.approvalscontroller.listrules"
+        "approvals.rule.manage"
       ],
       "isPublic": false
     },
@@ -173,8 +167,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "approvals.rule.manage",
-        "access.approvalscontroller.createrule"
+        "approvals.rule.manage"
       ],
       "isPublic": false
     },
@@ -190,8 +183,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "approvals.rule.manage",
-        "access.approvalscontroller.getrule"
+        "approvals.rule.manage"
       ],
       "isPublic": false
     },
@@ -207,8 +199,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "approvals.rule.manage",
-        "access.approvalscontroller.deactivate"
+        "approvals.rule.manage"
       ],
       "isPublic": false
     },
@@ -224,8 +215,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "approvals.rule.manage",
-        "access.approvalscontroller.versionrule"
+        "approvals.rule.manage"
       ],
       "isPublic": false
     },
@@ -241,8 +231,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "approvals.rule.manage",
-        "access.approvalscontroller.preview"
+        "approvals.rule.manage"
       ],
       "isPublic": false
     },
@@ -258,8 +247,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "approvals.rule.manage",
-        "access.approvalscontroller.simulate"
+        "approvals.rule.manage"
       ],
       "isPublic": false
     },
@@ -272,9 +260,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.assettagimportcontroller.apply"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -286,9 +272,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.assettagimportcontroller.preview"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -300,9 +284,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.assettagimportcontroller.templatecsv"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -314,9 +296,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.assettagimportcontroller.templatexlsx"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -328,9 +308,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.adminaccesscontroller.listinvitationsforreview"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -342,9 +320,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.adminaccesscontroller.createinvitationforreview"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -362,8 +338,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "work_orders.complete",
-        "access.maintenanceconfigcontroller.listanalysiscodes"
+        "work_orders.complete"
       ],
       "isPublic": false
     },
@@ -377,8 +352,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.maintenanceconfigcontroller.upsertanalysiscode"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -394,8 +368,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "admin.audit.view",
-        "access.maintenanceconfigcontroller.confighistory"
+        "admin.audit.view"
       ],
       "isPublic": false
     },
@@ -411,8 +384,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "admin.overview.view",
-        "access.maintenanceconfigcontroller.listfeatureflags"
+        "admin.overview.view"
       ],
       "isPublic": false
     },
@@ -426,8 +398,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.features.manage",
-        "access.maintenanceconfigcontroller.upsertfeatureflag"
+        "admin.features.manage"
       ],
       "isPublic": false
     },
@@ -441,8 +412,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.system.view",
-        "access.maintenanceconfigcontroller.integrationsstatus"
+        "admin.system.view"
       ],
       "isPublic": false
     },
@@ -457,8 +427,7 @@
         "MANAGER"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.maintenanceconfigcontroller.listcategories"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -472,8 +441,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.maintenanceconfigcontroller.createcategory"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -487,8 +455,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.maintenanceconfigcontroller.updatecategory"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -502,8 +469,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.maintenanceconfigcontroller.seeddefaults"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -520,8 +486,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "planning.view",
-        "access.maintenanceconfigcontroller.listtemplates"
+        "planning.view"
       ],
       "isPublic": false
     },
@@ -535,8 +500,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "maintenance.templates.manage",
-        "access.maintenanceconfigcontroller.createtemplate"
+        "maintenance.templates.manage"
       ],
       "isPublic": false
     },
@@ -550,8 +514,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "maintenance.templates.manage",
-        "access.maintenanceconfigcontroller.settemplateactive"
+        "maintenance.templates.manage"
       ],
       "isPublic": false
     },
@@ -565,8 +528,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "maintenance.templates.manage",
-        "access.maintenanceconfigcontroller.revisetemplate"
+        "maintenance.templates.manage"
       ],
       "isPublic": false
     },
@@ -580,8 +542,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "maintenance.templates.manage",
-        "access.maintenanceconfigcontroller.seedtemplates"
+        "maintenance.templates.manage"
       ],
       "isPublic": false
     },
@@ -597,8 +558,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "admin.overview.view",
-        "access.maintenanceconfigcontroller.overview"
+        "admin.overview.view"
       ],
       "isPublic": false
     },
@@ -613,8 +573,7 @@
         "MANAGER"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.maintenanceconfigcontroller.listprioritysla"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -628,8 +587,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.maintenanceconfigcontroller.upsertprioritysla"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -648,8 +606,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "work_orders.hold",
-        "access.maintenanceconfigcontroller.listreasoncodes"
+        "work_orders.hold"
       ],
       "isPublic": false
     },
@@ -663,8 +620,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.maintenanceconfigcontroller.upsertreasoncode"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -680,8 +636,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "admin.overview.view",
-        "access.maintenanceconfigcontroller.gettaxrate"
+        "admin.overview.view"
       ],
       "isPublic": false
     },
@@ -695,8 +650,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.maintenanceconfigcontroller.updatetaxrate"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -708,9 +662,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.adminaccesscontroller.syncpermissioncatalog"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -722,8 +674,7 @@
         "SUPER_ADMIN"
       ],
       "permissions": [
-        "settings.system.manage",
-        "access.replicationadmincontroller.status"
+        "settings.system.manage"
       ],
       "isPublic": false
     },
@@ -736,9 +687,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.adminaccesscontroller.listrolespermissionsmatrix"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -749,9 +698,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.adminaccesscontroller.updaterolepermissions"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -766,8 +713,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.configsimulatorcontroller.dependencies"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -798,8 +744,7 @@
         "MANAGER"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.configsimulatorcontroller.simworkflow"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -812,9 +757,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.adminaccesscontroller.listtenantsforreview"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -826,9 +769,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.adminaccesscontroller.listusersforaccessreview"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -839,9 +780,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.adminaccesscontroller.createuser"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -852,9 +791,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.adminaccesscontroller.getuserforadminconsole"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -865,9 +802,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.adminaccesscontroller.updateuser"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -878,9 +813,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.adminaccesscontroller.setuserpassword"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -891,9 +824,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.permissionoverridescontroller.remove"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -904,9 +835,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.permissionoverridescontroller.list"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -917,9 +846,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.permissionoverridescontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -931,9 +858,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.adminaccesscontroller.updateuserstatus"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -947,9 +872,7 @@
         "ASSET_MANAGER",
         "MANAGER"
       ],
-      "permissions": [
-        "access.predictiveaicontroller.assigntechnicianaction"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -963,9 +886,7 @@
         "ASSET_MANAGER",
         "MANAGER"
       ],
-      "permissions": [
-        "access.predictiveaicontroller.createworkorderaction"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -980,9 +901,7 @@
         "SUPERVISOR",
         "MANAGER"
       ],
-      "permissions": [
-        "access.predictiveaicontroller.generatereportaction"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -996,9 +915,7 @@
         "ASSET_MANAGER",
         "MANAGER"
       ],
-      "permissions": [
-        "access.predictiveaicontroller.schedulemaintenanceaction"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1071,8 +988,7 @@
         "DRIVER"
       ],
       "permissions": [
-        "predictive_insights.view",
-        "access.predictiveaicontroller.fieldinsights"
+        "predictive_insights.view"
       ],
       "isPublic": false
     },
@@ -1090,9 +1006,7 @@
         "MANAGER",
         "TECHNICIAN"
       ],
-      "permissions": [
-        "access.predictiveaicontroller.logs"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1107,9 +1021,7 @@
         "MECHANIC",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.predictiveaicontroller.predictivelogs"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1123,8 +1035,7 @@
         "MANAGER"
       ],
       "permissions": [
-        "approvals.rule.manage",
-        "access.enterprisegovernancecontroller.createdelegation"
+        "approvals.rule.manage"
       ],
       "isPublic": false
     },
@@ -1145,8 +1056,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "approvals.view",
-        "access.approvalscontroller.getrequest"
+        "approvals.view"
       ],
       "isPublic": false
     },
@@ -1166,8 +1076,7 @@
         "FINANCE"
       ],
       "permissions": [
-        "approvals.decide",
-        "access.approvalscontroller.decide"
+        "approvals.decide"
       ],
       "isPublic": false
     },
@@ -1187,8 +1096,7 @@
         "FINANCE"
       ],
       "permissions": [
-        "approvals.override.emergency",
-        "access.approvalscontroller.emergencyoverride"
+        "approvals.override.emergency"
       ],
       "isPublic": false
     },
@@ -1204,8 +1112,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "approvals.rule.manage",
-        "access.approvalscontroller.escalate"
+        "approvals.rule.manage"
       ],
       "isPublic": false
     },
@@ -1221,8 +1128,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "approvals.rule.manage",
-        "access.approvalscontroller.gatehook"
+        "approvals.rule.manage"
       ],
       "isPublic": false
     },
@@ -1243,8 +1149,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "approvals.view",
-        "access.approvalscontroller.listinbox"
+        "approvals.view"
       ],
       "isPublic": false
     },
@@ -1264,8 +1169,7 @@
         "FINANCE"
       ],
       "permissions": [
-        "approvals.decide",
-        "access.approvalscontroller.bulkapprove"
+        "approvals.decide"
       ],
       "isPublic": false
     },
@@ -1285,8 +1189,7 @@
         "FINANCE"
       ],
       "permissions": [
-        "approvals.decide",
-        "access.approvalscontroller.decideinbox"
+        "approvals.decide"
       ],
       "isPublic": false
     },
@@ -1304,9 +1207,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.listattributes"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1320,9 +1221,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.createattribute"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1336,9 +1235,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.updateattribute"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1355,9 +1252,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.listcategories"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1371,9 +1266,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.createcategory"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1387,9 +1280,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.updatecategory"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1406,9 +1297,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.listdomainprofiles"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1425,9 +1314,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.getdomainprofile"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1441,9 +1328,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.createdomain"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1457,9 +1342,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.updatedomain"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1473,9 +1356,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.candeletedomain"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1489,9 +1370,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.deactivatedomain"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1505,9 +1384,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.updatedomainprofile"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1521,9 +1398,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.seeddefaults"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1540,9 +1415,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.listtypes"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1556,9 +1429,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.createtype"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1572,9 +1443,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assettaxonomycontroller.updatetype"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1591,9 +1460,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assetscontroller.findall"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1605,9 +1472,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.assetscontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1619,9 +1484,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.assetscontroller.remove"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1638,9 +1501,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assetscontroller.findone"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1654,9 +1515,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assetscontroller.update"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1673,9 +1532,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assetscontroller.children"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1690,8 +1547,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "reliability.manage",
-        "access.reliabilitycontroller.setcriticality"
+        "reliability.manage"
       ],
       "isPublic": false
     },
@@ -1706,9 +1562,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assetscontroller.dispose"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1722,9 +1576,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assetscontroller.uploaddocument"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1738,9 +1590,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assetscontroller.deletedocument"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1757,9 +1607,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assetscontroller.downloaddocument"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1773,9 +1621,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assetscontroller.linkvehicle"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1792,9 +1638,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assetscontroller.maintenancehistory"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1808,9 +1652,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assetscontroller.move"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1827,9 +1669,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assetscontroller.movements"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1843,9 +1683,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assetscontroller.setparent"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1862,9 +1700,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assetscontroller.getqrcode"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1881,9 +1717,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assetscontroller.downloadqr"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1897,9 +1731,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assetscontroller.regenerateqrcode"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1913,9 +1745,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assetscontroller.restore"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1929,9 +1759,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assetscontroller.retire"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1945,9 +1773,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assetscontroller.updatestatus"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1961,9 +1787,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assetscontroller.bulkaction"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1975,9 +1799,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.assetscontroller.bulkimport"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -1994,9 +1816,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assetscontroller.dataquality"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2013,9 +1833,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assetscontroller.export"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2032,9 +1850,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assetscontroller.filteroptions"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2048,9 +1864,7 @@
         "MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.assetscontroller.backfilllegacycategories"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2067,9 +1881,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assetscontroller.summary"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2086,9 +1898,7 @@
         "MECHANIC",
         "VIEWER"
       ],
-      "permissions": [
-        "access.assetscontroller.validatetag"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2251,9 +2061,7 @@
         "ADMIN",
         "MANAGER"
       ],
-      "permissions": [
-        "access.billingcontroller.checkoutsession"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2266,9 +2074,7 @@
         "ADMIN",
         "MANAGER"
       ],
-      "permissions": [
-        "access.billingcontroller.subscription"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2281,9 +2087,7 @@
         "ADMIN",
         "MANAGER"
       ],
-      "permissions": [
-        "access.billingcontroller.usage"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2312,9 +2116,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.bulkimportcontroller.history"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2325,9 +2127,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.bulkimportcontroller.getrun"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2338,9 +2138,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.bulkimportcontroller.commit"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2351,9 +2149,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.bulkimportcontroller.errors"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2364,9 +2160,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.bulkimportcontroller.preview"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2377,9 +2171,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.bulkimportcontroller.template"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2458,9 +2250,7 @@
         "ADMIN",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.cleaningcontroller.analytics"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2473,9 +2263,7 @@
         "ADMIN",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.cleaningcontroller.dashboard"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2488,9 +2276,7 @@
         "ADMIN",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.cleaningcontroller.runenforcement"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2505,9 +2291,7 @@
         "CLEANER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.cleaningcontroller.listissues"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2522,9 +2306,7 @@
         "SUPER_ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.cleaningcontroller.createissue"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2537,9 +2319,7 @@
         "ADMIN",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.cleaningcontroller.updateissue"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2556,8 +2336,7 @@
         "SUPERVISOR"
       ],
       "permissions": [
-        "facility_issues.manage",
-        "access.cleaningcontroller.createworkorderfromissue"
+        "facility_issues.manage"
       ],
       "isPublic": false
     },
@@ -2573,9 +2352,7 @@
         "SUPER_ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.cleaningcontroller.checkduplicateissues"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2588,9 +2365,7 @@
         "ADMIN",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.cleaningcontroller.listlocations"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2602,9 +2377,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.cleaningcontroller.createlocation"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2616,9 +2389,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.cleaningcontroller.deletelocation"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2632,9 +2403,7 @@
         "SUPERVISOR",
         "CLEANER"
       ],
-      "permissions": [
-        "access.cleaningcontroller.getlocation"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2646,9 +2415,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.cleaningcontroller.updatelocation"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2660,9 +2427,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.cleaningcontroller.getlocationqr"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2674,9 +2439,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.cleaningcontroller.regeneratelocationqr"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2690,9 +2453,7 @@
         "ADMIN",
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.cleaningcontroller.scanlocation"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2705,9 +2466,7 @@
         "ADMIN",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.cleaningcontroller.schedulecalendar"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2720,9 +2479,7 @@
         "ADMIN",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.cleaningcontroller.listassignablecleaners"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2736,9 +2493,7 @@
         "SUPERVISOR",
         "CLEANER"
       ],
-      "permissions": [
-        "access.cleaningcontroller.listvisits"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2752,9 +2507,7 @@
         "SUPERVISOR",
         "CLEANER"
       ],
-      "permissions": [
-        "access.cleaningcontroller.getvisit"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2767,9 +2520,7 @@
         "ADMIN",
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.cleaningcontroller.signoff"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2783,9 +2534,7 @@
         "ADMIN",
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.cleaningcontroller.submitvisit"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2798,9 +2547,7 @@
         "ADMIN",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.cleaningcontroller.exportvisits"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2814,9 +2561,7 @@
         "ADMIN",
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.cleaningcontroller.scan"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -2866,8 +2611,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "reliability.view",
-        "access.reliabilitycontroller.listconditionevents"
+        "reliability.view"
       ],
       "isPublic": false
     },
@@ -2883,8 +2627,7 @@
         "SUPERVISOR"
       ],
       "permissions": [
-        "reliability.manage",
-        "access.reliabilitycontroller.resolveconditionevent"
+        "reliability.manage"
       ],
       "isPublic": false
     },
@@ -2901,8 +2644,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "reliability.view",
-        "access.reliabilitycontroller.listconditionrules"
+        "reliability.view"
       ],
       "isPublic": false
     },
@@ -2917,8 +2659,7 @@
         "MANAGER"
       ],
       "permissions": [
-        "reliability.manage",
-        "access.reliabilitycontroller.upsertconditionrule"
+        "reliability.manage"
       ],
       "isPublic": false
     },
@@ -2936,8 +2677,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.enterprisegovernancecontroller.listfields"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -2951,8 +2691,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.enterprisegovernancecontroller.upsertfield"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -3136,9 +2875,7 @@
         "TECHNICIAN",
         "VIEWER"
       ],
-      "permissions": [
-        "access.departmentscontroller.findall"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -3150,9 +2887,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.departmentscontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -3164,9 +2899,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.departmentscontroller.remove"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -3184,9 +2917,7 @@
         "TECHNICIAN",
         "VIEWER"
       ],
-      "permissions": [
-        "access.departmentscontroller.findone"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -3198,9 +2929,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.departmentscontroller.update"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -3212,9 +2941,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.departmentscontroller.replace"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -3226,9 +2953,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.departmentscontroller.deactivate"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -3245,8 +2970,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "reliability.manage",
-        "access.reliabilitycontroller.closedowntime"
+        "reliability.manage"
       ],
       "isPublic": false
     },
@@ -3337,9 +3061,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.driverscontroller.findall"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -3352,9 +3074,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.driverscontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -3367,9 +3087,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.driverscontroller.findone"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -3385,8 +3103,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "assets.manage",
-        "access.enterpriseopscontroller.assethealth"
+        "assets.manage"
       ],
       "isPublic": false
     },
@@ -3403,8 +3120,7 @@
         "FINANCE"
       ],
       "permissions": [
-        "reports.vehicle_cost.view",
-        "access.enterpriseopscontroller.budget"
+        "reports.vehicle_cost.view"
       ],
       "isPublic": false
     },
@@ -3420,8 +3136,7 @@
         "INVENTORY_KEEPER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.enterpriseopscontroller.compat"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -3437,8 +3152,7 @@
         "INVENTORY_KEEPER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.enterpriseopscontroller.createcompat"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -3455,8 +3169,7 @@
         "FINANCE"
       ],
       "permissions": [
-        "reports.vehicle_cost.view",
-        "access.enterpriseopscontroller.costslist"
+        "reports.vehicle_cost.view"
       ],
       "isPublic": false
     },
@@ -3473,8 +3186,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "operations.view",
-        "access.enterpriseopscontroller.dashboard"
+        "operations.view"
       ],
       "isPublic": false
     },
@@ -3490,8 +3202,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.enterpriseopscontroller.dispatch"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -3506,8 +3217,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "operations.view",
-        "access.enterpriseopscontroller.eventslist"
+        "operations.view"
       ],
       "isPublic": false
     },
@@ -3522,8 +3232,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "operations.manage",
-        "access.enterpriseopscontroller.acknowledgeerpevent"
+        "operations.manage"
       ],
       "isPublic": false
     },
@@ -3540,8 +3249,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "operations.view",
-        "access.enterpriseopscontroller.listexceptions"
+        "operations.view"
       ],
       "isPublic": false
     },
@@ -3558,8 +3266,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "operations.view",
-        "access.enterpriseopscontroller.getexception"
+        "operations.view"
       ],
       "isPublic": false
     },
@@ -3575,8 +3282,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "operations.manage",
-        "access.enterpriseopscontroller.resolveexception"
+        "operations.manage"
       ],
       "isPublic": false
     },
@@ -3591,8 +3297,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "operations.manage",
-        "access.enterpriseopscontroller.scan"
+        "operations.manage"
       ],
       "isPublic": false
     },
@@ -3610,8 +3315,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "operations.view",
-        "access.enterpriseopscontroller.forecastslist"
+        "operations.view"
       ],
       "isPublic": false
     },
@@ -3627,8 +3331,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "operations.manage",
-        "access.enterpriseopscontroller.refreshforecasts"
+        "operations.manage"
       ],
       "isPublic": false
     },
@@ -3645,8 +3348,7 @@
         "FLEET_MANAGER"
       ],
       "permissions": [
-        "vehicles.view",
-        "access.enterpriseopscontroller.health"
+        "vehicles.view"
       ],
       "isPublic": false
     },
@@ -3663,8 +3365,7 @@
         "FLEET_MANAGER"
       ],
       "permissions": [
-        "vehicles.view",
-        "access.enterpriseopscontroller.healthone"
+        "vehicles.view"
       ],
       "isPublic": false
     },
@@ -3681,8 +3382,7 @@
         "INVENTORY_KEEPER"
       ],
       "permissions": [
-        "operations.view",
-        "access.enterpriseopscontroller.installed"
+        "operations.view"
       ],
       "isPublic": false
     },
@@ -3698,8 +3398,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "operations.view",
-        "access.enterpriseopscontroller.mappings"
+        "operations.view"
       ],
       "isPublic": false
     },
@@ -3717,8 +3416,7 @@
         "PROCUREMENT_OFFICER"
       ],
       "permissions": [
-        "purchase_orders.view",
-        "access.enterpriseopscontroller.matching"
+        "purchase_orders.view"
       ],
       "isPublic": false
     },
@@ -3733,8 +3431,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "operations.view",
-        "access.enterpriseopscontroller.policy"
+        "operations.view"
       ],
       "isPublic": false
     },
@@ -3752,8 +3449,7 @@
         "PROCUREMENT_OFFICER"
       ],
       "permissions": [
-        "purchase_orders.view",
-        "access.enterpriseopscontroller.procurementlist"
+        "purchase_orders.view"
       ],
       "isPublic": false
     },
@@ -3770,8 +3466,7 @@
         "PROCUREMENT_OFFICER"
       ],
       "permissions": [
-        "purchase_orders.create",
-        "access.enterpriseopscontroller.createpo"
+        "purchase_orders.create"
       ],
       "isPublic": false
     },
@@ -3788,8 +3483,7 @@
         "PROCUREMENT_OFFICER"
       ],
       "permissions": [
-        "purchase_orders.view",
-        "access.enterpriseopscontroller.review"
+        "purchase_orders.view"
       ],
       "isPublic": false
     },
@@ -3806,8 +3500,7 @@
         "PROCUREMENT_OFFICER"
       ],
       "permissions": [
-        "purchase_orders.create",
-        "access.enterpriseopscontroller.evaluate"
+        "purchase_orders.create"
       ],
       "isPublic": false
     },
@@ -3824,8 +3517,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "operations.view",
-        "access.enterpriseopscontroller.sla"
+        "operations.view"
       ],
       "isPublic": false
     },
@@ -3842,8 +3534,7 @@
         "PROCUREMENT_OFFICER"
       ],
       "permissions": [
-        "purchase_orders.view",
-        "access.enterpriseopscontroller.vendors"
+        "purchase_orders.view"
       ],
       "isPublic": false
     },
@@ -3860,8 +3551,7 @@
         "INVENTORY_KEEPER"
       ],
       "permissions": [
-        "operations.view",
-        "access.enterpriseopscontroller.warranty"
+        "operations.view"
       ],
       "isPublic": false
     },
@@ -4163,9 +3853,7 @@
         "FACILITY_MANAGER",
         "MANAGER"
       ],
-      "permissions": [
-        "access.evidencecontroller.getreadiness"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4183,8 +3871,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "facilities.view",
-        "access.facilitiescontroller.listbuildings"
+        "facilities.view"
       ],
       "isPublic": false
     },
@@ -4199,8 +3886,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "facilities.manage",
-        "access.facilitiescontroller.createbuilding"
+        "facilities.manage"
       ],
       "isPublic": false
     },
@@ -4219,8 +3905,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "facilities.view",
-        "access.facilitiescontroller.getbuilding"
+        "facilities.view"
       ],
       "isPublic": false
     },
@@ -4235,8 +3920,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "facilities.manage",
-        "access.facilitiescontroller.updatebuilding"
+        "facilities.manage"
       ],
       "isPublic": false
     },
@@ -4255,8 +3939,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "facilities.view",
-        "access.facilitiescontroller.getdashboard"
+        "facilities.view"
       ],
       "isPublic": false
     },
@@ -4275,8 +3958,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "facilities.view",
-        "access.facilitiescontroller.listfloors"
+        "facilities.view"
       ],
       "isPublic": false
     },
@@ -4291,8 +3973,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "facilities.manage",
-        "access.facilitiescontroller.createfloor"
+        "facilities.manage"
       ],
       "isPublic": false
     },
@@ -4311,8 +3992,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "facilities.view",
-        "access.facilitiescontroller.getfloor"
+        "facilities.view"
       ],
       "isPublic": false
     },
@@ -4327,8 +4007,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "facilities.manage",
-        "access.facilitiescontroller.updatefloor"
+        "facilities.manage"
       ],
       "isPublic": false
     },
@@ -4347,8 +4026,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "facilities.view",
-        "access.facilitiescontroller.listproperties"
+        "facilities.view"
       ],
       "isPublic": false
     },
@@ -4363,8 +4041,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "facilities.manage",
-        "access.facilitiescontroller.createproperty"
+        "facilities.manage"
       ],
       "isPublic": false
     },
@@ -4383,8 +4060,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "facilities.view",
-        "access.facilitiescontroller.getproperty"
+        "facilities.view"
       ],
       "isPublic": false
     },
@@ -4399,8 +4075,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "facilities.manage",
-        "access.facilitiescontroller.updateproperty"
+        "facilities.manage"
       ],
       "isPublic": false
     },
@@ -4419,8 +4094,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "facilities.view",
-        "access.facilitiescontroller.getagingreport"
+        "facilities.view"
       ],
       "isPublic": false
     },
@@ -4439,8 +4113,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "facilities.view",
-        "access.facilitiescontroller.listrooms"
+        "facilities.view"
       ],
       "isPublic": false
     },
@@ -4455,8 +4128,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "facilities.manage",
-        "access.facilitiescontroller.createroom"
+        "facilities.manage"
       ],
       "isPublic": false
     },
@@ -4475,8 +4147,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "facilities.view",
-        "access.facilitiescontroller.getroom"
+        "facilities.view"
       ],
       "isPublic": false
     },
@@ -4491,8 +4162,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "facilities.manage",
-        "access.facilitiescontroller.updateroom"
+        "facilities.manage"
       ],
       "isPublic": false
     },
@@ -4510,9 +4180,7 @@
         "AGRONOMIST",
         "VIEWER"
       ],
-      "permissions": [
-        "access.cropscontroller.list"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4527,9 +4195,7 @@
         "FARM_MANAGER",
         "AGRONOMIST"
       ],
-      "permissions": [
-        "access.cropscontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4542,9 +4208,7 @@
         "ADMIN",
         "FARM_OWNER"
       ],
-      "permissions": [
-        "access.cropscontroller.remove"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4561,9 +4225,7 @@
         "AGRONOMIST",
         "VIEWER"
       ],
-      "permissions": [
-        "access.cropscontroller.get"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4578,9 +4240,7 @@
         "FARM_MANAGER",
         "AGRONOMIST"
       ],
-      "permissions": [
-        "access.cropscontroller.update"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4597,9 +4257,7 @@
         "AGRONOMIST",
         "VIEWER"
       ],
-      "permissions": [
-        "access.fieldscontroller.list"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4613,9 +4271,7 @@
         "FARM_OWNER",
         "FARM_MANAGER"
       ],
-      "permissions": [
-        "access.fieldscontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4628,9 +4284,7 @@
         "ADMIN",
         "FARM_OWNER"
       ],
-      "permissions": [
-        "access.fieldscontroller.remove"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4647,9 +4301,7 @@
         "AGRONOMIST",
         "VIEWER"
       ],
-      "permissions": [
-        "access.fieldscontroller.get"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4663,9 +4315,7 @@
         "FARM_OWNER",
         "FARM_MANAGER"
       ],
-      "permissions": [
-        "access.fieldscontroller.update"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4680,9 +4330,7 @@
         "FARM_MANAGER",
         "VIEWER"
       ],
-      "permissions": [
-        "access.farmfinancecontroller.listexpenses"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4696,9 +4344,7 @@
         "FARM_OWNER",
         "FARM_MANAGER"
       ],
-      "permissions": [
-        "access.farmfinancecontroller.createexpense"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4711,9 +4357,7 @@
         "ADMIN",
         "FARM_OWNER"
       ],
-      "permissions": [
-        "access.farmfinancecontroller.removeexpense"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4727,9 +4371,7 @@
         "FARM_OWNER",
         "FARM_MANAGER"
       ],
-      "permissions": [
-        "access.farmfinancecontroller.updateexpense"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4744,9 +4386,7 @@
         "FARM_MANAGER",
         "VIEWER"
       ],
-      "permissions": [
-        "access.farmfinancecontroller.listincome"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4760,9 +4400,7 @@
         "FARM_OWNER",
         "FARM_MANAGER"
       ],
-      "permissions": [
-        "access.farmfinancecontroller.createincome"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4775,9 +4413,7 @@
         "ADMIN",
         "FARM_OWNER"
       ],
-      "permissions": [
-        "access.farmfinancecontroller.removeincome"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4791,9 +4427,7 @@
         "FARM_OWNER",
         "FARM_MANAGER"
       ],
-      "permissions": [
-        "access.farmfinancecontroller.updateincome"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4808,9 +4442,7 @@
         "FARM_MANAGER",
         "VIEWER"
       ],
-      "permissions": [
-        "access.farmfinancecontroller.summary"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4828,9 +4460,7 @@
         "VIEWER",
         "HARVEST_CREW"
       ],
-      "permissions": [
-        "access.harvestcontroller.list"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4846,9 +4476,7 @@
         "FIELD_SUPERVISOR",
         "HARVEST_CREW"
       ],
-      "permissions": [
-        "access.harvestcontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4861,9 +4489,7 @@
         "ADMIN",
         "FARM_OWNER"
       ],
-      "permissions": [
-        "access.harvestcontroller.remove"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4881,9 +4507,7 @@
         "VIEWER",
         "HARVEST_CREW"
       ],
-      "permissions": [
-        "access.harvestcontroller.get"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4898,9 +4522,7 @@
         "FARM_MANAGER",
         "FIELD_SUPERVISOR"
       ],
-      "permissions": [
-        "access.harvestcontroller.update"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4918,9 +4540,7 @@
         "IRRIGATION_OPERATOR",
         "VIEWER"
       ],
-      "permissions": [
-        "access.irrigationcontroller.list"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4936,9 +4556,7 @@
         "FIELD_SUPERVISOR",
         "IRRIGATION_OPERATOR"
       ],
-      "permissions": [
-        "access.irrigationcontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4951,9 +4569,7 @@
         "ADMIN",
         "FARM_OWNER"
       ],
-      "permissions": [
-        "access.irrigationcontroller.remove"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4971,9 +4587,7 @@
         "IRRIGATION_OPERATOR",
         "VIEWER"
       ],
-      "permissions": [
-        "access.irrigationcontroller.get"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -4989,9 +4603,7 @@
         "FIELD_SUPERVISOR",
         "IRRIGATION_OPERATOR"
       ],
-      "permissions": [
-        "access.irrigationcontroller.update"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5007,9 +4619,7 @@
         "VETERINARIAN",
         "VIEWER"
       ],
-      "permissions": [
-        "access.livestockcontroller.listanimals"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5024,9 +4634,7 @@
         "FARM_MANAGER",
         "VETERINARIAN"
       ],
-      "permissions": [
-        "access.livestockcontroller.createanimal"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5039,9 +4647,7 @@
         "ADMIN",
         "FARM_OWNER"
       ],
-      "permissions": [
-        "access.livestockcontroller.removeanimal"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5057,9 +4663,7 @@
         "VETERINARIAN",
         "VIEWER"
       ],
-      "permissions": [
-        "access.livestockcontroller.getanimal"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5074,9 +4678,7 @@
         "FARM_MANAGER",
         "VETERINARIAN"
       ],
-      "permissions": [
-        "access.livestockcontroller.updateanimal"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5091,9 +4693,7 @@
         "FARM_MANAGER",
         "VETERINARIAN"
       ],
-      "permissions": [
-        "access.livestockcontroller.listhealth"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5108,9 +4708,7 @@
         "FARM_MANAGER",
         "VETERINARIAN"
       ],
-      "permissions": [
-        "access.livestockcontroller.createhealth"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5126,9 +4724,7 @@
         "VETERINARIAN",
         "VIEWER"
       ],
-      "permissions": [
-        "access.livestockcontroller.listproduction"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5144,9 +4740,7 @@
         "VETERINARIAN",
         "FARM_WORKER"
       ],
-      "permissions": [
-        "access.livestockcontroller.createproduction"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5162,9 +4756,7 @@
         "VETERINARIAN",
         "VIEWER"
       ],
-      "permissions": [
-        "access.livestockcontroller.listfeeding"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5180,9 +4772,7 @@
         "VETERINARIAN",
         "FARM_WORKER"
       ],
-      "permissions": [
-        "access.livestockcontroller.createfeeding"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5198,9 +4788,7 @@
         "VETERINARIAN",
         "VIEWER"
       ],
-      "permissions": [
-        "access.livestockcontroller.listallhealth"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5216,9 +4804,7 @@
         "AGRONOMIST",
         "VIEWER"
       ],
-      "permissions": [
-        "access.soiltestscontroller.list"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5233,9 +4819,7 @@
         "FARM_MANAGER",
         "AGRONOMIST"
       ],
-      "permissions": [
-        "access.soiltestscontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5248,9 +4832,7 @@
         "ADMIN",
         "FARM_OWNER"
       ],
-      "permissions": [
-        "access.soiltestscontroller.remove"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5266,9 +4848,7 @@
         "AGRONOMIST",
         "VIEWER"
       ],
-      "permissions": [
-        "access.soiltestscontroller.get"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5283,9 +4863,7 @@
         "FARM_MANAGER",
         "AGRONOMIST"
       ],
-      "permissions": [
-        "access.soiltestscontroller.update"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5302,9 +4880,7 @@
         "AGRONOMIST",
         "VIEWER"
       ],
-      "permissions": [
-        "access.spraylogscontroller.list"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5320,9 +4896,7 @@
         "FIELD_SUPERVISOR",
         "AGRONOMIST"
       ],
-      "permissions": [
-        "access.spraylogscontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5335,9 +4909,7 @@
         "ADMIN",
         "FARM_OWNER"
       ],
-      "permissions": [
-        "access.spraylogscontroller.remove"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5354,9 +4926,7 @@
         "AGRONOMIST",
         "VIEWER"
       ],
-      "permissions": [
-        "access.spraylogscontroller.get"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5371,9 +4941,7 @@
         "FARM_MANAGER",
         "AGRONOMIST"
       ],
-      "permissions": [
-        "access.spraylogscontroller.update"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5388,9 +4956,7 @@
         "FARM_MANAGER",
         "AGRONOMIST"
       ],
-      "permissions": [
-        "access.spraylogscontroller.pending"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5405,9 +4971,7 @@
         "FARM_MANAGER",
         "VIEWER"
       ],
-      "permissions": [
-        "access.traceabilitycontroller.list"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5421,9 +4985,7 @@
         "FARM_OWNER",
         "FARM_MANAGER"
       ],
-      "permissions": [
-        "access.traceabilitycontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5449,9 +5011,7 @@
         "AGRONOMIST",
         "VIEWER"
       ],
-      "permissions": [
-        "access.weathercontroller.list"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5466,9 +5026,7 @@
         "FARM_MANAGER",
         "AGRONOMIST"
       ],
-      "permissions": [
-        "access.weathercontroller.record"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5485,9 +5043,7 @@
         "AGRONOMIST",
         "VIEWER"
       ],
-      "permissions": [
-        "access.weathercontroller.alerts"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5498,9 +5054,7 @@
       "roles": [
         "SUPER_ADMIN"
       ],
-      "permissions": [
-        "access.weathercontroller.poll"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5516,9 +5070,7 @@
         "FIELD_SUPERVISOR",
         "VIEWER"
       ],
-      "permissions": [
-        "access.farmworkerscontroller.list"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5532,9 +5084,7 @@
         "FARM_OWNER",
         "FARM_MANAGER"
       ],
-      "permissions": [
-        "access.farmworkerscontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5547,9 +5097,7 @@
         "ADMIN",
         "FARM_OWNER"
       ],
-      "permissions": [
-        "access.farmworkerscontroller.remove"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5565,9 +5113,7 @@
         "FIELD_SUPERVISOR",
         "VIEWER"
       ],
-      "permissions": [
-        "access.farmworkerscontroller.get"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5581,9 +5127,7 @@
         "FARM_OWNER",
         "FARM_MANAGER"
       ],
-      "permissions": [
-        "access.farmworkerscontroller.update"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5599,9 +5143,7 @@
         "FIELD_SUPERVISOR",
         "VIEWER"
       ],
-      "permissions": [
-        "access.farmworkerscontroller.listattendance"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5617,9 +5159,7 @@
         "FIELD_SUPERVISOR",
         "VIEWER"
       ],
-      "permissions": [
-        "access.farmworkerscontroller.tenantattendance"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5634,9 +5174,7 @@
         "FARM_MANAGER",
         "FIELD_SUPERVISOR"
       ],
-      "permissions": [
-        "access.farmworkerscontroller.recordattendance"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5651,9 +5189,7 @@
         "FARM_MANAGER",
         "FIELD_SUPERVISOR"
       ],
-      "permissions": [
-        "access.farmworkerscontroller.updateattendance"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5668,8 +5204,7 @@
         "FLEET_MANAGER"
       ],
       "permissions": [
-        "fleet.accident.manage",
-        "access.fleetlifecyclecontroller.linkrepair"
+        "fleet.accident.manage"
       ],
       "isPublic": false
     },
@@ -5686,8 +5221,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "fleet.assignment.manage",
-        "access.fleetlifecyclecontroller.returnassignment"
+        "fleet.assignment.manage"
       ],
       "isPublic": false
     },
@@ -5705,8 +5239,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "fleet.battery.manage",
-        "access.fleetlifecyclecontroller.replacebattery"
+        "fleet.battery.manage"
       ],
       "isPublic": false
     },
@@ -5724,8 +5257,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "fleet.battery.manage",
-        "access.fleetlifecyclecontroller.installbattery"
+        "fleet.battery.manage"
       ],
       "isPublic": false
     },
@@ -5742,8 +5274,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "fleet.view",
-        "access.fleetlifecyclecontroller.costperkm"
+        "fleet.view"
       ],
       "isPublic": false
     },
@@ -5760,8 +5291,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "fleet.view",
-        "access.fleetlifecyclecontroller.fuelefficiency"
+        "fleet.view"
       ],
       "isPublic": false
     },
@@ -5781,8 +5311,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "fleet.view",
-        "access.fleetlifecyclecontroller.overview"
+        "fleet.view"
       ],
       "isPublic": false
     },
@@ -5800,8 +5329,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "fleet.tyre.manage",
-        "access.fleetlifecyclecontroller.movetyre"
+        "fleet.tyre.manage"
       ],
       "isPublic": false
     },
@@ -5819,8 +5347,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "fleet.tyre.manage",
-        "access.fleetlifecyclecontroller.removetyre"
+        "fleet.tyre.manage"
       ],
       "isPublic": false
     },
@@ -5838,8 +5365,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "fleet.tyre.manage",
-        "access.fleetlifecyclecontroller.installtyre"
+        "fleet.tyre.manage"
       ],
       "isPublic": false
     },
@@ -5856,8 +5382,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "fleet.assignment.manage",
-        "access.fleetlifecyclecontroller.assigndriver"
+        "fleet.assignment.manage"
       ],
       "isPublic": false
     },
@@ -5873,8 +5398,7 @@
         "FLEET_MANAGER"
       ],
       "permissions": [
-        "fleet.vehicle.manage",
-        "access.fleetlifecyclecontroller.ensuremileagemeter"
+        "fleet.vehicle.manage"
       ],
       "isPublic": false
     },
@@ -5893,8 +5417,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "gate.check",
-        "access.fleetlifecyclecontroller.gateeligibility"
+        "gate.check"
       ],
       "isPublic": false
     },
@@ -5908,8 +5431,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "fleet.vehicle.manage",
-        "access.fleetlifecyclecontroller.backfillassets"
+        "fleet.vehicle.manage"
       ],
       "isPublic": false
     },
@@ -5925,9 +5447,7 @@
         "SUPERVISOR",
         "MANAGER"
       ],
-      "permissions": [
-        "access.fleetcontroller.alerts"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5942,9 +5462,7 @@
         "SUPERVISOR",
         "MANAGER"
       ],
-      "permissions": [
-        "access.fleetcontroller.geofences"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5959,9 +5477,7 @@
         "SUPERVISOR",
         "MANAGER"
       ],
-      "permissions": [
-        "access.fleetcontroller.creategeofence"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5976,9 +5492,7 @@
         "SUPERVISOR",
         "MANAGER"
       ],
-      "permissions": [
-        "access.fleetcontroller.removegeofence"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -5995,9 +5509,7 @@
         "DRIVER",
         "VIEWER"
       ],
-      "permissions": [
-        "access.fuelcontroller.analytics"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -6014,9 +5526,7 @@
         "DRIVER",
         "VIEWER"
       ],
-      "permissions": [
-        "access.fuelcontroller.logs"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -6343,9 +5853,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.healthcontroller.deploymentreadiness"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -6366,9 +5874,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.healthcontroller.readiness"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -6446,8 +5952,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.adjust"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6463,8 +5968,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.topused"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6480,8 +5984,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.usagetrend"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6500,8 +6003,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.daily"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6520,8 +6022,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.dashboard"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6538,8 +6039,7 @@
         "INVENTORY_KEEPER"
       ],
       "permissions": [
-        "inventory.erp_import.view",
-        "access.inventorycontroller.geterpexcelimport"
+        "inventory.erp_import.view"
       ],
       "isPublic": false
     },
@@ -6556,8 +6056,7 @@
         "INVENTORY_KEEPER"
       ],
       "permissions": [
-        "inventory.erp_import.apply",
-        "access.inventorycontroller.applyerpexcelimport"
+        "inventory.erp_import.apply"
       ],
       "isPublic": false
     },
@@ -6574,8 +6073,7 @@
         "INVENTORY_KEEPER"
       ],
       "permissions": [
-        "inventory.erp_import.upload",
-        "access.inventorycontroller.validateerpexcelimport"
+        "inventory.erp_import.upload"
       ],
       "isPublic": false
     },
@@ -6592,8 +6090,7 @@
         "INVENTORY_KEEPER"
       ],
       "permissions": [
-        "inventory.erp_import.history",
-        "access.inventorycontroller.erpexcelimporthistory"
+        "inventory.erp_import.history"
       ],
       "isPublic": false
     },
@@ -6610,8 +6107,7 @@
         "INVENTORY_KEEPER"
       ],
       "permissions": [
-        "inventory.erp_import.upload",
-        "access.inventorycontroller.uploaderpexcelimport"
+        "inventory.erp_import.upload"
       ],
       "isPublic": false
     },
@@ -6630,8 +6126,7 @@
         "PROCUREMENT_OFFICER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.geterpstocksyncreadiness"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6646,8 +6141,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "inventory.erp_apply",
-        "access.inventorycontroller.applyerpstocksync"
+        "inventory.erp_apply"
       ],
       "isPublic": false
     },
@@ -6666,8 +6160,7 @@
         "PROCUREMENT_OFFICER"
       ],
       "permissions": [
-        "inventory.erp_dry_run",
-        "access.inventorycontroller.dryrunerpstocksync"
+        "inventory.erp_dry_run"
       ],
       "isPublic": false
     },
@@ -6686,8 +6179,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.erp_dry_run",
-        "access.inventorycontroller.listimports"
+        "inventory.erp_dry_run"
       ],
       "isPublic": false
     },
@@ -6706,8 +6198,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.erp_dry_run",
-        "access.inventorycontroller.getimport"
+        "inventory.erp_dry_run"
       ],
       "isPublic": false
     },
@@ -6722,8 +6213,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "inventory.erp_apply",
-        "access.inventorycontroller.applyimport"
+        "inventory.erp_apply"
       ],
       "isPublic": false
     },
@@ -6738,8 +6228,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "inventory.erp_apply",
-        "access.inventorycontroller.mapimportrow"
+        "inventory.erp_apply"
       ],
       "isPublic": false
     },
@@ -6757,8 +6246,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.erp_dry_run",
-        "access.inventorycontroller.previewimport"
+        "inventory.erp_dry_run"
       ],
       "isPublic": false
     },
@@ -6777,8 +6265,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.lowstock"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6797,8 +6284,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.allmovements"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6817,8 +6303,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.parts"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6834,8 +6319,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.createpart"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6850,8 +6334,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.removepart"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6870,8 +6353,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.part"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6887,8 +6369,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.updatepart"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6907,8 +6388,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.movements"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6924,8 +6404,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.purchasehistory"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6941,8 +6420,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.stockin"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6961,8 +6439,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.stock_issue",
-        "access.inventorycontroller.stockout"
+        "inventory.stock_issue"
       ],
       "isPublic": false
     },
@@ -6978,8 +6455,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.linkedworkorders"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -6994,8 +6470,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.bulkcategory"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -7010,8 +6485,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.bulkdelete"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -7031,8 +6505,7 @@
         "FINANCE"
       ],
       "permissions": [
-        "purchase_orders.view",
-        "access.inventorycontroller.purchaseorders"
+        "purchase_orders.view"
       ],
       "isPublic": false
     },
@@ -7048,8 +6521,7 @@
         "PROCUREMENT_OFFICER"
       ],
       "permissions": [
-        "purchase_orders.create",
-        "access.inventorycontroller.createpurchaseorder"
+        "purchase_orders.create"
       ],
       "isPublic": false
     },
@@ -7069,8 +6541,7 @@
         "FINANCE"
       ],
       "permissions": [
-        "purchase_orders.view",
-        "access.inventorycontroller.purchaseorder"
+        "purchase_orders.view"
       ],
       "isPublic": false
     },
@@ -7086,8 +6557,7 @@
         "PROCUREMENT_OFFICER"
       ],
       "permissions": [
-        "purchase_orders.create",
-        "access.inventorycontroller.updatepurchaseorder"
+        "purchase_orders.create"
       ],
       "isPublic": false
     },
@@ -7104,8 +6574,7 @@
         "FINANCE"
       ],
       "permissions": [
-        "purchase_orders.approve_finance",
-        "access.inventorycontroller.approvepurchaseorderfinance"
+        "purchase_orders.approve_finance"
       ],
       "isPublic": false
     },
@@ -7122,8 +6591,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "purchase_orders.approve_operational",
-        "access.inventorycontroller.approvepurchaseorderoperational"
+        "purchase_orders.approve_operational"
       ],
       "isPublic": false
     },
@@ -7139,8 +6607,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "purchase_orders.erp_sync",
-        "access.inventorycontroller.syncpurchaseordertoerp"
+        "purchase_orders.erp_sync"
       ],
       "isPublic": false
     },
@@ -7156,8 +6623,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "purchase_orders.erp_sync_retry",
-        "access.inventorycontroller.retrypurchaseordererpsync"
+        "purchase_orders.erp_sync_retry"
       ],
       "isPublic": false
     },
@@ -7177,8 +6643,7 @@
         "FINANCE"
       ],
       "permissions": [
-        "purchase_orders.view",
-        "access.inventorycontroller.listpurchasereceipts"
+        "purchase_orders.view"
       ],
       "isPublic": false
     },
@@ -7195,8 +6660,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "purchase_orders.receive",
-        "access.inventorycontroller.createpurchasereceipt"
+        "purchase_orders.receive"
       ],
       "isPublic": false
     },
@@ -7213,8 +6677,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "purchase_orders.reject",
-        "access.inventorycontroller.rejectpurchaseorder"
+        "purchase_orders.reject"
       ],
       "isPublic": false
     },
@@ -7229,8 +6692,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.reverse"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -7249,8 +6711,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.liststockcounts"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -7268,8 +6729,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.createstockcount"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -7288,8 +6748,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.getstockcount"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -7307,8 +6766,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.upsertstockcountline"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -7326,8 +6784,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.transitionstockcount"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -7345,8 +6802,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.transfer"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -7365,8 +6821,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.manage",
-        "access.inventorycontroller.warehouses"
+        "inventory.manage"
       ],
       "isPublic": false
     },
@@ -7384,9 +6839,7 @@
         "SUPERVISOR",
         "VIEWER"
       ],
-      "permissions": [
-        "access.jobcodescontroller.findall"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -7399,9 +6852,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.jobcodescontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -7414,9 +6865,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.jobcodescontroller.remove"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -7433,9 +6882,7 @@
         "SUPERVISOR",
         "VIEWER"
       ],
-      "permissions": [
-        "access.jobcodescontroller.findone"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -7448,9 +6895,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.jobcodescontroller.update"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -7468,8 +6913,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "safety.permit.view",
-        "access.reliabilitycontroller.listloto"
+        "safety.permit.view"
       ],
       "isPublic": false
     },
@@ -7486,8 +6930,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "safety.permit.manage",
-        "access.reliabilitycontroller.createloto"
+        "safety.permit.manage"
       ],
       "isPublic": false
     },
@@ -7504,8 +6947,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "safety.permit.manage",
-        "access.reliabilitycontroller.transitionloto"
+        "safety.permit.manage"
       ],
       "isPublic": false
     },
@@ -7557,8 +6999,7 @@
         "BUILDING_SUPERVISOR"
       ],
       "permissions": [
-        "maintenance_requests.approve",
-        "access.maintenancerequestscontroller.approve"
+        "maintenance_requests.approve"
       ],
       "isPublic": false
     },
@@ -7588,8 +7029,7 @@
         "BUILDING_SUPERVISOR"
       ],
       "permissions": [
-        "maintenance_requests.convert",
-        "access.maintenancerequestscontroller.convert"
+        "maintenance_requests.convert"
       ],
       "isPublic": false
     },
@@ -7608,8 +7048,7 @@
         "BUILDING_SUPERVISOR"
       ],
       "permissions": [
-        "maintenance_requests.triage",
-        "access.maintenancerequestscontroller.duplicates"
+        "maintenance_requests.triage"
       ],
       "isPublic": false
     },
@@ -7639,8 +7078,7 @@
         "BUILDING_SUPERVISOR"
       ],
       "permissions": [
-        "maintenance_requests.triage",
-        "access.maintenancerequestscontroller.markduplicate"
+        "maintenance_requests.triage"
       ],
       "isPublic": false
     },
@@ -7659,8 +7097,7 @@
         "BUILDING_SUPERVISOR"
       ],
       "permissions": [
-        "maintenance_requests.triage",
-        "access.maintenancerequestscontroller.needsinformation"
+        "maintenance_requests.triage"
       ],
       "isPublic": false
     },
@@ -7679,8 +7116,7 @@
         "BUILDING_SUPERVISOR"
       ],
       "permissions": [
-        "maintenance_requests.reject",
-        "access.maintenancerequestscontroller.reject"
+        "maintenance_requests.reject"
       ],
       "isPublic": false
     },
@@ -7699,8 +7135,7 @@
         "BUILDING_SUPERVISOR"
       ],
       "permissions": [
-        "maintenance_requests.triage",
-        "access.maintenancerequestscontroller.repeathistory"
+        "maintenance_requests.triage"
       ],
       "isPublic": false
     },
@@ -7730,8 +7165,7 @@
         "BUILDING_SUPERVISOR"
       ],
       "permissions": [
-        "maintenance_requests.triage",
-        "access.maintenancerequestscontroller.resumereview"
+        "maintenance_requests.triage"
       ],
       "isPublic": false
     },
@@ -7750,8 +7184,7 @@
         "BUILDING_SUPERVISOR"
       ],
       "permissions": [
-        "maintenance_requests.triage",
-        "access.maintenancerequestscontroller.startreview"
+        "maintenance_requests.triage"
       ],
       "isPublic": false
     },
@@ -7770,8 +7203,7 @@
         "BUILDING_SUPERVISOR"
       ],
       "permissions": [
-        "maintenance_requests.triage",
-        "access.maintenancerequestscontroller.triage"
+        "maintenance_requests.triage"
       ],
       "isPublic": false
     },
@@ -7811,9 +7243,7 @@
         "FACILITY_MANAGER",
         "BUILDING_SUPERVISOR"
       ],
-      "permissions": [
-        "access.maintenancerequestscontroller.seedcategories"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -7850,8 +7280,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "contract.manage",
-        "access.maintenancesupplycontroller.createcontract"
+        "contract.manage"
       ],
       "isPublic": false
     },
@@ -7867,8 +7296,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "contract.manage",
-        "access.maintenancesupplycontroller.refreshcontracts"
+        "contract.manage"
       ],
       "isPublic": false
     },
@@ -7884,8 +7312,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "erp.mapping.manage",
-        "access.maintenancesupplycontroller.maperpitem"
+        "erp.mapping.manage"
       ],
       "isPublic": false
     },
@@ -7901,8 +7328,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "erp.mapping.manage",
-        "access.maintenancesupplycontroller.mapwarehouse"
+        "erp.mapping.manage"
       ],
       "isPublic": false
     },
@@ -7925,8 +7351,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "parts.view",
-        "access.maintenancesupplycontroller.outstandingtools"
+        "parts.view"
       ],
       "isPublic": false
     },
@@ -7946,8 +7371,7 @@
         "STOREKEEPER"
       ],
       "permissions": [
-        "parts.return",
-        "access.maintenancesupplycontroller.returntool"
+        "parts.return"
       ],
       "isPublic": false
     },
@@ -7970,8 +7394,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "parts.view",
-        "access.maintenancesupplycontroller.listparts"
+        "parts.view"
       ],
       "isPublic": false
     },
@@ -7987,8 +7410,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "vendor.manage",
-        "access.maintenancesupplycontroller.assignvendor"
+        "vendor.manage"
       ],
       "isPublic": false
     },
@@ -8011,8 +7433,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "cost.view",
-        "access.maintenancesupplycontroller.getcost"
+        "cost.view"
       ],
       "isPublic": false
     },
@@ -8028,8 +7449,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "cost.adjust",
-        "access.maintenancesupplycontroller.snapshot"
+        "cost.adjust"
       ],
       "isPublic": false
     },
@@ -8045,8 +7465,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "cost.adjust",
-        "access.maintenancesupplycontroller.autosnapshot"
+        "cost.adjust"
       ],
       "isPublic": false
     },
@@ -8062,8 +7481,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "vendor.manage",
-        "access.maintenancesupplycontroller.executionmode"
+        "vendor.manage"
       ],
       "isPublic": false
     },
@@ -8079,9 +7497,7 @@
         "MECHANIC",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.maintenancecontroller.calendar"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8105,9 +7521,7 @@
         "INVENTORY_KEEPER",
         "VIEWER"
       ],
-      "permissions": [
-        "access.maintenancedashboardcontroller.dashboard"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8121,9 +7535,7 @@
         "ASSET_MANAGER",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.maintenancecontroller.logs"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8137,9 +7549,7 @@
         "ASSET_MANAGER",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.maintenancecontroller.createlog"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8153,9 +7563,7 @@
         "ASSET_MANAGER",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.maintenancecontroller.predictivealerts"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8169,9 +7577,7 @@
         "ASSET_MANAGER",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.maintenancecontroller.acknowledgepredictive"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8185,9 +7591,7 @@
         "ASSET_MANAGER",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.maintenancecontroller.schedules"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8200,9 +7604,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.maintenancecontroller.createschedule"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8215,9 +7617,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.maintenancecontroller.removeschedule"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8231,9 +7631,7 @@
         "ASSET_MANAGER",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.maintenancecontroller.schedule"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8246,9 +7644,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.maintenancecontroller.updateschedule"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8263,8 +7659,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "assets.manage",
-        "access.enterprisegovernancecontroller.requestmetercorrection"
+        "assets.manage"
       ],
       "isPublic": false
     },
@@ -8279,8 +7674,7 @@
         "MANAGER"
       ],
       "permissions": [
-        "assets.manage",
-        "access.enterprisegovernancecontroller.decidemetercorrection"
+        "assets.manage"
       ],
       "isPublic": false
     },
@@ -8410,9 +7804,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.notificationscontroller.providerreadiness"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8442,9 +7834,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.notificationscontroller.templatesamples"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8456,9 +7846,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.notificationscontroller.uatemailtest"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8470,9 +7858,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.notificationscontroller.uatsmstest"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8485,9 +7871,7 @@
         "ADMIN",
         "OPERATIONS_MANAGER"
       ],
-      "permissions": [
-        "access.operationscontroller.listalerts"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8500,9 +7884,7 @@
         "ADMIN",
         "OPERATIONS_MANAGER"
       ],
-      "permissions": [
-        "access.operationscontroller.acknowledge"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8514,9 +7896,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.operationscontroller.evaluate"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8528,9 +7908,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.operationscontroller.mocknotifications"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8543,9 +7921,7 @@
         "ADMIN",
         "OPERATIONS_MANAGER"
       ],
-      "permissions": [
-        "access.operationscontroller.metrics"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8558,9 +7934,7 @@
         "ADMIN",
         "OPERATIONS_MANAGER"
       ],
-      "permissions": [
-        "access.operationscontroller.queuereconciliationstatus"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8572,9 +7946,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.operationscontroller.runqueuereconciliation"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -8597,8 +7969,7 @@
         "DRIVER"
       ],
       "permissions": [
-        "operations.scan_lookup",
-        "access.operationscontroller.scanlookup"
+        "operations.scan_lookup"
       ],
       "isPublic": false
     },
@@ -8613,8 +7984,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "organization.manage",
-        "access.organizationcontroller.dataquality"
+        "organization.manage"
       ],
       "isPublic": false
     },
@@ -8634,8 +8004,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "locations.view",
-        "access.organizationcontroller.listlocations"
+        "locations.view"
       ],
       "isPublic": false
     },
@@ -8650,8 +8019,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "locations.manage",
-        "access.organizationcontroller.createlocation"
+        "locations.manage"
       ],
       "isPublic": false
     },
@@ -8671,8 +8039,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "locations.view",
-        "access.organizationcontroller.getlocation"
+        "locations.view"
       ],
       "isPublic": false
     },
@@ -8687,8 +8054,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "locations.manage",
-        "access.organizationcontroller.updatelocation"
+        "locations.manage"
       ],
       "isPublic": false
     },
@@ -8708,8 +8074,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "locations.view",
-        "access.organizationcontroller.getchildren"
+        "locations.view"
       ],
       "isPublic": false
     },
@@ -8724,8 +8089,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "locations.manage",
-        "access.organizationcontroller.movelocation"
+        "locations.manage"
       ],
       "isPublic": false
     },
@@ -8745,8 +8109,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "locations.view",
-        "access.organizationcontroller.gettree"
+        "locations.view"
       ],
       "isPublic": false
     },
@@ -8760,8 +8123,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "organization.manage",
-        "access.organizationcontroller.migratefacilityhierarchy"
+        "organization.manage"
       ],
       "isPublic": false
     },
@@ -8776,8 +8138,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "organization.manage",
-        "access.organizationcontroller.classifyfreetext"
+        "organization.manage"
       ],
       "isPublic": false
     },
@@ -8797,8 +8158,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "organization.view",
-        "access.organizationcontroller.listsites"
+        "organization.view"
       ],
       "isPublic": false
     },
@@ -8813,8 +8173,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "organization.manage",
-        "access.organizationcontroller.createsite"
+        "organization.manage"
       ],
       "isPublic": false
     },
@@ -8834,8 +8193,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "organization.view",
-        "access.organizationcontroller.getsite"
+        "organization.view"
       ],
       "isPublic": false
     },
@@ -8850,8 +8208,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "organization.manage",
-        "access.organizationcontroller.updatesite"
+        "organization.manage"
       ],
       "isPublic": false
     },
@@ -8871,8 +8228,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "organization.view",
-        "access.organizationcontroller.summary"
+        "organization.view"
       ],
       "isPublic": false
     },
@@ -8886,8 +8242,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.enterprisegovernancecontroller.registerwebhook"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -8901,8 +8256,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.enterprisegovernancecontroller.retrywebhooks"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -9019,8 +8373,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.recordcalibration"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9038,8 +8391,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.startchecklistexecution"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9057,8 +8409,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.completechecklistexecution"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9080,8 +8431,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "planning.view",
-        "access.planningcontroller.listchecklisttemplates"
+        "planning.view"
       ],
       "isPublic": false
     },
@@ -9098,8 +8448,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.createchecklisttemplate"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9116,8 +8465,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.revisechecklisttemplate"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9134,8 +8482,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.upsertcompliance"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9157,8 +8504,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "planning.view",
-        "access.planningcontroller.duework"
+        "planning.view"
       ],
       "isPublic": false
     },
@@ -9180,8 +8526,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "planning.view",
-        "access.planningcontroller.listinspectiontemplates"
+        "planning.view"
       ],
       "isPublic": false
     },
@@ -9198,8 +8543,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.createinspectiontemplate"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9221,8 +8565,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "planning.view",
-        "access.planningcontroller.listinspections"
+        "planning.view"
       ],
       "isPublic": false
     },
@@ -9240,8 +8583,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.completeinspection"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9263,8 +8605,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "planning.view",
-        "access.planningcontroller.getinspection"
+        "planning.view"
       ],
       "isPublic": false
     },
@@ -9282,8 +8623,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.saveinspectionanswers"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9301,8 +8641,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.completescheduledinspection"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9320,8 +8659,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.attachinspectionevidence"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9338,8 +8676,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.reinspect"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9357,8 +8694,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.startinspection"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9375,8 +8711,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.scheduleinspection"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9393,8 +8728,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.createmeter"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9412,8 +8746,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.recordreading"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9435,8 +8768,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "planning.view",
-        "access.planningcontroller.listpmplans"
+        "planning.view"
       ],
       "isPublic": false
     },
@@ -9453,8 +8785,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.createpmplan"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9471,8 +8802,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.autowo"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9489,8 +8819,7 @@
         "FACILITY_MANAGER"
       ],
       "permissions": [
-        "planning.manage",
-        "access.planningcontroller.revisepmplan"
+        "planning.manage"
       ],
       "isPublic": false
     },
@@ -9512,8 +8841,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "planning.view",
-        "access.planningcontroller.revisionhistory"
+        "planning.view"
       ],
       "isPublic": false
     },
@@ -9535,8 +8863,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "planning.view",
-        "access.planningcontroller.listworkorderchecklists"
+        "planning.view"
       ],
       "isPublic": false
     },
@@ -9716,9 +9043,7 @@
         "ASSET_MANAGER",
         "MANAGER"
       ],
-      "permissions": [
-        "access.predictiveaicontroller.assigntechnicianaction"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -9732,9 +9057,7 @@
         "ASSET_MANAGER",
         "MANAGER"
       ],
-      "permissions": [
-        "access.predictiveaicontroller.createworkorderaction"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -9749,9 +9072,7 @@
         "SUPERVISOR",
         "MANAGER"
       ],
-      "permissions": [
-        "access.predictiveaicontroller.generatereportaction"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -9765,9 +9086,7 @@
         "ASSET_MANAGER",
         "MANAGER"
       ],
-      "permissions": [
-        "access.predictiveaicontroller.schedulemaintenanceaction"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -9840,8 +9159,7 @@
         "DRIVER"
       ],
       "permissions": [
-        "predictive_insights.view",
-        "access.predictiveaicontroller.fieldinsights"
+        "predictive_insights.view"
       ],
       "isPublic": false
     },
@@ -9859,9 +9177,7 @@
         "MANAGER",
         "TECHNICIAN"
       ],
-      "permissions": [
-        "access.predictiveaicontroller.logs"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -9876,9 +9192,7 @@
         "MECHANIC",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.predictiveaicontroller.predictivelogs"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10045,8 +9359,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "qa.manage",
-        "access.qacontroller.fromhealthcheck"
+        "qa.manage"
       ],
       "isPublic": false
     },
@@ -10162,8 +9475,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "reliability.view",
-        "access.reliabilitycontroller.listcriticality"
+        "reliability.view"
       ],
       "isPublic": false
     },
@@ -10179,8 +9491,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "reliability.manage",
-        "access.reliabilitycontroller.bulkcriticality"
+        "reliability.manage"
       ],
       "isPublic": false
     },
@@ -10196,8 +9507,7 @@
         "SUPERVISOR"
       ],
       "permissions": [
-        "reliability.manage",
-        "access.reliabilitycontroller.updatecapa"
+        "reliability.manage"
       ],
       "isPublic": false
     },
@@ -10214,8 +9524,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "reliability.view",
-        "access.reliabilitycontroller.getpolicy"
+        "reliability.view"
       ],
       "isPublic": false
     },
@@ -10230,8 +9539,7 @@
         "MANAGER"
       ],
       "permissions": [
-        "reliability.manage",
-        "access.reliabilitycontroller.updatepolicy"
+        "reliability.manage"
       ],
       "isPublic": false
     },
@@ -10249,8 +9557,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "reliability.view",
-        "access.reliabilitycontroller.listrca"
+        "reliability.view"
       ],
       "isPublic": false
     },
@@ -10267,8 +9574,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "reliability.manage",
-        "access.reliabilitycontroller.createrca"
+        "reliability.manage"
       ],
       "isPublic": false
     },
@@ -10286,8 +9592,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "reliability.view",
-        "access.reliabilitycontroller.getrca"
+        "reliability.view"
       ],
       "isPublic": false
     },
@@ -10303,8 +9608,7 @@
         "SUPERVISOR"
       ],
       "permissions": [
-        "reliability.manage",
-        "access.reliabilitycontroller.updaterca"
+        "reliability.manage"
       ],
       "isPublic": false
     },
@@ -10320,8 +9624,7 @@
         "SUPERVISOR"
       ],
       "permissions": [
-        "reliability.manage",
-        "access.reliabilitycontroller.addcapa"
+        "reliability.manage"
       ],
       "isPublic": false
     },
@@ -10337,8 +9640,7 @@
         "SUPERVISOR"
       ],
       "permissions": [
-        "reliability.manage",
-        "access.reliabilitycontroller.verifyeffectiveness"
+        "reliability.manage"
       ],
       "isPublic": false
     },
@@ -10355,8 +9657,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "reliability.view",
-        "access.reliabilitycontroller.repeatcandidates"
+        "reliability.view"
       ],
       "isPublic": false
     },
@@ -10373,8 +9674,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "reliability.view",
-        "access.reliabilitycontroller.summary"
+        "reliability.view"
       ],
       "isPublic": false
     },
@@ -10400,8 +9700,7 @@
         "COMPLIANCE_MANAGER"
       ],
       "permissions": [
-        "reports.view",
-        "access.reportingkpiscontroller.list"
+        "reports.view"
       ],
       "isPublic": false
     },
@@ -10427,8 +9726,7 @@
         "COMPLIANCE_MANAGER"
       ],
       "permissions": [
-        "reports.view",
-        "access.reportingkpiscontroller.one"
+        "reports.view"
       ],
       "isPublic": false
     },
@@ -10459,9 +9757,7 @@
         "REQUESTER",
         "VENDOR"
       ],
-      "permissions": [
-        "access.reportingkpiscontroller.rolehomefromjwt"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10491,9 +9787,7 @@
         "REQUESTER",
         "VENDOR"
       ],
-      "permissions": [
-        "access.reportingkpiscontroller.home"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10518,8 +9812,7 @@
         "COMPLIANCE_MANAGER"
       ],
       "permissions": [
-        "reports.view",
-        "access.reportingkpiscontroller.overview"
+        "reports.view"
       ],
       "isPublic": false
     },
@@ -10544,9 +9837,7 @@
         "VIEWER",
         "DRIVER"
       ],
-      "permissions": [
-        "access.reportscontroller.modulereport"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10570,9 +9861,7 @@
         "VIEWER",
         "DRIVER"
       ],
-      "permissions": [
-        "access.reportscontroller.exportmodule"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10596,9 +9885,7 @@
         "VIEWER",
         "DRIVER"
       ],
-      "permissions": [
-        "access.reportscontroller.dashboard"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10622,9 +9909,7 @@
         "VIEWER",
         "DRIVER"
       ],
-      "permissions": [
-        "access.reportscontroller.downtime"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10640,9 +9925,7 @@
         "FINANCE",
         "PROCUREMENT_OFFICER"
       ],
-      "permissions": [
-        "access.reportscontroller.erpmonitoring"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10666,9 +9949,7 @@
         "VIEWER",
         "DRIVER"
       ],
-      "permissions": [
-        "access.reportscontroller.fleetefficiency"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10686,9 +9967,7 @@
         "FINANCE",
         "FINANCE_APPROVER"
       ],
-      "permissions": [
-        "access.fraudcontrolcontroller.adminoverrides"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10706,9 +9985,7 @@
         "FINANCE",
         "FINANCE_APPROVER"
       ],
-      "permissions": [
-        "access.fraudcontrolcontroller.exportadminoverrides"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10728,9 +10005,7 @@
         "SUPERVISOR",
         "SECURITY_OFFICER"
       ],
-      "permissions": [
-        "access.fraudcontrolcontroller.dashboard"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10749,9 +10024,7 @@
         "FINANCE_APPROVER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.fraudcontrolcontroller.partsmisuse"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10775,9 +10048,7 @@
         "VIEWER",
         "DRIVER"
       ],
-      "permissions": [
-        "access.reportscontroller.inventory"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10801,9 +10072,7 @@
         "VIEWER",
         "DRIVER"
       ],
-      "permissions": [
-        "access.reportscontroller.maintenancecost"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10828,8 +10097,7 @@
         "DRIVER"
       ],
       "permissions": [
-        "reports.view",
-        "access.reportscontroller.maintenancecostsreport"
+        "reports.view"
       ],
       "isPublic": false
     },
@@ -10855,8 +10123,7 @@
         "DRIVER"
       ],
       "permissions": [
-        "reports.view",
-        "access.reportscontroller.exportmaintenancecosts"
+        "reports.view"
       ],
       "isPublic": false
     },
@@ -10874,9 +10141,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.maintenancereportscontroller.assets"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10891,9 +10156,7 @@
         "OPERATIONS_MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.maintenancereportscontroller.costs"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10910,9 +10173,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.maintenancereportscontroller.exceptions"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10929,9 +10190,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.maintenancereportscontroller.exceptiondetail"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10948,9 +10207,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.maintenancereportscontroller.exportexception"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10967,9 +10224,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.maintenancereportscontroller.kpis"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -10986,9 +10241,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.maintenancereportscontroller.parts"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11007,9 +10260,7 @@
         "TECHNICIAN",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.maintenancereportscontroller.riskscore"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11026,9 +10277,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.maintenancereportscontroller.workforce"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11047,9 +10296,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.exportreport"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11066,9 +10313,7 @@
         "FINANCE",
         "FINANCE_APPROVER"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.costbyasset"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11085,9 +10330,7 @@
         "FINANCE",
         "FINANCE_APPROVER"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.costbybranch"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11104,9 +10347,7 @@
         "FINANCE",
         "FINANCE_APPROVER"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.costbycategory"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11124,9 +10365,7 @@
         "FINANCE_APPROVER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.costbydepartment"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11143,9 +10382,7 @@
         "FINANCE",
         "FINANCE_APPROVER"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.costbyvehicle"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11162,9 +10399,7 @@
         "FINANCE",
         "FINANCE_APPROVER"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.downtimecost"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11181,9 +10416,7 @@
         "FINANCE",
         "FINANCE_APPROVER"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.monthlytrend"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11202,9 +10435,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.partsbytechnician"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11221,9 +10452,7 @@
         "FINANCE",
         "FINANCE_APPROVER"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.summary"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11240,9 +10469,7 @@
         "FINANCE",
         "FINANCE_APPROVER"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.repairvsreplace"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11260,9 +10487,7 @@
         "FINANCE_APPROVER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.repeatedbreakdowns"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11279,9 +10504,7 @@
         "FINANCE",
         "FINANCE_APPROVER"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.topassets"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11298,9 +10521,7 @@
         "FINANCE",
         "FINANCE_APPROVER"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.topvehicles"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11317,9 +10538,7 @@
         "FINANCE",
         "FINANCE_APPROVER"
       ],
-      "permissions": [
-        "access.managementintelligencecontroller.vendorcomparison"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11343,9 +10562,7 @@
         "VIEWER",
         "DRIVER"
       ],
-      "permissions": [
-        "access.reportscontroller.options"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11369,9 +10586,7 @@
         "VIEWER",
         "DRIVER"
       ],
-      "permissions": [
-        "access.reportscontroller.templates"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11383,9 +10598,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.reportscontroller.savetemplate"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11409,9 +10622,7 @@
         "VIEWER",
         "DRIVER"
       ],
-      "permissions": [
-        "access.reportscontroller.utilities"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11435,9 +10646,7 @@
         "VIEWER",
         "DRIVER"
       ],
-      "permissions": [
-        "access.reportscontroller.workorders"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11454,9 +10663,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.workordercategoryreportscontroller.categorychanges"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11473,9 +10680,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.workordercategoryreportscontroller.categorysummary"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11492,9 +10697,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.workordercategoryreportscontroller.exportcategorysummary"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11511,9 +10714,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.workordercategoryreportscontroller.topissues"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11530,9 +10731,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.workordercategoryreportscontroller.triage"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11630,8 +10829,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.enterprisegovernancecontroller.issuekey"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -11645,8 +10843,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.enterprisegovernancecontroller.revokekey"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -11822,8 +11019,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.enterprisegovernancecontroller.listsod"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -11837,8 +11033,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.enterprisegovernancecontroller.upsertsod"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -11853,8 +11048,7 @@
         "MANAGER"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.enterprisegovernancecontroller.evaluatesod"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -11872,9 +11066,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.supplierscontroller.findall"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11889,9 +11081,7 @@
         "MANAGER",
         "OPERATIONS_MANAGER"
       ],
-      "permissions": [
-        "access.supplierscontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11908,9 +11098,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.supplierscontroller.findone"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11925,9 +11113,7 @@
         "MANAGER",
         "OPERATIONS_MANAGER"
       ],
-      "permissions": [
-        "access.supplierscontroller.update"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -11941,9 +11127,7 @@
         "MANAGER",
         "OPERATIONS_MANAGER"
       ],
-      "permissions": [
-        "access.supplierscontroller.blacklist"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12168,9 +11352,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.peoplecontroller.listassignabletechnicians"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12185,8 +11367,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.enterprisegovernancecontroller.temporaryrepair"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -12200,9 +11381,7 @@
         "ADMIN",
         "MANAGER"
       ],
-      "permissions": [
-        "access.invitationscontroller.listinvitations"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12215,9 +11394,7 @@
         "ADMIN",
         "MANAGER"
       ],
-      "permissions": [
-        "access.invitationscontroller.createinvitation"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12316,9 +11493,7 @@
         "DRIVER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.tripscontroller.alltrips"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12453,9 +11628,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.utilitiescontroller.analytics"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12469,9 +11642,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.utilitiescontroller.bills"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12484,9 +11655,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.utilitiescontroller.createbill"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12500,9 +11669,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.utilitiescontroller.bill"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12515,9 +11682,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.utilitiescontroller.pay"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12530,9 +11695,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.utilitiescontroller.overdue"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12545,9 +11708,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.utilitiescontroller.paybybody"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12563,9 +11724,7 @@
         "TECHNICIAN",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.utilitiescontroller.meters"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12578,9 +11737,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.utilitiescontroller.createmeter"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12594,9 +11751,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.utilitiescontroller.meter"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12609,9 +11764,7 @@
         "ADMIN",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.utilitiescontroller.updatemeter"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12625,9 +11778,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.utilitiescontroller.consumptionchart"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12643,9 +11794,7 @@
         "TECHNICIAN",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.utilitiescontroller.readings"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12661,9 +11810,7 @@
         "TECHNICIAN",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.utilitiescontroller.addreading"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12679,9 +11826,7 @@
         "TECHNICIAN",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.utilitiescontroller.allreadings"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12697,9 +11842,7 @@
         "TECHNICIAN",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.utilitiescontroller.addreadingbymeter"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -12778,8 +11921,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "vehicles.create",
-        "access.vehiclescontroller.create"
+        "vehicles.create"
       ],
       "isPublic": false
     },
@@ -13080,8 +12222,7 @@
         "MANAGER"
       ],
       "permissions": [
-        "vendor.manage",
-        "access.vendorportalcontroller.grant"
+        "vendor.manage"
       ],
       "isPublic": false
     },
@@ -13099,8 +12240,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "vendor.portal",
-        "access.vendorportalcontroller.listjobs"
+        "vendor.portal"
       ],
       "isPublic": false
     },
@@ -13118,8 +12258,7 @@
         "VIEWER"
       ],
       "permissions": [
-        "vendor.portal",
-        "access.vendorportalcontroller.getjob"
+        "vendor.portal"
       ],
       "isPublic": false
     },
@@ -13135,8 +12274,7 @@
         "VENDOR"
       ],
       "permissions": [
-        "vendor.portal",
-        "access.vendorportalcontroller.progress"
+        "vendor.portal"
       ],
       "isPublic": false
     },
@@ -13152,8 +12290,7 @@
         "VENDOR"
       ],
       "permissions": [
-        "vendor.portal",
-        "access.vendorportalcontroller.quote"
+        "vendor.portal"
       ],
       "isPublic": false
     },
@@ -13173,8 +12310,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "warranty.view",
-        "access.warrantiescontroller.list"
+        "warranty.view"
       ],
       "isPublic": false
     },
@@ -13189,8 +12325,7 @@
         "MANAGER"
       ],
       "permissions": [
-        "warranty.manage",
-        "access.warrantiescontroller.create"
+        "warranty.manage"
       ],
       "isPublic": false
     },
@@ -13208,8 +12343,7 @@
         "FINANCE"
       ],
       "permissions": [
-        "warranty.view",
-        "access.warrantiescontroller.listclaims"
+        "warranty.view"
       ],
       "isPublic": false
     },
@@ -13225,8 +12359,7 @@
         "SUPERVISOR"
       ],
       "permissions": [
-        "warranty.manage",
-        "access.warrantiescontroller.createclaim"
+        "warranty.manage"
       ],
       "isPublic": false
     },
@@ -13241,8 +12374,7 @@
         "MANAGER"
       ],
       "permissions": [
-        "warranty.manage",
-        "access.warrantiescontroller.transition"
+        "warranty.manage"
       ],
       "isPublic": false
     },
@@ -13262,9 +12394,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.workorderscontroller.findall"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13280,8 +12410,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.workorderscontroller.create"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -13295,8 +12424,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.workorderscontroller.remove"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -13315,9 +12443,7 @@
         "TECHNICIAN",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.findone"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13333,8 +12459,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.workorderscontroller.update"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -13353,9 +12478,7 @@
         "TECHNICIAN",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.activitytimeline"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13370,8 +12493,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.workorderscontroller.approveworkorder"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -13388,8 +12510,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "work_orders.assign",
-        "access.workorderscontroller.assign"
+        "work_orders.assign"
       ],
       "isPublic": false
     },
@@ -13407,9 +12528,7 @@
         "MECHANIC",
         "TECHNICIAN"
       ],
-      "permissions": [
-        "access.workorderscontroller.listassignees"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13425,8 +12544,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.workorderscontroller.addassignee"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -13443,8 +12561,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.workorderscontroller.removeassignee"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -13459,9 +12576,7 @@
         "ASSET_MANAGER",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.workorderscontroller.attachments"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13477,9 +12592,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.classifytriage"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13495,8 +12608,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "work_orders.close",
-        "access.workorderscontroller.closeworkorder"
+        "work_orders.close"
       ],
       "isPublic": false
     },
@@ -13515,8 +12627,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "work_orders.complete",
-        "access.workorderscontroller.completetechnician"
+        "work_orders.complete"
       ],
       "isPublic": false
     },
@@ -13539,9 +12650,7 @@
         "SUPERVISOR",
         "VIEWER"
       ],
-      "permissions": [
-        "access.workorderscontroller.domaincontext"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13559,8 +12668,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "reliability.view",
-        "access.reliabilitycontroller.listdowntime"
+        "reliability.view"
       ],
       "isPublic": false
     },
@@ -13578,8 +12686,7 @@
         "MECHANIC"
       ],
       "permissions": [
-        "reliability.manage",
-        "access.reliabilitycontroller.opendowntime"
+        "reliability.manage"
       ],
       "isPublic": false
     },
@@ -13599,9 +12706,7 @@
         "FACILITY_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.listevidence"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13618,9 +12723,7 @@
         "FACILITY_MANAGER",
         "MANAGER"
       ],
-      "permissions": [
-        "access.workorderscontroller.createevidence"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13637,9 +12740,7 @@
         "FACILITY_MANAGER",
         "MANAGER"
       ],
-      "permissions": [
-        "access.workorderscontroller.deleteevidence"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13656,9 +12757,7 @@
         "FACILITY_MANAGER",
         "MANAGER"
       ],
-      "permissions": [
-        "access.workorderscontroller.patchevidence"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13674,9 +12773,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.acceptevidence"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13695,9 +12792,7 @@
         "FACILITY_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.downloadevidencecontent"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13714,9 +12809,7 @@
         "FACILITY_MANAGER",
         "MANAGER"
       ],
-      "permissions": [
-        "access.workorderscontroller.storeevidencecontent"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13732,9 +12825,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.rejectevidence"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13751,9 +12842,7 @@
         "FACILITY_MANAGER",
         "MANAGER"
       ],
-      "permissions": [
-        "access.workorderscontroller.confirmevidenceupload"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13770,9 +12859,7 @@
         "FACILITY_MANAGER",
         "MANAGER"
       ],
-      "permissions": [
-        "access.workorderscontroller.createevidenceuploadrequest"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13790,9 +12877,7 @@
         "TECHNICIAN",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.workorderhistory"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13810,8 +12895,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "work_orders.hold",
-        "access.workorderscontroller.holdworkorder"
+        "work_orders.hold"
       ],
       "isPublic": false
     },
@@ -13830,9 +12914,7 @@
         "TECHNICIAN",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.insights"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13851,8 +12933,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "work_orders.correct",
-        "access.workorderscontroller.correctlabourentry"
+        "work_orders.correct"
       ],
       "isPublic": false
     },
@@ -13871,9 +12952,7 @@
         "MECHANIC",
         "TECHNICIAN"
       ],
-      "permissions": [
-        "access.workorderscontroller.nextactions"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13890,9 +12969,7 @@
         "MECHANIC",
         "TECHNICIAN"
       ],
-      "permissions": [
-        "access.workorderscontroller.notes"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -13912,8 +12989,7 @@
         "SUPERVISOR"
       ],
       "permissions": [
-        "part_requests.view",
-        "access.workorderscontroller.listpartrequests"
+        "part_requests.view"
       ],
       "isPublic": false
     },
@@ -13931,8 +13007,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "part_requests.create",
-        "access.workorderscontroller.createpartrequest"
+        "part_requests.create"
       ],
       "isPublic": false
     },
@@ -13948,8 +13023,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "part_requests.approve_finance",
-        "access.workorderscontroller.approvepartrequestfinance"
+        "part_requests.approve_finance"
       ],
       "isPublic": false
     },
@@ -13967,8 +13041,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "part_requests.approve_operational",
-        "access.workorderscontroller.approvepartrequestoperational"
+        "part_requests.approve_operational"
       ],
       "isPublic": false
     },
@@ -13986,8 +13059,7 @@
       ],
       "permissions": [
         "part_requests.issue",
-        "inventory.stock_issue",
-        "access.workorderscontroller.issuepartrequest"
+        "inventory.stock_issue"
       ],
       "isPublic": false
     },
@@ -14004,8 +13076,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "part_requests.reject",
-        "access.workorderscontroller.rejectpartrequest"
+        "part_requests.reject"
       ],
       "isPublic": false
     },
@@ -14024,9 +13095,7 @@
         "MANAGER",
         "OPERATIONS_MANAGER"
       ],
-      "permissions": [
-        "access.workorderscontroller.parts"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14042,8 +13111,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.stock_issue",
-        "access.workorderscontroller.addpart"
+        "inventory.stock_issue"
       ],
       "isPublic": false
     },
@@ -14060,8 +13128,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "inventory.stock_issue",
-        "access.workorderscontroller.confirmpartreturn"
+        "inventory.stock_issue"
       ],
       "isPublic": false
     },
@@ -14078,9 +13145,7 @@
         "INVENTORY_KEEPER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.workorderscontroller.requestpartreturn"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14096,9 +13161,7 @@
         "INVENTORY_KEEPER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.workorderscontroller.markpartused"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14116,9 +13179,7 @@
         "MANAGER",
         "OPERATIONS_MANAGER"
       ],
-      "permissions": [
-        "access.workorderscontroller.partssummary"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14134,8 +13195,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "work_orders.plan",
-        "access.workorderscontroller.planwork"
+        "work_orders.plan"
       ],
       "isPublic": false
     },
@@ -14154,8 +13214,7 @@
         "PLANNER"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.jobreadinesscontroller.getreadiness"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -14171,8 +13230,7 @@
         "OPERATIONS_MANAGER"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.workorderscontroller.rejectworkorder"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -14189,8 +13247,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.workorderscontroller.rejectsupervisor"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -14204,8 +13261,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.workorderscontroller.reopenworkorder"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -14222,9 +13278,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.requesterconfirmation"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14242,8 +13296,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "work_orders.resume",
-        "access.workorderscontroller.resumeworkorder"
+        "work_orders.resume"
       ],
       "isPublic": false
     },
@@ -14262,8 +13315,7 @@
         "FLEET_MANAGER"
       ],
       "permissions": [
-        "work_orders.verify",
-        "access.workorderscontroller.returntoservice"
+        "work_orders.verify"
       ],
       "isPublic": false
     },
@@ -14282,8 +13334,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "work_orders.start",
-        "access.workorderscontroller.startworkorder"
+        "work_orders.start"
       ],
       "isPublic": false
     },
@@ -14302,8 +13353,7 @@
         "TECHNICIAN"
       ],
       "permissions": [
-        "work_orders.update_status",
-        "access.workorderscontroller.updatestatus"
+        "work_orders.update_status"
       ],
       "isPublic": false
     },
@@ -14323,8 +13373,7 @@
       ],
       "permissions": [
         "work_orders.manage",
-        "work_orders.update_status",
-        "access.workorderscontroller.submitforapproval"
+        "work_orders.update_status"
       ],
       "isPublic": false
     },
@@ -14341,9 +13390,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.changetaxonomy"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14361,9 +13408,7 @@
         "TECHNICIAN",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.workorderscontroller.getvendorrepair"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14379,9 +13424,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.authorizevendorwork"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14395,9 +13438,7 @@
         "MANAGER",
         "OPERATIONS_MANAGER"
       ],
-      "permissions": [
-        "access.workorderscontroller.closevendorrepair"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14413,9 +13454,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.submitinvoice"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14429,9 +13468,7 @@
         "MANAGER",
         "OPERATIONS_MANAGER"
       ],
-      "permissions": [
-        "access.workorderscontroller.approveinvoice"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14445,9 +13482,7 @@
         "MANAGER",
         "OPERATIONS_MANAGER"
       ],
-      "permissions": [
-        "access.workorderscontroller.rejectinvoice"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14463,9 +13498,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.addquotation"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14481,9 +13514,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.approvequotation"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14499,9 +13530,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.rejectquotation"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14517,9 +13546,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.requestvendorrepair"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14535,9 +13562,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.selectvendor"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14555,9 +13580,7 @@
         "TECHNICIAN",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.workorderscontroller.markvendorcompleted"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14574,9 +13597,7 @@
         "FACILITY_MANAGER",
         "MANAGER"
       ],
-      "permissions": [
-        "access.workorderscontroller.verifyqr"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14592,8 +13613,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "work_orders.verify",
-        "access.workorderscontroller.verifysupervisor"
+        "work_orders.verify"
       ],
       "isPublic": false
     },
@@ -14613,9 +13633,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.workorderscontroller.actionrequired"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14632,8 +13650,7 @@
         "SUPERVISOR"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.workorderscontroller.bulkassign"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -14651,8 +13668,7 @@
         "SUPERVISOR"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.workorderscontroller.bulkstatus"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -14670,9 +13686,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.workorderscontroller.categorysummary"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14688,9 +13702,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.governanceexceptions"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14707,9 +13719,7 @@
         "INVENTORY_KEEPER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.partsgovernanceexceptions"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14731,9 +13741,7 @@
         "FACILITY_MANAGER",
         "BUILDING_SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.maintenancehistory"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14749,8 +13757,7 @@
         "ASSET_MANAGER"
       ],
       "permissions": [
-        "work_orders.manage",
-        "access.workorderscontroller.listjobcategories"
+        "work_orders.manage"
       ],
       "isPublic": false
     },
@@ -14769,9 +13776,7 @@
         "TECHNICIAN",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workorderscontroller.myjobs"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14796,9 +13801,7 @@
         "VIEWER",
         "FINANCE"
       ],
-      "permissions": [
-        "access.workorderscontroller.queuesummary"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14817,9 +13820,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.workorderscontroller.queueitems"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14831,9 +13832,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.workorderscontroller.queuediagnostics"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14852,9 +13851,7 @@
         "SUPERVISOR",
         "INVENTORY_KEEPER"
       ],
-      "permissions": [
-        "access.workorderscontroller.smartviews"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14870,9 +13867,7 @@
         "ASSET_MANAGER",
         "SUPERVISOR"
       ],
-      "permissions": [
-        "access.workordertaxonomycontroller.list"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14884,9 +13879,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.workordertaxonomycontroller.create"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14898,9 +13891,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.workordertaxonomycontroller.update"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14912,9 +13903,7 @@
         "SUPER_ADMIN",
         "ADMIN"
       ],
-      "permissions": [
-        "access.workordertaxonomycontroller.deactivate"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14929,9 +13918,7 @@
         "OPERATIONS_MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.workordertaxonomycontroller.usage"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14952,9 +13939,7 @@
         "VIEWER",
         "DRIVER"
       ],
-      "permissions": [
-        "access.workorderscontroller.searchtaxonomy"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14975,9 +13960,7 @@
         "VIEWER",
         "DRIVER"
       ],
-      "permissions": [
-        "access.workorderscontroller.suggesttaxonomy"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -14995,8 +13978,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "safety.permit.view",
-        "access.reliabilitycontroller.listpermits"
+        "safety.permit.view"
       ],
       "isPublic": false
     },
@@ -15012,8 +13994,7 @@
         "SUPERVISOR"
       ],
       "permissions": [
-        "safety.permit.manage",
-        "access.reliabilitycontroller.createpermit"
+        "safety.permit.manage"
       ],
       "isPublic": false
     },
@@ -15029,8 +14010,7 @@
         "SUPERVISOR"
       ],
       "permissions": [
-        "safety.permit.manage",
-        "access.reliabilitycontroller.transitionpermit"
+        "safety.permit.manage"
       ],
       "isPublic": false
     },
@@ -15046,8 +14026,7 @@
         "AUDITOR"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.workflowenginecontroller.list"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -15061,8 +14040,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.workflowenginecontroller.publish"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -15076,8 +14054,7 @@
         "ADMIN"
       ],
       "permissions": [
-        "admin.organization.manage",
-        "access.workflowenginecontroller.ensuredefault"
+        "admin.organization.manage"
       ],
       "isPublic": false
     },
@@ -15093,9 +14070,7 @@
         "OPERATIONS_MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.workforcecontroller.assignmentpreview"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -15111,9 +14086,7 @@
         "ASSET_MANAGER",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.workforcecontroller.listemployees"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -15127,9 +14100,7 @@
         "MANAGER",
         "OPERATIONS_MANAGER"
       ],
-      "permissions": [
-        "access.workforcecontroller.createemployee"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -15145,9 +14116,7 @@
         "ASSET_MANAGER",
         "MECHANIC"
       ],
-      "permissions": [
-        "access.workforcecontroller.getemployee"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -15161,9 +14130,7 @@
         "MANAGER",
         "OPERATIONS_MANAGER"
       ],
-      "permissions": [
-        "access.workforcecontroller.updateemployee"
-      ],
+      "permissions": [],
       "isPublic": false
     },
     {
@@ -15178,9 +14145,7 @@
         "OPERATIONS_MANAGER",
         "ASSET_MANAGER"
       ],
-      "permissions": [
-        "access.workforcecontroller.workloadsummary"
-      ],
+      "permissions": [],
       "isPublic": false
     }
   ]

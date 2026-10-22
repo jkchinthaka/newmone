@@ -50,7 +50,7 @@ export class ReportsController {
 
   @Get("maintenance-costs/export")
   @Roles(...REPORT_READ_ROLES)
-  @Permissions("reports.view", "access.reportscontroller.exportmaintenancecosts")
+  @Permissions("reports.view")
   async exportMaintenanceCosts(@Req() req: AuthedRequest, @Query() query: Record<string, string>, @Res() res: Response) {
     const result = await this.maintenanceCosts.list(req.user, { ...query, page: "1", pageSize: "5000" });
     const header = ["WO number", "Title", "Status", "Asset", "Period parts", "Period labour", "Period services", "Period total", "Currency", "Completeness", "Lifetime actual", "Variance amount", "Variance percent", "Variance label"];
@@ -82,7 +82,7 @@ export class ReportsController {
 
   @Get("maintenance-costs")
   @Roles(...REPORT_READ_ROLES)
-  @Permissions("reports.view", "access.reportscontroller.maintenancecostsreport")
+  @Permissions("reports.view")
   async maintenanceCostsReport(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
     const result = await this.maintenanceCosts.list(req.user, query);
     return {
@@ -94,7 +94,6 @@ export class ReportsController {
 
   @Get("options")
   @Roles(...REPORT_READ_ROLES)
-  @Permissions("access.reportscontroller.options")
   async options(@Req() req: AuthedRequest) {
     const data = await this.reportsService.options(req.user);
     return { data, message: "Report filter options fetched" };
@@ -102,7 +101,6 @@ export class ReportsController {
 
   @Get("dashboard")
   @Roles(...REPORT_READ_ROLES)
-  @Permissions("access.reportscontroller.dashboard")
   async dashboard(@Req() req: AuthedRequest, @Query() query: ReportQuery) {
     const data = await this.reportsService.dashboard(req.user, parseValidatedReportQuery(query));
     return { data, message: "Reports dashboard fetched" };
@@ -110,7 +108,6 @@ export class ReportsController {
 
   @Get("erp-monitoring")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "FINANCE", "PROCUREMENT_OFFICER")
-  @Permissions("access.reportscontroller.erpmonitoring")
   async erpMonitoring(@Req() req: AuthedRequest) {
     const data = await this.erpMonitoringService.getSafeSummary(req.user.tenantId ?? null);
     return { data, message: "ERP monitoring summary fetched" };
@@ -118,7 +115,6 @@ export class ReportsController {
 
   @Get("maintenance-cost")
   @Roles(...REPORT_READ_ROLES)
-  @Permissions("access.reportscontroller.maintenancecost")
   async maintenanceCost(@Req() req: AuthedRequest) {
     const data = await this.reportsService.maintenanceCost(req.user);
     return { data, message: "Maintenance cost report fetched" };
@@ -126,7 +122,6 @@ export class ReportsController {
 
   @Get("fleet-efficiency")
   @Roles(...REPORT_READ_ROLES)
-  @Permissions("access.reportscontroller.fleetefficiency")
   async fleetEfficiency(@Req() req: AuthedRequest) {
     const data = await this.reportsService.fleetEfficiency(req.user);
     return { data, message: "Fleet efficiency report fetched" };
@@ -134,7 +129,6 @@ export class ReportsController {
 
   @Get("downtime")
   @Roles(...REPORT_READ_ROLES)
-  @Permissions("access.reportscontroller.downtime")
   async downtime(@Req() req: AuthedRequest) {
     const data = await this.reportsService.downtime(req.user);
     return { data, message: "Downtime report fetched" };
@@ -142,7 +136,6 @@ export class ReportsController {
 
   @Get("work-orders")
   @Roles(...REPORT_READ_ROLES)
-  @Permissions("access.reportscontroller.workorders")
   async workOrders(@Req() req: AuthedRequest) {
     const data = await this.reportsService.workOrders(req.user);
     return { data, message: "Work order report fetched" };
@@ -150,7 +143,6 @@ export class ReportsController {
 
   @Get("inventory")
   @Roles(...REPORT_READ_ROLES)
-  @Permissions("access.reportscontroller.inventory")
   async inventory(@Req() req: AuthedRequest) {
     const data = await this.reportsService.inventory(req.user);
     return { data, message: "Inventory report fetched" };
@@ -158,7 +150,6 @@ export class ReportsController {
 
   @Get("utilities")
   @Roles(...REPORT_READ_ROLES)
-  @Permissions("access.reportscontroller.utilities")
   async utilities(@Req() req: AuthedRequest) {
     const data = await this.reportsService.utilities(req.user);
     return { data, message: "Utilities report fetched" };
@@ -166,7 +157,6 @@ export class ReportsController {
 
   @Get("templates")
   @Roles(...REPORT_READ_ROLES)
-  @Permissions("access.reportscontroller.templates")
   async templates(@Req() req: AuthedRequest) {
     const data = await this.reportTemplates.list(req.user);
     return { data, message: "Report templates fetched" };
@@ -174,7 +164,6 @@ export class ReportsController {
 
   @Post("templates")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("access.reportscontroller.savetemplate")
   async saveTemplate(@Req() req: AuthedRequest, @Body() body: Partial<ReportTemplateDefinition>) {
     const data = await this.reportTemplates.save(req.user, body);
     return { data, message: "Report template saved" };
@@ -182,7 +171,6 @@ export class ReportsController {
 
   @Get(":module/export")
   @Roles(...REPORT_READ_ROLES)
-  @Permissions("access.reportscontroller.exportmodule")
   async exportModule(
     @Req() req: AuthedRequest,
     @Res() res: Response,
@@ -210,7 +198,6 @@ export class ReportsController {
 
   @Get(":module")
   @Roles(...REPORT_READ_ROLES)
-  @Permissions("access.reportscontroller.modulereport")
   async moduleReport(
     @Req() req: AuthedRequest,
     @Param("module") module: string,

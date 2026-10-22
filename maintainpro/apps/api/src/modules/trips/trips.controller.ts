@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Controller, Get, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
@@ -15,7 +14,6 @@ export class TripsController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "DRIVER", "SUPERVISOR")
-  @Permissions("access.tripscontroller.alltrips")
   async allTrips() {
     const data = await this.tripsService.allTrips();
     return { data, message: "Trips fetched" };

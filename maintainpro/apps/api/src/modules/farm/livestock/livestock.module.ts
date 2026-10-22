@@ -1,4 +1,3 @@
-import { Permissions } from "../../../common/decorators/permissions.decorator";
 import { Body, Controller, Delete, Get, Injectable, Module, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Prisma } from "@prisma/client";
@@ -113,7 +112,6 @@ export class LivestockController {
 
   @Get("animals")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VETERINARIAN", "VIEWER")
-  @Permissions("access.livestockcontroller.listanimals")
   async listAnimals(
     @Req() req: AuthedRequest,
     @Query("species") species?: string,
@@ -125,7 +123,6 @@ export class LivestockController {
 
   @Get("animals/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VETERINARIAN", "VIEWER")
-  @Permissions("access.livestockcontroller.getanimal")
   async getAnimal(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.getAnimal(id, req.user?.tenantId ?? null);
     return { data, message: "Animal fetched" };
@@ -133,7 +130,6 @@ export class LivestockController {
 
   @Post("animals")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VETERINARIAN")
-  @Permissions("access.livestockcontroller.createanimal")
   async createAnimal(@Req() req: AuthedRequest, @Body() body: Prisma.LivestockAnimalUncheckedCreateInput) {
     const data = await this.service.createAnimal(req.user?.tenantId ?? null, body);
     return { data, message: "Animal created" };
@@ -141,7 +137,6 @@ export class LivestockController {
 
   @Patch("animals/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VETERINARIAN")
-  @Permissions("access.livestockcontroller.updateanimal")
   async updateAnimal(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: Prisma.LivestockAnimalUncheckedUpdateInput) {
     const data = await this.service.updateAnimal(id, req.user?.tenantId ?? null, body);
     return { data, message: "Animal updated" };
@@ -149,7 +144,6 @@ export class LivestockController {
 
   @Delete("animals/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER")
-  @Permissions("access.livestockcontroller.removeanimal")
   async removeAnimal(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.removeAnimal(id, req.user?.tenantId ?? null);
     return { data, message: "Animal removed" };
@@ -157,7 +151,6 @@ export class LivestockController {
 
   @Get("animals/:id/health")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VETERINARIAN")
-  @Permissions("access.livestockcontroller.listhealth")
   async listHealth(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.listHealth(id, req.user?.tenantId ?? null);
     return { data, message: "Health records fetched" };
@@ -165,7 +158,6 @@ export class LivestockController {
 
   @Get("health")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VETERINARIAN", "VIEWER")
-  @Permissions("access.livestockcontroller.listallhealth")
   async listAllHealth(@Req() req: AuthedRequest) {
     const data = await this.service.listAllHealth(req.user?.tenantId ?? null);
     return { data, message: "Health records fetched" };
@@ -173,7 +165,6 @@ export class LivestockController {
 
   @Post("animals/:id/health")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VETERINARIAN")
-  @Permissions("access.livestockcontroller.createhealth")
   async createHealth(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: Omit<Prisma.AnimalHealthRecordUncheckedCreateInput, "animalId" | "tenantId">) {
     const data = await this.service.createHealth(req.user?.tenantId ?? null, { ...body, animalId: id } as Prisma.AnimalHealthRecordUncheckedCreateInput);
     return { data, message: "Health record created" };
@@ -181,7 +172,6 @@ export class LivestockController {
 
   @Get("animals/:id/production")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VETERINARIAN", "VIEWER")
-  @Permissions("access.livestockcontroller.listproduction")
   async listProduction(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.listProduction(id, req.user?.tenantId ?? null);
     return { data, message: "Production logs fetched" };
@@ -189,7 +179,6 @@ export class LivestockController {
 
   @Post("animals/:id/production")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VETERINARIAN", "FARM_WORKER")
-  @Permissions("access.livestockcontroller.createproduction")
   async createProduction(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: Omit<Prisma.AnimalProductionLogUncheckedCreateInput, "animalId" | "tenantId">) {
     const data = await this.service.createProduction(req.user?.tenantId ?? null, { ...body, animalId: id } as Prisma.AnimalProductionLogUncheckedCreateInput);
     return { data, message: "Production log created" };
@@ -197,7 +186,6 @@ export class LivestockController {
 
   @Get("feeding")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VETERINARIAN", "VIEWER")
-  @Permissions("access.livestockcontroller.listfeeding")
   async listFeeding(@Req() req: AuthedRequest) {
     const data = await this.service.listFeeding(req.user?.tenantId ?? null);
     return { data, message: "Feeding logs fetched" };
@@ -205,7 +193,6 @@ export class LivestockController {
 
   @Post("feeding")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VETERINARIAN", "FARM_WORKER")
-  @Permissions("access.livestockcontroller.createfeeding")
   async createFeeding(@Req() req: AuthedRequest, @Body() body: Prisma.FeedingLogUncheckedCreateInput) {
     const data = await this.service.createFeeding(req.user?.tenantId ?? null, body);
     return { data, message: "Feeding log created" };

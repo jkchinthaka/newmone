@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Body, Controller, Get, Param, Post, Put, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
@@ -37,7 +36,6 @@ export class WorkforceController {
 
   @Get("employees")
   @Roles(...WORKFORCE_EMPLOYEE_READERS)
-  @Permissions("access.workforcecontroller.listemployees")
   async listEmployees(
     @Req() req: AuthedRequest,
     @Query("designation") designation?: string,
@@ -65,7 +63,6 @@ export class WorkforceController {
 
   @Get("employees/:id")
   @Roles(...WORKFORCE_EMPLOYEE_READERS)
-  @Permissions("access.workforcecontroller.getemployee")
   async getEmployee(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workforceEmployees.findOne(req.user.tenantId, id);
     return { data, message: "Workforce employee fetched" };
@@ -73,7 +70,6 @@ export class WorkforceController {
 
   @Post("employees")
   @Roles(...WORKFORCE_EMPLOYEE_MANAGERS)
-  @Permissions("access.workforcecontroller.createemployee")
   async createEmployee(@Req() req: AuthedRequest, @Body() body: CreateWorkforceEmployeeDto) {
     const data = await this.workforceEmployees.create(req.user.tenantId ?? null, body);
     return { data, message: "Workforce employee created" };
@@ -81,7 +77,6 @@ export class WorkforceController {
 
   @Put("employees/:id")
   @Roles(...WORKFORCE_EMPLOYEE_MANAGERS)
-  @Permissions("access.workforcecontroller.updateemployee")
   async updateEmployee(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -93,7 +88,6 @@ export class WorkforceController {
 
   @Get("assignment-preview")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
-  @Permissions("access.workforcecontroller.assignmentpreview")
   async assignmentPreview(
     @Req() req: AuthedRequest,
     @Query("employeeId") employeeId: string,
@@ -113,7 +107,6 @@ export class WorkforceController {
 
   @Get("workload-summary")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
-  @Permissions("access.workforcecontroller.workloadsummary")
   async workloadSummary(
     @Req() req: AuthedRequest,
     @Query("designation") designation?: string,

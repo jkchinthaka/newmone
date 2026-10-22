@@ -1,4 +1,3 @@
-import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
@@ -20,7 +19,6 @@ export class SuppliersController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MANAGER", "OPERATIONS_MANAGER", "SUPERVISOR", "INVENTORY_KEEPER")
-  @Permissions("access.supplierscontroller.findall")
   async findAll(@Req() req: AuthedRequest) {
     const data = await this.suppliersService.findAll(req.user);
     return { data, message: "Suppliers fetched" };
@@ -28,7 +26,6 @@ export class SuppliersController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("access.supplierscontroller.create")
   async create(
     @Req() req: AuthedRequest,
     @Body()
@@ -52,7 +49,6 @@ export class SuppliersController {
 
   @Get(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MANAGER", "OPERATIONS_MANAGER", "SUPERVISOR", "INVENTORY_KEEPER")
-  @Permissions("access.supplierscontroller.findone")
   async findOne(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.suppliersService.findOne(id, req.user);
     return { data, message: "Supplier fetched" };
@@ -60,7 +56,6 @@ export class SuppliersController {
 
   @Patch(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("access.supplierscontroller.update")
   async update(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -86,7 +81,6 @@ export class SuppliersController {
 
   @Post(":id/blacklist")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("access.supplierscontroller.blacklist")
   async blacklist(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
