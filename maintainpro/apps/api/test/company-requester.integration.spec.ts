@@ -7,6 +7,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 import { MaintenanceRequestsService } from "../src/modules/maintenance-requests/maintenance-requests.service";
+import { deleteDisposableTenants } from "./disposable-tenant-cleanup";
 
 function databaseName(url: string): string {
   const match = url.match(/(?:database|initial catalog)\s*=\s*([^;]+)/i);
@@ -39,19 +40,103 @@ describeIfDb("company requester access (disposable SQL Server)", () => {
     { createNotification: jest.fn().mockResolvedValue(undefined) } as never
   );
   const createdRequestIds: string[] = [];
+  const createdUserIds: string[] = [];
+  const createdRoleIds: string[] = [];
+  let isolationTenantId = "";
 
   beforeAll(async () => {
     await prisma.$connect();
   });
 
   afterAll(async () => {
-    if (createdRequestIds.length) {
-      await prisma.maintenanceRequestHistory.deleteMany({
-        where: { requestId: { in: createdRequestIds } }
-      });
-      await prisma.maintenanceRequest.deleteMany({ where: { id: { in: createdRequestIds } } });
+    const fixtureRoleNames = DEPARTMENTS.map((label) => `QA_${label.toUpperCase()}_REQUESTER`);
+    const fixtureEmail = /^qa-(finance|farm|sales|warehouse|production)-requester-\d+@maintainpro\.test$/i;
+    try {
+      const [priorUsers, priorRoles, priorTenants, priorRequests] = await Promise.all([
+        prisma.user.findMany({
+          where: { email: { startsWith: "qa-", endsWith: "@maintainpro.test" } },
+          select: { id: true, email: true }
+        }),
+        prisma.role.findMany({
+          where: { name: { in: fixtureRoleNames } },
+          select: { id: true }
+        }),
+        prisma.tenant.findMany({
+          where: { slug: { startsWith: "req-iso-" } },
+          select: { id: true, slug: true }
+        }),
+        prisma.maintenanceRequest.findMany({
+          where: { reportedBy: { email: { startsWith: "qa-", endsWith: "@maintainpro.test" } } },
+          select: { id: true, reportedBy: { select: { email: true } } }
+        })
+      ]);
+      const userIds = [
+        ...new Set([
+          ...createdUserIds,
+          ...priorUsers.filter((row) => fixtureEmail.test(row.email)).map((row) => row.id)
+        ])
+      ];
+      const roleIds = [...new Set([...createdRoleIds, ...priorRoles.map((row) => row.id)])];
+      const requestIds = [
+        ...new Set([
+          ...createdRequestIds,
+          ...priorRequests.filter((row) => fixtureEmail.test(row.reportedBy?.email ?? "")).map((row) => row.id)
+        ])
+      ];
+      const isolationIds = [
+        ...new Set([
+          isolationTenantId,
+          ...priorTenants.filter((row) => /^req-iso-\d+$/.test(row.slug)).map((row) => row.id)
+        ].filter(Boolean))
+      ];
+      if (requestIds.length || userIds.length || roleIds.length) {
+        await prisma.$transaction(
+          async (tx) => {
+            await tx.$executeRawUnsafe(`DISABLE TRIGGER [dbo].[trg_AuditLog_immutable] ON [dbo].[AuditLog]`);
+            try {
+              if (requestIds.length) {
+                await tx.auditLog.deleteMany({
+                  where: { entity: "MaintenanceRequest", entityId: { in: requestIds } }
+                });
+                await tx.maintenanceRequestHistory.deleteMany({ where: { requestId: { in: requestIds } } });
+                await tx.maintenanceRequest.deleteMany({ where: { id: { in: requestIds } } });
+              }
+              if (userIds.length) {
+                await tx.auditLog.deleteMany({ where: { actorId: { in: userIds } } });
+                await tx.notification.deleteMany({ where: { userId: { in: userIds } } });
+                await tx.refreshToken.deleteMany({ where: { userId: { in: userIds } } });
+                await tx.tenantMembership.deleteMany({ where: { userId: { in: userIds } } });
+                await tx.userInvitation.deleteMany({
+                  where: { OR: [{ userId: { in: userIds } }, { invitedById: { in: userIds } }] }
+                });
+                await tx.userSkill.deleteMany({ where: { userId: { in: userIds } } });
+                await tx.department.updateMany({
+                  where: { managerId: { in: userIds } },
+                  data: { managerId: null }
+                });
+                await tx.maintenanceRequestHistory.updateMany({
+                  where: { actorId: { in: userIds } },
+                  data: { actorId: null }
+                });
+                await tx.user.deleteMany({ where: { id: { in: userIds } } });
+              }
+              if (roleIds.length) {
+                await tx.rolePermission.deleteMany({ where: { roleId: { in: roleIds } } });
+                await tx.role.deleteMany({ where: { id: { in: roleIds }, name: { in: fixtureRoleNames } } });
+              }
+            } finally {
+              await tx.$executeRawUnsafe(`ENABLE TRIGGER [dbo].[trg_AuditLog_immutable] ON [dbo].[AuditLog]`);
+            }
+          },
+          { timeout: 60_000 }
+        );
+      }
+      if (isolationIds.length) {
+        await deleteDisposableTenants(prisma, isolationIds);
+      }
+    } finally {
+      await prisma.$disconnect();
     }
-    await prisma.$disconnect();
   });
 
   it("lets each department requester report and read only their own request", async () => {
@@ -69,6 +154,7 @@ describeIfDb("company requester access (disposable SQL Server)", () => {
       data: { name: "Requester isolation tenant", slug: `req-iso-${Date.now()}` },
       select: { id: true }
     });
+    isolationTenantId = otherTenant.id;
 
     const actors: Array<{ label: string; sub: string; role: string; requestNumber: string; requestId: string }> = [];
 
@@ -76,6 +162,7 @@ describeIfDb("company requester access (disposable SQL Server)", () => {
       const role = await prisma.role.create({
         data: { tenantId: tenant.id, name: `QA_${label.toUpperCase()}_REQUESTER` }
       });
+      createdRoleIds.push(role.id);
       await prisma.rolePermission.createMany({
         data: permissions.map((permission) => ({ roleId: role.id, permissionId: permission.id }))
       });
@@ -91,6 +178,7 @@ describeIfDb("company requester access (disposable SQL Server)", () => {
           isActive: true
         }
       });
+      createdUserIds.push(user.id);
       const actor = {
         sub: user.id,
         role: role.name,
