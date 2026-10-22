@@ -22,7 +22,9 @@ export const COMPATIBLE_PERMISSION_ALIASES: Readonly<Record<string, readonly str
     "cleaning.report_issue",
     "cleaning.manage"
   ],
-  "maintenance_requests.view_own": ["facility_issues.view", "facility_issues.report"],
+  // Anyone who may raise a request may list and open their own (the service scopes the
+  // list and detail to reportedById unless the caller holds view_all or triage).
+  "maintenance_requests.view_own": ["facility_issues.view", "facility_issues.report", "maintenance_requests.create"],
   "maintenance_requests.view_all": ["facility_issues.view", "facility_issues.manage"],
   "maintenance_requests.triage": ["facility_issues.manage"],
   "maintenance_requests.approve": ["facility_issues.manage"],
