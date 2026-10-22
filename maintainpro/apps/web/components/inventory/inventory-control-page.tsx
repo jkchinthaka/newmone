@@ -3,9 +3,16 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Boxes, Database, Lock, Package, Upload, type LucideIcon } from "lucide-react";
 
 import { ActiveFilterChips, JobsEmptyState, JobsLoadingSkeleton, JobsPagination, OperationalJobsHeader } from "@/components/operational";
+import { BarList, KpiCard, SectionCard } from "@/components/ui/dashboard";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { visibleTopUsedParts } from "@/lib/batch-3-presentation";
+import { canReadInventoryAnalytics } from "@/lib/user-role";
+import type { StatusTone } from "@/lib/dashboard-status";
+import { getTopUsedParts } from "./api";
+import type { TopUsedPartPoint } from "./types";
 import {
   INVENTORY_EMPTY,
   INVENTORY_QUANTITY_CAPTION,
@@ -56,6 +63,7 @@ export function InventoryControlPage() {
   const [menuId, setMenuId] = useState<string | null>(null);
   const [movements, setMovements] = useState<Array<{ id: string; type?: string; quantity?: number; createdAt?: string }> | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [topUsed, setTopUsed] = useState<TopUsedPartPoint[] | null>(null);
 
   useEffect(() => setDraftQuery(state.q), [state.q]);
   useEffect(() => {
@@ -70,6 +78,25 @@ export function InventoryControlPage() {
     const query = inventoryControlSearch(next);
     router.replace((query ? `${pathname}?${query}` : pathname) as never);
   }
+
+  useEffect(() => {
+    if (!canReadInventoryAnalytics()) {
+      setTopUsed(null);
+      return;
+    }
+    let cancelled = false;
+    setTopUsed(null);
+    void getTopUsedParts(8, 30)
+      .then((rows) => {
+        if (!cancelled) setTopUsed(visibleTopUsedParts(rows));
+      })
+      .catch(() => {
+        if (!cancelled) setTopUsed(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -167,29 +194,41 @@ export function InventoryControlPage() {
         }
       />
       {summaryError ? (
-        <p className="text-sm text-rose-700" role="alert">{summaryError}</p>
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+          <p className="text-sm text-rose-800">{summaryError}</p>
+          <button type="button" className="h-9 rounded-md border border-rose-300 bg-white px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>Retry</button>
+        </div>
       ) : (
         <>
-          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6" aria-label="Inventory summary">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6" aria-label="Inventory summary">
             {(
               [
-                ["Total parts", summary?.totalItems],
-                ["ERP snapshot", summary?.onHand],
-                ["Reserved", summary?.reserved],
-                ["Advisory", summary?.available],
-                ["Snapshot zero", summary?.outOfStock],
-                ["Pending imports", summary?.pendingImports]
-              ] as Array<[string, number | undefined]>
-            ).map(([label, value]) => (
-              <div key={label} className="rounded-card border border-slate-200 bg-white p-4 shadow-card">
-                <dt className="text-sm font-medium text-slate-600">{label}</dt>
-                <dd className="mt-3 text-2xl font-semibold tabular-nums text-slate-900">{value ?? "–"}</dd>
-              </div>
+                ["Total parts", summary?.totalItems, Package, "neutral"],
+                ["ERP snapshot", summary?.onHand, Database, "sky"],
+                ["Reserved", summary?.reserved, Lock, "amber"],
+                ["Advisory", summary?.available, Boxes, "emerald"],
+                ["Snapshot zero", summary?.outOfStock, AlertTriangle, "red"],
+                ["Pending imports", summary?.pendingImports, Upload, "neutral"]
+              ] as Array<[string, number | undefined, LucideIcon, StatusTone]>
+            ).map(([label, value, Icon, tone]) => (
+              <KpiCard
+                key={label}
+                compact
+                icon={Icon}
+                label={label}
+                tone={typeof value === "number" && value > 0 ? tone : "neutral"}
+                value={value == null ? "–" : String(value)}
+              />
             ))}
-          </dl>
+          </div>
           <p className="text-sm text-slate-600">{INVENTORY_QUANTITY_CAPTION}</p>
         </>
       )}
+      {topUsed ? (
+        <SectionCard title="Most used parts (30 days)" description="Units issued">
+          <BarList items={topUsed.map((row) => ({ name: row.partName, value: row.quantity }))} />
+        </SectionCard>
+      ) : null}
       <div className="flex flex-wrap gap-3 text-sm">
         <button type="button" className="text-brand-800" onClick={() => write({ ...inventoryControlFromSearch(new URLSearchParams()), stock: "out", pageSize: state.pageSize })}>Show snapshot zero</button>
         <Link href={"/inventory/erp-import" as never} className="text-brand-800">Pending imports</Link>

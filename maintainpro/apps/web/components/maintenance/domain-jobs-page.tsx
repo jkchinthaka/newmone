@@ -23,7 +23,7 @@ export function DomainJobsPage({ jobDomain, title, description }: DomainJobsPage
         ? "Service jobs by location and service type."
         : jobDomain === "VEHICLE"
           ? "Vehicle jobs with registration and odometer."
-          : "All executable maintenance jobs across machinery, service, and vehicle domains.");
+          : "All maintenance jobs across machinery, vehicles and services.");
 
   return (
     <WorkOrdersPage jobDomain={jobDomain} heading={heading} description={sub} />

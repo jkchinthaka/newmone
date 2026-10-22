@@ -52,6 +52,7 @@ import { WorkOrderQueuePanel } from "./work-order-queue-panel";
 import { WorkOrderEditorModal } from "./work-order-editor-modal";
 import { WorkOrderFiltersBar } from "./work-order-filters-bar";
 import { WorkOrderTable } from "./work-order-table";
+import type { WorkOrderDetailTab } from "./work-order-detail-tabs";
 import { WORK_ORDER_STATUSES, type WorkOrder, type WorkOrderSortField, type WorkOrderStatus, type WorkOrderViewMode } from "./types";
 
 function readCurrentUserId(): string | null {
@@ -101,6 +102,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     workOrder: WorkOrder | null;
     presetAssetId?: string | null;
     presetAssetLabel?: string | null;
+    detailTab?: WorkOrderDetailTab;
   }>({
     open: false,
     mode: "create",
@@ -199,8 +201,8 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     setEditorState({ open: true, mode: "create", workOrder: null });
   };
 
-  const openEditModal = (workOrder: WorkOrder) => {
-    setEditorState({ open: true, mode: "edit", workOrder });
+  const openEditModal = (workOrder: WorkOrder, detailTab?: WorkOrderDetailTab) => {
+    setEditorState({ open: true, mode: "edit", workOrder, detailTab });
   };
 
   const clearDeepLinkParam = () => {
@@ -422,6 +424,14 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     await workOrdersQuery.refetch();
   };
 
+  const handleQueueAction = (workOrder: WorkOrder, actionId: string) => {
+    if (actionId === "assign") {
+      openEditModal(workOrder, "assignment");
+      return;
+    }
+    void handlePrimary(workOrder, actionId);
+  };
+
   const handleApprove = async (workOrder: WorkOrder) => {
     try {
       await approveMutation.mutateAsync({ id: workOrder.id });
@@ -552,6 +562,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
           <WorkOrderQueuePanel
             jobDomain={jobDomain}
             onOpenWorkOrder={openEditModal}
+            onQueueAction={handleQueueAction}
             onRefreshLegacy={() => void workOrdersQuery.refetch()}
             selectedIds={selectedIds}
             onSelectedIdsChange={setSelectedIds}
@@ -645,6 +656,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
   }, [
     handleAssign,
     handlePrimary,
+    handleQueueAction,
     currentUser.role,
     handleApprove,
     handleReject,
@@ -662,7 +674,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
 
   const pageHeading = heading ?? "Work Orders";
   const pageDescription =
-    description ?? "All executable maintenance jobs across machinery, service, and vehicle domains.";
+    description ?? "All maintenance jobs across machinery, vehicles and services.";
 
   return (
     <div className="min-w-0 space-y-3">
@@ -792,7 +804,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             ? jobDomain
             : undefined
         }
-        initialTab={recordLink.tab}
+        initialTab={editorState.detailTab ?? recordLink.tab}
         onClose={closeEditorModal}
         onCreate={(values) => {
           if (!canCreateWorkOrders) {

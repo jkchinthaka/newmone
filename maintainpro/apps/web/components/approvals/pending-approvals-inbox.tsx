@@ -3,6 +3,9 @@
 import { useMemo, useState } from "react";
 
 import { DateRangeField } from "@/components/forms/date-fields";
+import { QueueChip } from "@/components/ui/dashboard";
+import { approvalAmountTone, sortOldestFirst } from "@/lib/batch-3-presentation";
+import { STATUS_TONE_CLASS } from "@/lib/dashboard-status";
 import {
   formatLkr,
   INBOX_TAB_LABELS,
@@ -12,10 +15,10 @@ import {
   type InboxViewItem
 } from "@/lib/approval-inbox-view";
 
-const SLA_CLASS = {
-  green: "bg-emerald-100 text-emerald-800",
-  amber: "bg-amber-100 text-amber-800",
-  red: "bg-red-100 text-red-800"
+const AMOUNT_TONE = {
+  red: "red",
+  amber: "amber",
+  neutral: "neutral"
 } as const;
 
 export function PendingApprovalsInbox({
@@ -56,18 +59,28 @@ export function PendingApprovalsInbox({
   onBulkApprove: (items: InboxViewItem[]) => void;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
-  const [open, setOpen] = useState<InboxViewItem | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const totals = tabCounts(items, counts);
-  const visible = useMemo(() => (tab === "all" ? items : items.filter((item) => item.tab === tab)), [items, tab]);
+  const visible = useMemo(() => {
+    const filtered = tab === "all" ? items : items.filter((item) => item.tab === tab);
+    return sortOldestFirst(filtered);
+  }, [items, tab]);
   const bulk = sameKindSelection(visible, selected);
+  const explicit = visible.find((item) => item.id === openId) ?? null;
+  const desktopItem = explicit ?? visible[0] ?? null;
 
   function toggle(id: string) {
     setSelected((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   }
 
+  function decide(item: InboxViewItem, decision: "APPROVED" | "REJECTED" | "RETURNED") {
+    onDecide(item, decision, reason);
+    setReason("");
+  }
+
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-sm text-slate-600" data-testid="approval-total">
         {totals.all ?? 0} pending
       </p>
@@ -78,28 +91,30 @@ export function PendingApprovalsInbox({
             type="button"
             role="tab"
             aria-selected={tab === entry.id}
-            className={`min-h-10 shrink-0 rounded-full px-3 text-sm ${tab === entry.id ? "bg-slate-900 text-white" : "bg-slate-100"}`}
+            className="shrink-0"
             onClick={() => onTab(entry.id)}
           >
-            {entry.label} ({totals[entry.id] ?? 0})
+            <QueueChip active={tab === entry.id}>
+              {entry.label} ({totals[entry.id] ?? 0})
+            </QueueChip>
           </button>
         ))}
       </div>
-      <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_180px_180px]">
+      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_11rem_11rem]">
         <input
-          className="min-h-10 rounded-lg border px-3 text-sm"
+          className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm"
           placeholder="Search reference, title, or requester"
           value={search}
           onChange={(event) => onSearch(event.target.value)}
           aria-label="Search approvals"
         />
-        <select className="min-h-10 rounded-lg border px-3 text-sm" aria-label="Priority" value={priority} onChange={(event) => onPriority(event.target.value)}>
+        <select className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm" aria-label="Priority" value={priority} onChange={(event) => onPriority(event.target.value)}>
           <option value="">All priorities</option>
           {["CRITICAL", "HIGH", "MEDIUM", "LOW"].map((value) => (
             <option key={value} value={value}>{value}</option>
           ))}
         </select>
-        <input className="min-h-10 rounded-lg border px-3 text-sm" aria-label="Site" placeholder="Site" value={site} onChange={(event) => onSite(event.target.value)} />
+        <input className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm" aria-label="Site" placeholder="Site" value={site} onChange={(event) => onSite(event.target.value)} />
       </div>
       <div className="mt-3 max-w-xl">
         <DateRangeField from={from} to={to} onFromChange={onFrom} onToChange={onTo} />
@@ -107,7 +122,7 @@ export function PendingApprovalsInbox({
       <div className="mt-3 flex items-center gap-2">
         <button
           type="button"
-          className="min-h-10 rounded-lg bg-emerald-700 px-3 text-sm text-white disabled:opacity-40"
+          className="min-h-10 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white disabled:opacity-40"
           disabled={!bulk.sameKind || bulk.selected.length === 0 || bulk.selected.some((item) => !item.canDecide)}
           onClick={() => onBulkApprove(bulk.selected)}
         >
@@ -116,7 +131,6 @@ export function PendingApprovalsInbox({
         {!bulk.sameKind ? <span className="text-sm text-amber-700">Select one type</span> : null}
       </div>
 
-      <div className="lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(16rem,0.8fr)] lg:items-start lg:gap-4">
       {loading ? (
         <div className="mt-4 space-y-2" data-testid="approval-skeleton">
           <div className="h-16 animate-pulse rounded-lg bg-slate-100" />
@@ -124,125 +138,149 @@ export function PendingApprovalsInbox({
           <div className="h-16 animate-pulse rounded-lg bg-slate-100" />
         </div>
       ) : visible.length === 0 ? (
-        <p className="mt-6 rounded-lg border border-dashed p-8 text-center text-sm text-slate-600">All caught up</p>
+        <p className="mt-6 rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-600">All caught up</p>
       ) : (
-        <>
-          <div className="mt-4 grid gap-3 sm:hidden">
-            {visible.map((item) => (
-              <article key={item.id} className="rounded-xl border bg-white p-4" data-testid="approval-card">
-                <RowBody item={item} />
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button type="button" className="min-h-10 rounded-lg border px-3 text-sm" onClick={() => setOpen(item)}>Details</button>
-                  <DecisionButtons item={item} onDecide={onDecide} />
-                </div>
-              </article>
-            ))}
-          </div>
-          <div className="mt-4 hidden overflow-x-auto rounded-xl border sm:block">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="p-3" />
-                  <th className="p-3">Item</th>
-                  <th className="p-3">Requester</th>
-                  <th className="p-3">Amount</th>
-                  <th className="p-3">Age</th>
-                  <th className="p-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((item) => (
-                  <tr key={item.id} className="cursor-pointer border-t" onClick={() => setOpen(item)}>
-                    <td className="p-3" onClick={(event) => event.stopPropagation()}>
-                      <input type="checkbox" aria-label={`Select ${item.reference}`} checked={selected.includes(item.id)} onChange={() => toggle(item.id)} />
-                    </td>
-                    <td className="p-3"><RowBody item={item} /></td>
-                    <td className="p-3">{item.requesterName}</td>
-                    <td className="p-3">{formatLkr(item.amount, item.taxRatePercent) ?? "—"}</td>
-                    <td className="p-3"><span className={`rounded-full px-2 py-1 text-xs ${SLA_CLASS[item.sla]}`}>{item.age}</span></td>
-                    <td className="p-3" onClick={(event) => event.stopPropagation()}>
-                      <DecisionButtons item={item} onDecide={onDecide} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+        <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.9fr)]">
+          <section className="min-w-0 rounded-card border border-slate-200 bg-white shadow-card">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">Pending ({visible.length})</h2>
+                <p className="text-xs text-slate-500">Oldest first</p>
+              </div>
+              <label className="text-sm text-slate-600">
+                <span className="sr-only">Type</span>
+                <select aria-label="Type" className="h-9 rounded-md border border-slate-300 bg-white px-2 text-sm" value={tab} onChange={(event) => onTab(event.target.value as InboxTabId)}>
+                  {INBOX_TAB_LABELS.map((entry) => (
+                    <option key={entry.id} value={entry.id}>{entry.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <ul className="divide-y divide-slate-100">
+              {visible.map((item) => {
+                const tone = approvalAmountTone(item.amount);
+                const active = desktopItem?.id === item.id;
+                return (
+                  <li key={item.id}>
+                    <div className={`flex gap-3 px-4 py-3 ${active ? "bg-emerald-50/60" : ""}`}>
+                      <input className="mt-1" type="checkbox" aria-label={`Select ${item.reference}`} checked={selected.includes(item.id)} onChange={() => toggle(item.id)} />
+                      <button type="button" className="min-w-0 flex-1 text-left" data-testid="approval-card" onClick={() => setOpenId(item.id)}>
+                        <span className="flex items-start justify-between gap-3">
+                          <span className="min-w-0">
+                            <span className="block font-medium text-slate-900">{item.title}</span>
+                            <span className="mt-0.5 block truncate text-xs text-slate-500">
+                              {item.reference}
+                              {item.requesterName ? ` · ${item.requesterName}` : ""}
+                              {item.age ? ` · ${item.age}` : ""}
+                            </span>
+                          </span>
+                          {tone ? (
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_TONE_CLASS[AMOUNT_TONE[tone]]}`}>
+                              {formatLkr(item.amount, item.taxRatePercent)}
+                            </span>
+                          ) : null}
+                        </span>
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+          {desktopItem ? <DetailPanel className="hidden lg:block" item={desktopItem} reason={reason} onReason={setReason} onDecide={decide} /> : null}
+        </div>
       )}
 
-      {open ? (
-        <div className="fixed inset-0 z-40 flex justify-end bg-slate-900/30 lg:static lg:inset-auto lg:z-auto lg:mt-4 lg:block lg:bg-transparent" onClick={() => setOpen(null)}>
-          <aside className="h-full w-full max-w-md overflow-y-auto rounded-card border border-slate-200 bg-white p-5 shadow-xl lg:h-auto lg:max-w-none lg:shadow-card" role="dialog" aria-label="Approval details" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase text-slate-500">{open.tab.replaceAll("_", " ")}</p>
-                <h2 className="text-lg font-semibold">{open.title}</h2>
-                <p className="text-sm text-slate-600">{open.reference}</p>
-              </div>
-              <button type="button" className="min-h-10 px-2 text-sm" onClick={() => setOpen(null)}>Close</button>
+      {explicit ? (
+        <div className="fixed inset-0 z-40 flex items-end bg-slate-900/30 lg:hidden" onClick={() => setOpenId(null)}>
+          <div className="max-h-[88vh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 shadow-xl" role="dialog" aria-label="Approval details" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-3 flex justify-end">
+              <button type="button" className="min-h-10 px-2 text-sm" onClick={() => setOpenId(null)}>Close</button>
             </div>
-            <dl className="mt-4 space-y-2 text-sm">
-              <div><dt className="text-slate-500">Requester</dt><dd>{open.requesterName}</dd></div>
-              <div><dt className="text-slate-500">Asset / vehicle</dt><dd>{open.assetLabel ?? "—"}</dd></div>
-              <div><dt className="text-slate-500">Amount</dt><dd>{formatLkr(open.amount, open.taxRatePercent) ?? "—"}</dd></div>
-              <div><dt className="text-slate-500">Priority</dt><dd>{open.priority ?? "—"}</dd></div>
-            </dl>
-            <h3 className="mt-4 text-sm font-semibold">Attachments</h3>
-            {open.attachments.length === 0 ? <p className="text-sm text-slate-500">None</p> : open.attachments.map((file) => <p key={file.id} className="text-sm">{file.label}</p>)}
-            <h3 className="mt-4 text-sm font-semibold">History</h3>
-            {open.history.length === 0 ? <p className="text-sm text-slate-500">No earlier decisions</p> : open.history.map((entry) => (
-              <p key={`${entry.at}-${entry.label}`} className="text-sm">{entry.label}{entry.reason ? ` — ${entry.reason}` : ""}</p>
-            ))}
-            <label className="mt-4 block text-sm">
-              Reason
-              <textarea className="mt-1 min-h-20 w-full rounded-lg border px-3 py-2" value={reason} onChange={(event) => setReason(event.target.value)} />
-            </label>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <DecisionButtons
-                item={open}
-                onDecide={(item, decision) => {
-                  onDecide(item, decision, reason);
-                  setReason("");
-                }}
-              />
-              {open.canReturn ? (
-                <button type="button" className="min-h-10 rounded-lg border px-3 text-sm" onClick={() => onDecide(open, "RETURNED", reason)}>
-                  Return for info
-                </button>
-              ) : null}
-            </div>
-          </aside>
+            <DetailPanel item={explicit} reason={reason} onReason={setReason} onDecide={decide} />
+          </div>
         </div>
       ) : null}
-      </div>
     </div>
   );
 }
 
-function RowBody({ item }: { item: InboxViewItem }) {
-  return (
-    <div>
-      <p className="font-medium text-slate-900">{item.reference}</p>
-      <p className="text-slate-700">{item.title}</p>
-      <p className="text-xs text-slate-500">{item.requesterName}{item.assetLabel ? ` · ${item.assetLabel}` : ""}</p>
-      {item.priority ? <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs">{item.priority}</span> : null}
-    </div>
-  );
-}
-
-function DecisionButtons({
+function DetailPanel({
   item,
-  onDecide
+  reason,
+  onReason,
+  onDecide,
+  className
 }: {
   item: InboxViewItem;
-  onDecide: (item: InboxViewItem, decision: "APPROVED" | "REJECTED" | "RETURNED", reason?: string) => void;
+  reason: string;
+  onReason: (value: string) => void;
+  onDecide: (item: InboxViewItem, decision: "APPROVED" | "REJECTED" | "RETURNED") => void;
+  className?: string;
 }) {
-  if (!item.canDecide) return null;
+  const priorReason = [...item.history].reverse().find((entry) => entry.reason?.trim())?.reason?.trim();
   return (
-    <>
-      <button type="button" className="min-h-10 rounded-lg bg-emerald-600 px-3 text-sm text-white" onClick={() => onDecide(item, "APPROVED")}>Approve</button>
-      <button type="button" className="min-h-10 rounded-lg border border-red-200 px-3 text-sm text-red-700" onClick={() => onDecide(item, "REJECTED")}>Reject</button>
-    </>
+    <aside className={`rounded-card border border-slate-200 bg-white p-4 shadow-card ${className ?? ""}`}>
+      <p className="text-xs uppercase tracking-wide text-slate-500">{item.tab.replaceAll("_", " ")}</p>
+      <h2 className="mt-1 text-lg font-semibold text-slate-900">{item.title}</h2>
+      <p className="text-sm text-slate-600">{item.reference}</p>
+      <dl className="mt-4 space-y-2 text-sm">
+        {item.assetLabel ? (
+          <div className="flex justify-between gap-3">
+            <dt className="text-slate-500">Asset</dt>
+            <dd className="text-right text-slate-900">{item.assetLabel}</dd>
+          </div>
+        ) : null}
+        {item.taxRatePercent != null ? (
+          <div className="flex justify-between gap-3">
+            <dt className="text-slate-500">Tax</dt>
+            <dd className="text-right text-slate-900">{item.taxRatePercent}%</dd>
+          </div>
+        ) : null}
+        {item.amount != null ? (
+          <div className="flex justify-between gap-3">
+            <dt className="text-slate-500">Total</dt>
+            <dd className="text-right font-medium text-slate-900">{formatLkr(item.amount, null)}</dd>
+          </div>
+        ) : null}
+        <div className="flex justify-between gap-3">
+          <dt className="text-slate-500">Requested by</dt>
+          <dd className="text-right text-slate-900">{item.requesterName}</dd>
+        </div>
+        {item.priority ? (
+          <div className="flex justify-between gap-3">
+            <dt className="text-slate-500">Priority</dt>
+            <dd className="text-right text-slate-900">{item.priority}</dd>
+          </div>
+        ) : null}
+        {priorReason ? (
+          <div>
+            <dt className="text-slate-500">Reason</dt>
+            <dd className="mt-1 text-slate-900">{priorReason}</dd>
+          </div>
+        ) : null}
+      </dl>
+      {item.attachments.length > 0 ? (
+        <div className="mt-4">
+          <h3 className="text-sm font-semibold">Attachments</h3>
+          {item.attachments.map((file) => <p key={file.id} className="text-sm">{file.label}</p>)}
+        </div>
+      ) : null}
+      <label className="mt-4 block text-sm">
+        Comment
+        <textarea className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Add a note for the requester..." value={reason} onChange={(event) => onReason(event.target.value)} />
+      </label>
+      <div className="mt-3 flex flex-wrap justify-end gap-2">
+        {item.canDecide ? (
+          <>
+            <button type="button" className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-800" onClick={() => onDecide(item, "REJECTED")}>Reject</button>
+            <button type="button" className="min-h-10 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white" onClick={() => onDecide(item, "APPROVED")}>Approve</button>
+          </>
+        ) : null}
+        {item.canReturn ? (
+          <button type="button" className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => onDecide(item, "RETURNED")}>Return for info</button>
+        ) : null}
+      </div>
+    </aside>
   );
 }
