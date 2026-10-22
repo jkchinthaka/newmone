@@ -7,7 +7,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 import { MaintenanceRequestsService } from "../src/modules/maintenance-requests/maintenance-requests.service";
-import { deleteDisposableTenants } from "./disposable-tenant-cleanup";
+import { assertDisposableSqlServer, deleteDisposableTenants } from "./disposable-tenant-cleanup";
 
 function databaseName(url: string): string {
   const match = url.match(/(?:database|initial catalog)\s*=\s*([^;]+)/i);
@@ -90,6 +90,8 @@ describeIfDb("company requester access (disposable SQL Server)", () => {
         ].filter(Boolean))
       ];
       if (requestIds.length || userIds.length || roleIds.length) {
+        // Runtime check on the live connection, not only the DATABASE_URL name.
+        await assertDisposableSqlServer(prisma);
         await prisma.$transaction(
           async (tx) => {
             await tx.$executeRawUnsafe(`DISABLE TRIGGER [dbo].[trg_AuditLog_immutable] ON [dbo].[AuditLog]`);
