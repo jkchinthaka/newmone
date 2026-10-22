@@ -40,6 +40,8 @@ import {
 
 const ACCESS_MAX_AGE = 15 * 60;
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60;
+const REMEMBER_COOKIE = "maintainpro_remember";
+const REMEMBER_HEADER = "x-remember-me";
 
 type AuthTokenPayload = {
   accessToken?: unknown;
@@ -102,26 +104,45 @@ function generateCsrfToken(): string {
   return randomBytes(32).toString("hex");
 }
 
+/**
+ * "Keep me signed in on this device". The login page sends x-remember-me: 0 when the box is
+ * unticked; the choice is kept in a cookie so later token refreshes follow it.
+ */
+export function rememberSignIn(request: Pick<NextRequest, "headers" | "cookies">, pathSegments: string[]): boolean {
+  if (pathSegments.join("/") === "auth/login") {
+    return request.headers.get(REMEMBER_HEADER)?.trim() !== "0";
+  }
+  return request.cookies.get(REMEMBER_COOKIE)?.value !== "0";
+}
+
+/** Without "keep me signed in" the cookies end when the browser closes (no maxAge). */
+function lifetime<T extends { maxAge?: number }>(options: T, persistent: boolean): T {
+  return persistent ? options : { ...options, maxAge: undefined };
+}
+
 function applySessionCookies(
   response: NextResponse,
   tokens: AuthTokenPayload,
-  options?: { clear?: boolean; rotateCsrf?: boolean }
+  options?: { clear?: boolean; rotateCsrf?: boolean; persistent?: boolean }
 ): void {
   if (options?.clear) {
     response.cookies.set(ACCESS_COOKIE, "", { ...sessionCookieOptions(0), maxAge: 0 });
     response.cookies.set(REFRESH_COOKIE, "", { ...sessionCookieOptions(0), maxAge: 0 });
     response.cookies.set(CSRF_COOKIE, "", { ...csrfCookieOptions(0), maxAge: 0 });
+    response.cookies.set(REMEMBER_COOKIE, "", { ...sessionCookieOptions(0), maxAge: 0 });
     return;
   }
 
+  const persistent = options?.persistent !== false;
   if (typeof tokens.accessToken === "string" && tokens.accessToken.trim()) {
     response.cookies.set(ACCESS_COOKIE, tokens.accessToken, sessionCookieOptions(ACCESS_MAX_AGE));
   }
   if (typeof tokens.refreshToken === "string" && tokens.refreshToken.trim()) {
-    response.cookies.set(REFRESH_COOKIE, tokens.refreshToken, sessionCookieOptions(REFRESH_MAX_AGE));
+    response.cookies.set(REFRESH_COOKIE, tokens.refreshToken, lifetime(sessionCookieOptions(REFRESH_MAX_AGE), persistent));
+    response.cookies.set(REMEMBER_COOKIE, persistent ? "1" : "0", lifetime(sessionCookieOptions(REFRESH_MAX_AGE), persistent));
   }
   if (options?.rotateCsrf !== false) {
-    response.cookies.set(CSRF_COOKIE, generateCsrfToken(), csrfCookieOptions(REFRESH_MAX_AGE));
+    response.cookies.set(CSRF_COOKIE, generateCsrfToken(), lifetime(csrfCookieOptions(REFRESH_MAX_AGE), persistent));
   }
 }
 
@@ -366,7 +387,7 @@ export async function proxyBffRequest(
       headers: responseHeaders
     });
     if (refreshedTokens) {
-      applySessionCookies(binaryResponse, refreshedTokens, { rotateCsrf: false });
+      applySessionCookies(binaryResponse, refreshedTokens, { rotateCsrf: false, persistent: rememberSignIn(request, pathSegments) });
     }
     return binaryResponse;
   }
@@ -422,12 +443,12 @@ export async function proxyBffRequest(
     applySessionCookies(response, {}, { clear: true });
   } else if (shouldSetSession) {
     const rotateCsrf = !(pathSegments[0] === "tenants" && pathSegments[2] === "switch");
-    applySessionCookies(response, tokens, { rotateCsrf });
+    applySessionCookies(response, tokens, { rotateCsrf, persistent: rememberSignIn(request, pathSegments) });
   } else if (refreshedTokens) {
     // Persist the silently rotated session. The CSRF token is deliberately left alone:
     // this path runs on reads that a page may issue alongside in-flight mutations, and
     // rotating the double-submit token here would invalidate those requests.
-    applySessionCookies(response, refreshedTokens, { rotateCsrf: false });
+    applySessionCookies(response, refreshedTokens, { rotateCsrf: false, persistent: rememberSignIn(request, pathSegments) });
   }
 
   return response;
