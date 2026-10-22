@@ -1,5 +1,7 @@
 # MaintainPro — Product Finalization Ledger
 
+> Historical. This ledger is not the current product record. Read `docs/handover/FINAL_HANDOVER_2026-10-21.md`.
+
 Persistent record for the 15-phase finalization programme. Read `AI_SESSION_HANDOVER.md` first, then this file, then `git log origin/main`.
 
 Statuses used for every page and phase: **NOT STARTED**, **IN PROGRESS**, **IMPLEMENTED — NOT VERIFIED**, **PARTIALLY VERIFIED**, **BLOCKED**, **VERIFIED COMPLETE**.
