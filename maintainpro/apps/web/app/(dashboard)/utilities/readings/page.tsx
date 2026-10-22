@@ -76,6 +76,7 @@ export default function MeterReadingsPage() {
   const [recent, setRecent] = useState<Meter[]>([]);
   const [selected, setSelected] = useState<Meter | null>(null);
   const [history, setHistory] = useState<Reading[]>([]);
+  const [myReadings, setMyReadings] = useState<Reading[]>([]);
   const [value, setValue] = useState("");
   const [rejectedDraft, setRejectedDraft] = useState("");
   const [readingAt, setReadingAt] = useState(colomboNow);
@@ -104,10 +105,20 @@ export default function MeterReadingsPage() {
     if (!Number.isFinite(next) || !Number.isFinite(previous) || next < previous) return null;
     return consumptionWarning(next - previous, comparableConsumptions(history));
   }, [fieldError, history, last, selected, value]);
-  const mine = useMemo(
-    () => history.filter((row) => String(row.notes ?? "").includes(`[by:${user.id ?? ""}]`)),
-    [history, user.id]
-  );
+
+  async function loadHistory(meter: Meter) {
+    const [latestResponse, mineResponse] = await Promise.all([
+      apiClient.get("/utilities/meters/latest-readings"),
+      apiClient.get("/utilities/readings", { params: { mine: "true", days: 7, take: 50 } })
+    ]);
+    const latestRows = (latestResponse.data?.data ?? []) as Array<Reading & { meter?: { id?: string } | null }>;
+    const latest = latestRows.find((row) => row.meter?.id === meter.id);
+    const mineRows = ((mineResponse.data?.data ?? []) as Array<Reading & { meterId?: string; meter?: { id?: string } | null }>).filter(
+      (row) => row.meterId === meter.id || row.meter?.id === meter.id
+    );
+    setMyReadings(mineRows);
+    setHistory(latest ? [latest, ...mineRows.filter((row) => row.id !== latest.id)] : mineRows);
+  }
 
   async function search(event?: FormEvent, scanned?: string) {
     event?.preventDefault();
@@ -123,11 +134,6 @@ export default function MeterReadingsPage() {
     setMeters(found);
     if (scanned && found.length === 1) await choose(found[0]);
     if (scanned && found.length === 0) setError("No meter in this tenant matched the scanned code.");
-  }
-
-  async function loadHistory(meter: Meter) {
-    const response = await apiClient.get(`/utilities/meters/${meter.id}/readings`);
-    setHistory((response.data?.data ?? []) as Reading[]);
   }
 
   async function choose(meter: Meter) {
@@ -375,11 +381,11 @@ export default function MeterReadingsPage() {
 
       <section>
         <h2 className="font-semibold text-slate-900">My recent readings</h2>
-        {mine.length === 0 ? (
+        {myReadings.length === 0 ? (
           <p className="mt-1 text-sm text-slate-600">No readings recorded by you for this meter yet.</p>
         ) : (
           <ul className="mt-2 space-y-1 text-sm">
-            {mine.map((row) => (
+            {myReadings.map((row) => (
               <li key={row.id}>
                 {String(row.readingValue)} · {new Date(row.readingDate).toLocaleString()}
               </li>

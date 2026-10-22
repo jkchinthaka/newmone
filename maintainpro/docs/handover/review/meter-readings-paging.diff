@@ -1,0 +1,370 @@
+﻿diff --git a/maintainpro/apps/api/src/modules/utilities/utilities.controller.ts b/maintainpro/apps/api/src/modules/utilities/utilities.controller.ts
+index c026bdff..8f3535db 100644
+--- a/maintainpro/apps/api/src/modules/utilities/utilities.controller.ts
++++ b/maintainpro/apps/api/src/modules/utilities/utilities.controller.ts
+@@ -1,4 +1,4 @@
+-import { BadRequestException, Body, Controller, Get, Headers, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
++import { BadRequestException, Body, Controller, Get, Headers, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+ 
+ import { Roles } from "../../common/decorators/roles.decorator";
+@@ -34,6 +34,13 @@ export class UtilitiesController {
+     return { data, message: "Meter created" };
+   }
+ 
++  @Get("meters/latest-readings")
++  @Roles(...METER_READING_ROLES)
++  async latestReadings(@Req() req: AuthedRequest) {
++    const data = await this.utilitiesService.latestReadings(req.user?.tenantId ?? null);
++    return { data, message: "Latest readings fetched" };
++  }
++
+   @Get("meters/:id")
+   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+   async meter(@Req() req: AuthedRequest, @Param("id") id: string) {
+@@ -77,11 +84,45 @@ export class UtilitiesController {
+ 
+   @Get("readings")
+   @Roles(...METER_READING_ROLES)
+-  async allReadings(@Req() req: AuthedRequest) {
+-    const data = await this.utilitiesService.allReadings(req.user?.tenantId ?? null);
++  async allReadings(
++    @Req() req: AuthedRequest,
++    @Query("mine") mine?: string,
++    @Query("days") days?: string,
++    @Query("take") take?: string
++  ) {
++    const data = await this.utilitiesService.allReadings(
++      req.user?.tenantId ?? null,
++      this.readingListOptions(mine, days, take, req.user?.sub)
++    );
+     return { data, message: "Readings fetched" };
+   }
+ 
++  private readingListOptions(mine?: string, days?: string, take?: string, userId?: string) {
++    if (mine === undefined && days === undefined && take === undefined) return undefined;
++    const options: { mineUserId?: string; days?: number; take?: number } = {};
++    if (mine !== undefined) {
++      if (mine === "true" || mine === "1") {
++        if (!userId) throw new BadRequestException("A signed-in user is required for mine=true.");
++        options.mineUserId = userId;
++      } else if (mine !== "false" && mine !== "0") {
++        throw new BadRequestException("mine must be true or false.");
++      }
++    }
++    if (days !== undefined) {
++      if (!/^\d+$/.test(days) || Number(days) < 1 || Number(days) > 366) {
++        throw new BadRequestException("days must be a whole number from 1 to 366.");
++      }
++      options.days = Number(days);
++    }
++    if (take !== undefined) {
++      if (!/^\d+$/.test(take) || Number(take) < 1 || Number(take) > 200) {
++        throw new BadRequestException("take must be a whole number from 1 to 200.");
++      }
++      options.take = Number(take);
++    }
++    return options;
++  }
++
+   @Post("readings")
+   @Roles(...METER_READING_ROLES)
+   async addReadingByMeter(
+diff --git a/maintainpro/apps/api/src/modules/utilities/utilities.service.ts b/maintainpro/apps/api/src/modules/utilities/utilities.service.ts
+index 84a14a83..f2117b8d 100644
+--- a/maintainpro/apps/api/src/modules/utilities/utilities.service.ts
++++ b/maintainpro/apps/api/src/modules/utilities/utilities.service.ts
+@@ -131,7 +131,10 @@ export class UtilitiesService {
+     return this.prisma.meterReading.findMany({ where: { meterId: id }, orderBy: { readingDate: "desc" } });
+   }
+ 
+-  async allReadings(tenantId: string | null) {
++  async allReadings(
++    tenantId: string | null,
++    options?: { mineUserId?: string; days?: number; take?: number }
++  ) {
+     // Scope to meters owned by this tenant, then fetch their readings. Avoids
+     // Prisma's required-relation `include` throwing on dangling meterIds while
+     // also enforcing tenant isolation (MeterReading has no tenantId of its own).
+@@ -142,9 +145,17 @@ export class UtilitiesService {
+     if (meters.length === 0) return [];
+ 
+     const meterMap = new Map(meters.map((m) => [m.id, m]));
++    const where: Prisma.MeterReadingWhereInput = { meterId: { in: meters.map((m) => m.id) } };
++    if (options?.mineUserId) {
++      where.notes = { contains: `[by:${options.mineUserId}]` };
++    }
++    if (options?.days != null) {
++      where.readingDate = { gte: new Date(Date.now() - options.days * 24 * 60 * 60 * 1000) };
++    }
+     const readings = await this.prisma.meterReading.findMany({
+-      where: { meterId: { in: meters.map((m) => m.id) } },
+-      orderBy: { readingDate: "desc" }
++      where,
++      orderBy: { readingDate: "desc" },
++      ...(options?.take != null ? { take: options.take } : {})
+     });
+ 
+     return readings
+@@ -152,6 +163,30 @@ export class UtilitiesService {
+       .map((r) => ({ ...r, meter: meterMap.get(r.meterId) }));
+   }
+ 
++  async latestReadings(tenantId: string | null) {
++    const scopedTenantId = requireTenantId(tenantId);
++    const meters = await this.prisma.utilityMeter.findMany({
++      where: { tenantId: scopedTenantId }
++    });
++    if (meters.length === 0) return [];
++    const meterMap = new Map(meters.map((meter) => [meter.id, meter]));
++    const grouped = await this.prisma.meterReading.groupBy({
++      by: ["meterId"],
++      where: { meterId: { in: [...meterMap.keys()] } },
++      _max: { readingDate: true }
++    });
++    const pairs = grouped.filter((row) => row._max.readingDate);
++    if (pairs.length === 0) return [];
++    const readings = await this.prisma.meterReading.findMany({
++      where: {
++        OR: pairs.map((row) => ({ meterId: row.meterId, readingDate: row._max.readingDate as Date }))
++      }
++    });
++    return readings
++      .filter((reading) => meterMap.has(reading.meterId))
++      .map((reading) => ({ ...reading, meter: meterMap.get(reading.meterId) }));
++  }
++
+   async consumptionChart(id: string, tenantId: string | null) {
+     await this.meter(id, tenantId);
+ 
+diff --git a/maintainpro/apps/api/test/meter-readings-paging.spec.ts b/maintainpro/apps/api/test/meter-readings-paging.spec.ts
+new file mode 100644
+index 00000000..97554db6
+--- /dev/null
++++ b/maintainpro/apps/api/test/meter-readings-paging.spec.ts
+@@ -0,0 +1,95 @@
++import { BadRequestException, ForbiddenException } from "@nestjs/common";
++
++import { UtilitiesController } from "../src/modules/utilities/utilities.controller";
++import { UtilitiesService } from "../src/modules/utilities/utilities.service";
++
++const TENANT_A = "tenant-a";
++
++function prismaMock() {
++  return {
++    utilityMeter: { findMany: jest.fn() },
++    meterReading: { findMany: jest.fn(), groupBy: jest.fn() }
++  };
++}
++
++describe("meter reading list limits", () => {
++  it("keeps the unfiltered tenant query when no list options are passed", async () => {
++    const prisma = prismaMock();
++    prisma.utilityMeter.findMany.mockResolvedValue([{ id: "meter-a", tenantId: TENANT_A }]);
++    prisma.meterReading.findMany.mockResolvedValue([{ id: "r1", meterId: "meter-a", readingDate: new Date() }]);
++    const service = new UtilitiesService(prisma as never);
++
++    await service.allReadings(TENANT_A);
++
++    expect(prisma.utilityMeter.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { tenantId: TENANT_A } }));
++    const query = prisma.meterReading.findMany.mock.calls[0][0];
++    expect(query.where).toEqual({ meterId: { in: ["meter-a"] } });
++    expect(query.take).toBeUndefined();
++    expect(query.where.notes).toBeUndefined();
++  });
++
++  it("filters to the caller, the day window, and the take limit", async () => {
++    const prisma = prismaMock();
++    prisma.utilityMeter.findMany.mockResolvedValue([{ id: "meter-a", tenantId: TENANT_A }]);
++    prisma.meterReading.findMany.mockResolvedValue([]);
++    const service = new UtilitiesService(prisma as never);
++    const before = Date.now();
++
++    await service.allReadings(TENANT_A, { mineUserId: "user-1", days: 7, take: 50 });
++
++    const query = prisma.meterReading.findMany.mock.calls[0][0];
++    expect(query.where.notes).toEqual({ contains: "[by:user-1]" });
++    expect(query.take).toBe(50);
++    const since = query.where.readingDate.gte as Date;
++    expect(before - since.getTime()).toBeGreaterThan(6 * 24 * 60 * 60 * 1000);
++    expect(before - since.getTime()).toBeLessThan(8 * 24 * 60 * 60 * 1000);
++  });
++
++  it("returns only the latest reading for meters in the caller's tenant", async () => {
++    const prisma = prismaMock();
++    const newest = new Date("2026-10-22T00:00:00.000Z");
++    prisma.utilityMeter.findMany.mockResolvedValue([{ id: "meter-a", tenantId: TENANT_A }]);
++    prisma.meterReading.groupBy.mockResolvedValue([{ meterId: "meter-a", _max: { readingDate: newest } }]);
++    prisma.meterReading.findMany.mockResolvedValue([{ id: "r-new", meterId: "meter-a", readingDate: newest }]);
++    const service = new UtilitiesService(prisma as never);
++
++    const rows = await service.latestReadings(TENANT_A);
++
++    expect(prisma.utilityMeter.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { tenantId: TENANT_A } }));
++    expect(prisma.meterReading.groupBy).toHaveBeenCalledWith(
++      expect.objectContaining({ where: { meterId: { in: ["meter-a"] } } })
++    );
++    expect(prisma.meterReading.findMany).toHaveBeenCalledWith({
++      where: { OR: [{ meterId: "meter-a", readingDate: newest }] }
++    });
++    expect(rows).toEqual([expect.objectContaining({ id: "r-new", meter: expect.objectContaining({ tenantId: TENANT_A }) })]);
++  });
++
++  it("fails closed without a tenant", async () => {
++    const prisma = prismaMock();
++    const service = new UtilitiesService(prisma as never);
++    await expect(service.latestReadings(null)).rejects.toBeInstanceOf(ForbiddenException);
++    expect(prisma.utilityMeter.findMany).not.toHaveBeenCalled();
++  });
++
++  it("rejects an oversized take and leaves the service call unused", async () => {
++    const service = { allReadings: jest.fn() };
++    const controller = new UtilitiesController(service as never);
++    await expect(
++      controller.allReadings({ user: { sub: "user-1", role: "TECHNICIAN", tenantId: TENANT_A } }, "true", "7", "5000")
++    ).rejects.toBeInstanceOf(BadRequestException);
++    expect(service.allReadings).not.toHaveBeenCalled();
++  });
++
++  it("passes mine, days, and take only when the query asks for them", async () => {
++    const service = { allReadings: jest.fn().mockResolvedValue([]) };
++    const controller = new UtilitiesController(service as never);
++    const req = { user: { sub: "user-1", role: "TECHNICIAN", tenantId: TENANT_A } };
++
++    await controller.allReadings(req);
++    expect(service.allReadings).toHaveBeenLastCalledWith(TENANT_A, undefined);
++
++    await controller.allReadings(req, "true", "7", "50");
++    expect(service.allReadings).toHaveBeenLastCalledWith(TENANT_A, { mineUserId: "user-1", days: 7, take: 50 });
++  });
++});
+diff --git a/maintainpro/apps/web/app/(dashboard)/utilities/readings/page.tsx b/maintainpro/apps/web/app/(dashboard)/utilities/readings/page.tsx
+index c3490661..c2ba5d18 100644
+--- a/maintainpro/apps/web/app/(dashboard)/utilities/readings/page.tsx
++++ b/maintainpro/apps/web/app/(dashboard)/utilities/readings/page.tsx
+@@ -76,6 +76,7 @@ export default function MeterReadingsPage() {
+   const [recent, setRecent] = useState<Meter[]>([]);
+   const [selected, setSelected] = useState<Meter | null>(null);
+   const [history, setHistory] = useState<Reading[]>([]);
++  const [myReadings, setMyReadings] = useState<Reading[]>([]);
+   const [value, setValue] = useState("");
+   const [rejectedDraft, setRejectedDraft] = useState("");
+   const [readingAt, setReadingAt] = useState(colomboNow);
+@@ -104,10 +105,20 @@ export default function MeterReadingsPage() {
+     if (!Number.isFinite(next) || !Number.isFinite(previous) || next < previous) return null;
+     return consumptionWarning(next - previous, comparableConsumptions(history));
+   }, [fieldError, history, last, selected, value]);
+-  const mine = useMemo(
+-    () => history.filter((row) => String(row.notes ?? "").includes(`[by:${user.id ?? ""}]`)),
+-    [history, user.id]
+-  );
++
++  async function loadHistory(meter: Meter) {
++    const [latestResponse, mineResponse] = await Promise.all([
++      apiClient.get("/utilities/meters/latest-readings"),
++      apiClient.get("/utilities/readings", { params: { mine: "true", days: 7, take: 50 } })
++    ]);
++    const latestRows = (latestResponse.data?.data ?? []) as Array<Reading & { meter?: { id?: string } | null }>;
++    const latest = latestRows.find((row) => row.meter?.id === meter.id);
++    const mineRows = ((mineResponse.data?.data ?? []) as Array<Reading & { meterId?: string; meter?: { id?: string } | null }>).filter(
++      (row) => row.meterId === meter.id || row.meter?.id === meter.id
++    );
++    setMyReadings(mineRows);
++    setHistory(latest ? [latest, ...mineRows.filter((row) => row.id !== latest.id)] : mineRows);
++  }
+ 
+   async function search(event?: FormEvent, scanned?: string) {
+     event?.preventDefault();
+@@ -125,11 +136,6 @@ export default function MeterReadingsPage() {
+     if (scanned && found.length === 0) setError("No meter in this tenant matched the scanned code.");
+   }
+ 
+-  async function loadHistory(meter: Meter) {
+-    const response = await apiClient.get(`/utilities/meters/${meter.id}/readings`);
+-    setHistory((response.data?.data ?? []) as Reading[]);
+-  }
+-
+   async function choose(meter: Meter) {
+     setSelected(meter);
+     setMessage("");
+@@ -375,11 +381,11 @@ export default function MeterReadingsPage() {
+ 
+       <section>
+         <h2 className="font-semibold text-slate-900">My recent readings</h2>
+-        {mine.length === 0 ? (
++        {myReadings.length === 0 ? (
+           <p className="mt-1 text-sm text-slate-600">No readings recorded by you for this meter yet.</p>
+         ) : (
+           <ul className="mt-2 space-y-1 text-sm">
+-            {mine.map((row) => (
++            {myReadings.map((row) => (
+               <li key={row.id}>
+                 {String(row.readingValue)} · {new Date(row.readingDate).toLocaleString()}
+               </li>
+diff --git a/maintainpro/apps/web/lib/__tests__/meter-readings-nav.test.ts b/maintainpro/apps/web/lib/__tests__/meter-readings-nav.test.ts
+index 5237aaa5..fd1be4a2 100644
+--- a/maintainpro/apps/web/lib/__tests__/meter-readings-nav.test.ts
++++ b/maintainpro/apps/web/lib/__tests__/meter-readings-nav.test.ts
+@@ -1,5 +1,6 @@
+ import test from "node:test";
+ import assert from "node:assert/strict";
++import { readFileSync } from "node:fs";
+ 
+ import { EXISTING_NAV_ROUTES, NAVIGATION_ITEMS } from "../navigation";
+ 
+@@ -21,3 +22,12 @@ test("utilities routes are not marked active as assets", () => {
+   const source = JSON.stringify(NAVIGATION_ITEMS);
+   assert.equal(source.includes("/utilities/readings"), true);
+ });
++
++test("meter readings page asks for the latest reading and a bounded mine list", () => {
++  const source = readFileSync("app/(dashboard)/utilities/readings/page.tsx", "utf8");
++  assert.equal(source.includes("/utilities/meters/latest-readings"), true);
++  assert.equal(source.includes('mine: "true"'), true);
++  assert.equal(source.includes("days: 7"), true);
++  assert.equal(source.includes("take: 50"), true);
++  assert.equal(source.includes("/utilities/meters/${meter.id}/readings"), false);
++});
+diff --git a/maintainpro/docs/AI_SESSION_HANDOVER.md b/maintainpro/docs/AI_SESSION_HANDOVER.md
+index b52196f7..75d070d2 100644
+--- a/maintainpro/docs/AI_SESSION_HANDOVER.md
++++ b/maintainpro/docs/AI_SESSION_HANDOVER.md
+@@ -8,7 +8,9 @@
+ > 3. Keep unfinished work on the current feature branch. Never force-push, never discard or
+ >    reset someone else's changes, never push unvalidated code to `main`.
+ 
+-**CURRENT (2026-10-22) — permission override follow-up on `feat/access-studio-f1-1`.** Worktree `C:\Users\chint\AppData\Local\MaintainPro\worktrees\access-studio-f1-1`. Pull request #122 merged to `develop` as `c9bbc8c0`. Implementation commit `bf9b69c3` sits on that merge. Create and delete of a permission override, including the audit row, run in one Prisma transaction. A Prisma P2002 on create becomes HTTP 409. DELETE reads `permissionKey` and `reason` from the JSON body. The overrides card states that overrides apply to permission-checked actions only and that role-gated screens still follow the user's role. `ACCESS_STUDIO_ENABLED` stays default false. API `tsc --noEmit` exit 0. Web `tsc --noEmit` exit 0. Jest `permission-overrides.service`, `effective-permissions`, and `permissions.guard`: 3 suites, 28 passed. Web unit 367 passed, 0 failed. Browser check of the card was not run because the flag defaults off and this branch is not the canonical 3041 server. The independent qa-reviewer did not start because Cursor billing blocked the subagent. That is not a FAIL verdict. Next: pull request https://github.com/jkchinthaka/newmone/pull/124 is open against `develop`. Wait for the checks. Do not merge it.
++**CURRENT (2026-10-22) — meter reading list limits on `fix/meter-readings-paging`.** Worktree `C:\Users\chint\AppData\Local\MaintainPro\worktrees\fixes`. Branched from `origin/develop` at `658ae0c2`. `GET /utilities/readings` keeps the full tenant list when no query is sent. `mine`, `days`, and `take` bound that list. `GET /utilities/meters/latest-readings` returns the latest reading per meter for the same roles as `GET /utilities/meters`. The Meter Readings page uses those two calls instead of every reading for the selected meter. API tsc 0. Web tsc 0. Web unit 368 passed. Jest `meter-readings-paging` and `utilities-tenant-isolation` 14 passed. Tenant audit unapproved 0. RBAC 972 routes, violations 0. No schema change. The page was not opened in a browser; ports 3040/3041 were left untouched and no temporary stack was started. Assumption: `mine=true` matches the `[by:userId]` note saved with the reading, because `MeterReading` has no recorder column. `take` is limited to 200 and `days` to 366.
++
++**Previous (2026-10-22) — permission override follow-up on `feat/access-studio-f1-1`.** Worktree `C:\Users\chint\AppData\Local\MaintainPro\worktrees\access-studio-f1-1`. Pull request #122 merged to `develop` as `c9bbc8c0`. Implementation commit `bf9b69c3` sits on that merge. Create and delete of a permission override, including the audit row, run in one Prisma transaction. A Prisma P2002 on create becomes HTTP 409. DELETE reads `permissionKey` and `reason` from the JSON body. The overrides card states that overrides apply to permission-checked actions only and that role-gated screens still follow the user's role. `ACCESS_STUDIO_ENABLED` stays default false. API `tsc --noEmit` exit 0. Web `tsc --noEmit` exit 0. Jest `permission-overrides.service`, `effective-permissions`, and `permissions.guard`: 3 suites, 28 passed. Web unit 367 passed, 0 failed. Browser check of the card was not run because the flag defaults off and this branch is not the canonical 3041 server. The independent qa-reviewer did not start because Cursor billing blocked the subagent. That is not a FAIL verdict. Next: pull request https://github.com/jkchinthaka/newmone/pull/124 is open against `develop`. Wait for the checks. Do not merge it.
+ 
+ **Previous (2026-10-21) — work order drawer UI on `ui/wo-drawer`.** Branched from `origin/develop` at `5feadd29` (local `develop` was behind). Handover on the previous checkout recorded `fix/ux-confirmed-defects` at `4d394657`; that checkout was actually `99ec9d5b`. This work did not continue that branch. UI-only drawer redesign plus terminal-lock checks for CLOSED/CANCELLED assignee, downtime start, and evidence upload. Parts already rejected those statuses. Web unit tests 359 passed. API Jest `work-order-terminal-lock`, `work-order-parts-governance`, and `reliability-downtime-rca-permits` passed. No `.env.e2e`, so full-stack e2e was not run locally. Screenshots: `docs/handover/ui-redesign/wo-drawer/`.
+ 
+diff --git a/maintainpro/docs/handover/CURSOR_PARALLEL_LOG.md b/maintainpro/docs/handover/CURSOR_PARALLEL_LOG.md
+new file mode 100644
+index 00000000..8a9eb0dd
+--- /dev/null
++++ b/maintainpro/docs/handover/CURSOR_PARALLEL_LOG.md
+@@ -0,0 +1,3 @@
++# Cursor parallel log
++
++fix/meter-readings-paging | DONE | fix/meter-readings-paging | sha follows commit | PR pending | API tsc 0; web tsc 0; web unit 368/0; Jest meter-readings-paging + utilities-tenant-isolation 14; tenant 0; RBAC 972/0 | Branched from origin/develop. Optional mine/days/take on GET /utilities/readings. Latest reading per meter. Page no longer loads every reading for the selected meter. No schema change. 3040/3041 untouched. Browser not opened.
+diff --git a/maintainpro/docs/handover/review/meter-readings-paging.md b/maintainpro/docs/handover/review/meter-readings-paging.md
+new file mode 100644
+index 00000000..bfb76f8d
+--- /dev/null
++++ b/maintainpro/docs/handover/review/meter-readings-paging.md
+@@ -0,0 +1,13 @@
++# fix/meter-readings-paging
++
++Branched from `origin/develop`. Pull request #128 and #129 were still open, and this change does not depend on them.
++
++`GET /utilities/readings` is unchanged when `mine`, `days`, and `take` are omitted. `mine=true` keeps readings whose notes contain `[by:<caller>]`. `days` is 1–366. `take` is 1–200. `GET /utilities/meters/latest-readings` returns one latest row per meter in the caller's tenant, with the same roles as `GET /utilities/meters`.
++
++The Meter Readings page loads that latest row and `mine=true&days=7&take=50` instead of every reading for the selected meter.
++
++Assumption: there is no recorder column on `MeterReading`, so `mine` uses the existing `[by:userId]` note.
++
++Gates: API tsc 0. Web tsc 0. Web unit 368 pass, 0 fail. Jest `meter-readings-paging` and `utilities-tenant-isolation` 14 pass (`maxWorkers=2`). `audit:tenant` unapproved 0. `audit:rbac` 972 routes, violations 0.
++
++No schema change and no database writes. Docker, full-stack e2e, and uat-roles were not run. The page was not opened in a browser. qa-reviewer was not run in this pass.

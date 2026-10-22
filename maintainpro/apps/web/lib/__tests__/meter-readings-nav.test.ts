@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { EXISTING_NAV_ROUTES, NAVIGATION_ITEMS } from "../navigation";
 
@@ -20,4 +21,13 @@ test("meter readings sits immediately after inspections", () => {
 test("utilities routes are not marked active as assets", () => {
   const source = JSON.stringify(NAVIGATION_ITEMS);
   assert.equal(source.includes("/utilities/readings"), true);
+});
+
+test("meter readings page asks for the latest reading and a bounded mine list", () => {
+  const source = readFileSync("app/(dashboard)/utilities/readings/page.tsx", "utf8");
+  assert.equal(source.includes("/utilities/meters/latest-readings"), true);
+  assert.equal(source.includes('mine: "true"'), true);
+  assert.equal(source.includes("days: 7"), true);
+  assert.equal(source.includes("take: 50"), true);
+  assert.equal(source.includes("/utilities/meters/${meter.id}/readings"), false);
 });
