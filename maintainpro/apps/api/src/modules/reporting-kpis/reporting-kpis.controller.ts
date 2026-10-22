@@ -54,7 +54,7 @@ export class ReportingKpisController {
    */
   @Get()
   @Roles(...ALL_REPORT_ROLES)
-  @Permissions("reports.view")
+  @Permissions("reports.view", "access.reportingkpiscontroller.list")
   list() {
     return {
       data: this.service.listDefinitions(),
@@ -69,6 +69,7 @@ export class ReportingKpisController {
    */
   @Get("home")
   @Roles(...HOME_ROLES)
+  @Permissions("access.reportingkpiscontroller.rolehomefromjwt")
   roleHomeFromJwt(@Request() req: { user?: { role?: string } }) {
     const role = req.user?.role ?? "";
     return { data: this.service.resolveHome(role), message: "Role home" };
@@ -81,7 +82,7 @@ export class ReportingKpisController {
    */
   @Post("overview")
   @Roles(...ALL_REPORT_ROLES)
-  @Permissions("reports.view")
+  @Permissions("reports.view", "access.reportingkpiscontroller.overview")
   async overview(
     @Request() req: { user?: { tenantId?: string } },
     @Body() body: Partial<EvaluateKpisInput>
@@ -98,6 +99,7 @@ export class ReportingKpisController {
    */
   @Get("home/:role")
   @Roles(...HOME_ROLES)
+  @Permissions("access.reportingkpiscontroller.home")
   home(@Param("role") role: string) {
     return { data: this.service.resolveHome(role), message: "Role home" };
   }
@@ -108,7 +110,7 @@ export class ReportingKpisController {
    */
   @Get(":code")
   @Roles(...ALL_REPORT_ROLES)
-  @Permissions("reports.view")
+  @Permissions("reports.view", "access.reportingkpiscontroller.one")
   one(@Param("code") code: string) {
     const def = this.service.getDefinition(code);
     return {

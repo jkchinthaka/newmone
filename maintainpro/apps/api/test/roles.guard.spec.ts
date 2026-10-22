@@ -68,4 +68,42 @@ describe("RolesGuard", () => {
 
     expect(guard.canActivate(context)).toBe(true);
   });
+
+  it("skips the role list for a non-super-admin when the flag is on and the route has permissions", () => {
+    const previous = process.env.ACCESS_STUDIO_ENABLED;
+    process.env.ACCESS_STUDIO_ENABLED = "true";
+    const reflector = {
+      getAllAndOverride: jest.fn((key: string) => (key === "permissions" ? ["work_orders.view"] : ["ADMIN"]))
+    } as unknown as Reflector;
+    const guard = new RolesGuard(reflector);
+    const context = {
+      getHandler: jest.fn(),
+      getClass: jest.fn(),
+      switchToHttp: () => ({
+        getRequest: () => ({ user: { role: "TECHNICIAN" } })
+      })
+    } as unknown as ExecutionContext;
+
+    expect(guard.canActivate(context)).toBe(true);
+    process.env.ACCESS_STUDIO_ENABLED = previous;
+  });
+
+  it("still checks SUPER_ADMIN against the role list when the flag is on", () => {
+    const previous = process.env.ACCESS_STUDIO_ENABLED;
+    process.env.ACCESS_STUDIO_ENABLED = "true";
+    const reflector = {
+      getAllAndOverride: jest.fn((key: string) => (key === "permissions" ? ["work_orders.view"] : ["ADMIN"]))
+    } as unknown as Reflector;
+    const guard = new RolesGuard(reflector);
+    const context = {
+      getHandler: jest.fn(),
+      getClass: jest.fn(),
+      switchToHttp: () => ({
+        getRequest: () => ({ user: { role: "SUPER_ADMIN" } })
+      })
+    } as unknown as ExecutionContext;
+
+    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+    process.env.ACCESS_STUDIO_ENABLED = previous;
+  });
 });

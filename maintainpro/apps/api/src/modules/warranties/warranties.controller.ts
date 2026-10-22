@@ -30,7 +30,7 @@ export class WarrantiesController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "TECHNICIAN", "SUPERVISOR", "MECHANIC", "VIEWER", "AUDITOR")
-  @Permissions("warranty.view")
+  @Permissions("warranty.view", "access.warrantiescontroller.list")
   async list(
     @Req() req: AuthedRequest,
     @Query("subjectType") subjectType?: string,
@@ -43,7 +43,7 @@ export class WarrantiesController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("warranty.manage")
+  @Permissions("warranty.manage", "access.warrantiescontroller.create")
   async create(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     if (!body.subjectType || !body.subjectId || !body.provider || !body.startDate || !body.endDate) {
       throw new BadRequestException("subjectType, subjectId, provider, startDate, endDate are required");
@@ -68,7 +68,7 @@ export class WarrantiesController {
 
   @Get("claims")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "AUDITOR", "FINANCE")
-  @Permissions("warranty.view")
+  @Permissions("warranty.view", "access.warrantiescontroller.listclaims")
   async listClaims(
     @Req() req: AuthedRequest,
     @Query("warrantyId") warrantyId?: string,
@@ -81,7 +81,7 @@ export class WarrantiesController {
 
   @Post("claims")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR")
-  @Permissions("warranty.manage")
+  @Permissions("warranty.manage", "access.warrantiescontroller.createclaim")
   async createClaim(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     if (!body.warrantyId) throw new BadRequestException("warrantyId is required");
     const data = await this.warranties.createClaim(req.user, {
@@ -97,7 +97,7 @@ export class WarrantiesController {
 
   @Patch("claims/:id/status")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("warranty.manage")
+  @Permissions("warranty.manage", "access.warrantiescontroller.transition")
   async transition(
     @Req() req: AuthedRequest,
     @Param("id") id: string,

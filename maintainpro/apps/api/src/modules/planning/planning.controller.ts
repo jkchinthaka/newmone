@@ -38,7 +38,7 @@ export class PlanningController {
 
   @Get("pm-plans")
   @Roles(...READ_ROLES)
-  @Permissions("planning.view")
+  @Permissions("planning.view", "access.planningcontroller.listpmplans")
   async listPmPlans(
     @Req() req: AuthedRequest,
     @Query("status") status?: PmPlanStatus,
@@ -64,7 +64,7 @@ export class PlanningController {
 
   @Post("pm-plans")
   @Roles(...MANAGE_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.createpmplan")
   async createPmPlan(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     const data = await this.planning.createPmPlan(req.user, {
       ...(body as object),
@@ -78,7 +78,7 @@ export class PlanningController {
 
   @Put("pm-plans/:id/revise")
   @Roles(...MANAGE_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.revisepmplan")
   async revisePmPlan(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -95,7 +95,7 @@ export class PlanningController {
 
   @Get("pm-plans/:id/revisions")
   @Roles(...READ_ROLES)
-  @Permissions("planning.view")
+  @Permissions("planning.view", "access.planningcontroller.revisionhistory")
   async revisionHistory(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.planning.listRevisionHistory(req.user, id);
     return { data, message: "PM revision history" };
@@ -103,7 +103,7 @@ export class PlanningController {
 
   @Post("pm-plans/:id/auto-wo")
   @Roles(...MANAGE_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.autowo")
   async autoWo(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -122,7 +122,7 @@ export class PlanningController {
 
   @Get("due-work")
   @Roles(...READ_ROLES)
-  @Permissions("planning.view")
+  @Permissions("planning.view", "access.planningcontroller.duework")
   async dueWork(@Req() req: AuthedRequest, @Query("now") now?: string) {
     const data = await this.planning.listDueWork(req.user, {
       now: now ? new Date(now) : undefined
@@ -132,7 +132,7 @@ export class PlanningController {
 
   @Post("meters")
   @Roles(...MANAGE_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.createmeter")
   async createMeter(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     const data = await this.planning.createMeter(req.user, {
       assetId: body.assetId as string | undefined,
@@ -150,7 +150,7 @@ export class PlanningController {
 
   @Post("meters/:id/readings")
   @Roles(...FIELD_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.recordreading")
   async recordReading(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -168,7 +168,7 @@ export class PlanningController {
 
   @Get("checklist-templates")
   @Roles(...READ_ROLES)
-  @Permissions("planning.view")
+  @Permissions("planning.view", "access.planningcontroller.listchecklisttemplates")
   async listChecklistTemplates(
     @Req() req: AuthedRequest,
     @Query("domainKey") domainKey?: string,
@@ -183,7 +183,7 @@ export class PlanningController {
 
   @Post("checklist-templates")
   @Roles(...MANAGE_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.createchecklisttemplate")
   async createChecklistTemplate(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     const data = await this.planning.createChecklistTemplate(
       req.user,
@@ -194,7 +194,7 @@ export class PlanningController {
 
   @Put("checklist-templates/:id/revise")
   @Roles(...MANAGE_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.revisechecklisttemplate")
   async reviseChecklistTemplate(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -210,7 +210,7 @@ export class PlanningController {
 
   @Post("checklist-executions")
   @Roles(...FIELD_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.startchecklistexecution")
   async startChecklistExecution(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     if (!body.workOrderId || !body.templateId) {
       throw new BadRequestException("workOrderId and templateId are required");
@@ -225,7 +225,7 @@ export class PlanningController {
 
   @Put("checklist-executions/:id/complete")
   @Roles(...FIELD_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.completechecklistexecution")
   async completeChecklistExecution(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -240,7 +240,7 @@ export class PlanningController {
 
   @Get("work-orders/:workOrderId/checklist-executions")
   @Roles(...READ_ROLES)
-  @Permissions("planning.view")
+  @Permissions("planning.view", "access.planningcontroller.listworkorderchecklists")
   async listWorkOrderChecklists(@Req() req: AuthedRequest, @Param("workOrderId") workOrderId: string) {
     const data = await this.planning.listChecklistExecutionsForWorkOrder(req.user, workOrderId);
     return { data, message: "Work order checklist executions" };
@@ -248,7 +248,7 @@ export class PlanningController {
 
   @Get("inspections")
   @Roles(...READ_ROLES)
-  @Permissions("planning.view")
+  @Permissions("planning.view", "access.planningcontroller.listinspections")
   async listInspections(
     @Req() req: AuthedRequest,
     @Query() query: Record<string, string>
@@ -266,7 +266,7 @@ export class PlanningController {
 
   @Post("inspections/schedule")
   @Roles(...MANAGE_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.scheduleinspection")
   async scheduleInspection(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     const data = await this.planning.scheduleInspection(req.user, {
       title: body.title ? String(body.title) : undefined,
@@ -284,7 +284,7 @@ export class PlanningController {
 
   @Post("inspection-templates")
   @Roles(...MANAGE_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.createinspectiontemplate")
   async createInspectionTemplate(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     const data = await this.planning.createInspectionTemplate(req.user, {
       code: String(body.code ?? ""),
@@ -298,7 +298,7 @@ export class PlanningController {
 
   @Get("inspection-templates")
   @Roles(...READ_ROLES)
-  @Permissions("planning.view")
+  @Permissions("planning.view", "access.planningcontroller.listinspectiontemplates")
   async listInspectionTemplates(@Req() req: AuthedRequest) {
     const data = await this.planning.listInspectionTemplates(req.user);
     return { data, message: "Inspection templates" };
@@ -306,7 +306,7 @@ export class PlanningController {
 
   @Get("inspections/:id")
   @Roles(...READ_ROLES)
-  @Permissions("planning.view")
+  @Permissions("planning.view", "access.planningcontroller.getinspection")
   async getInspection(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.planning.getInspection(req.user, id);
     return { data, message: "Inspection" };
@@ -314,7 +314,7 @@ export class PlanningController {
 
   @Post("inspections/:id/start")
   @Roles(...FIELD_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.startinspection")
   async startInspection(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.planning.startInspection(req.user, id);
     return { data, message: "Inspection started" };
@@ -322,7 +322,7 @@ export class PlanningController {
 
   @Put("inspections/:id/answers")
   @Roles(...FIELD_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.saveinspectionanswers")
   async saveInspectionAnswers(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -334,7 +334,7 @@ export class PlanningController {
 
   @Post("inspections/:id/evidence")
   @Roles(...FIELD_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.attachinspectionevidence")
   async attachInspectionEvidence(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -351,7 +351,7 @@ export class PlanningController {
 
   @Post("inspections/:id/complete")
   @Roles(...FIELD_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.completescheduledinspection")
   async completeScheduledInspection(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -363,7 +363,7 @@ export class PlanningController {
 
   @Post("inspections/:id/reinspect")
   @Roles(...MANAGE_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.reinspect")
   async reinspect(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.planning.createReinspection(req.user, id);
     return { data, message: "Re-inspection scheduled" };
@@ -371,7 +371,7 @@ export class PlanningController {
 
   @Post("inspections")
   @Roles(...FIELD_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.completeinspection")
   async completeInspection(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     const data = await this.planning.completeInspection(req.user, {
       ...(body as object),
@@ -382,7 +382,7 @@ export class PlanningController {
 
   @Post("calibrations")
   @Roles(...FIELD_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.recordcalibration")
   async recordCalibration(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     const data = await this.planning.recordCalibration(req.user, {
       ...(body as object),
@@ -397,7 +397,7 @@ export class PlanningController {
 
   @Post("compliance")
   @Roles(...MANAGE_ROLES)
-  @Permissions("planning.manage")
+  @Permissions("planning.manage", "access.planningcontroller.upsertcompliance")
   async upsertCompliance(@Req() req: AuthedRequest, @Body() body: Record<string, unknown>) {
     const data = await this.planning.upsertComplianceRequirement(req.user, {
       ...(body as object),

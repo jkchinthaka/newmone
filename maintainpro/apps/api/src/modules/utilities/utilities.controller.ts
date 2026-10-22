@@ -1,3 +1,4 @@
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import { BadRequestException, Body, Controller, Get, Headers, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
@@ -19,6 +20,7 @@ export class UtilitiesController {
 
   @Get("meters")
   @Roles(...METER_READING_ROLES)
+  @Permissions("access.utilitiescontroller.meters")
   async meters(@Req() req: AuthedRequest) {
     const data = await this.utilitiesService.meters(req.user?.tenantId ?? null);
     return { data, message: "Meters fetched" };
@@ -26,6 +28,7 @@ export class UtilitiesController {
 
   @Post("meters")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("access.utilitiescontroller.createmeter")
   async createMeter(
     @Req() req: AuthedRequest,
     @Body() body: { meterNumber: string; type: "ELECTRICITY" | "WATER" | "GAS"; location: string; description?: string; unit: string }
@@ -36,6 +39,7 @@ export class UtilitiesController {
 
   @Get("meters/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.utilitiescontroller.meter")
   async meter(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.utilitiesService.meter(id, req.user?.tenantId ?? null);
     return { data, message: "Meter fetched" };
@@ -43,6 +47,7 @@ export class UtilitiesController {
 
   @Patch("meters/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("access.utilitiescontroller.updatemeter")
   async updateMeter(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -54,6 +59,7 @@ export class UtilitiesController {
 
   @Post("meters/:id/readings")
   @Roles(...METER_READING_ROLES)
+  @Permissions("access.utilitiescontroller.addreading")
   async addReading(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -70,6 +76,7 @@ export class UtilitiesController {
 
   @Get("meters/:id/readings")
   @Roles(...METER_READING_ROLES)
+  @Permissions("access.utilitiescontroller.readings")
   async readings(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.utilitiesService.readings(id, req.user?.tenantId ?? null);
     return { data, message: "Readings fetched" };
@@ -77,6 +84,7 @@ export class UtilitiesController {
 
   @Get("readings")
   @Roles(...METER_READING_ROLES)
+  @Permissions("access.utilitiescontroller.allreadings")
   async allReadings(@Req() req: AuthedRequest) {
     const data = await this.utilitiesService.allReadings(req.user?.tenantId ?? null);
     return { data, message: "Readings fetched" };
@@ -84,6 +92,7 @@ export class UtilitiesController {
 
   @Post("readings")
   @Roles(...METER_READING_ROLES)
+  @Permissions("access.utilitiescontroller.addreadingbymeter")
   async addReadingByMeter(
     @Req() req: AuthedRequest,
     @Body()
@@ -108,6 +117,7 @@ export class UtilitiesController {
 
   @Get("meters/:id/consumption-chart")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.utilitiescontroller.consumptionchart")
   async consumptionChart(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.utilitiesService.consumptionChart(id, req.user?.tenantId ?? null);
     return { data, message: "Consumption chart fetched" };
@@ -115,6 +125,7 @@ export class UtilitiesController {
 
   @Get("bills")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.utilitiescontroller.bills")
   async bills(@Req() req: AuthedRequest) {
     const data = await this.utilitiesService.bills(req.user?.tenantId ?? null);
     return { data, message: "Bills fetched" };
@@ -122,6 +133,7 @@ export class UtilitiesController {
 
   @Post("bills")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("access.utilitiescontroller.createbill")
   async createBill(
     @Req() req: AuthedRequest,
     @Body()
@@ -143,6 +155,7 @@ export class UtilitiesController {
 
   @Get("bills/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.utilitiescontroller.bill")
   async bill(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.utilitiesService.bill(id, req.user?.tenantId ?? null);
     return { data, message: "Bill fetched" };
@@ -150,6 +163,7 @@ export class UtilitiesController {
 
   @Patch("bills/:id/pay")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("access.utilitiescontroller.pay")
   async pay(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.utilitiesService.payBill(id, req.user?.tenantId ?? null);
     return { data, message: "Bill paid" };
@@ -157,6 +171,7 @@ export class UtilitiesController {
 
   @Patch("bills/pay")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("access.utilitiescontroller.paybybody")
   async payByBody(@Req() req: AuthedRequest, @Body() body: { id: string }) {
     if (!body.id) {
       throw new BadRequestException("Bill id is required");
@@ -168,6 +183,7 @@ export class UtilitiesController {
 
   @Get("bills/overdue")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("access.utilitiescontroller.overdue")
   async overdue(@Req() req: AuthedRequest) {
     const data = await this.utilitiesService.overdue(req.user?.tenantId ?? null);
     return { data, message: "Overdue bills fetched" };
@@ -175,6 +191,7 @@ export class UtilitiesController {
 
   @Get("analytics")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.utilitiescontroller.analytics")
   async analytics(@Req() req: AuthedRequest) {
     const data = await this.utilitiesService.analytics(req.user?.tenantId ?? null);
     return { data, message: "Utilities analytics fetched" };

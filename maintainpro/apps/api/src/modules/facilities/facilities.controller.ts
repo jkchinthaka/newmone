@@ -41,7 +41,7 @@ export class FacilitiesController {
   @Get("dashboard")
   @Header("Cache-Control", "private, max-age=15")
   @Roles(...FACILITY_READ_ROLES)
-  @Permissions("facilities.view")
+  @Permissions("facilities.view", "access.facilitiescontroller.getdashboard")
   async getDashboard(@Req() req: AuthedRequest) {
     const data = await this.facilitiesService.getDashboardSummary(req.user.tenantId ?? null);
     return { data, message: "Facility dashboard summary fetched" };
@@ -50,7 +50,7 @@ export class FacilitiesController {
   @Get("reports/aging")
   @Header("Cache-Control", "private, max-age=15")
   @Roles(...FACILITY_READ_ROLES)
-  @Permissions("facilities.view")
+  @Permissions("facilities.view", "access.facilitiescontroller.getagingreport")
   async getAgingReport(@Req() req: AuthedRequest) {
     const data = await this.facilitiesService.getAgingReport(req.user.tenantId ?? null);
     return { data, message: "Facility aging report fetched" };
@@ -59,7 +59,7 @@ export class FacilitiesController {
   @Get("properties")
   @Header("Cache-Control", "private, max-age=30")
   @Roles(...FACILITY_READ_ROLES)
-  @Permissions("facilities.view")
+  @Permissions("facilities.view", "access.facilitiescontroller.listproperties")
   @ApiQuery({ name: "q", required: false })
   @ApiQuery({ name: "includeInactive", required: false })
   async listProperties(
@@ -76,7 +76,7 @@ export class FacilitiesController {
 
   @Post("properties")
   @Roles(...FACILITY_MANAGE_ROLES)
-  @Permissions("facilities.manage")
+  @Permissions("facilities.manage", "access.facilitiescontroller.createproperty")
   async createProperty(@Req() req: AuthedRequest, @Body() body: CreatePropertyDto) {
     const data = await this.facilitiesService.createProperty(req.user.tenantId ?? null, body);
     return { data, message: "Property created" };
@@ -85,7 +85,7 @@ export class FacilitiesController {
   @Get("properties/:propertyId")
   @Header("Cache-Control", "private, max-age=30")
   @Roles(...FACILITY_READ_ROLES)
-  @Permissions("facilities.view")
+  @Permissions("facilities.view", "access.facilitiescontroller.getproperty")
   async getProperty(@Req() req: AuthedRequest, @Param("propertyId") propertyId: string) {
     const data = await this.facilitiesService.getProperty(req.user.tenantId ?? null, propertyId);
     return { data, message: "Property fetched" };
@@ -93,7 +93,7 @@ export class FacilitiesController {
 
   @Patch("properties/:propertyId")
   @Roles(...FACILITY_MANAGE_ROLES)
-  @Permissions("facilities.manage")
+  @Permissions("facilities.manage", "access.facilitiescontroller.updateproperty")
   async updateProperty(
     @Req() req: AuthedRequest,
     @Param("propertyId") propertyId: string,
@@ -106,7 +106,7 @@ export class FacilitiesController {
   @Get("buildings")
   @Header("Cache-Control", "private, max-age=30")
   @Roles(...FACILITY_READ_ROLES)
-  @Permissions("facilities.view")
+  @Permissions("facilities.view", "access.facilitiescontroller.listbuildings")
   @ApiQuery({ name: "propertyId", required: false })
   @ApiQuery({ name: "q", required: false })
   @ApiQuery({ name: "includeInactive", required: false })
@@ -126,7 +126,7 @@ export class FacilitiesController {
 
   @Post("buildings")
   @Roles(...FACILITY_MANAGE_ROLES)
-  @Permissions("facilities.manage")
+  @Permissions("facilities.manage", "access.facilitiescontroller.createbuilding")
   async createBuilding(@Req() req: AuthedRequest, @Body() body: CreateBuildingDto) {
     const data = await this.facilitiesService.createBuilding(req.user.tenantId ?? null, body);
     return { data, message: "Building created" };
@@ -135,7 +135,7 @@ export class FacilitiesController {
   @Get("buildings/:buildingId")
   @Header("Cache-Control", "private, max-age=30")
   @Roles(...FACILITY_READ_ROLES)
-  @Permissions("facilities.view")
+  @Permissions("facilities.view", "access.facilitiescontroller.getbuilding")
   async getBuilding(@Req() req: AuthedRequest, @Param("buildingId") buildingId: string) {
     const data = await this.facilitiesService.getBuilding(req.user.tenantId ?? null, buildingId);
     return { data, message: "Building fetched" };
@@ -143,7 +143,7 @@ export class FacilitiesController {
 
   @Patch("buildings/:buildingId")
   @Roles(...FACILITY_MANAGE_ROLES)
-  @Permissions("facilities.manage")
+  @Permissions("facilities.manage", "access.facilitiescontroller.updatebuilding")
   async updateBuilding(
     @Req() req: AuthedRequest,
     @Param("buildingId") buildingId: string,
@@ -156,7 +156,7 @@ export class FacilitiesController {
   @Get("floors")
   @Header("Cache-Control", "private, max-age=30")
   @Roles(...FACILITY_READ_ROLES)
-  @Permissions("facilities.view")
+  @Permissions("facilities.view", "access.facilitiescontroller.listfloors")
   @ApiQuery({ name: "buildingId", required: false })
   @ApiQuery({ name: "q", required: false })
   @ApiQuery({ name: "includeInactive", required: false })
@@ -176,7 +176,7 @@ export class FacilitiesController {
 
   @Post("floors")
   @Roles(...FACILITY_MANAGE_ROLES)
-  @Permissions("facilities.manage")
+  @Permissions("facilities.manage", "access.facilitiescontroller.createfloor")
   async createFloor(@Req() req: AuthedRequest, @Body() body: CreateFloorDto) {
     const data = await this.facilitiesService.createFloor(req.user.tenantId ?? null, body);
     return { data, message: "Floor created" };
@@ -185,7 +185,7 @@ export class FacilitiesController {
   @Get("floors/:floorId")
   @Header("Cache-Control", "private, max-age=30")
   @Roles(...FACILITY_READ_ROLES)
-  @Permissions("facilities.view")
+  @Permissions("facilities.view", "access.facilitiescontroller.getfloor")
   async getFloor(@Req() req: AuthedRequest, @Param("floorId") floorId: string) {
     const data = await this.facilitiesService.getFloor(req.user.tenantId ?? null, floorId);
     return { data, message: "Floor fetched" };
@@ -193,7 +193,7 @@ export class FacilitiesController {
 
   @Patch("floors/:floorId")
   @Roles(...FACILITY_MANAGE_ROLES)
-  @Permissions("facilities.manage")
+  @Permissions("facilities.manage", "access.facilitiescontroller.updatefloor")
   async updateFloor(
     @Req() req: AuthedRequest,
     @Param("floorId") floorId: string,
@@ -206,7 +206,7 @@ export class FacilitiesController {
   @Get("rooms")
   @Header("Cache-Control", "private, max-age=30")
   @Roles(...FACILITY_READ_ROLES)
-  @Permissions("facilities.view")
+  @Permissions("facilities.view", "access.facilitiescontroller.listrooms")
   @ApiQuery({ name: "floorId", required: false })
   @ApiQuery({ name: "q", required: false })
   @ApiQuery({ name: "includeInactive", required: false })
@@ -226,7 +226,7 @@ export class FacilitiesController {
 
   @Post("rooms")
   @Roles(...FACILITY_MANAGE_ROLES)
-  @Permissions("facilities.manage")
+  @Permissions("facilities.manage", "access.facilitiescontroller.createroom")
   async createRoom(@Req() req: AuthedRequest, @Body() body: CreateRoomDto) {
     const data = await this.facilitiesService.createRoom(req.user.tenantId ?? null, body);
     return { data, message: "Room created" };
@@ -235,7 +235,7 @@ export class FacilitiesController {
   @Get("rooms/:roomId")
   @Header("Cache-Control", "private, max-age=30")
   @Roles(...FACILITY_READ_ROLES)
-  @Permissions("facilities.view")
+  @Permissions("facilities.view", "access.facilitiescontroller.getroom")
   async getRoom(@Req() req: AuthedRequest, @Param("roomId") roomId: string) {
     const data = await this.facilitiesService.getRoom(req.user.tenantId ?? null, roomId);
     return { data, message: "Room fetched" };
@@ -243,7 +243,7 @@ export class FacilitiesController {
 
   @Patch("rooms/:roomId")
   @Roles(...FACILITY_MANAGE_ROLES)
-  @Permissions("facilities.manage")
+  @Permissions("facilities.manage", "access.facilitiescontroller.updateroom")
   async updateRoom(
     @Req() req: AuthedRequest,
     @Param("roomId") roomId: string,

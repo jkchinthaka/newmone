@@ -33,9 +33,15 @@ type RequestBag = {
   accessConfigVersions?: Map<string, number>;
 };
 
-/** True only when the studio flag is explicitly on. Unset stays off. */
+/** True only when the studio flag is explicitly on and this process is allowed to use it. */
+let accessStudioRuntimeAllowed = process.env.NODE_ENV === "test";
+
 export function accessStudioEnabled(): boolean {
-  return process.env.ACCESS_STUDIO_ENABLED === "true";
+  return process.env.ACCESS_STUDIO_ENABLED === "true" && accessStudioRuntimeAllowed;
+}
+
+export function setAccessStudioRuntimeAllowed(allowed: boolean): void {
+  accessStudioRuntimeAllowed = allowed;
 }
 
 export function isActiveOverride(row: PermissionOverrideRow, now = new Date()): boolean {

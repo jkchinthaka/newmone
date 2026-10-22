@@ -19,7 +19,7 @@ export class AdminGovernanceController {
 
   @Get("overview")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.overview.view")
+  @Permissions("admin.overview.view", "access.admingovernancecontroller.overview")
   async overview(@Req() req: AuthedRequest) {
     const data = await this.governance.overview(req.user);
     return { data, message: "Admin overview" };
@@ -27,7 +27,7 @@ export class AdminGovernanceController {
 
   @Get("users/:id/deactivate-preview")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.users.manage")
+  @Permissions("admin.users.manage", "access.admingovernancecontroller.deactivatepreview")
   async deactivatePreview(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.governance.previewDeactivate(req.user, id);
     return { data, message: data.code };
@@ -35,7 +35,7 @@ export class AdminGovernanceController {
 
   @Post("config-change/guard")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.system.view")
+  @Permissions("admin.system.view", "access.admingovernancecontroller.configguard")
   configGuard(@Body() body: { confirmed: boolean; impactPreviewProvided: boolean; reason?: string; effectiveFrom?: string }) {
     const data = this.governance.guardConfigChange(body);
     return { data, message: data.code };
@@ -43,7 +43,7 @@ export class AdminGovernanceController {
 
   @Get("data-quality")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("admin.dataquality.view")
+  @Permissions("admin.dataquality.view", "access.admingovernancecontroller.dataquality")
   async dataQuality(@Req() req: AuthedRequest) {
     const data = await this.governance.dataQualityIssues(req.user);
     return { data, message: "Data quality issues" };
@@ -51,7 +51,7 @@ export class AdminGovernanceController {
 
   @Get("system")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.system.view")
+  @Permissions("admin.system.view", "access.admingovernancecontroller.system")
   system() {
     const data = this.governance.systemInfo();
     return { data, message: "System info" };

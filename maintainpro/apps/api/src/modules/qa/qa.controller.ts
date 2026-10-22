@@ -120,7 +120,7 @@ export class QaController {
 
   @Post("issues/from-health-check")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("qa.manage")
+  @Permissions("qa.manage", "access.qacontroller.fromhealthcheck")
   fromHealthCheck(
     @Body()
     body: { checkKey: string; checkLabel: string; message: string; category?: string; severity?: string }

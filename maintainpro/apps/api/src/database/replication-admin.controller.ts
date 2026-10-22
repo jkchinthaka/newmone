@@ -17,7 +17,7 @@ export class ReplicationAdminController {
   @Get("status")
   @PlatformScoped()
   @Roles("SUPER_ADMIN")
-  @Permissions("settings.system.manage")
+  @Permissions("settings.system.manage", "access.replicationadmincontroller.status")
   async status() {
     return {
       data: await this.replicationSyncService.getStatusSnapshot(),

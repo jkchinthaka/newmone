@@ -1,3 +1,4 @@
+import { Permissions } from "../../../common/decorators/permissions.decorator";
 import { BadRequestException, Body, Controller, Delete, Get, Injectable, Module, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Prisma } from "@prisma/client";
@@ -65,6 +66,7 @@ export class SoilTestsController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "AGRONOMIST", "VIEWER")
+  @Permissions("access.soiltestscontroller.list")
   async list(@Req() req: AuthedRequest, @Query("fieldId") fieldId?: string) {
     const data = await this.service.list(req.user?.tenantId ?? null, fieldId);
     return { data, message: "Soil tests fetched" };
@@ -72,6 +74,7 @@ export class SoilTestsController {
 
   @Get(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "AGRONOMIST", "VIEWER")
+  @Permissions("access.soiltestscontroller.get")
   async get(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.get(id, req.user?.tenantId ?? null);
     return { data, message: "Soil test fetched" };
@@ -79,6 +82,7 @@ export class SoilTestsController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "AGRONOMIST")
+  @Permissions("access.soiltestscontroller.create")
   async create(@Req() req: AuthedRequest, @Body() body: Prisma.SoilTestUncheckedCreateInput) {
     const data = await this.service.create(req.user?.tenantId ?? null, body);
     return { data, message: "Soil test created" };
@@ -86,6 +90,7 @@ export class SoilTestsController {
 
   @Patch(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "AGRONOMIST")
+  @Permissions("access.soiltestscontroller.update")
   async update(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: Prisma.SoilTestUncheckedUpdateInput) {
     const data = await this.service.update(id, req.user?.tenantId ?? null, body);
     return { data, message: "Soil test updated" };
@@ -93,6 +98,7 @@ export class SoilTestsController {
 
   @Delete(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER")
+  @Permissions("access.soiltestscontroller.remove")
   async remove(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.remove(id, req.user?.tenantId ?? null);
     return { data, message: "Soil test removed" };

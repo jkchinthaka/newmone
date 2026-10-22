@@ -113,6 +113,7 @@ export class PeopleController {
 
   @Get("technicians/assignable")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.peoplecontroller.listassignabletechnicians")
   async listAssignableTechnicians(@Query("designation") designation?: string) {
     const data = await this.techniciansService.listAssignable(null, designation);
     return { data, message: "Assignable technicians fetched" };

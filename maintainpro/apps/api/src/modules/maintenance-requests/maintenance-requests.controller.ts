@@ -71,6 +71,7 @@ export class MaintenanceRequestsController {
 
   @Post("problem-categories/seed")
   @Roles(...TRIAGE_ROLES)
+  @Permissions("access.maintenancerequestscontroller.seedcategories")
   async seedCategories(@Req() req: AuthedRequest) {
     const data = await this.requests.seedProblemCategories(req.user?.tenantId ?? null);
     return { data, message: "Problem categories seeded" };
@@ -138,7 +139,7 @@ export class MaintenanceRequestsController {
 
   @Get(":id/duplicate-candidates")
   @Roles(...TRIAGE_ROLES)
-  @Permissions("maintenance_requests.triage")
+  @Permissions("maintenance_requests.triage", "access.maintenancerequestscontroller.duplicates")
   async duplicates(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.requests.duplicateCandidates(
       req.user?.tenantId ?? null,
@@ -150,7 +151,7 @@ export class MaintenanceRequestsController {
 
   @Get(":id/repeat-history")
   @Roles(...TRIAGE_ROLES)
-  @Permissions("maintenance_requests.triage")
+  @Permissions("maintenance_requests.triage", "access.maintenancerequestscontroller.repeathistory")
   async repeatHistory(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.requests.repeatHistory(req.user?.tenantId ?? null, id, req.user!);
     return { data, message: "Repeat history fetched" };
@@ -158,7 +159,7 @@ export class MaintenanceRequestsController {
 
   @Post(":id/start-review")
   @Roles(...TRIAGE_ROLES)
-  @Permissions("maintenance_requests.triage")
+  @Permissions("maintenance_requests.triage", "access.maintenancerequestscontroller.startreview")
   async startReview(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.requests.startReview(req.user?.tenantId ?? null, id, req.user!);
     return { data, message: "Review started" };
@@ -166,7 +167,7 @@ export class MaintenanceRequestsController {
 
   @Post(":id/triage")
   @Roles(...TRIAGE_ROLES)
-  @Permissions("maintenance_requests.triage")
+  @Permissions("maintenance_requests.triage", "access.maintenancerequestscontroller.triage")
   async triage(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -178,7 +179,7 @@ export class MaintenanceRequestsController {
 
   @Post(":id/approve")
   @Roles(...TRIAGE_ROLES)
-  @Permissions("maintenance_requests.approve")
+  @Permissions("maintenance_requests.approve", "access.maintenancerequestscontroller.approve")
   async approve(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.requests.approve(req.user?.tenantId ?? null, id, req.user!);
     return { data, message: "Request approved" };
@@ -186,7 +187,7 @@ export class MaintenanceRequestsController {
 
   @Post(":id/needs-information")
   @Roles(...TRIAGE_ROLES)
-  @Permissions("maintenance_requests.triage")
+  @Permissions("maintenance_requests.triage", "access.maintenancerequestscontroller.needsinformation")
   async needsInformation(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -219,7 +220,7 @@ export class MaintenanceRequestsController {
 
   @Post(":id/resume-review")
   @Roles(...TRIAGE_ROLES)
-  @Permissions("maintenance_requests.triage")
+  @Permissions("maintenance_requests.triage", "access.maintenancerequestscontroller.resumereview")
   async resumeReview(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -231,7 +232,7 @@ export class MaintenanceRequestsController {
 
   @Post(":id/reject")
   @Roles(...TRIAGE_ROLES)
-  @Permissions("maintenance_requests.reject")
+  @Permissions("maintenance_requests.reject", "access.maintenancerequestscontroller.reject")
   async reject(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -254,7 +255,7 @@ export class MaintenanceRequestsController {
 
   @Post(":id/mark-duplicate")
   @Roles(...TRIAGE_ROLES)
-  @Permissions("maintenance_requests.triage")
+  @Permissions("maintenance_requests.triage", "access.maintenancerequestscontroller.markduplicate")
   async markDuplicate(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -266,7 +267,7 @@ export class MaintenanceRequestsController {
 
   @Post(":id/convert-to-work-order")
   @Roles(...TRIAGE_ROLES)
-  @Permissions("maintenance_requests.convert")
+  @Permissions("maintenance_requests.convert", "access.maintenancerequestscontroller.convert")
   async convert(
     @Req() req: AuthedRequest,
     @Param("id") id: string,

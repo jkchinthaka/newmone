@@ -1,3 +1,4 @@
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiQuery, ApiTags } from "@nestjs/swagger";
 
@@ -23,6 +24,7 @@ export class JobCodesController {
   @ApiQuery({ name: "parentId", required: false, description: "Pass 'null' for main jobs, or an ObjectId for sub-jobs of that parent" })
   @ApiQuery({ name: "pageSize", required: false })
   @ApiQuery({ name: "includeInactive", required: false })
+  @Permissions("access.jobcodescontroller.findall")
   async findAll(
     @Req() req: AuthedRequest,
     @Query("q") q?: string,
@@ -41,6 +43,7 @@ export class JobCodesController {
 
   @Get(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "TECHNICIAN", "MECHANIC", "SUPERVISOR", "VIEWER")
+  @Permissions("access.jobcodescontroller.findone")
   async findOne(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.jobCodesService.findOne(req.user?.tenantId ?? null, id);
     return { data, message: "Job code fetched" };
@@ -48,6 +51,7 @@ export class JobCodesController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("access.jobcodescontroller.create")
   async create(
     @Req() req: AuthedRequest,
     @Body()
@@ -82,6 +86,7 @@ export class JobCodesController {
 
   @Patch(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("access.jobcodescontroller.update")
   async update(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -104,6 +109,7 @@ export class JobCodesController {
 
   @Delete(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  @Permissions("access.jobcodescontroller.remove")
   async remove(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.jobCodesService.remove(req.user?.tenantId ?? null, id);
     return { data, message: "Job code deactivated" };

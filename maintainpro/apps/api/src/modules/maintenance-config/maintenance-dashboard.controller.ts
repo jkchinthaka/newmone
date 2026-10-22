@@ -1,3 +1,4 @@
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Controller, Get, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
@@ -37,6 +38,7 @@ export class MaintenanceDashboardController {
     "INVENTORY_KEEPER",
     "VIEWER"
   )
+  @Permissions("access.maintenancedashboardcontroller.dashboard")
   async dashboard(@Req() req: AuthedRequest) {
     const data = await this.config.opsOverview(req.user);
     return { data, message: "Maintenance dashboard overview" };

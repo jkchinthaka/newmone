@@ -11,3 +11,13 @@ F1c.2 | DONE | ae1ea357 | same | expiresAt + date input; past dates rejected
 F1c.3 | DONE | ae1ea357 | same | D1 400 Change the role instead; D2 tenant-scoped last SUPER_ADMIN
 F1c.4 | DONE | ae1ea357 | same | request cache; flag off does not read overrides or tenant version
 F1c.5 | DONE | ae1ea357 | same | removal reason must differ from the create reason
+F2.1 | DONE | pending | route inventory 971 from decorator metadata | Jest barrel because tsx does not run Nest decorators
+F2.2 | DONE | pending | RoleName enum, 27 roles | MaintainProDev was not queried; the live check uses each tenant's Role rows
+F2.3 | DONE | pending | real RolesGuard and PermissionsGuard, 971 routes x 27 roles, 0 mismatches | zero overrides, seed keys plus the new grants
+F2.4 | DONE | pending | 669 access.* keys | a key is added when a role outside @Roles can already pass @Permissions
+F2.5 | DONE | pending | @Permissions added beside @Roles | @Roles stay in place
+F2.6 | DONE | pending | seed grants and scripts/ops/grant-access-studio-keys.ts | dry-run is the default; --apply refuses nelna and MaintainProDev
+F2.7 | BLOCKED | pending | helper text still shown | seed parity is 0 mismatches; the text stays until a live tenant dry-run is clean
+F2.8 | DONE | pending | startup stays off unless seed version >= 1 and live keys match | one error log, API still boots
+F2.9 | BLOCKED | pending | service role checks not listed yet | next step after this commit
+

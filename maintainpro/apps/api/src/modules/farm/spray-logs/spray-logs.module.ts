@@ -1,3 +1,4 @@
+import { Permissions } from "../../../common/decorators/permissions.decorator";
 import { BadRequestException, Body, Controller, Delete, Get, Injectable, Module, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Prisma } from "@prisma/client";
@@ -89,6 +90,7 @@ export class SprayLogsController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "AGRONOMIST", "VIEWER")
+  @Permissions("access.spraylogscontroller.list")
   async list(
     @Req() req: AuthedRequest,
     @Query("fieldId") fieldId?: string,
@@ -100,6 +102,7 @@ export class SprayLogsController {
 
   @Get("compliance")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "AGRONOMIST")
+  @Permissions("access.spraylogscontroller.pending")
   async pending(@Req() req: AuthedRequest) {
     const data = await this.service.pendingCompliance(req.user?.tenantId ?? null);
     return { data, message: "Compliance flagged spray logs fetched" };
@@ -107,6 +110,7 @@ export class SprayLogsController {
 
   @Get(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "AGRONOMIST", "VIEWER")
+  @Permissions("access.spraylogscontroller.get")
   async get(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.get(id, req.user?.tenantId ?? null);
     return { data, message: "Spray log fetched" };
@@ -114,6 +118,7 @@ export class SprayLogsController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "AGRONOMIST")
+  @Permissions("access.spraylogscontroller.create")
   async create(@Req() req: AuthedRequest, @Body() body: Prisma.SprayLogUncheckedCreateInput) {
     const data = await this.service.create(req.user?.tenantId ?? null, body);
     return { data, message: "Spray log created" };
@@ -121,6 +126,7 @@ export class SprayLogsController {
 
   @Patch(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "AGRONOMIST")
+  @Permissions("access.spraylogscontroller.update")
   async update(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: Prisma.SprayLogUncheckedUpdateInput) {
     const data = await this.service.update(id, req.user?.tenantId ?? null, body);
     return { data, message: "Spray log updated" };
@@ -128,6 +134,7 @@ export class SprayLogsController {
 
   @Delete(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER")
+  @Permissions("access.spraylogscontroller.remove")
   async remove(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.remove(id, req.user?.tenantId ?? null);
     return { data, message: "Spray log removed" };

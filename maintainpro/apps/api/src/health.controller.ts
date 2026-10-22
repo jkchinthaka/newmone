@@ -1,3 +1,4 @@
+import { Permissions } from "./common/decorators/permissions.decorator";
 import {
   Controller,
   Get,
@@ -70,6 +71,7 @@ export class HealthController {
 
   @Roles("SUPER_ADMIN", "ADMIN")
   @Get("readiness")
+  @Permissions("access.healthcontroller.readiness")
   async readiness() {
     return {
       data: await this.healthService.getReadiness(),
@@ -79,6 +81,7 @@ export class HealthController {
 
   @Roles("SUPER_ADMIN", "ADMIN")
   @Get("deployment-readiness")
+  @Permissions("access.healthcontroller.deploymentreadiness")
   async deploymentReadiness() {
     return {
       data: this.healthService.getDeploymentReadinessSummary(),

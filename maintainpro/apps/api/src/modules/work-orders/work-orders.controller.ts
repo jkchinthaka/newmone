@@ -60,6 +60,7 @@ export class WorkOrdersController {
 
   @Get("governance/parts-exceptions")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "INVENTORY_KEEPER", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.partsgovernanceexceptions")
   async partsGovernanceExceptions(@Req() req: AuthedRequest) {
     const data = await this.workOrderPartsService.getPartsExceptions(req.user);
     return { data, message: "Work order parts exceptions fetched" };
@@ -67,6 +68,7 @@ export class WorkOrdersController {
 
   @Get("governance/exceptions")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.governanceexceptions")
   async governanceExceptions(@Req() req: AuthedRequest) {
     const data = await this.workOrderGovernanceService.getExceptionSummary(req.user);
     return { data, message: "Work order governance exceptions fetched" };
@@ -92,6 +94,7 @@ export class WorkOrdersController {
     "VIEWER",
     "FINANCE"
   )
+  @Permissions("access.workorderscontroller.queuesummary")
   async queueSummary(@Req() req: AuthedRequest, @Query("jobDomain") jobDomain?: string) {
     const data = await this.workOrderQueuesService.getQueueSummary(req.user, jobDomain);
     return { data, message: "Work order queue summary fetched" };
@@ -99,6 +102,7 @@ export class WorkOrdersController {
 
   @Get("queues/diagnostics")
   @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("access.workorderscontroller.queuediagnostics")
   async queueDiagnostics() {
     const data = this.workOrderQueuesService.getQueueDiagnostics();
     return { data, message: "Work order queue diagnostics fetched" };
@@ -116,6 +120,7 @@ export class WorkOrdersController {
     "SUPERVISOR",
     "INVENTORY_KEEPER"
   )
+  @Permissions("access.workorderscontroller.smartviews")
   async smartViews(@Req() req: AuthedRequest) {
     const data = await this.workOrderQueuesService.getSmartViews(req.user);
     return { data, message: "Work order smart views fetched" };
@@ -133,6 +138,7 @@ export class WorkOrdersController {
     "SUPERVISOR",
     "INVENTORY_KEEPER"
   )
+  @Permissions("access.workorderscontroller.actionrequired")
   async actionRequired(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
     const data = await this.workOrderQueuesService.getActionRequired(req.user, query);
     return { data, message: "Action required work orders fetched" };
@@ -150,6 +156,7 @@ export class WorkOrdersController {
     "SUPERVISOR",
     "INVENTORY_KEEPER"
   )
+  @Permissions("access.workorderscontroller.queueitems")
   async queueItems(@Req() req: AuthedRequest, @Param("queueKey") queueKey: string, @Query() query: Record<string, string>) {
     const data = await this.workOrderQueuesService.getQueue(req.user, queueKey, query);
     return { data, message: "Work order queue fetched" };
@@ -166,6 +173,7 @@ export class WorkOrdersController {
     "TECHNICIAN",
     "SUPERVISOR"
   )
+  @Permissions("access.workorderscontroller.myjobs")
   async myJobs(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
     const result = await this.workOrderQueuesService.listMyJobs(req.user, query);
     return {
@@ -194,7 +202,7 @@ export class WorkOrdersController {
    */
   @Get("job-categories")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
-  @Permissions("work_orders.manage")
+  @Permissions("work_orders.manage", "access.workorderscontroller.listjobcategories")
   async listJobCategories(
     @Req() req: AuthedRequest,
     @Query("jobDomain") jobDomain?: string,
@@ -221,6 +229,7 @@ export class WorkOrdersController {
     "SUPERVISOR",
     "INVENTORY_KEEPER"
   )
+  @Permissions("access.workorderscontroller.categorysummary")
   async categorySummary(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
     const data = await this.workOrderQueuesService.getCategorySummary(req.user, query);
     return { data, message: "Work order category summary fetched" };
@@ -240,6 +249,7 @@ export class WorkOrdersController {
     "VIEWER",
     "DRIVER"
   )
+  @Permissions("access.workorderscontroller.suggesttaxonomy")
   async suggestTaxonomy(@Req() req: AuthedRequest, @Query("q") q = "") {
     const data = await this.workOrderTaxonomyService.suggest(req.user, q);
     return { data, message: "Work order taxonomy suggestion fetched" };
@@ -259,6 +269,7 @@ export class WorkOrdersController {
     "VIEWER",
     "DRIVER"
   )
+  @Permissions("access.workorderscontroller.searchtaxonomy")
   async searchTaxonomy(@Req() req: AuthedRequest, @Query("q") q = "", @Query("limit") limit?: string) {
     const data = await this.workOrderTaxonomyService.search(req.user, q, limit ? Number(limit) : 25);
     return { data, message: "Work order taxonomy search results fetched" };
@@ -276,6 +287,7 @@ export class WorkOrdersController {
     "SUPERVISOR",
     "INVENTORY_KEEPER"
   )
+  @Permissions("access.workorderscontroller.findall")
   async findAll(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
     const parsed = parseWorkOrderListQuery(query);
     if (!parsed.page) parsed.page = 1;
@@ -300,6 +312,7 @@ export class WorkOrdersController {
     "FACILITY_MANAGER",
     "BUILDING_SUPERVISOR"
   )
+  @Permissions("access.workorderscontroller.maintenancehistory")
   async maintenanceHistory(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
     const data = await this.workOrderQueuesService.listMaintenanceHistory(req.user, query);
     return { data, message: "Maintenance history fetched" };
@@ -307,7 +320,7 @@ export class WorkOrdersController {
 
   @Post("bulk/assign")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
-  @Permissions("work_orders.manage")
+  @Permissions("work_orders.manage", "access.workorderscontroller.bulkassign")
   async bulkAssign(
     @Req() req: AuthedRequest,
     @Body()
@@ -324,7 +337,7 @@ export class WorkOrdersController {
 
   @Post("bulk/status")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
-  @Permissions("work_orders.manage")
+  @Permissions("work_orders.manage", "access.workorderscontroller.bulkstatus")
   async bulkStatus(
     @Req() req: AuthedRequest,
     @Body()
@@ -341,7 +354,7 @@ export class WorkOrdersController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
-  @Permissions("work_orders.manage")
+  @Permissions("work_orders.manage", "access.workorderscontroller.create")
   async create(
     @Req() req: AuthedRequest,
     @Body()
@@ -382,6 +395,7 @@ export class WorkOrdersController {
 
   @Get(":id/insights")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.insights")
   async insights(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrderInsightsService.forWorkOrder(req.user?.tenantId ?? null, id);
     return { data, message: "Work order insights fetched" };
@@ -389,6 +403,7 @@ export class WorkOrdersController {
 
   @Get(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.findone")
   async findOne(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrdersService.findOne(id, req.user);
     return { data, message: "Work order fetched" };
@@ -396,6 +411,7 @@ export class WorkOrdersController {
 
   @Get(":id/history")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.workorderhistory")
   async workOrderHistory(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrderHistoryService.getHistory(id, req.user);
     return { data, message: "Work order history fetched" };
@@ -416,6 +432,7 @@ export class WorkOrdersController {
     "SUPERVISOR",
     "VIEWER"
   )
+  @Permissions("access.workorderscontroller.domaincontext")
   async domainContext(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrderDomainService.getDomainContext(id, req.user);
     return { data, message: "Work order domain context fetched" };
@@ -424,7 +441,7 @@ export class WorkOrdersController {
   @Post(":id/return-to-service")
   @HttpCode(HttpStatus.OK)
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR", "FLEET_MANAGER")
-  @Permissions("work_orders.verify")
+  @Permissions("work_orders.verify", "access.workorderscontroller.returntoservice")
   async returnToService(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -440,6 +457,7 @@ export class WorkOrdersController {
 
   @Get(":id/activity")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.activitytimeline")
   async activityTimeline(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrderActivityService.getActivityTimeline(id, req.user);
     return { data, message: "Work order activity timeline fetched" };
@@ -447,6 +465,7 @@ export class WorkOrdersController {
 
   @Post(":id/evidence")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  @Permissions("access.workorderscontroller.createevidence")
   async createEvidence(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -479,6 +498,7 @@ export class WorkOrdersController {
     "FACILITY_MANAGER",
     "SUPERVISOR"
   )
+  @Permissions("access.workorderscontroller.listevidence")
   async listEvidence(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.evidenceService.listWorkOrderEvidence(id, req.user);
     return { data, message: "Work order evidence fetched" };
@@ -486,6 +506,7 @@ export class WorkOrdersController {
 
   @Post(":id/evidence/upload-request")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  @Permissions("access.workorderscontroller.createevidenceuploadrequest")
   async createEvidenceUploadRequest(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -507,6 +528,7 @@ export class WorkOrdersController {
 
   @Post(":id/evidence/:evidenceId/content")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  @Permissions("access.workorderscontroller.storeevidencecontent")
   async storeEvidenceContent(
     @Req() req: AuthedRequest & AsyncIterable<Uint8Array>,
     @Param("id") id: string,
@@ -532,6 +554,7 @@ export class WorkOrdersController {
     "FACILITY_MANAGER",
     "SUPERVISOR"
   )
+  @Permissions("access.workorderscontroller.downloadevidencecontent")
   async downloadEvidenceContent(
     @Req() req: AuthedRequest,
     @Res() res: Response,
@@ -550,6 +573,7 @@ export class WorkOrdersController {
 
   @Post(":id/evidence/confirm")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  @Permissions("access.workorderscontroller.confirmevidenceupload")
   async confirmEvidenceUpload(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -561,6 +585,7 @@ export class WorkOrdersController {
 
   @Patch(":id/evidence/:evidenceId")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  @Permissions("access.workorderscontroller.patchevidence")
   async patchEvidence(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -573,6 +598,7 @@ export class WorkOrdersController {
 
   @Delete(":id/evidence/:evidenceId")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  @Permissions("access.workorderscontroller.deleteevidence")
   async deleteEvidence(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -585,6 +611,7 @@ export class WorkOrdersController {
 
   @Post(":id/evidence/:evidenceId/accept")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.acceptevidence")
   async acceptEvidence(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -597,6 +624,7 @@ export class WorkOrdersController {
 
   @Post(":id/evidence/:evidenceId/reject")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.rejectevidence")
   async rejectEvidence(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -609,6 +637,7 @@ export class WorkOrdersController {
 
   @Post(":id/verify-qr")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  @Permissions("access.workorderscontroller.verifyqr")
   async verifyQr(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -620,6 +649,7 @@ export class WorkOrdersController {
 
   @Patch(":id/taxonomy")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.changetaxonomy")
   async changeTaxonomy(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -637,6 +667,7 @@ export class WorkOrdersController {
 
   @Patch(":id/classify-triage")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.classifytriage")
   async classifyTriage(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -654,7 +685,7 @@ export class WorkOrdersController {
 
   @Patch(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
-  @Permissions("work_orders.manage")
+  @Permissions("work_orders.manage", "access.workorderscontroller.update")
   async update(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -668,7 +699,7 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Work order planned" })
   @Roles(...SUPERVISOR_ROLE_NAMES)
-  @Permissions("work_orders.plan")
+  @Permissions("work_orders.plan", "access.workorderscontroller.planwork")
   async planWork(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -691,7 +722,7 @@ export class WorkOrdersController {
 
   @Delete(":id")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("work_orders.manage")
+  @Permissions("work_orders.manage", "access.workorderscontroller.remove")
   async remove(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrdersService.remove(id, req.user);
     return { data, message: "Work order cancelled (hard delete disabled)" };
@@ -699,6 +730,7 @@ export class WorkOrdersController {
 
   @Get(":id/assignees")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
+  @Permissions("access.workorderscontroller.listassignees")
   async listAssignees(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrderAssigneesService.listAssignees(id, req.user);
     return { data, message: "Work order assignees fetched" };
@@ -706,7 +738,7 @@ export class WorkOrdersController {
 
   @Post(":id/assignees")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
-  @Permissions("work_orders.manage")
+  @Permissions("work_orders.manage", "access.workorderscontroller.addassignee")
   async addAssignee(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -730,7 +762,7 @@ export class WorkOrdersController {
 
   @Delete(":id/assignees/:assigneeId")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
-  @Permissions("work_orders.manage")
+  @Permissions("work_orders.manage", "access.workorderscontroller.removeassignee")
   async removeAssignee(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -745,7 +777,7 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Technician assigned" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
-  @Permissions("work_orders.assign")
+  @Permissions("work_orders.assign", "access.workorderscontroller.assign")
   async assign(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -764,7 +796,7 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Work order submitted for approval" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
-  @Permissions("work_orders.manage", "work_orders.update_status")
+  @Permissions("work_orders.manage", "work_orders.update_status", "access.workorderscontroller.submitforapproval")
   async submitForApproval(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -778,7 +810,7 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Work order approved" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("work_orders.manage")
+  @Permissions("work_orders.manage", "access.workorderscontroller.approveworkorder")
   async approveWorkOrder(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: ApproveWorkOrderDto) {
     const data = await this.workOrdersService.approveWorkOrder(id, body.notes, req.user, {
       emergencyOverrideReason: body.emergencyOverrideReason
@@ -788,7 +820,7 @@ export class WorkOrdersController {
 
   @Patch(":id/reject")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("work_orders.manage")
+  @Permissions("work_orders.manage", "access.workorderscontroller.rejectworkorder")
   async rejectWorkOrder(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: RejectWorkOrderDto) {
     const data = await this.workOrdersService.rejectWorkOrder(id, body.reason, req.user);
     return { data, message: "Work order rejected" };
@@ -798,7 +830,7 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Work order status updated" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
-  @Permissions("work_orders.update_status")
+  @Permissions("work_orders.update_status", "access.workorderscontroller.updatestatus")
   async updateStatus(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -838,7 +870,7 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Work order started" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
-  @Permissions("work_orders.start")
+  @Permissions("work_orders.start", "access.workorderscontroller.startworkorder")
   async startWorkOrder(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -856,7 +888,7 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Work order placed on hold" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
-  @Permissions("work_orders.hold")
+  @Permissions("work_orders.hold", "access.workorderscontroller.holdworkorder")
   async holdWorkOrder(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -890,7 +922,7 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Work order resumed" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
-  @Permissions("work_orders.resume")
+  @Permissions("work_orders.resume", "access.workorderscontroller.resumeworkorder")
   async resumeWorkOrder(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -908,7 +940,7 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Technician completion submitted" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
-  @Permissions("work_orders.complete")
+  @Permissions("work_orders.complete", "access.workorderscontroller.completetechnician")
   async completeTechnician(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -960,7 +992,7 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Work order supervisor verified (Phase 6 VERIFIED)" })
   @Roles(...SUPERVISOR_ROLE_NAMES)
-  @Permissions("work_orders.verify")
+  @Permissions("work_orders.verify", "access.workorderscontroller.verifysupervisor")
   async verifySupervisor(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -983,7 +1015,7 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Work order closed (Phase 6 CLOSED)" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
-  @Permissions("work_orders.close")
+  @Permissions("work_orders.close", "access.workorderscontroller.closeworkorder")
   async closeWorkOrder(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -998,7 +1030,7 @@ export class WorkOrdersController {
 
   @Post(":id/reject-supervisor")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
-  @Permissions("work_orders.manage")
+  @Permissions("work_orders.manage", "access.workorderscontroller.rejectsupervisor")
   async rejectSupervisor(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { reason: string }) {
     const data = await this.workOrdersService.rejectSupervisor(id, body.reason, req.user);
     return { data, message: "Work order supervisor rejection recorded" };
@@ -1008,6 +1040,7 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Requester confirmation recorded" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.requesterconfirmation")
   async requesterConfirmation(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1021,7 +1054,7 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Labour correction recorded" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR", "MECHANIC", "TECHNICIAN")
-  @Permissions("work_orders.correct")
+  @Permissions("work_orders.correct", "access.workorderscontroller.correctlabourentry")
   async correctLabourEntry(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1034,6 +1067,7 @@ export class WorkOrdersController {
 
   @Get(":id/next-actions")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR", "MECHANIC", "TECHNICIAN")
+  @Permissions("access.workorderscontroller.nextactions")
   async nextActions(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrdersService.getNextActions(id, req.user);
     return { data, message: "Work order next actions fetched" };
@@ -1041,7 +1075,7 @@ export class WorkOrdersController {
 
   @Post(":id/reopen")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("work_orders.manage")
+  @Permissions("work_orders.manage", "access.workorderscontroller.reopenworkorder")
   async reopenWorkOrder(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { reason: string }) {
     const data = await this.workOrdersService.reopenWorkOrder(id, body.reason, req.user);
     return { data, message: "Work order reopened" };
@@ -1049,7 +1083,7 @@ export class WorkOrdersController {
 
   @Post(":id/parts")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "OPERATIONS_MANAGER")
-  @Permissions("inventory.stock_issue")
+  @Permissions("inventory.stock_issue", "access.workorderscontroller.addpart")
   async addPart(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1061,6 +1095,7 @@ export class WorkOrdersController {
 
   @Get(":id/parts/summary")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("access.workorderscontroller.partssummary")
   async partsSummary(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrderPartsService.getCostSummary(id, req.user);
     return { data, message: "Work order parts cost summary fetched" };
@@ -1068,6 +1103,7 @@ export class WorkOrdersController {
 
   @Get(":id/parts")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "INVENTORY_KEEPER", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("access.workorderscontroller.parts")
   async parts(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrdersService.parts(id, req.user);
     return { data, message: "Work order parts fetched" };
@@ -1075,6 +1111,7 @@ export class WorkOrdersController {
 
   @Patch(":id/parts/:lineId/use")
   @Roles("SUPER_ADMIN", "ADMIN", "MECHANIC", "TECHNICIAN", "INVENTORY_KEEPER", "ASSET_MANAGER")
+  @Permissions("access.workorderscontroller.markpartused")
   async markPartUsed(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1087,6 +1124,7 @@ export class WorkOrdersController {
 
   @Post(":id/parts/:lineId/return")
   @Roles("SUPER_ADMIN", "ADMIN", "MECHANIC", "TECHNICIAN", "INVENTORY_KEEPER", "ASSET_MANAGER")
+  @Permissions("access.workorderscontroller.requestpartreturn")
   async requestPartReturn(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1099,7 +1137,7 @@ export class WorkOrdersController {
 
   @Post(":id/parts/:lineId/confirm-return")
   @Roles(...PART_RETURN_CONFIRM_ROLES)
-  @Permissions("inventory.stock_issue")
+  @Permissions("inventory.stock_issue", "access.workorderscontroller.confirmpartreturn")
   async confirmPartReturn(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1114,6 +1152,7 @@ export class WorkOrdersController {
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Work order note added" })
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN")
+  @Permissions("access.workorderscontroller.notes")
   async notes(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { note: string }) {
     const data = await this.workOrdersService.addNote(id, body.note, req.user);
     return { data, message: "Work order note added" };
@@ -1121,6 +1160,7 @@ export class WorkOrdersController {
 
   @Post(":id/attachments")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
+  @Permissions("access.workorderscontroller.attachments")
   async attachments(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { attachmentUrl: string }) {
     const data = await this.workOrdersService.addAttachment(id, body.attachmentUrl, req.user);
     return { data, message: "Work order attachment added" };
@@ -1128,7 +1168,7 @@ export class WorkOrdersController {
 
   @Get(":id/part-requests")
   @Roles(...PART_REQUEST_VIEW_ROLES)
-  @Permissions("part_requests.view")
+  @Permissions("part_requests.view", "access.workorderscontroller.listpartrequests")
   async listPartRequests(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrdersService.listPartRequests(id, req.user);
     return { data, message: "Part requests fetched" };
@@ -1136,7 +1176,7 @@ export class WorkOrdersController {
 
   @Post(":id/part-requests")
   @Roles(...PART_REQUEST_CREATE_ROLES)
-  @Permissions("part_requests.create")
+  @Permissions("part_requests.create", "access.workorderscontroller.createpartrequest")
   async createPartRequest(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1148,7 +1188,7 @@ export class WorkOrdersController {
 
   @Patch(":id/part-requests/:requestId/approve-operational")
   @Roles(...PART_REQUEST_APPROVE_OPERATIONAL_ROLES)
-  @Permissions("part_requests.approve_operational")
+  @Permissions("part_requests.approve_operational", "access.workorderscontroller.approvepartrequestoperational")
   async approvePartRequestOperational(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1161,7 +1201,7 @@ export class WorkOrdersController {
 
   @Patch(":id/part-requests/:requestId/approve-finance")
   @Roles(...PART_REQUEST_APPROVE_FINANCE_ROLES)
-  @Permissions("part_requests.approve_finance")
+  @Permissions("part_requests.approve_finance", "access.workorderscontroller.approvepartrequestfinance")
   async approvePartRequestFinance(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1174,7 +1214,7 @@ export class WorkOrdersController {
 
   @Patch(":id/part-requests/:requestId/reject")
   @Roles(...PART_REQUEST_REJECT_ROLES)
-  @Permissions("part_requests.reject")
+  @Permissions("part_requests.reject", "access.workorderscontroller.rejectpartrequest")
   async rejectPartRequest(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1187,7 +1227,7 @@ export class WorkOrdersController {
 
   @Post(":id/part-requests/:requestId/issue")
   @Roles(...PART_REQUEST_ISSUE_ROLES)
-  @Permissions("part_requests.issue", "inventory.stock_issue")
+  @Permissions("part_requests.issue", "inventory.stock_issue", "access.workorderscontroller.issuepartrequest")
   async issuePartRequest(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1200,6 +1240,7 @@ export class WorkOrdersController {
 
   @Get(":id/vendor-repair")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC")
+  @Permissions("access.workorderscontroller.getvendorrepair")
   async getVendorRepair(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.vendorRepairService.getVendorRepair(id, req.user);
     return { data, message: "Vendor repair fetched" };
@@ -1207,6 +1248,7 @@ export class WorkOrdersController {
 
   @Post(":id/vendor-repair/request")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.requestvendorrepair")
   async requestVendorRepair(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1218,6 +1260,7 @@ export class WorkOrdersController {
 
   @Post(":id/vendor-repair/select-vendor")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.selectvendor")
   async selectVendor(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1229,6 +1272,7 @@ export class WorkOrdersController {
 
   @Post(":id/vendor-repair/quotations")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.addquotation")
   async addQuotation(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1249,6 +1293,7 @@ export class WorkOrdersController {
 
   @Post(":id/vendor-repair/quotations/:quotationId/approve")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.approvequotation")
   async approveQuotation(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1261,6 +1306,7 @@ export class WorkOrdersController {
 
   @Post(":id/vendor-repair/quotations/:quotationId/reject")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.rejectquotation")
   async rejectQuotation(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1273,6 +1319,7 @@ export class WorkOrdersController {
 
   @Post(":id/vendor-repair/authorize")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.authorizevendorwork")
   async authorizeVendorWork(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { overrideReason?: string }) {
     const data = await this.vendorRepairService.authorizeVendorWork(id, body.overrideReason, req.user);
     return { data, message: "Vendor work authorized" };
@@ -1280,6 +1327,7 @@ export class WorkOrdersController {
 
   @Post(":id/vendor-repair/vendor-completed")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC")
+  @Permissions("access.workorderscontroller.markvendorcompleted")
   async markVendorCompleted(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.vendorRepairService.markVendorCompleted(id, req.user);
     return { data, message: "Vendor work marked completed" };
@@ -1287,6 +1335,7 @@ export class WorkOrdersController {
 
   @Post(":id/vendor-repair/invoices")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.workorderscontroller.submitinvoice")
   async submitInvoice(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1308,6 +1357,7 @@ export class WorkOrdersController {
 
   @Post(":id/vendor-repair/invoices/:invoiceId/approve")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("access.workorderscontroller.approveinvoice")
   async approveInvoice(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1320,6 +1370,7 @@ export class WorkOrdersController {
 
   @Post(":id/vendor-repair/invoices/:invoiceId/reject")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("access.workorderscontroller.rejectinvoice")
   async rejectInvoice(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -1332,6 +1383,7 @@ export class WorkOrdersController {
 
   @Post(":id/vendor-repair/close")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
+  @Permissions("access.workorderscontroller.closevendorrepair")
   async closeVendorRepair(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { overrideReason?: string }) {
     const data = await this.vendorRepairService.closeVendorRepair(id, body.overrideReason, req.user);
     return { data, message: "Vendor repair closed" };

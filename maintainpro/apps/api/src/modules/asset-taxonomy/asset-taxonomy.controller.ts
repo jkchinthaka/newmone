@@ -1,3 +1,4 @@
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import {
   Body,
   Controller,
@@ -52,6 +53,7 @@ export class AssetTaxonomyController {
 
   @Post("seed-defaults")
   @Roles(...WRITE_ROLES)
+  @Permissions("access.assettaxonomycontroller.seeddefaults")
   async seedDefaults(@Req() req: AuthedRequest) {
     const data = await this.taxonomy.seedDefaults(req.user?.tenantId ?? null, req.user);
     return { data, message: "Asset taxonomy defaults seeded" };
@@ -61,6 +63,7 @@ export class AssetTaxonomyController {
 
   @Get("domain-profiles")
   @Roles(...READ_ROLES)
+  @Permissions("access.assettaxonomycontroller.listdomainprofiles")
   async listDomainProfiles(@Req() req: AuthedRequest) {
     const data = await this.taxonomy.listDomainProfiles(req.user?.tenantId ?? null);
     return { data, message: "Domain profiles fetched" };
@@ -68,6 +71,7 @@ export class AssetTaxonomyController {
 
   @Get("domain-profiles/:code")
   @Roles(...READ_ROLES)
+  @Permissions("access.assettaxonomycontroller.getdomainprofile")
   async getDomainProfile(@Req() req: AuthedRequest, @Param("code") code: string) {
     const data = await this.taxonomy.getDomainProfileForCode(req.user?.tenantId ?? null, code);
     return { data, message: "Domain profile fetched" };
@@ -82,6 +86,7 @@ export class AssetTaxonomyController {
 
   @Post("domains")
   @Roles(...WRITE_ROLES)
+  @Permissions("access.assettaxonomycontroller.createdomain")
   async createDomain(@Req() req: AuthedRequest, @Body() body: CreateAssetDomainDto) {
     const data = await this.taxonomy.createDomain(req.user?.tenantId ?? null, body, req.user);
     return { data, message: "Asset domain created" };
@@ -89,6 +94,7 @@ export class AssetTaxonomyController {
 
   @Patch("domains/:id")
   @Roles(...WRITE_ROLES)
+  @Permissions("access.assettaxonomycontroller.updatedomain")
   async updateDomain(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -100,6 +106,7 @@ export class AssetTaxonomyController {
 
   @Patch("domains/:id/profile")
   @Roles(...WRITE_ROLES)
+  @Permissions("access.assettaxonomycontroller.updatedomainprofile")
   async updateDomainProfile(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -116,6 +123,7 @@ export class AssetTaxonomyController {
 
   @Post("domains/:id/deactivate")
   @Roles(...WRITE_ROLES)
+  @Permissions("access.assettaxonomycontroller.deactivatedomain")
   async deactivateDomain(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.taxonomy.deactivateDomain(req.user?.tenantId ?? null, id, req.user);
     return { data, message: "Asset domain deactivated" };
@@ -123,6 +131,7 @@ export class AssetTaxonomyController {
 
   @Get("domains/:id/can-delete")
   @Roles(...WRITE_ROLES)
+  @Permissions("access.assettaxonomycontroller.candeletedomain")
   async canDeleteDomain(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.taxonomy.assertCanHardDeleteDomain(req.user?.tenantId ?? null, id);
     return { data, message: "Domain delete check completed" };
@@ -130,6 +139,7 @@ export class AssetTaxonomyController {
 
   @Get("categories")
   @Roles(...READ_ROLES)
+  @Permissions("access.assettaxonomycontroller.listcategories")
   async listCategories(@Req() req: AuthedRequest, @Query() query: TaxonomyListQueryDto) {
     const data = await this.taxonomy.listCategories(req.user?.tenantId ?? null, query);
     return { data, message: "Asset categories fetched" };
@@ -137,6 +147,7 @@ export class AssetTaxonomyController {
 
   @Post("categories")
   @Roles(...WRITE_ROLES)
+  @Permissions("access.assettaxonomycontroller.createcategory")
   async createCategory(@Req() req: AuthedRequest, @Body() body: CreateAssetCategoryMasterDto) {
     const data = await this.taxonomy.createCategory(req.user?.tenantId ?? null, body, req.user);
     return { data, message: "Asset category created" };
@@ -144,6 +155,7 @@ export class AssetTaxonomyController {
 
   @Patch("categories/:id")
   @Roles(...WRITE_ROLES)
+  @Permissions("access.assettaxonomycontroller.updatecategory")
   async updateCategory(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -155,6 +167,7 @@ export class AssetTaxonomyController {
 
   @Get("types")
   @Roles(...READ_ROLES)
+  @Permissions("access.assettaxonomycontroller.listtypes")
   async listTypes(@Req() req: AuthedRequest, @Query() query: TaxonomyListQueryDto) {
     const data = await this.taxonomy.listTypes(req.user?.tenantId ?? null, query);
     return { data, message: "Asset types fetched" };
@@ -162,6 +175,7 @@ export class AssetTaxonomyController {
 
   @Post("types")
   @Roles(...WRITE_ROLES)
+  @Permissions("access.assettaxonomycontroller.createtype")
   async createType(@Req() req: AuthedRequest, @Body() body: CreateAssetTypeMasterDto) {
     const data = await this.taxonomy.createType(req.user?.tenantId ?? null, body, req.user);
     return { data, message: "Asset type created" };
@@ -169,6 +183,7 @@ export class AssetTaxonomyController {
 
   @Patch("types/:id")
   @Roles(...WRITE_ROLES)
+  @Permissions("access.assettaxonomycontroller.updatetype")
   async updateType(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -180,6 +195,7 @@ export class AssetTaxonomyController {
 
   @Get("attributes")
   @Roles(...READ_ROLES)
+  @Permissions("access.assettaxonomycontroller.listattributes")
   async listAttributes(@Req() req: AuthedRequest, @Query() query: TaxonomyListQueryDto) {
     const data = await this.taxonomy.listAttributeDefinitions(req.user?.tenantId ?? null, query);
     return { data, message: "Attribute definitions fetched" };
@@ -187,6 +203,7 @@ export class AssetTaxonomyController {
 
   @Post("attributes")
   @Roles(...WRITE_ROLES)
+  @Permissions("access.assettaxonomycontroller.createattribute")
   async createAttribute(@Req() req: AuthedRequest, @Body() body: CreateAttributeDefinitionDto) {
     const data = await this.taxonomy.createAttributeDefinition(
       req.user?.tenantId ?? null,
@@ -198,6 +215,7 @@ export class AssetTaxonomyController {
 
   @Patch("attributes/:id")
   @Roles(...WRITE_ROLES)
+  @Permissions("access.assettaxonomycontroller.updateattribute")
   async updateAttribute(
     @Req() req: AuthedRequest,
     @Param("id") id: string,

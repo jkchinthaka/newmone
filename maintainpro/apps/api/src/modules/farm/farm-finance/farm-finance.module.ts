@@ -1,3 +1,4 @@
+import { Permissions } from "../../../common/decorators/permissions.decorator";
 import { Body, Controller, Delete, Get, Injectable, Module, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Prisma } from "@prisma/client";
@@ -137,6 +138,7 @@ export class FarmFinanceController {
 
   @Get("summary")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VIEWER")
+  @Permissions("access.farmfinancecontroller.summary")
   async summary(
     @Req() req: AuthedRequest,
     @Query("from") from?: string,
@@ -148,6 +150,7 @@ export class FarmFinanceController {
 
   @Get("expenses")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VIEWER")
+  @Permissions("access.farmfinancecontroller.listexpenses")
   async listExpenses(
     @Req() req: AuthedRequest,
     @Query("category") category?: string,
@@ -160,6 +163,7 @@ export class FarmFinanceController {
 
   @Post("expenses")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER")
+  @Permissions("access.farmfinancecontroller.createexpense")
   async createExpense(@Req() req: AuthedRequest, @Body() body: Prisma.FarmExpenseUncheckedCreateInput) {
     const data = await this.service.createExpense(req.user?.tenantId ?? null, body);
     return { data, message: "Expense recorded" };
@@ -167,6 +171,7 @@ export class FarmFinanceController {
 
   @Patch("expenses/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER")
+  @Permissions("access.farmfinancecontroller.updateexpense")
   async updateExpense(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: Prisma.FarmExpenseUncheckedUpdateInput) {
     const data = await this.service.updateExpense(id, req.user?.tenantId ?? null, body);
     return { data, message: "Expense updated" };
@@ -174,6 +179,7 @@ export class FarmFinanceController {
 
   @Delete("expenses/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER")
+  @Permissions("access.farmfinancecontroller.removeexpense")
   async removeExpense(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.removeExpense(id, req.user?.tenantId ?? null);
     return { data, message: "Expense removed" };
@@ -181,6 +187,7 @@ export class FarmFinanceController {
 
   @Get("income")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "VIEWER")
+  @Permissions("access.farmfinancecontroller.listincome")
   async listIncome(
     @Req() req: AuthedRequest,
     @Query("source") source?: string,
@@ -193,6 +200,7 @@ export class FarmFinanceController {
 
   @Post("income")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER")
+  @Permissions("access.farmfinancecontroller.createincome")
   async createIncome(@Req() req: AuthedRequest, @Body() body: Prisma.FarmIncomeUncheckedCreateInput) {
     const data = await this.service.createIncome(req.user?.tenantId ?? null, body);
     return { data, message: "Income recorded" };
@@ -200,6 +208,7 @@ export class FarmFinanceController {
 
   @Patch("income/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER")
+  @Permissions("access.farmfinancecontroller.updateincome")
   async updateIncome(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: Prisma.FarmIncomeUncheckedUpdateInput) {
     const data = await this.service.updateIncome(id, req.user?.tenantId ?? null, body);
     return { data, message: "Income updated" };
@@ -207,6 +216,7 @@ export class FarmFinanceController {
 
   @Delete("income/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER")
+  @Permissions("access.farmfinancecontroller.removeincome")
   async removeIncome(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.removeIncome(id, req.user?.tenantId ?? null);
     return { data, message: "Income removed" };

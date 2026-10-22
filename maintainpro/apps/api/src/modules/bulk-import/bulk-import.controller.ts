@@ -1,3 +1,4 @@
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import {
   Body,
   Controller,
@@ -47,6 +48,7 @@ export class BulkImportController {
 
   @Get()
   @Roles("SUPER_ADMIN")
+  @Permissions("access.bulkimportcontroller.history")
   async history(
     @Req() req: AuthedRequest,
     @Query("page") pageRaw?: string,
@@ -64,6 +66,7 @@ export class BulkImportController {
 
   @Get(":entity/template")
   @Roles("SUPER_ADMIN")
+  @Permissions("access.bulkimportcontroller.template")
   async template(
     @Req() req: AuthedRequest,
     @Res() res: Response,
@@ -82,6 +85,7 @@ export class BulkImportController {
   @Roles("SUPER_ADMIN")
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: BULK_IMPORT_MAX_BYTES } }))
+  @Permissions("access.bulkimportcontroller.preview")
   async preview(
     @Req() req: AuthedRequest,
     @Param("entity") entity: string,
@@ -95,6 +99,7 @@ export class BulkImportController {
 
   @Get(":entity/:importId/errors")
   @Roles("SUPER_ADMIN")
+  @Permissions("access.bulkimportcontroller.errors")
   async errors(
     @Req() req: AuthedRequest,
     @Res() res: Response,
@@ -111,6 +116,7 @@ export class BulkImportController {
 
   @Get(":entity/:importId")
   @Roles("SUPER_ADMIN")
+  @Permissions("access.bulkimportcontroller.getrun")
   async getRun(@Req() req: AuthedRequest, @Param("entity") entity: string, @Param("importId") importId: string) {
     await this.authService.assertSuperAdmin(req.user?.sub);
     const data = await this.bulkImportService.getRun(entity, importId, req.user);
@@ -119,6 +125,7 @@ export class BulkImportController {
 
   @Post(":entity/:importId/commit")
   @Roles("SUPER_ADMIN")
+  @Permissions("access.bulkimportcontroller.commit")
   async commit(
     @Req() req: AuthedRequest,
     @Param("entity") entity: string,

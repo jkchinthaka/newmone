@@ -30,7 +30,7 @@ export class FleetLifecycleController {
 
   @Get("overview")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "FLEET_MANAGER", "OPERATIONS_MANAGER", "VIEWER", "TECHNICIAN", "MECHANIC")
-  @Permissions("fleet.view")
+  @Permissions("fleet.view", "access.fleetlifecyclecontroller.overview")
   async overview(@Req() req: AuthedRequest) {
     const data = await this.fleet.fleetHomeSummary(req.user);
     return { data, message: "Fleet overview" };
@@ -40,7 +40,7 @@ export class FleetLifecycleController {
 
   @Post("vehicles/backfill-assets")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("fleet.vehicle.manage")
+  @Permissions("fleet.vehicle.manage", "access.fleetlifecyclecontroller.backfillassets")
   async backfillAssets(
     @Req() req: AuthedRequest,
     @Query("dryRun") dryRun?: string
@@ -53,7 +53,7 @@ export class FleetLifecycleController {
 
   @Post("vehicles/:id/ensure-mileage-meter")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "FLEET_MANAGER")
-  @Permissions("fleet.vehicle.manage")
+  @Permissions("fleet.vehicle.manage", "access.fleetlifecyclecontroller.ensuremileagemeter")
   async ensureMileageMeter(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.fleet.ensureMileageMeter(req.user, id);
     return { data, message: "Mileage meter ensured" };
@@ -71,7 +71,7 @@ export class FleetLifecycleController {
     "DRIVER",
     "VIEWER"
   )
-  @Permissions("gate.check")
+  @Permissions("gate.check", "access.fleetlifecyclecontroller.gateeligibility")
   async gateEligibility(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -85,7 +85,7 @@ export class FleetLifecycleController {
 
   @Post("tyres/install")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "FLEET_MANAGER", "TECHNICIAN", "MECHANIC")
-  @Permissions("fleet.tyre.manage")
+  @Permissions("fleet.tyre.manage", "access.fleetlifecyclecontroller.installtyre")
   async installTyre(@Req() req: AuthedRequest, @Body() body: any) {
     const data = await this.fleet.installTyre(req.user, {
       ...body,
@@ -100,7 +100,7 @@ export class FleetLifecycleController {
 
   @Post("tyres/:id/move")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "FLEET_MANAGER", "TECHNICIAN", "MECHANIC")
-  @Permissions("fleet.tyre.manage")
+  @Permissions("fleet.tyre.manage", "access.fleetlifecyclecontroller.movetyre")
   async moveTyre(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: any) {
     const data = await this.fleet.moveTyre(req.user, id, body);
     return { data, message: "Tyre moved" };
@@ -108,7 +108,7 @@ export class FleetLifecycleController {
 
   @Post("tyres/:id/remove")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "FLEET_MANAGER", "TECHNICIAN", "MECHANIC")
-  @Permissions("fleet.tyre.manage")
+  @Permissions("fleet.tyre.manage", "access.fleetlifecyclecontroller.removetyre")
   async removeTyre(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: any) {
     const data = await this.fleet.removeTyre(req.user, id, body);
     return { data, message: "Tyre removed" };
@@ -118,7 +118,7 @@ export class FleetLifecycleController {
 
   @Post("batteries/install")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "FLEET_MANAGER", "TECHNICIAN", "MECHANIC")
-  @Permissions("fleet.battery.manage")
+  @Permissions("fleet.battery.manage", "access.fleetlifecyclecontroller.installbattery")
   async installBattery(@Req() req: AuthedRequest, @Body() body: any) {
     const data = await this.fleet.installBattery(req.user, {
       ...body,
@@ -132,7 +132,7 @@ export class FleetLifecycleController {
 
   @Post("batteries/:id/replace")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "FLEET_MANAGER", "TECHNICIAN", "MECHANIC")
-  @Permissions("fleet.battery.manage")
+  @Permissions("fleet.battery.manage", "access.fleetlifecyclecontroller.replacebattery")
   async replaceBattery(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: any) {
     const data = await this.fleet.replaceBattery(req.user, id, {
       ...body,
@@ -147,7 +147,7 @@ export class FleetLifecycleController {
 
   @Post("vehicles/:id/assign-driver")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "FLEET_MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("fleet.assignment.manage")
+  @Permissions("fleet.assignment.manage", "access.fleetlifecyclecontroller.assigndriver")
   async assignDriver(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -162,7 +162,7 @@ export class FleetLifecycleController {
 
   @Post("assignments/:id/return")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "FLEET_MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("fleet.assignment.manage")
+  @Permissions("fleet.assignment.manage", "access.fleetlifecyclecontroller.returnassignment")
   async returnAssignment(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -179,7 +179,7 @@ export class FleetLifecycleController {
 
   @Get("fuel-efficiency")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "FLEET_MANAGER", "VIEWER")
-  @Permissions("fleet.view")
+  @Permissions("fleet.view", "access.fleetlifecyclecontroller.fuelefficiency")
   fuelEfficiency(@Query() query: any) {
     const data = this.fleet.computeFuelReport({
       litres: Number(query.litres),
@@ -191,7 +191,7 @@ export class FleetLifecycleController {
 
   @Get("cost-per-km")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "FLEET_MANAGER", "VIEWER")
-  @Permissions("fleet.view")
+  @Permissions("fleet.view", "access.fleetlifecyclecontroller.costperkm")
   costPerKm(@Query() query: any) {
     const data = this.fleet.computeCostPerKm({
       maintenanceCost: Number(query.maintenanceCost),
@@ -204,7 +204,7 @@ export class FleetLifecycleController {
 
   @Post("accidents/:id/link-repair")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "FLEET_MANAGER")
-  @Permissions("fleet.accident.manage")
+  @Permissions("fleet.accident.manage", "access.fleetlifecyclecontroller.linkrepair")
   async linkRepair(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: any) {
     const data = await this.fleet.linkAccidentRepairClaim(req.user, {
       accidentId: id,

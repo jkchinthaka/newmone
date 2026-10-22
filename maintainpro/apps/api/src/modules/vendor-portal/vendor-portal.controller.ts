@@ -29,7 +29,7 @@ export class VendorPortalController {
 
   @Post("access")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
-  @Permissions("vendor.manage")
+  @Permissions("vendor.manage", "access.vendorportalcontroller.grant")
   async grant(@Req() req: AuthedRequest, @Body() body: { supplierId?: string; userId?: string }) {
     if (!body.supplierId || !body.userId) {
       throw new BadRequestException("supplierId and userId are required");
@@ -43,7 +43,7 @@ export class VendorPortalController {
 
   @Get("jobs")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "VENDOR", "TECHNICIAN", "VIEWER")
-  @Permissions("vendor.portal")
+  @Permissions("vendor.portal", "access.vendorportalcontroller.listjobs")
   async listJobs(@Req() req: AuthedRequest) {
     const data = await this.portal.listAssignedJobs(req.user);
     return { data, message: "Assigned vendor jobs" };
@@ -51,7 +51,7 @@ export class VendorPortalController {
 
   @Get("jobs/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "VENDOR", "TECHNICIAN", "VIEWER")
-  @Permissions("vendor.portal")
+  @Permissions("vendor.portal", "access.vendorportalcontroller.getjob")
   async getJob(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.portal.getAssignedJob(req.user, id);
     return { data, message: "Vendor job" };
@@ -59,7 +59,7 @@ export class VendorPortalController {
 
   @Post("jobs/:id/quotations")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "VENDOR")
-  @Permissions("vendor.portal")
+  @Permissions("vendor.portal", "access.vendorportalcontroller.quote")
   async quote(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -79,7 +79,7 @@ export class VendorPortalController {
 
   @Patch("jobs/:id/progress")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "VENDOR")
-  @Permissions("vendor.portal")
+  @Permissions("vendor.portal", "access.vendorportalcontroller.progress")
   async progress(
     @Req() req: AuthedRequest,
     @Param("id") id: string,

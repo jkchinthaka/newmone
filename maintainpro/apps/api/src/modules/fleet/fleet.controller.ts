@@ -1,3 +1,4 @@
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Body, Controller, Delete, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
@@ -17,6 +18,7 @@ export class FleetController {
 
   @Get("alerts")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR", "MANAGER")
+  @Permissions("access.fleetcontroller.alerts")
   async alerts(@Query("limit") limitRaw?: string) {
     const limit = this.toPositiveInt(limitRaw, 50);
     const data = this.fleetService.listAlerts(limit);
@@ -25,6 +27,7 @@ export class FleetController {
 
   @Get("geofences")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR", "MANAGER")
+  @Permissions("access.fleetcontroller.geofences")
   async geofences() {
     const data = this.fleetService.listGeofences();
     return { data, message: "Fleet geofences fetched" };
@@ -32,6 +35,7 @@ export class FleetController {
 
   @Post("geofences")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR", "MANAGER")
+  @Permissions("access.fleetcontroller.creategeofence")
   async createGeofence(
     @Body()
     body: {
@@ -55,6 +59,7 @@ export class FleetController {
 
   @Delete("geofences/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR", "MANAGER")
+  @Permissions("access.fleetcontroller.removegeofence")
   async removeGeofence(@Param("id") id: string) {
     const data = this.fleetService.removeGeofence(id);
     return { data, message: "Geofence removed" };

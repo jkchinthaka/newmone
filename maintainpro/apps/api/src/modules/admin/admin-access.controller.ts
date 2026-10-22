@@ -1,3 +1,4 @@
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { AuditAction, RoleName } from "@prisma/client";
@@ -44,6 +45,7 @@ export class AdminAccessController {
 
   @Get("invitations")
   @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)
+  @Permissions("access.adminaccesscontroller.listinvitationsforreview")
   async listInvitationsForReview() {
     const invitations = await this.adminInvitationsService.findAllForAdminInvitationReview();
     return { data: invitations, message: "Admin invitation review list fetched" };
@@ -54,6 +56,7 @@ export class AdminAccessController {
   @RequireEntitlement("users.max", 1)
   @UseGuards(EntitlementGuard)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Permissions("access.adminaccesscontroller.createinvitationforreview")
   async createInvitationForReview(@Body() body: CreateAdminInvitationDto) {
     const invitation = await this.adminInvitationsService.createInvitationForAdminConsole(body);
     return { data: invitation, message: "Invitation created" };
@@ -61,6 +64,7 @@ export class AdminAccessController {
 
   @Get("roles-permissions")
   @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)
+  @Permissions("access.adminaccesscontroller.listrolespermissionsmatrix")
   async listRolesPermissionsMatrix() {
     const matrix = await this.adminRolesService.findRolesPermissionsMatrixForReview();
     return { data: matrix, message: "Admin roles and permissions matrix fetched" };
@@ -73,6 +77,7 @@ export class AdminAccessController {
   @Patch("roles/:id/permissions")
   @Roles(RoleName.SUPER_ADMIN)
   @UseGuards(SuperAdminGuard)
+  @Permissions("access.adminaccesscontroller.updaterolepermissions")
   async updateRolePermissions(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: UpdateRolePermissionsDto) {
     const beforeLinks = await this.prisma.rolePermission.findMany({
       where: { roleId: id },
@@ -103,6 +108,7 @@ export class AdminAccessController {
   @Post("permissions/sync")
   @Roles(RoleName.SUPER_ADMIN)
   @UseGuards(SuperAdminGuard)
+  @Permissions("access.adminaccesscontroller.syncpermissioncatalog")
   async syncPermissionCatalog(@Req() req: AuthedRequest) {
     const result = await this.adminRolesService.syncPermissionCatalog(req.user);
     return { data: result, message: `${result.createdCount} permission(s) created, ${result.existingCount} already present` };
@@ -111,6 +117,7 @@ export class AdminAccessController {
   @Get("tenants")
   @SkipTenantContext()
   @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)
+  @Permissions("access.adminaccesscontroller.listtenantsforreview")
   async listTenantsForReview() {
     const tenants = await this.adminTenantsService.findAllForAdminTenantReview();
     return { data: tenants, message: "Admin tenant overview fetched" };
@@ -118,6 +125,7 @@ export class AdminAccessController {
 
   @Get("users")
   @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)
+  @Permissions("access.adminaccesscontroller.listusersforaccessreview")
   async listUsersForAccessReview() {
     const users = await this.usersService.findAllForAdminAccessView();
     return { data: users, message: "Admin user access list fetched" };
@@ -126,6 +134,7 @@ export class AdminAccessController {
   @Get("users/:id")
   @Roles(RoleName.SUPER_ADMIN)
   @UseGuards(SuperAdminGuard)
+  @Permissions("access.adminaccesscontroller.getuserforadminconsole")
   async getUserForAdminConsole(@Param("id") id: string) {
     const user = await this.usersService.findOne(id);
     return { data: user, message: "User fetched" };
@@ -134,6 +143,7 @@ export class AdminAccessController {
   @Post("users")
   @Roles(RoleName.SUPER_ADMIN)
   @UseGuards(SuperAdminGuard)
+  @Permissions("access.adminaccesscontroller.createuser")
   async createUser(@Req() req: AuthedRequest, @Body() body: CreateAdminUserDto) {
     const user = await this.usersService.createForAdminConsole(body, req.user);
     return { data: user, message: "User created" };
@@ -142,6 +152,7 @@ export class AdminAccessController {
   @Patch("users/:id")
   @Roles(RoleName.SUPER_ADMIN)
   @UseGuards(SuperAdminGuard)
+  @Permissions("access.adminaccesscontroller.updateuser")
   async updateUser(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: UpdateAdminUserDto) {
     const user = await this.usersService.updateForAdminConsole(id, body, req.user);
     return { data: user, message: "User updated" };
@@ -150,6 +161,7 @@ export class AdminAccessController {
   @Patch("users/:id/password")
   @Roles(RoleName.SUPER_ADMIN)
   @UseGuards(SuperAdminGuard)
+  @Permissions("access.adminaccesscontroller.setuserpassword")
   async setUserPassword(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: SetAdminUserPasswordDto) {
     const result = await this.usersService.setPasswordForAdminConsole(id, body, req.user);
     return { data: result, message: "Password updated" };
@@ -157,6 +169,7 @@ export class AdminAccessController {
 
   @Patch("users/:id/status")
   @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)
+  @Permissions("access.adminaccesscontroller.updateuserstatus")
   async updateUserStatus(@Param("id") id: string, @Body() body: UpdateUserStatusDto) {
     const user = await this.usersService.updateAdminUserStatus(id, body.isActive);
     return { data: user, message: "User status updated" };

@@ -1,3 +1,4 @@
+import { Permissions } from "../../../common/decorators/permissions.decorator";
 import { Body, Controller, Delete, Get, Injectable, Module, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Prisma } from "@prisma/client";
@@ -56,6 +57,7 @@ export class FieldsController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "AGRONOMIST", "VIEWER")
+  @Permissions("access.fieldscontroller.list")
   async list(@Req() req: AuthedRequest, @Query("status") status?: string) {
     const data = await this.service.list(req.user?.tenantId ?? null, status);
     return { data, message: "Fields fetched" };
@@ -63,6 +65,7 @@ export class FieldsController {
 
   @Get(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "AGRONOMIST", "VIEWER")
+  @Permissions("access.fieldscontroller.get")
   async get(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.get(id, req.user?.tenantId ?? null);
     return { data, message: "Field fetched" };
@@ -70,6 +73,7 @@ export class FieldsController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER")
+  @Permissions("access.fieldscontroller.create")
   async create(@Req() req: AuthedRequest, @Body() body: Prisma.FieldUncheckedCreateInput) {
     const data = await this.service.create(req.user?.tenantId ?? null, body);
     return { data, message: "Field created" };
@@ -77,6 +81,7 @@ export class FieldsController {
 
   @Patch(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER")
+  @Permissions("access.fieldscontroller.update")
   async update(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: Prisma.FieldUncheckedUpdateInput) {
     const data = await this.service.update(id, req.user?.tenantId ?? null, body);
     return { data, message: "Field updated" };
@@ -84,6 +89,7 @@ export class FieldsController {
 
   @Delete(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER")
+  @Permissions("access.fieldscontroller.remove")
   async remove(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.remove(id, req.user?.tenantId ?? null);
     return { data, message: "Field removed" };

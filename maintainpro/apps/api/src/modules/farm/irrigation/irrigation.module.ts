@@ -1,3 +1,4 @@
+import { Permissions } from "../../../common/decorators/permissions.decorator";
 import { BadRequestException, Body, Controller, Delete, Get, Injectable, Module, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Prisma } from "@prisma/client";
@@ -70,6 +71,7 @@ export class IrrigationController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "AGRONOMIST", "IRRIGATION_OPERATOR", "VIEWER")
+  @Permissions("access.irrigationcontroller.list")
   async list(@Req() req: AuthedRequest, @Query("fieldId") fieldId?: string) {
     const data = await this.service.list(req.user?.tenantId ?? null, fieldId);
     return { data, message: "Irrigation logs fetched" };
@@ -77,6 +79,7 @@ export class IrrigationController {
 
   @Get(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "AGRONOMIST", "IRRIGATION_OPERATOR", "VIEWER")
+  @Permissions("access.irrigationcontroller.get")
   async get(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.get(id, req.user?.tenantId ?? null);
     return { data, message: "Irrigation log fetched" };
@@ -84,6 +87,7 @@ export class IrrigationController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "IRRIGATION_OPERATOR")
+  @Permissions("access.irrigationcontroller.create")
   async create(@Req() req: AuthedRequest, @Body() body: Prisma.IrrigationLogUncheckedCreateInput) {
     const data = await this.service.create(req.user?.tenantId ?? null, body);
     return { data, message: "Irrigation log created" };
@@ -91,6 +95,7 @@ export class IrrigationController {
 
   @Patch(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER", "FARM_MANAGER", "FIELD_SUPERVISOR", "IRRIGATION_OPERATOR")
+  @Permissions("access.irrigationcontroller.update")
   async update(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: Prisma.IrrigationLogUncheckedUpdateInput) {
     const data = await this.service.update(id, req.user?.tenantId ?? null, body);
     return { data, message: "Irrigation log updated" };
@@ -98,6 +103,7 @@ export class IrrigationController {
 
   @Delete(":id")
   @Roles("SUPER_ADMIN", "ADMIN", "FARM_OWNER")
+  @Permissions("access.irrigationcontroller.remove")
   async remove(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.service.remove(id, req.user?.tenantId ?? null);
     return { data, message: "Irrigation log removed" };

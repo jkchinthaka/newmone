@@ -36,7 +36,7 @@ export class EnterpriseOpsController {
 
   @Get("dashboard")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "VIEWER")
-  @Permissions("operations.view")
+  @Permissions("operations.view", "access.enterpriseopscontroller.dashboard")
   async dashboard(@Req() req: AuthedRequest) {
     const data = await this.ops.dashboard(req.user);
     return { data, message: "Enterprise operations dashboard" };
@@ -44,7 +44,7 @@ export class EnterpriseOpsController {
 
   @Get("exceptions")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "VIEWER")
-  @Permissions("operations.view")
+  @Permissions("operations.view", "access.enterpriseopscontroller.listexceptions")
   async listExceptions(
     @Req() req: AuthedRequest,
     @Query("status") status?: string,
@@ -65,7 +65,7 @@ export class EnterpriseOpsController {
 
   @Get("exceptions/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "VIEWER")
-  @Permissions("operations.view")
+  @Permissions("operations.view", "access.enterpriseopscontroller.getexception")
   async getException(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.exceptions.get(id, req.user);
     return { data, message: "Business exception" };
@@ -73,7 +73,7 @@ export class EnterpriseOpsController {
 
   @Post("exceptions/:id/resolve")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("operations.manage")
+  @Permissions("operations.manage", "access.enterpriseopscontroller.resolveexception")
   async resolveException(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -85,7 +85,7 @@ export class EnterpriseOpsController {
 
   @Post("exceptions/scan")
   @Roles("SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER")
-  @Permissions("operations.manage")
+  @Permissions("operations.manage", "access.enterpriseopscontroller.scan")
   async scan(@Req() req: AuthedRequest) {
     const tenantId = req.user.tenantId;
     if (!tenantId) {
@@ -97,7 +97,7 @@ export class EnterpriseOpsController {
 
   @Get("forecasts")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "TECHNICIAN", "MECHANIC")
-  @Permissions("operations.view")
+  @Permissions("operations.view", "access.enterpriseopscontroller.forecastslist")
   async forecastsList(@Req() req: AuthedRequest, @Query() query: Record<string, string>) {
     const data = await this.forecasts.listPlanner(req.user, {
       horizon: query.horizon,
@@ -114,7 +114,7 @@ export class EnterpriseOpsController {
 
   @Post("forecasts/refresh")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("operations.manage")
+  @Permissions("operations.manage", "access.enterpriseopscontroller.refreshforecasts")
   async refreshForecasts(@Req() req: AuthedRequest) {
     const data = await this.forecasts.refreshForecasts(req.user);
     return { data, message: "Maintenance forecasts refreshed" };
@@ -122,7 +122,7 @@ export class EnterpriseOpsController {
 
   @Get("costs")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "FINANCE")
-  @Permissions("reports.vehicle_cost.view")
+  @Permissions("reports.vehicle_cost.view", "access.enterpriseopscontroller.costslist")
   async costsList(@Req() req: AuthedRequest) {
     const data = await this.costs.summarizeFleet(req.user);
     return { data, message: "Vehicle cost allocation" };
@@ -130,7 +130,7 @@ export class EnterpriseOpsController {
 
   @Get("health")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "FLEET_MANAGER")
-  @Permissions("vehicles.view")
+  @Permissions("vehicles.view", "access.enterpriseopscontroller.health")
   async health(@Req() req: AuthedRequest) {
     const data = await this.warrantyHealth.listHealth(req.user);
     return { data, message: "Vehicle health scores" };
@@ -138,7 +138,7 @@ export class EnterpriseOpsController {
 
   @Get("health/:vehicleId")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "FLEET_MANAGER")
-  @Permissions("vehicles.view")
+  @Permissions("vehicles.view", "access.enterpriseopscontroller.healthone")
   async healthOne(@Req() req: AuthedRequest, @Param("vehicleId") vehicleId: string) {
     const data = await this.warrantyHealth.scoreVehicle(req.user.tenantId as string, vehicleId);
     return { data, message: "Vehicle health score" };
@@ -146,7 +146,7 @@ export class EnterpriseOpsController {
 
   @Get("warranty")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "INVENTORY_KEEPER")
-  @Permissions("operations.view")
+  @Permissions("operations.view", "access.enterpriseopscontroller.warranty")
   async warranty(@Req() req: AuthedRequest) {
     const data = await this.warrantyHealth.listWarrantyOpportunities(req.user);
     return { data, message: "Warranty opportunities" };
@@ -154,7 +154,7 @@ export class EnterpriseOpsController {
 
   @Get("installed-parts")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "INVENTORY_KEEPER")
-  @Permissions("operations.view")
+  @Permissions("operations.view", "access.enterpriseopscontroller.installed")
   async installed(@Req() req: AuthedRequest, @Query("vehicleId") vehicleId?: string) {
     const data = await this.warrantyHealth.listInstalled(req.user, vehicleId);
     return { data, message: "Installed parts" };
@@ -162,7 +162,7 @@ export class EnterpriseOpsController {
 
   @Get("compatibilities")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "INVENTORY_KEEPER")
-  @Permissions("inventory.manage")
+  @Permissions("inventory.manage", "access.enterpriseopscontroller.compat")
   async compat(@Req() req: AuthedRequest, @Query("partId") partId?: string) {
     const data = await this.warrantyHealth.listCompatibilities(req.user, partId);
     return { data, message: "Part compatibility rules" };
@@ -170,7 +170,7 @@ export class EnterpriseOpsController {
 
   @Post("compatibilities")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "INVENTORY_KEEPER")
-  @Permissions("inventory.manage")
+  @Permissions("inventory.manage", "access.enterpriseopscontroller.createcompat")
   async createCompat(
     @Req() req: AuthedRequest,
     @Body() body: { partId: string; vehicleType?: string; make?: string; vehicleModel?: string; engineCode?: string; notes?: string }
@@ -181,7 +181,7 @@ export class EnterpriseOpsController {
 
   @Get("procurement")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "INVENTORY_KEEPER", "PROCUREMENT_OFFICER")
-  @Permissions("purchase_orders.view")
+  @Permissions("purchase_orders.view", "access.enterpriseopscontroller.procurementlist")
   async procurementList(@Req() req: AuthedRequest) {
     const data = await this.procurement.list(req.user);
     return { data, message: "Procurement recommendations" };
@@ -189,7 +189,7 @@ export class EnterpriseOpsController {
 
   @Post("procurement/evaluate")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "PROCUREMENT_OFFICER")
-  @Permissions("purchase_orders.create")
+  @Permissions("purchase_orders.create", "access.enterpriseopscontroller.evaluate")
   async evaluate(@Req() req: AuthedRequest) {
     const data = await this.procurement.evaluate(req.user);
     return { data, message: "Procurement recommendations evaluated" };
@@ -197,7 +197,7 @@ export class EnterpriseOpsController {
 
   @Post("procurement/:id/review")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "PROCUREMENT_OFFICER")
-  @Permissions("purchase_orders.view")
+  @Permissions("purchase_orders.view", "access.enterpriseopscontroller.review")
   async review(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.procurement.review(id, req.user);
     return { data, message: "Recommendation reviewed" };
@@ -205,7 +205,7 @@ export class EnterpriseOpsController {
 
   @Post("procurement/:id/create-po")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "PROCUREMENT_OFFICER")
-  @Permissions("purchase_orders.create")
+  @Permissions("purchase_orders.create", "access.enterpriseopscontroller.createpo")
   async createPo(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.procurement.convertToPurchaseOrder(id, req.user);
     return { data, message: "Purchase order created from recommendation" };
@@ -213,7 +213,7 @@ export class EnterpriseOpsController {
 
   @Get("sla")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "VIEWER")
-  @Permissions("operations.view")
+  @Permissions("operations.view", "access.enterpriseopscontroller.sla")
   async sla(@Req() req: AuthedRequest) {
     const data = await this.governance.listSlaQueue(req.user);
     return { data, message: "Work order SLA clocks" };
@@ -221,7 +221,7 @@ export class EnterpriseOpsController {
 
   @Get("dispatch")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("work_orders.manage")
+  @Permissions("work_orders.manage", "access.enterpriseopscontroller.dispatch")
   async dispatch(@Req() req: AuthedRequest, @Query("workOrderId") workOrderId?: string) {
     if (!workOrderId) return { data: [], message: "workOrderId required" };
     const data = await this.governance.recommendTechnicians(req.user, workOrderId);
@@ -230,7 +230,7 @@ export class EnterpriseOpsController {
 
   @Get("matching")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "FINANCE", "PROCUREMENT_OFFICER")
-  @Permissions("purchase_orders.view")
+  @Permissions("purchase_orders.view", "access.enterpriseopscontroller.matching")
   async matching(@Req() req: AuthedRequest) {
     const data = await this.governance.matchPurchaseOrders(req.user);
     return { data, message: "Procurement match results" };
@@ -238,7 +238,7 @@ export class EnterpriseOpsController {
 
   @Get("budget")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "FINANCE")
-  @Permissions("reports.vehicle_cost.view")
+  @Permissions("reports.vehicle_cost.view", "access.enterpriseopscontroller.budget")
   async budget(@Req() req: AuthedRequest, @Query("period") period?: string) {
     const data = await this.governance.budgetSnapshot(req.user, period);
     return { data, message: "Budget commitment snapshot" };
@@ -246,7 +246,7 @@ export class EnterpriseOpsController {
 
   @Get("assets/health")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
-  @Permissions("assets.manage")
+  @Permissions("assets.manage", "access.enterpriseopscontroller.assethealth")
   async assetHealth(@Req() req: AuthedRequest) {
     const data = await this.governance.assetHealth(req.user);
     return { data, message: "Asset health scores" };
@@ -254,7 +254,7 @@ export class EnterpriseOpsController {
 
   @Get("vendors")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "PROCUREMENT_OFFICER")
-  @Permissions("purchase_orders.view")
+  @Permissions("purchase_orders.view", "access.enterpriseopscontroller.vendors")
   async vendors(
     @Req() req: AuthedRequest,
     @Query("search") search?: string,
@@ -274,7 +274,7 @@ export class EnterpriseOpsController {
 
   @Get("mappings")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER")
-  @Permissions("operations.view")
+  @Permissions("operations.view", "access.enterpriseopscontroller.mappings")
   async mappings(@Req() req: AuthedRequest) {
     const data = await this.governance.mappingQueue(req.user);
     return { data, message: "Master data mapping queue" };
@@ -282,7 +282,7 @@ export class EnterpriseOpsController {
 
   @Post("events/:id/acknowledge")
   @Roles("SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER")
-  @Permissions("operations.manage")
+  @Permissions("operations.manage", "access.enterpriseopscontroller.acknowledgeerpevent")
   async acknowledgeErpEvent(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -300,7 +300,7 @@ export class EnterpriseOpsController {
 
   @Get("events")
   @Roles("SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER")
-  @Permissions("operations.view")
+  @Permissions("operations.view", "access.enterpriseopscontroller.eventslist")
   async eventsList(@Req() req: AuthedRequest, @Query("status") status?: string) {
     if (!req.user.tenantId) return { data: [], message: "Tenant required" };
     const data = await this.events.list(req.user.tenantId, status);
@@ -309,7 +309,7 @@ export class EnterpriseOpsController {
 
   @Get("policy")
   @Roles("SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER")
-  @Permissions("operations.view")
+  @Permissions("operations.view", "access.enterpriseopscontroller.policy")
   async policy(@Req() req: AuthedRequest) {
     if (!req.user.tenantId) return { data: null, message: "Tenant required" };
     const data = await this.orgPolicy.getPolicy(req.user.tenantId);

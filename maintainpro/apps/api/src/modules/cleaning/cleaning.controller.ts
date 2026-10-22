@@ -56,6 +56,7 @@ export class CleaningController {
 
   @Get("locations")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  @Permissions("access.cleaningcontroller.listlocations")
   async listLocations(@Req() req: AuthedRequest) {
     const data = await this.cleaning.listLocations(req.user?.tenantId ?? null);
     return { data, message: "Cleaning locations fetched" };
@@ -63,6 +64,7 @@ export class CleaningController {
 
   @Post("locations")
   @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("access.cleaningcontroller.createlocation")
   async createLocation(@Req() req: AuthedRequest, @Body() dto: CreateCleaningLocationDto) {
     const data = await this.cleaning.createLocation(req.user?.tenantId ?? null, dto);
     return { data, message: "Cleaning location created" };
@@ -70,6 +72,7 @@ export class CleaningController {
 
   @Get("users/cleaners")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  @Permissions("access.cleaningcontroller.listassignablecleaners")
   async listAssignableCleaners(@Req() req: AuthedRequest) {
     const data = await this.cleaning.listAssignableCleaners(req.user?.tenantId ?? null);
     return { data, message: "Assignable cleaners fetched" };
@@ -77,6 +80,7 @@ export class CleaningController {
 
   @Get("locations/:id/qr")
   @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("access.cleaningcontroller.getlocationqr")
   async getLocationQr(@Param("id") id: string, @Res() res: Response) {
     const qr = await this.cleaning.getLocationQrCode(id);
     res.setHeader("Content-Type", "image/png");
@@ -86,6 +90,7 @@ export class CleaningController {
 
   @Post("locations/:id/regenerate-qr")
   @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("access.cleaningcontroller.regeneratelocationqr")
   async regenerateLocationQr(@Param("id") id: string) {
     const data = await this.cleaning.regenerateLocationQrCode(id);
     return { data, message: "Location QR regenerated" };
@@ -93,6 +98,7 @@ export class CleaningController {
 
   @Get("locations/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR", "CLEANER")
+  @Permissions("access.cleaningcontroller.getlocation")
   async getLocation(@Param("id") id: string) {
     const data = await this.cleaning.getLocation(id);
     return { data, message: "Cleaning location fetched" };
@@ -100,6 +106,7 @@ export class CleaningController {
 
   @Patch("locations/:id")
   @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("access.cleaningcontroller.updatelocation")
   async updateLocation(@Param("id") id: string, @Body() dto: UpdateCleaningLocationDto) {
     const data = await this.cleaning.updateLocation(id, dto);
     return { data, message: "Cleaning location updated" };
@@ -107,6 +114,7 @@ export class CleaningController {
 
   @Delete("locations/:id")
   @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("access.cleaningcontroller.deletelocation")
   async deleteLocation(@Param("id") id: string) {
     const data = await this.cleaning.removeLocation(id);
     return { data, message: "Cleaning location deactivated" };
@@ -114,6 +122,7 @@ export class CleaningController {
 
   @Post("scan")
   @Roles("CLEANER", "SUPERVISOR", "ADMIN", "SUPER_ADMIN")
+  @Permissions("access.cleaningcontroller.scanlocation")
   async scanLocation(@Req() req: AuthedRequest, @Body() dto: ScanCleaningVisitDto) {
     const data = await this.cleaning.scanVisit(req.user!.sub, req.user?.tenantId ?? null, dto);
     return {
@@ -124,6 +133,7 @@ export class CleaningController {
 
   @Post("visits/scan")
   @Roles("CLEANER", "SUPERVISOR", "ADMIN", "SUPER_ADMIN")
+  @Permissions("access.cleaningcontroller.scan")
   async scan(@Req() req: AuthedRequest, @Body() dto: StartCleaningVisitDto) {
     const cleanerId = req.user!.sub;
     const data = await this.cleaning.startVisit(cleanerId, req.user?.tenantId ?? null, dto);
@@ -132,6 +142,7 @@ export class CleaningController {
 
   @Post("visits/:id/submit")
   @Roles("CLEANER", "SUPERVISOR", "ADMIN", "SUPER_ADMIN")
+  @Permissions("access.cleaningcontroller.submitvisit")
   async submitVisit(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -143,6 +154,7 @@ export class CleaningController {
 
   @Post("visits/:id/sign-off")
   @Roles("SUPERVISOR", "ADMIN", "SUPER_ADMIN")
+  @Permissions("access.cleaningcontroller.signoff")
   async signOff(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -157,6 +169,7 @@ export class CleaningController {
 
   @Get("visits/export")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  @Permissions("access.cleaningcontroller.exportvisits")
   async exportVisits(
     @Req() req: AuthedRequest,
     @Res() res: Response,
@@ -187,6 +200,7 @@ export class CleaningController {
 
   @Get("visits")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR", "CLEANER")
+  @Permissions("access.cleaningcontroller.listvisits")
   async listVisits(
     @Req() req: AuthedRequest,
     @Query("status") status?: CleaningVisitStatus,
@@ -217,6 +231,7 @@ export class CleaningController {
 
   @Get("visits/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR", "CLEANER")
+  @Permissions("access.cleaningcontroller.getvisit")
   async getVisit(@Param("id") id: string) {
     const data = await this.cleaning.getVisit(id);
     return { data, message: "Cleaning visit fetched" };
@@ -224,6 +239,7 @@ export class CleaningController {
 
   @Post("issues")
   @Roles("CLEANER", "SUPERVISOR", "ADMIN", "SUPER_ADMIN", "ASSET_MANAGER")
+  @Permissions("access.cleaningcontroller.createissue")
   async createIssue(@Req() req: AuthedRequest, @Body() dto: CreateFacilityIssueDto) {
     const data = await this.cleaning.createIssue(req.user!.sub, req.user?.tenantId ?? null, dto);
     return { data, message: "Issue reported" };
@@ -231,6 +247,7 @@ export class CleaningController {
 
   @Post("issues/duplicate-check")
   @Roles("CLEANER", "SUPERVISOR", "ADMIN", "SUPER_ADMIN", "ASSET_MANAGER")
+  @Permissions("access.cleaningcontroller.checkduplicateissues")
   async checkDuplicateIssues(@Req() req: AuthedRequest, @Body() dto: DuplicateCheckFacilityIssueDto) {
     const data = await this.duplicateFacilityIssueService.checkDuplicates(req.user?.tenantId ?? null, dto);
     return { data, message: "Duplicate issue check completed" };
@@ -238,6 +255,7 @@ export class CleaningController {
 
   @Get("issues")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR", "CLEANER", "ASSET_MANAGER")
+  @Permissions("access.cleaningcontroller.listissues")
   async listIssues(@Req() req: AuthedRequest, @Query("status") status?: FacilityIssueStatus) {
     const data = await this.cleaning.listIssues(req.user?.tenantId ?? null, status);
     return { data, message: "Issues fetched" };
@@ -245,6 +263,7 @@ export class CleaningController {
 
   @Patch("issues/:id")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  @Permissions("access.cleaningcontroller.updateissue")
   async updateIssue(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -263,7 +282,7 @@ export class CleaningController {
     "MANAGER",
     "SUPERVISOR"
   )
-  @Permissions("facility_issues.manage")
+  @Permissions("facility_issues.manage", "access.cleaningcontroller.createworkorderfromissue")
   async createWorkOrderFromIssue(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.cleaning.createWorkOrderFromIssue(id, req.user!);
     return { data, message: "Work order created from facility issue" };
@@ -271,6 +290,7 @@ export class CleaningController {
 
   @Get("schedule/calendar")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  @Permissions("access.cleaningcontroller.schedulecalendar")
   async scheduleCalendar(
     @Req() req: AuthedRequest,
     @Query("from") from?: string,
@@ -287,6 +307,7 @@ export class CleaningController {
 
   @Get("analytics")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  @Permissions("access.cleaningcontroller.analytics")
   async analytics(
     @Req() req: AuthedRequest,
     @Query("from") from?: string,
@@ -305,6 +326,7 @@ export class CleaningController {
 
   @Post("enforcement/run")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  @Permissions("access.cleaningcontroller.runenforcement")
   async runEnforcement(@Req() req: AuthedRequest) {
     const data = await this.cleaning.runScheduleEnforcement(req.user?.tenantId ?? null);
     return { data, message: "Schedule enforcement executed" };
@@ -312,6 +334,7 @@ export class CleaningController {
 
   @Get("dashboard")
   @Roles("SUPER_ADMIN", "ADMIN", "SUPERVISOR")
+  @Permissions("access.cleaningcontroller.dashboard")
   async dashboard(@Req() req: AuthedRequest, @Query("days") days?: string) {
     const data = await this.cleaning.dashboard(req.user?.tenantId ?? null, days ? Number(days) : 14);
     return { data, message: "Cleaning dashboard fetched" };

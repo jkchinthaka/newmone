@@ -19,7 +19,7 @@ export class WorkflowEngineController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "AUDITOR")
-  @Permissions("admin.organization.manage")
+  @Permissions("admin.organization.manage", "access.workflowenginecontroller.list")
   async list(@Req() req: AuthedRequest) {
     const data = await this.workflows.listDefinitions(req.user);
     return { data, message: "Workflow definitions" };
@@ -27,7 +27,7 @@ export class WorkflowEngineController {
 
   @Post("ensure-default")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage")
+  @Permissions("admin.organization.manage", "access.workflowenginecontroller.ensuredefault")
   async ensureDefault(@Req() req: AuthedRequest) {
     const data = await this.workflows.ensureDefaultWorkOrderWorkflow(req.user);
     return { data, message: "Default WO workflow ensured" };
@@ -35,7 +35,7 @@ export class WorkflowEngineController {
 
   @Post(":definitionId/publish")
   @Roles("SUPER_ADMIN", "ADMIN")
-  @Permissions("admin.organization.manage")
+  @Permissions("admin.organization.manage", "access.workflowenginecontroller.publish")
   async publish(
     @Req() req: AuthedRequest,
     @Param("definitionId") definitionId: string,

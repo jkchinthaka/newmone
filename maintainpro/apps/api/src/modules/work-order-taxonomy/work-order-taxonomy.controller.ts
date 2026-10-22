@@ -1,3 +1,4 @@
+import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { WorkOrderTaxonomyLevel } from "@prisma/client";
@@ -18,6 +19,7 @@ export class WorkOrderTaxonomyController {
 
   @Get()
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("access.workordertaxonomycontroller.list")
   async list(
     @Req() req: AuthedRequest,
     @Query("includeInactive") includeInactive?: string,
@@ -34,6 +36,7 @@ export class WorkOrderTaxonomyController {
 
   @Get(":id/usage")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Permissions("access.workordertaxonomycontroller.usage")
   async usage(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.taxonomyService.getUsage(req.user, id);
     return { data, message: "Work order taxonomy usage fetched" };
@@ -41,6 +44,7 @@ export class WorkOrderTaxonomyController {
 
   @Post()
   @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("access.workordertaxonomycontroller.create")
   async create(@Req() req: AuthedRequest, @Body() body: UpsertTaxonomyInput) {
     const data = await this.taxonomyService.create(req.user, body);
     return { data, message: "Work order taxonomy entry created" };
@@ -48,6 +52,7 @@ export class WorkOrderTaxonomyController {
 
   @Patch(":id")
   @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("access.workordertaxonomycontroller.update")
   async update(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: Partial<UpsertTaxonomyInput>) {
     const data = await this.taxonomyService.update(req.user, id, body);
     return { data, message: "Work order taxonomy entry updated" };
@@ -55,6 +60,7 @@ export class WorkOrderTaxonomyController {
 
   @Patch(":id/deactivate")
   @Roles("SUPER_ADMIN", "ADMIN")
+  @Permissions("access.workordertaxonomycontroller.deactivate")
   async deactivate(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.taxonomyService.deactivate(req.user, id);
     return { data, message: "Work order taxonomy entry deactivated" };
