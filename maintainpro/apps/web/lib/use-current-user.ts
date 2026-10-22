@@ -13,16 +13,17 @@ export interface CurrentUser {
   tenantId: string | null;
   permissions: string[];
   enabledFeatures: string[];
+  accessStudioEnabled: boolean;
 }
 
 function readStoredUser(): CurrentUser {
   if (typeof window === "undefined") {
-    return { id: null, email: null, role: null, tenantId: null, permissions: [], enabledFeatures: [] };
+    return { id: null, email: null, role: null, tenantId: null, permissions: [], enabledFeatures: [], accessStudioEnabled: false };
   }
 
   try {
     const raw = window.localStorage.getItem(USER_KEY);
-    if (!raw) return { id: null, email: null, role: null, tenantId: null, permissions: [], enabledFeatures: [] };
+    if (!raw) return { id: null, email: null, role: null, tenantId: null, permissions: [], enabledFeatures: [], accessStudioEnabled: false };
 
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     let role: string | null = null;
@@ -68,10 +69,11 @@ function readStoredUser(): CurrentUser {
       role,
       tenantId: typeof parsed.tenantId === "string" ? parsed.tenantId : null,
       permissions,
-      enabledFeatures
+      enabledFeatures,
+      accessStudioEnabled: parsed.accessStudioEnabled === true
     };
   } catch {
-    return { id: null, email: null, role: null, tenantId: null, permissions: [], enabledFeatures: [] };
+    return { id: null, email: null, role: null, tenantId: null, permissions: [], enabledFeatures: [], accessStudioEnabled: false };
   }
 }
 

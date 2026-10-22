@@ -14,6 +14,7 @@ import { AuditAction, RoleName, TenantInvitationStatus, TenantMembershipRole, Us
 import * as bcrypt from "bcryptjs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
+import { accessStudioEnabled, loadEffectivePermissionKeys } from "../../common/auth/effective-permissions";
 import { toJsonText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 import { requestContext } from "../../common/context/request-context";
@@ -869,7 +870,15 @@ export class AuthService {
       resolvedTenantId = firstMembership?.tenantId ?? null;
     }
 
-    const permissionKeys = this.permissionKeysFromRole(user.role);
+    const roleKeys = this.permissionKeysFromRole(user.role);
+    const permissionKeys =
+      user.role?.name === "SUPER_ADMIN"
+        ? roleKeys
+        : await loadEffectivePermissionKeys(
+            this.prisma,
+            { id: user.id, tenantId: user.tenantId ?? null },
+            roleKeys
+          );
 
     let enabledFeatures: string[] = [];
     if (resolvedTenantId && this.tenantFeatures) {
@@ -885,7 +894,8 @@ export class AuthService {
         ...this.toPublicUser(user),
         permissions: permissionKeys,
         tenantId: resolvedTenantId,
-        enabledFeatures
+        enabledFeatures,
+        accessStudioEnabled: accessStudioEnabled()
       },
       message: "Profile fetched"
     };

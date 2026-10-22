@@ -17,6 +17,7 @@ import { fetchAdminTenantOverviewList } from "@/lib/admin-tenants-api";
 import type { AdminRoleReviewRow } from "@/lib/admin-roles";
 import { formatRoleLabel } from "@/lib/admin-roles";
 import { visibleLoginRoles } from "@/lib/visible-login-roles";
+import { PermissionOverridesCard } from "./permission-overrides-card";
 
 export interface AdminUserFormDialogProps {
   open: boolean;
@@ -25,6 +26,8 @@ export interface AdminUserFormDialogProps {
   roles: AdminRoleReviewRow[];
   /** Present when editing; absent when creating. */
   user?: (AdminUserDetail & { displayName?: string }) | null;
+  showPermissionOverrides?: boolean;
+  permissionOptions?: { key: string; description?: string | null }[];
 }
 
 interface FormState {
@@ -53,7 +56,15 @@ const EMPTY_FORM: FormState = {
   password: ""
 };
 
-export function AdminUserFormDialog({ open, onClose, onSaved, roles, user }: AdminUserFormDialogProps) {
+export function AdminUserFormDialog({
+  open,
+  onClose,
+  onSaved,
+  roles,
+  user,
+  showPermissionOverrides = false,
+  permissionOptions = []
+}: AdminUserFormDialogProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const isEditing = Boolean(user);
@@ -267,6 +278,10 @@ export function AdminUserFormDialog({ open, onClose, onSaved, roles, user }: Adm
             ) : null}
           </div>
         </form>
+
+        {showPermissionOverrides && user ? (
+          <PermissionOverridesCard permissionOptions={permissionOptions} userId={user.id} />
+        ) : null}
 
         <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4">
           <button type="button" onClick={onClose} disabled={submitting} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60">
