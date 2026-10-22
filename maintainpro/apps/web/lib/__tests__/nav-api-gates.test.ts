@@ -4,17 +4,21 @@ import test from "node:test";
 import { canAccessNavigationPath, getVisibleNavigationItems } from "../navigation";
 
 // Seeded keys (plus the v1.0.3 request grant) for the login groups used at Nelna.
-const TECHNICIAN = ["dashboard.view", "work_orders.view_own", "work_orders.update_status", "maintenance_requests.create", "maintenance_requests.view_own"];
+const TECHNICIAN = ["dashboard.view", "work_orders.view_own", "work_orders.update_status", "maintenance_requests.create", "maintenance_requests.view_own", "planning.view", "planning.manage"];
 const SECURITY_OFFICER = ["dashboard.view", "vehicles.view", "vehicles.operate", "gate.out.create", "gate.in.create", "maintenance_requests.create"];
 const INVENTORY_KEEPER = ["dashboard.view", "inventory.manage", "inventory.stock_issue", "part_requests.view", "part_requests.issue", "maintenance_requests.create"];
 const hrefs = (role: string, permissions: string[]) => getVisibleNavigationItems(role, { permissions }).map((item) => item.href);
 
 test("menu items whose page request the API refuses are hidden", () => {
+  // Owner decision 2026-10-22: technicians view assets and run inspections/PM checklists.
   const tech = hrefs("TECHNICIAN", TECHNICIAN);
-  assert.equal(tech.includes("/assets"), false, "GET /assets has no TECHNICIAN in @Roles");
-  assert.equal(tech.includes("/maintenance/inspections"), false, "needs planning.view");
-  assert.equal(tech.includes("/maintenance/plans"), false, "needs planning.view");
-  assert.equal(tech.includes("/work-orders/my") || tech.some((h) => h.startsWith("/work-orders")), true);
+  assert.equal(tech.includes("/assets"), true);
+  assert.equal(tech.includes("/maintenance/inspections"), true);
+  assert.equal(tech.includes("/maintenance/plans"), true);
+  // Without planning.view (e.g. a database where the grant script has not run) they stay hidden.
+  const before = hrefs("TECHNICIAN", TECHNICIAN.filter((key) => !key.startsWith("planning.")));
+  assert.equal(before.includes("/maintenance/inspections"), false);
+  assert.equal(before.includes("/maintenance/plans"), false);
 
   const security = hrefs("SECURITY_OFFICER", SECURITY_OFFICER);
   assert.equal(security.includes("/fleet"), false, "fleet overview excludes SECURITY_OFFICER");

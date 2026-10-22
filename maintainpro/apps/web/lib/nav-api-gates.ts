@@ -254,6 +254,7 @@ export const NAV_ITEM_API_GATES: Readonly<Record<string, NavApiGate>> = {
       "MECHANIC",
       "SUPERVISOR",
       "SUPER_ADMIN",
+      "TECHNICIAN",
       "VIEWER"
     ],
     permissions: []
