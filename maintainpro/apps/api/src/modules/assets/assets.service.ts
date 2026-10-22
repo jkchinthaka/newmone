@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { join } from "path";
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
   AssetCategory,
@@ -30,6 +30,12 @@ import { ASSET_TAG_FORMAT_MESSAGE, isValidAssetTag, normalizeAssetTag } from "./
 import { PrismaService } from "../../database/prisma.service";
 import { normalizeDepartmentName } from "../departments/department-master-list";
 import { AssetRegistryService } from "./asset-registry.service";
+import { EvidenceStorageProviderService } from "../evidence/evidence-storage-provider.service";
+import {
+  buildServerObjectKey,
+  evidenceExtensionForMime,
+  isConfiguredLocalDisk
+} from "../evidence/evidence-storage.mapper";
 
 interface AssetDocumentRecord {
   id: string;
@@ -39,6 +45,8 @@ interface AssetDocumentRecord {
   size?: number;
   uploadedAt: string;
   externalUrl?: string;
+  storageKey?: string;
+  storageProvider?: "local";
 }
 
 export interface ParsedAssetDocument extends AssetDocumentRecord {
@@ -79,7 +87,10 @@ export class AssetsService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ConfigService) private readonly configService: ConfigService,
     @Inject(QrCodeService) private readonly qrCodeService: QrCodeService,
-    @Inject(AssetRegistryService) private readonly registry: AssetRegistryService
+    @Inject(AssetRegistryService) private readonly registry: AssetRegistryService,
+    @Optional()
+    @Inject(EvidenceStorageProviderService)
+    private readonly evidenceStorage?: EvidenceStorageProviderService
   ) {}
 
   async findAll(tenantId: string | null | undefined, query: AssetListQueryDto) {
@@ -624,7 +635,7 @@ export class AssetsService {
     await this.ensureNoOpenWorkOrders(id);
 
     if (permanent) {
-      await this.cleanupDocumentFiles(this.parseDocuments(toStringArray(currentRecord.documents), id));
+      await this.cleanupDocumentFiles(this.readStoredDocuments(toStringArray(currentRecord.documents), id));
       await this.prisma.asset.delete({ where: { id } });
       await this.recordAudit({
         tenantId: current.tenantId,
@@ -1081,15 +1092,12 @@ export class AssetsService {
 
     const current = await this.findOne(id, tenantId);
     const currentRecord = await this.requireAssetRecord(id, tenantId);
-    const uploadDirectory = this.getDocumentDirectory();
-    await mkdir(uploadDirectory, { recursive: true });
-
     const documentId = randomUUID();
     const originalName = this.sanitizeFilename(file.originalname || `asset-document-${documentId}`);
-    const cloudinaryRecord = await this.uploadDocumentToCloudinary(id, documentId, originalName, file);
-    const documentRecord =
-      cloudinaryRecord ??
-      (await this.storeDocumentLocally(id, documentId, originalName, file, uploadDirectory));
+    const documentRecord = isConfiguredLocalDisk(this.evidenceStorage)
+      ? await this.storeDocumentOnPrivateDisk(id, tenantId, documentId, originalName, file)
+      : ((await this.uploadDocumentToCloudinary(id, documentId, originalName, file)) ??
+        (await this.storeDocumentLocally(id, documentId, originalName, file)));
 
     const updated = await this.prisma.asset.update({
       where: { id },
@@ -1112,7 +1120,7 @@ export class AssetsService {
 
   async downloadDocument(id: string, tenantId: string | null | undefined, documentId: string) {
     const asset = await this.requireAssetRecord(id, tenantId);
-    const document = this.parseDocuments(toStringArray(asset.documents), id).find((item) => item.id === documentId);
+    const document = this.readStoredDocuments(toStringArray(asset.documents), id).find((item) => item.id === documentId);
 
     if (!document) {
       throw new NotFoundException("Document not found");
@@ -1120,6 +1128,19 @@ export class AssetsService {
 
     if (document.externalUrl) {
       throw new BadRequestException("External documents must be opened from their source URL");
+    }
+
+    if (document.storageProvider === "local" && document.storageKey) {
+      this.assertPrivateAssetKey(tenantId, id, document.storageKey);
+      if (!this.evidenceStorage) {
+        throw new NotFoundException("Stored file is not available for this document");
+      }
+      const buffer = await this.evidenceStorage.readObject(document.storageKey);
+      return {
+        buffer,
+        filename: document.name,
+        mimeType: document.mimeType ?? "application/octet-stream"
+      };
     }
 
     if (!document.storedName) {
@@ -1143,20 +1164,14 @@ export class AssetsService {
   ) {
     const current = await this.findOne(id, tenantId);
     const currentRecord = await this.requireAssetRecord(id, tenantId);
-    const parsedDocuments = this.parseDocuments(toStringArray(currentRecord.documents), id);
+    const parsedDocuments = this.readStoredDocuments(toStringArray(currentRecord.documents), id);
     const document = parsedDocuments.find((item) => item.id === documentId);
 
     if (!document) {
       throw new NotFoundException("Document not found");
     }
 
-    if (document.storedName) {
-      try {
-        await unlink(join(this.getDocumentDirectory(), document.storedName));
-      } catch {
-        // Ignore missing files; the source of truth is the database entry.
-      }
-    }
+    await this.removeStoredDocumentFile(document);
 
     const updated = await this.prisma.asset.update({
       where: { id },
@@ -1533,6 +1548,13 @@ export class AssetsService {
   }
 
   private parseDocuments(entries: string[], assetId: string): ParsedAssetDocument[] {
+    return this.readStoredDocuments(entries, assetId).map((document) => {
+      const { storageKey: _storageKey, storageProvider: _storageProvider, ...publicDocument } = document;
+      return publicDocument;
+    });
+  }
+
+  private readStoredDocuments(entries: string[], assetId: string): Array<AssetDocumentRecord & { downloadUrl?: string }> {
     return entries.map((entry, index) => {
       try {
         const parsed = JSON.parse(entry) as AssetDocumentRecord;
@@ -1574,15 +1596,7 @@ export class AssetsService {
     }
   }
 
-  private toDocumentStorageRecord(document: {
-    id: string;
-    name: string;
-    storedName?: string;
-    mimeType?: string;
-    size?: number;
-    uploadedAt: string;
-    externalUrl?: string;
-  }): AssetDocumentRecord {
+  private toDocumentStorageRecord(document: AssetDocumentRecord): AssetDocumentRecord {
     return {
       id: document.id,
       name: document.name,
@@ -1590,26 +1604,62 @@ export class AssetsService {
       mimeType: document.mimeType,
       size: document.size,
       uploadedAt: document.uploadedAt,
-      externalUrl: document.externalUrl
+      externalUrl: document.externalUrl,
+      storageKey: document.storageKey,
+      storageProvider: document.storageProvider
     };
   }
 
-  private async cleanupDocumentFiles(entries: Array<{ storedName?: string } | string>) {
-    const documents = entries.map((entry) =>
-      typeof entry === "string" ? this.parseDocuments([entry], "temp")[0] : entry
-    );
-
+  private async cleanupDocumentFiles(documents: Array<Pick<AssetDocumentRecord, "storedName" | "storageKey" | "storageProvider">>) {
     for (const document of documents) {
-      if (!document?.storedName) {
-        continue;
-      }
-
-      try {
-        await unlink(join(this.getDocumentDirectory(), document.storedName));
-      } catch {
-        // Ignore cleanup failures for already-missing files.
-      }
+      await this.removeStoredDocumentFile(document);
     }
+  }
+
+  private async removeStoredDocumentFile(document: Pick<AssetDocumentRecord, "storedName" | "storageKey" | "storageProvider">) {
+    if (document.storageProvider === "local" && document.storageKey && this.evidenceStorage) {
+      await this.evidenceStorage.deleteObject(document.storageKey).catch(() => undefined);
+    }
+    if (!document.storedName) return;
+    try {
+      await unlink(join(this.getDocumentDirectory(), document.storedName));
+    } catch {
+      // Ignore missing files; the source of truth is the database entry.
+    }
+  }
+
+  private assertPrivateAssetKey(tenantId: string | null | undefined, assetId: string, storageKey: string) {
+    const normalized = storageKey.replace(/\\/g, "/");
+    const prefix = `assets/${requireTenantId(tenantId)}/${assetId}/`;
+    const segments = normalized.split("/");
+    if (!normalized.startsWith(prefix) || segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
+      throw new NotFoundException("Document not found");
+    }
+  }
+
+  private async storeDocumentOnPrivateDisk(
+    id: string,
+    tenantId: string | null | undefined,
+    documentId: string,
+    originalName: string,
+    file: Express.Multer.File
+  ): Promise<AssetDocumentRecord> {
+    const mimeType = String(file.mimetype ?? "").trim().toLowerCase();
+    const extension = evidenceExtensionForMime(mimeType);
+    if (!extension || !this.evidenceStorage) {
+      throw new BadRequestException("Evidence file contents or MIME type are not allowed.");
+    }
+    const storageKey = buildServerObjectKey(["assets", requireTenantId(tenantId), id], extension);
+    await this.evidenceStorage.putObject(storageKey, file.buffer);
+    return {
+      id: documentId,
+      name: originalName,
+      mimeType,
+      size: file.size,
+      uploadedAt: new Date().toISOString(),
+      storageKey,
+      storageProvider: "local"
+    };
   }
 
   private getAssetScanUrl(assetId: string) {
@@ -1627,9 +1677,10 @@ export class AssetsService {
     id: string,
     documentId: string,
     originalName: string,
-    file: Express.Multer.File,
-    uploadDirectory: string
+    file: Express.Multer.File
   ): Promise<AssetDocumentRecord> {
+    const uploadDirectory = this.getDocumentDirectory();
+    await mkdir(uploadDirectory, { recursive: true });
     const extension = originalName.includes(".")
       ? originalName.slice(originalName.lastIndexOf("."))
       : "";
