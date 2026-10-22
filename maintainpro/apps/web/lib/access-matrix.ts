@@ -2,6 +2,11 @@ export type AccessOverrideEffect = "GRANT" | "DENY";
 
 export type AccessMatrixCell = "Inherited" | "Granted" | "Denied" | "Not granted";
 
+export function activeOverrideEffect(row: { effect: string; expiresAt?: string | null }, now = Date.now()): AccessOverrideEffect | null {
+  if (row.expiresAt && !(new Date(row.expiresAt).getTime() > now)) return null;
+  return row.effect === "GRANT" || row.effect === "DENY" ? row.effect : null;
+}
+
 /** Role grant with no override is Inherited while the studio is on. DENY wins over the role and over GRANT. */
 export function accessMatrixCell(
   roleHasKey: boolean,

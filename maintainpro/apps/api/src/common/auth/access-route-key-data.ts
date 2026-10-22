@@ -57,6 +57,7 @@ export const ACCESS_ROUTE_KEYS: Readonly<Record<string, string>> = {
   "GET /admin/users/:id/permission-overrides": "admin.permission_overrides.access",
   "POST /admin/users/:id/permission-overrides": "admin.permission_overrides.access",
   "PATCH /admin/users/:id/status": "admin.invitations.access",
+  "POST /admin/users/permission-overrides/bulk": "admin.permission_overrides.access",
   "POST /ai/actions/assign-technician": "ai.assign_technician.manage",
   "POST /ai/actions/create-work-order": "ai.assign_technician.manage",
   "POST /ai/actions/generate-report": "ai.generate_report.manage",

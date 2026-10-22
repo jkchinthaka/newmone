@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { X } from "lucide-react";
 
-import { accessMatrixCell, isRoleLimitedPermission, type AccessOverrideEffect } from "@/lib/access-matrix";
+import { accessMatrixCell, activeOverrideEffect, isRoleLimitedPermission, type AccessOverrideEffect } from "@/lib/access-matrix";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { useFocusTrap } from "@/lib/use-focus-trap";
 import { formatPermissionModuleLabel, formatRoleLabel, type AdminRolesPermissionsMatrix } from "@/lib/admin-roles";
@@ -42,12 +42,13 @@ export function AdminUserPermissionsView({
     }
     let cancelled = false;
     void apiClient
-      .get<{ data: Array<{ permissionKey: string; effect: string }> }>(`/admin/users/${userId}/permission-overrides`)
+      .get<{ data: Array<{ permissionKey: string; effect: string; expiresAt?: string | null }> }>(`/admin/users/${userId}/permission-overrides`)
       .then((response) => {
         if (cancelled) return;
         const next: Record<string, AccessOverrideEffect> = {};
         for (const row of response.data.data ?? []) {
-          if (row.effect === "GRANT" || row.effect === "DENY") next[row.permissionKey] = row.effect;
+          const effect = activeOverrideEffect(row);
+          if (effect) next[row.permissionKey] = effect;
         }
         setOverrides(next);
         setOverrideNote(null);

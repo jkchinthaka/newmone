@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
   Inject,
   Injectable,
   NotFoundException
@@ -25,6 +26,32 @@ export type PermissionOverrideInput = {
 @Injectable()
 export class PermissionOverridesService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+
+  async bulk(actor: JwtPayload, input: PermissionOverrideInput & { userIds?: string[] }) {
+    this.assertEnabled();
+    if (actor.role !== "SUPER_ADMIN") throw new ForbiddenException();
+    if (!Array.isArray(input?.userIds) || !input.userIds.length || input.userIds.length > 50 ||
+      input.userIds.some((id) => typeof id !== "string" || !id.trim())) {
+      throw new BadRequestException("Choose between 1 and 50 users");
+    }
+    const ids = [...new Set(input.userIds)];
+    // Reject invalid scope before the first write; each user save is audited and atomic.
+    for (const id of ids) {
+      this.assertNotSelf(actor, id);
+      this.assertNotSuperAdminTarget((await this.requireSameTenantUser(actor, id)).roleName);
+    }
+    const results: Array<{ userId: string; saved: boolean; message: string }> = [];
+    for (const id of ids) {
+      try {
+        await this.create(actor, id, input);
+        results.push({ userId: id, saved: true, message: "Saved" });
+      } catch (error) {
+        if (!(error instanceof HttpException)) throw error;
+        results.push({ userId: id, saved: false, message: error.message });
+      }
+    }
+    return { data: results, message: "Bulk permission results" };
+  }
 
   async list(actor: JwtPayload, userId: string) {
     this.assertEnabled();

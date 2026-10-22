@@ -7,6 +7,7 @@ import { ExtractJwt, Strategy } from "passport-jwt";
 import type { JwtPayload } from "./auth.types";
 import { getAccessJwtSecret } from "../../config/jwt-secrets";
 import { PrismaService } from "../../database/prisma.service";
+import { resolvePreviewIdentity } from "../../common/auth/access-preview";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -30,11 +31,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         }
       ]),
       ignoreExpiration: false,
+      passReqToCallback: true,
       secretOrKey: getAccessJwtSecret(configService)
     });
   }
 
-  async validate(payload: JwtPayload): Promise<JwtPayload> {
+  async validate(request: Request, payload: JwtPayload): Promise<JwtPayload> {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: {
@@ -53,10 +55,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException("User account is temporarily locked");
     }
 
-    return {
+    return resolvePreviewIdentity(this.prisma, request.headers, {
       ...payload,
       role: user.role.name,
       tenantId: user.tenantId
-    };
+    });
   }
 }

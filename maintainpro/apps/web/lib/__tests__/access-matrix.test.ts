@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { accessMatrixCell, isRoleLimitedPermission } from "../access-matrix";
+import { accessMatrixCell, activeOverrideEffect, isRoleLimitedPermission } from "../access-matrix";
+
+test("expired overrides do not change the effective matrix state", () => {
+  const now = Date.parse("2026-10-22T12:00:00Z");
+  assert.equal(activeOverrideEffect({ effect: "DENY", expiresAt: "2026-10-22T12:00:00Z" }, now), null);
+  assert.equal(activeOverrideEffect({ effect: "GRANT", expiresAt: "2026-10-22T13:00:00Z" }, now), "GRANT");
+  assert.equal(activeOverrideEffect({ effect: "DENY", expiresAt: null }, now), "DENY");
+});
 
 test("studio off keeps the role grant label", () => {
   assert.equal(accessMatrixCell(true, null, false), "Granted");

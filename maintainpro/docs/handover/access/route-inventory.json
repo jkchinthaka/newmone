@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-10-22T04:25:37.266Z",
-  "routeCount": 971,
+  "generatedAt": "2026-10-22T05:26:23.813Z",
+  "routeCount": 972,
   "routes": [
     {
       "method": "GET",
@@ -857,6 +857,17 @@
       "roles": [
         "SUPER_ADMIN",
         "ADMIN"
+      ],
+      "permissions": [],
+      "isPublic": false
+    },
+    {
+      "method": "POST",
+      "path": "/admin/users/permission-overrides/bulk",
+      "controller": "PermissionOverridesController",
+      "handler": "bulk",
+      "roles": [
+        "SUPER_ADMIN"
       ],
       "permissions": [],
       "isPublic": false

@@ -70,6 +70,7 @@ async function bootstrap(): Promise<void> {
       "Authorization",
       "X-Requested-With",
       "X-Tenant-Id",
+      "X-Access-Preview-User",
       "X-CSRF-Token",
       "X-Request-Id",
       "Idempotency-Key",

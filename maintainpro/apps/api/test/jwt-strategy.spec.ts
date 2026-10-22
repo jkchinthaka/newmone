@@ -29,7 +29,7 @@ describe("JwtStrategy validate()", () => {
     });
     const strategy = buildStrategy(findUnique);
 
-    await expect(strategy.validate(payload)).resolves.toEqual(payload);
+    await expect(strategy.validate({ headers: {} } as any, payload)).resolves.toEqual(payload);
     expect(findUnique).toHaveBeenCalledWith({
       where: { id: payload.sub },
       select: {
@@ -50,7 +50,7 @@ describe("JwtStrategy validate()", () => {
     const strategy = buildStrategy(findUnique);
 
     await expect(
-      strategy.validate({ ...payload, role: RoleName.SUPER_ADMIN })
+      strategy.validate({ headers: {} } as any, { ...payload, role: RoleName.SUPER_ADMIN })
     ).resolves.toEqual({ ...payload, role: RoleName.TECHNICIAN, tenantId: "tenant-a" });
   });
 
@@ -58,13 +58,13 @@ describe("JwtStrategy validate()", () => {
     const findUnique = jest.fn().mockResolvedValue({ isActive: false });
     const strategy = buildStrategy(findUnique);
 
-    await expect(strategy.validate(payload)).rejects.toThrow(UnauthorizedException);
+    await expect(strategy.validate({ headers: {} } as any, payload)).rejects.toThrow(UnauthorizedException);
   });
 
   it("rejects when the user no longer exists", async () => {
     const findUnique = jest.fn().mockResolvedValue(null);
     const strategy = buildStrategy(findUnique);
 
-    await expect(strategy.validate(payload)).rejects.toThrow(UnauthorizedException);
+    await expect(strategy.validate({ headers: {} } as any, payload)).rejects.toThrow(UnauthorizedException);
   });
 });

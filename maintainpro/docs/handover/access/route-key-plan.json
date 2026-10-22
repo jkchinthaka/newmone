@@ -1,6 +1,6 @@
 {
   "keyCount": 200,
-  "routeCount": 678,
+  "routeCount": 679,
   "keys": [
     {
       "key": "admin_governance.data_quality.view",
@@ -2579,6 +2579,11 @@
       "method": "PATCH",
       "path": "/admin/users/:id/status",
       "key": "admin.invitations.access"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/users/permission-overrides/bulk",
+      "key": "admin.permission_overrides.access"
     },
     {
       "method": "POST",
