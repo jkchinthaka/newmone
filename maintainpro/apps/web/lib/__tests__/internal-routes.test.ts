@@ -69,6 +69,13 @@ describe("internal navigation routes", () => {
     assert.deepEqual(missing, []);
   });
 
+  it("points maintenance cost at the work-order page that shows the cost breakdown", () => {
+    const href = ROLE_HOME_PROFILES.flatMap((profile) => profile.cards)
+      .find((card) => card.id === "cost")?.href;
+    assert.equal(href, "/maintenance/jobs");
+    assert.equal(routeExists(href ?? ""), true);
+  });
+
   it("does not link role home to a removed report", () => {
     const removed = new Set<string>(REMOVED_REPORT_SLUGS);
     for (const href of ROLE_HOME_PROFILES.flatMap((profile) => profile.cards.map((card) => card.href))) {

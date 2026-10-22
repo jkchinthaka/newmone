@@ -582,8 +582,14 @@ describe("ROLE_HOME_PROFILES", () => {
     expect(hrefById["kpi-reports"]).toBe("/reports/operations");
     expect(hrefById["pm-compliance"]).toBe("/reports/operations?search=preventive");
     expect(hrefById["downtime"]).toBe("/reports/assets?search=downtime");
-    expect(hrefById["cost"]).toBe("/reports/operations");
+    expect(hrefById["cost"]).toBe("/maintenance/jobs");
     expect(hrefById["repeat-failures"]).toBe("/reports/maintenance-exceptions");
+  });
+
+  it("hides maintenance cost when the role cannot open work-order insights", () => {
+    expect(resolveRoleHome("MAINTENANCE_MANAGER").cards.some((card) => card.id === "cost")).toBe(false);
+    expect(resolveRoleHome("FINANCE").cards.some((card) => card.id === "cost")).toBe(false);
+    expect(resolveRoleHome("MANAGER").cards.some((card) => card.id === "cost")).toBe(true);
   });
 
   it("MANAGEMENT_VIEWER profile is read-only (links to /reports)", () => {
