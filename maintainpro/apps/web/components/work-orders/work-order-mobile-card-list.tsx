@@ -8,39 +8,42 @@ import {
   workSubtitle,
   type DomainJobListRow
 } from "@/lib/domain-jobs-columns";
-import { formatQueueDue, nextActionLabel } from "@/lib/work-order-queue-nav";
+import { StatusBadge } from "@/components/ui/dashboard";
+import { holdReasonSuffix, queueNextControl } from "@/lib/batch-3-presentation";
+import { priorityBadgePresentation } from "@/lib/dashboard-status";
+import { formatQueueDue } from "@/lib/work-order-queue-nav";
 import type { WorkOrderQueueItem } from "@/lib/work-order-queues-api";
 
-import { getTechnicianName, humanWorkOrderStatusLabel, toTitleCase } from "./helpers";
+import { getTechnicianName } from "./helpers";
 
 type Props = {
   rows: WorkOrderQueueItem[];
   onOpen: (row: WorkOrderQueueItem) => void;
+  onAction?: (row: WorkOrderQueueItem, actionId: string) => void;
+  actorRole?: string | null;
   jobDomain?: string;
 };
 
 /** Stacked work-order rows for narrow screens. */
-export function WorkOrderMobileCardList({ rows, onOpen, jobDomain }: Props) {
+export function WorkOrderMobileCardList({ rows, onOpen, onAction, actorRole, jobDomain }: Props) {
   return (
     <div className="space-y-2 p-2 md:hidden">
       {rows.map((row) => {
         const due = formatQueueDue(row.dueDate, row.overdueDays);
-        const next = nextActionLabel(row);
+        const control = queueNextControl({ status: row.status, role: actorRole, approvalStatus: row.approvalStatus });
+        const priority = priorityBadgePresentation(row.priority);
+        const hold = holdReasonSuffix(
+          row.status,
+          (row as { holdNotes?: string | null }).holdNotes,
+          (row as { holdReasonCode?: string | null }).holdReasonCode
+        );
         const domainRow = row as WorkOrderQueueItem & DomainJobListRow;
         const mileage = jobDomain === "VEHICLE" ? odometerLine(domainRow) : "";
         return (
-          <button
-            key={row.id}
-            type="button"
-            aria-label={`Open ${row.woNumber}`}
-            onClick={() => onOpen(row)}
-            className="w-full rounded-lg border border-slate-200 bg-white p-3 text-left hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-          >
+          <article key={row.id} className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="flex items-start justify-between gap-2">
               <span className="font-semibold text-slate-900">{row.woNumber}</span>
-              <span className={row.priority === "CRITICAL" || row.priority === "HIGH" ? "text-sm font-semibold text-amber-800" : "text-sm text-slate-600"}>
-                {toTitleCase(row.priority)}
-              </span>
+              {priority ? <StatusBadge status={row.priority} label={priority.label} tone={priority.tone} /> : null}
             </div>
             <p className="mt-1 font-medium text-slate-900">{row.title}</p>
             <p className="text-sm text-slate-500">{workSubtitle(domainRow, jobDomain)}</p>
@@ -49,7 +52,10 @@ export function WorkOrderMobileCardList({ rows, onOpen, jobDomain }: Props) {
             <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
               <div>
                 <dt className="text-xs text-slate-500">Status</dt>
-                <dd>{humanWorkOrderStatusLabel(row.status)}</dd>
+                <dd>
+                  <StatusBadge status={row.status} />
+                  {hold ? <span className="mt-1 block text-xs text-amber-800">{hold}</span> : null}
+                </dd>
               </div>
               <div>
                 <dt className="text-xs text-slate-500">Due</dt>
@@ -58,19 +64,24 @@ export function WorkOrderMobileCardList({ rows, onOpen, jobDomain }: Props) {
                   {due.hint ? ` · ${due.hint}` : ""}
                 </dd>
               </div>
-              <div>
+              <div className="col-span-2">
                 <dt className="text-xs text-slate-500">Assignee</dt>
                 <dd>{assigneeLine(domainRow, jobDomain, getTechnicianName(row))}</dd>
               </div>
-              <div>
-                <dt className="text-xs text-slate-500">Next action</dt>
-                <dd>
-                  {mileage ? `${mileage} · ` : ""}
-                  {next.label}
-                </dd>
-              </div>
             </dl>
-          </button>
+            {mileage ? <p className="mt-1 text-xs text-slate-500">{mileage}</p> : null}
+            <div className="mt-3">
+              {control.kind === "action" ? (
+                <button type="button" className="inline-flex min-h-10 items-center rounded-md bg-brand-600 px-3 text-sm font-semibold text-white" onClick={() => onAction?.(row, control.actionId)}>
+                  {control.label}
+                </button>
+              ) : (
+                <button type="button" aria-label={`Open ${row.woNumber}`} className="inline-flex min-h-10 items-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-800" onClick={() => onOpen(row)}>
+                  View
+                </button>
+              )}
+            </div>
+          </article>
         );
       })}
     </div>
