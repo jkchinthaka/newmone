@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-10-22T05:26:23.813Z",
-  "routeCount": 972,
+  "generatedAt": "2026-10-22T06:37:12.628Z",
+  "routeCount": 974,
   "routes": [
     {
       "method": "GET",
@@ -137,6 +137,28 @@
       "permissions": [
         "admin.users.manage"
       ],
+      "isPublic": false
+    },
+    {
+      "method": "POST",
+      "path": "/admin/access-preview/start",
+      "controller": "AdminAccessController",
+      "handler": "startAccessPreview",
+      "roles": [
+        "SUPER_ADMIN"
+      ],
+      "permissions": [],
+      "isPublic": false
+    },
+    {
+      "method": "POST",
+      "path": "/admin/access-preview/stop",
+      "controller": "AdminAccessController",
+      "handler": "stopAccessPreview",
+      "roles": [
+        "SUPER_ADMIN"
+      ],
+      "permissions": [],
       "isPublic": false
     },
     {

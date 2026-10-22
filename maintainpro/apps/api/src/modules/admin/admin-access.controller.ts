@@ -8,6 +8,7 @@ import { SkipTenantContext } from "../../common/decorators/skip-tenant-context.d
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { SuperAdminGuard } from "../../common/guards/super-admin.guard";
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
+import { recordAccessPreviewEvent } from "../../common/auth/access-preview";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { RequireEntitlement } from "../entitlements/entitlement.decorator";
@@ -106,6 +107,22 @@ export class AdminAccessController {
   async syncPermissionCatalog(@Req() req: AuthedRequest) {
     const result = await this.adminRolesService.syncPermissionCatalog(req.user);
     return { data: result, message: `${result.createdCount} permission(s) created, ${result.existingCount} already present` };
+  }
+
+  @Post("access-preview/start")
+  @Roles(RoleName.SUPER_ADMIN)
+  @UseGuards(SuperAdminGuard)
+  async startAccessPreview(@Req() req: AuthedRequest, @Body() body: { userId?: string }) {
+    const recorded = await recordAccessPreviewEvent(this.prisma, req.user, req.user.tenantId ?? "", body.userId ?? "", "start");
+    return { data: recorded, message: "Preview started" };
+  }
+
+  @Post("access-preview/stop")
+  @Roles(RoleName.SUPER_ADMIN)
+  @UseGuards(SuperAdminGuard)
+  async stopAccessPreview(@Req() req: AuthedRequest, @Body() body: { userId?: string }) {
+    const recorded = await recordAccessPreviewEvent(this.prisma, req.user, req.user.tenantId ?? "", body.userId ?? "", "stop");
+    return { data: recorded, message: "Preview stopped" };
   }
 
   @Get("tenants")

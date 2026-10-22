@@ -9,13 +9,24 @@ export function readAccessPreview(): AccessPreview | null {
   } catch { return null; }
 }
 
-export function startAccessPreview(userId: string, label: string) {
+export async function startAccessPreview(userId: string, label: string) {
+  const { apiClient } = await import("@/lib/api-client");
+  await apiClient.post("/admin/access-preview/start", { userId });
   window.sessionStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify({ userId, label }));
-  // Reload clears all caller-scoped query caches before target reads begin.
   window.location.assign("/action-center");
 }
 
-export function stopAccessPreview() {
+export async function stopAccessPreview() {
+  const current = readAccessPreview();
   window.sessionStorage.removeItem(PREVIEW_STORAGE_KEY);
+  try {
+    if (current?.userId) {
+      const { apiClient } = await import("@/lib/api-client");
+      await apiClient.post("/admin/access-preview/stop", { userId: current.userId });
+    }
+  } catch (error) {
+    if (current) window.sessionStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify(current));
+    throw error;
+  }
   window.location.assign("/admin/users");
 }

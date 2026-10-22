@@ -35,7 +35,7 @@ export function AccessBulkPanel({ users, permissions, currentUserId, tenantId }:
     <label className="block text-sm">Search users<input type="search" value={search} onChange={(e) => setSearch(e.target.value)} className="my-2 block min-h-11 w-full rounded border p-2" /></label>
     <ul className="max-h-64 overflow-y-auto">{visible.map((u) => <li key={u.id} className="flex flex-wrap items-center gap-3 border-b py-2">
       <label className="flex min-h-11 flex-1 items-center gap-2"><input type="checkbox" checked={selected.includes(u.id)} disabled={busy} onChange={(e) => setSelected((ids) => e.target.checked ? [...ids, u.id] : ids.filter((id) => id !== u.id))} />{u.displayName || u.email}</label>
-      <button type="button" disabled={!u.isActive || busy} onClick={() => startAccessPreview(u.id, u.displayName || u.email)} className="min-h-11 rounded border px-3 disabled:opacity-50">Preview read-only</button>
+      <button type="button" disabled={!u.isActive || busy} onClick={() => { setMessage(""); void startAccessPreview(u.id, u.displayName || u.email).catch((cause) => setMessage(getApiErrorMessage(cause, "Preview could not be started."))); }} className="min-h-11 rounded border px-3 disabled:opacity-50">Preview read-only</button>
     </li>)}</ul>
     {!visible.length && <p className="text-sm">No eligible users found.</p>}
     <div className="mt-3 grid gap-3 sm:grid-cols-2">

@@ -5,6 +5,8 @@ export const ACCESS_ROUTE_KEYS: Readonly<Record<string, string>> = {
   "GET /admin-governance/overview": "admin_governance.deactivate_preview.access",
   "GET /admin-governance/system": "admin_governance.deactivate_preview.access",
   "GET /admin-governance/users/:id/deactivate-preview": "admin_governance.deactivate_preview.access",
+  "POST /admin/access-preview/start": "admin.permission_overrides.access",
+  "POST /admin/access-preview/stop": "admin.permission_overrides.access",
   "GET /admin/approvals/rules": "admin.rules.access",
   "POST /admin/approvals/rules": "admin.rules.access",
   "GET /admin/approvals/rules/:id": "admin.rules.access",

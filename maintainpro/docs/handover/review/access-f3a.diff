@@ -1,0 +1,183 @@
+﻿diff --git a/maintainpro/apps/api/src/common/auth/access-preview.ts b/maintainpro/apps/api/src/common/auth/access-preview.ts
+index b901f982..84bd4034 100644
+--- a/maintainpro/apps/api/src/common/auth/access-preview.ts
++++ b/maintainpro/apps/api/src/common/auth/access-preview.ts
+@@ -1,4 +1,7 @@
+ import { ForbiddenException, NotFoundException } from "@nestjs/common";
++import { AuditAction } from "@prisma/client";
++
++import { writeAuditTrail } from "../utils/audit-trail.util";
+ import { accessStudioEnabled } from "./effective-permissions";
+ import type { PrismaService } from "../../database/prisma.service";
+ import type { JwtPayload } from "../../modules/auth/auth.types";
+@@ -36,3 +39,33 @@ export async function resolvePreviewIdentity(
+   }
+   return { sub: target.id, email: target.email, role: target.role.name, tenantId: target.tenantId };
+ }
++
++/** Audits the actor, target user, and tenant when a super admin starts or stops preview. */
++export async function recordAccessPreviewEvent(
++  prisma: PrismaService,
++  actor: JwtPayload,
++  tenantId: string,
++  targetUserId: string,
++  event: "start" | "stop"
++) {
++  if (!accessStudioEnabled()) throw new ForbiddenException("Preview is unavailable. Exit preview to continue.");
++  if (actor.role !== "SUPER_ADMIN") throw new ForbiddenException("Only a super admin can preview a user");
++  if (!tenantId) throw new ForbiddenException("Active tenant is required for preview");
++  const targetId = event === "start"
++    ? (await resolvePreviewIdentity(prisma, { "x-access-preview-user": targetUserId, "x-tenant-id": tenantId }, actor)).sub
++    : targetUserId;
++  if (event === "stop") {
++    const target = await prisma.user.findFirst({ where: { id: targetId, tenantId }, select: { id: true } });
++    if (!target) throw new NotFoundException("Preview user not found");
++  }
++  await writeAuditTrail(prisma, {
++    entity: "AccessPreview",
++    entityId: targetId,
++    action: event === "start" ? AuditAction.CREATE : AuditAction.UPDATE,
++    module: "access-studio",
++    actor,
++    tenantId,
++    metadata: { event: event === "start" ? "preview.start" : "preview.stop", actorUserId: actor.sub, targetUserId: targetId, tenantId }
++  });
++  return { actorUserId: actor.sub, targetUserId: targetId, tenantId };
++}
+diff --git a/maintainpro/apps/api/src/common/auth/access-route-key-data.ts b/maintainpro/apps/api/src/common/auth/access-route-key-data.ts
+index 69be703c..1e14150d 100644
+--- a/maintainpro/apps/api/src/common/auth/access-route-key-data.ts
++++ b/maintainpro/apps/api/src/common/auth/access-route-key-data.ts
+@@ -5,6 +5,8 @@ export const ACCESS_ROUTE_KEYS: Readonly<Record<string, string>> = {
+   "GET /admin-governance/overview": "admin_governance.deactivate_preview.access",
+   "GET /admin-governance/system": "admin_governance.deactivate_preview.access",
+   "GET /admin-governance/users/:id/deactivate-preview": "admin_governance.deactivate_preview.access",
++  "POST /admin/access-preview/start": "admin.permission_overrides.access",
++  "POST /admin/access-preview/stop": "admin.permission_overrides.access",
+   "GET /admin/approvals/rules": "admin.rules.access",
+   "POST /admin/approvals/rules": "admin.rules.access",
+   "GET /admin/approvals/rules/:id": "admin.rules.access",
+diff --git a/maintainpro/apps/api/src/modules/admin/admin-access.controller.ts b/maintainpro/apps/api/src/modules/admin/admin-access.controller.ts
+index 9dbc5709..4473e5b0 100644
+--- a/maintainpro/apps/api/src/modules/admin/admin-access.controller.ts
++++ b/maintainpro/apps/api/src/modules/admin/admin-access.controller.ts
+@@ -8,6 +8,7 @@ import { SkipTenantContext } from "../../common/decorators/skip-tenant-context.d
+ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+ import { SuperAdminGuard } from "../../common/guards/super-admin.guard";
+ import { writeAuditTrail } from "../../common/utils/audit-trail.util";
++import { recordAccessPreviewEvent } from "../../common/auth/access-preview";
+ import { PrismaService } from "../../database/prisma.service";
+ import type { JwtPayload } from "../auth/auth.types";
+ import { RequireEntitlement } from "../entitlements/entitlement.decorator";
+@@ -108,6 +109,22 @@ export class AdminAccessController {
+     return { data: result, message: `${result.createdCount} permission(s) created, ${result.existingCount} already present` };
+   }
+ 
++  @Post("access-preview/start")
++  @Roles(RoleName.SUPER_ADMIN)
++  @UseGuards(SuperAdminGuard)
++  async startAccessPreview(@Req() req: AuthedRequest, @Body() body: { userId?: string }) {
++    const recorded = await recordAccessPreviewEvent(this.prisma, req.user, req.user.tenantId ?? "", body.userId ?? "", "start");
++    return { data: recorded, message: "Preview started" };
++  }
++
++  @Post("access-preview/stop")
++  @Roles(RoleName.SUPER_ADMIN)
++  @UseGuards(SuperAdminGuard)
++  async stopAccessPreview(@Req() req: AuthedRequest, @Body() body: { userId?: string }) {
++    const recorded = await recordAccessPreviewEvent(this.prisma, req.user, req.user.tenantId ?? "", body.userId ?? "", "stop");
++    return { data: recorded, message: "Preview stopped" };
++  }
++
+   @Get("tenants")
+   @SkipTenantContext()
+   @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN)
+diff --git a/maintainpro/apps/web/components/admin/access-bulk-panel.tsx b/maintainpro/apps/web/components/admin/access-bulk-panel.tsx
+index 79f60f6a..a5b5ccaa 100644
+--- a/maintainpro/apps/web/components/admin/access-bulk-panel.tsx
++++ b/maintainpro/apps/web/components/admin/access-bulk-panel.tsx
+@@ -35,7 +35,7 @@ export function AccessBulkPanel({ users, permissions, currentUserId, tenantId }:
+     <label className="block text-sm">Search users<input type="search" value={search} onChange={(e) => setSearch(e.target.value)} className="my-2 block min-h-11 w-full rounded border p-2" /></label>
+     <ul className="max-h-64 overflow-y-auto">{visible.map((u) => <li key={u.id} className="flex flex-wrap items-center gap-3 border-b py-2">
+       <label className="flex min-h-11 flex-1 items-center gap-2"><input type="checkbox" checked={selected.includes(u.id)} disabled={busy} onChange={(e) => setSelected((ids) => e.target.checked ? [...ids, u.id] : ids.filter((id) => id !== u.id))} />{u.displayName || u.email}</label>
+-      <button type="button" disabled={!u.isActive || busy} onClick={() => startAccessPreview(u.id, u.displayName || u.email)} className="min-h-11 rounded border px-3 disabled:opacity-50">Preview read-only</button>
++      <button type="button" disabled={!u.isActive || busy} onClick={() => { setMessage(""); void startAccessPreview(u.id, u.displayName || u.email).catch((cause) => setMessage(getApiErrorMessage(cause, "Preview could not be started."))); }} className="min-h-11 rounded border px-3 disabled:opacity-50">Preview read-only</button>
+     </li>)}</ul>
+     {!visible.length && <p className="text-sm">No eligible users found.</p>}
+     <div className="mt-3 grid gap-3 sm:grid-cols-2">
+diff --git a/maintainpro/apps/web/components/admin/access-preview-banner.tsx b/maintainpro/apps/web/components/admin/access-preview-banner.tsx
+index 40723162..53a396b9 100644
+--- a/maintainpro/apps/web/components/admin/access-preview-banner.tsx
++++ b/maintainpro/apps/web/components/admin/access-preview-banner.tsx
+@@ -1,13 +1,15 @@
+ "use client";
+ import { useEffect, useState } from "react";
++import { getApiErrorMessage } from "@/lib/api-client";
+ import { readAccessPreview, stopAccessPreview, type AccessPreview } from "@/lib/access-preview";
+ 
+ export function AccessPreviewBanner() {
+   const [preview, setPreview] = useState<AccessPreview | null>(null);
++  const [error, setError] = useState("");
+   useEffect(() => { setPreview(readAccessPreview()); }, []);
+   if (!preview) return null;
+   return <div role="status" className="sticky top-0 z-[100] flex shrink-0 flex-wrap items-center justify-between gap-2 bg-amber-200 px-4 py-3 text-sm font-semibold text-amber-950">
+-    <span>Preview as {preview.label} — read-only. Changes are blocked.</span>
+-    <button type="button" onClick={stopAccessPreview} className="min-h-11 rounded border border-amber-800 px-3">Exit preview</button>
++    <span>Preview as {preview.label} — read-only. Changes are blocked.{error ? ` ${error}` : ""}</span>
++    <button type="button" onClick={() => { setError(""); void stopAccessPreview().catch((cause) => setError(getApiErrorMessage(cause, "Preview could not be closed. Stay on this page and try again."))); }} className="min-h-11 rounded border border-amber-800 px-3">Exit preview</button>
+   </div>;
+ }
+diff --git a/maintainpro/apps/web/lib/access-preview.ts b/maintainpro/apps/web/lib/access-preview.ts
+index 1cc50529..ddc64d5a 100644
+--- a/maintainpro/apps/web/lib/access-preview.ts
++++ b/maintainpro/apps/web/lib/access-preview.ts
+@@ -9,13 +9,24 @@ export function readAccessPreview(): AccessPreview | null {
+   } catch { return null; }
+ }
+ 
+-export function startAccessPreview(userId: string, label: string) {
++export async function startAccessPreview(userId: string, label: string) {
++  const { apiClient } = await import("@/lib/api-client");
++  await apiClient.post("/admin/access-preview/start", { userId });
+   window.sessionStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify({ userId, label }));
+-  // Reload clears all caller-scoped query caches before target reads begin.
+   window.location.assign("/action-center");
+ }
+ 
+-export function stopAccessPreview() {
++export async function stopAccessPreview() {
++  const current = readAccessPreview();
+   window.sessionStorage.removeItem(PREVIEW_STORAGE_KEY);
++  try {
++    if (current?.userId) {
++      const { apiClient } = await import("@/lib/api-client");
++      await apiClient.post("/admin/access-preview/stop", { userId: current.userId });
++    }
++  } catch (error) {
++    if (current) window.sessionStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify(current));
++    throw error;
++  }
+   window.location.assign("/admin/users");
+ }
+diff --git a/maintainpro/docs/AI_SESSION_HANDOVER.md b/maintainpro/docs/AI_SESSION_HANDOVER.md
+index 83a0b792..150d1804 100644
+--- a/maintainpro/docs/AI_SESSION_HANDOVER.md
++++ b/maintainpro/docs/AI_SESSION_HANDOVER.md
+@@ -8,6 +8,8 @@
+ > 3. Keep unfinished work on the current feature branch. Never force-push, never discard or
+ >    reset someone else's changes, never push unvalidated code to `main`.
+ 
++**CURRENT F3a preview audit (2026-10-22) — `feat/access-studio`.** Worktree `C:\Users\chint\AppData\Local\MaintainPro\worktrees\access-studio`. Baseline remains `aa769695` plus this uncommitted preview-audit diff. Starting and stopping preview writes an audit row with the actor, target user, and tenant. Flag off writes nothing. API tsc 0. Web tsc 0. Web unit 377 passed. Jest preview audit, key plan, and parity passed. Parity 974 routes x 27 roles, develop mismatches 0, flag mismatches 0. Tenant audit unapproved 0. RBAC 974 routes, violations 0. `scripts/test/access-studio-ui.cjs` was not run because port 3053 is already serving another worktree. Ports 3040 and 3041 were not touched. F4, F5, F6, and F7 are not started. PR #126 stays draft.
++
+ **CURRENT D4 navigation (2026-10-22) — feat/access-studio implementation baseline ecd0b4a8 plus verified follow-up diff; checkpoint commit follows. Completed/pushed R1 b318a154, R2 ae9ade56, F3 ecd0b4a8. Navigation follow-up independently reviewed PASS after fixing broad Admin page allowances. Server /auth/me derives accessRoutes from effective keys/DENYs. ON primary nav/landing/Admin page gates consume it; OFF old role path, SA unchanged. ON15s/focus profile refresh invalidates queries on accessConfigVersion change. API/webtsc0; web377; API9 suites53 tests maxWorkers2; tenant0; RBAC972/0; parity972x27 OFF/develop0 ON/grants0. Mocked Playwright desktop/mobile/version-change PASS; evidence review/access-d4-ui. Temporary3053 stopped. 3040/3041 untouched. Live DB preflight used only Windows integrated-auth SELECT on maintainpro_e2e_wo_verify (CREATE TABLE permission1); sandbox SSPI failed, escalated read passed. No data/schema writes, migrations or Prisma generation. No Docker/full-stack e2e/uat-roles. Changed files: auth/me route projection; web navigation/storage/current-user/profile refresh and layout integrations; tests/UI script; review/tracking docs. Exact next action: F4 field-security schema and tenant-scoped policy service; integrate six entities and report/export paths with leakage/partial-write tests. F4-F7 are NOT IMPLEMENTED. Entity-specific action controls remain to review; do not claim entire D4 or programme complete. PR126 stays draft; do not merge/tag/pushmain.
+ 
+ **CURRENT F3 (2026-10-22) — feat/access-studio at ae9ade56 plus verified F3 diff. R1 b318a154/docs12a4a2ea and R2 ae9ade56 pushed. F3 preview, bulk grant/deny with reason/expiry/search and expired matrix labels verified. Independent review initially FAIL for flag-disable fail-open; fixed and latest PASS. API/web tsc0; web372; related Jest8 suites39 pass, final preview9 pass; tenant0; RBAC972 routes/0; parity972x27 OFF/develop0 ON/grants0. Mocked Playwright UI desktop1280/mobile390 passed; screenshots review/access-f3-ui. Temporary3053 stopped;3040/3041 untouched. No DB writes, migration, Prisma generate, Docker/full-stack e2e/uat-roles. Changed files: preview helper/guard/JWT strategy/app registration/CORS, bulk API/controller, web header/BFF/banner/bulk/matrix, tests, generated access inventory/map, review artifacts. Next exact action: F4 field policy schema and integration across six entities, including report/export leakage tests. D4 web gate/version integration remains required in later work; no completion claim for F4-F7. PR126 stays draft.
+diff --git a/maintainpro/docs/handover/ACCESS_STUDIO_LOG.md b/maintainpro/docs/handover/ACCESS_STUDIO_LOG.md
+index e2f58bcd..3d6c728d 100644
+--- a/maintainpro/docs/handover/ACCESS_STUDIO_LOG.md
++++ b/maintainpro/docs/handover/ACCESS_STUDIO_LOG.md
+@@ -35,3 +35,4 @@ F3 | DONE | ecd0b4a8 | api/web tsc 0; web372; Jest8 suites39 pass plus final pre
+ F3 commit | DONE | ecd0b4a8 | latest qa-reviewer PASS; gates above | Pushed; PR126 body updated and remains draft
+ D4 navigation/version follow-up | DONE | ecd0b4a8 (verified follow-up diff; implementation SHA follows) | api/web tsc0; web377; Jest9 suites53 tests; tenant0; RBAC972/0; parity972x27 OFF/develop0 ON/grants0; qa-reviewer PASS | Server effective-route projection drives primary navigation, specific Admin pages and landing; ON-only 15s/focus profile refresh invalidates queries on version change. Entity action controls remain for later review. Mocked desktop/mobile UI + version-change test PASS; 3053 stopped.
+ DB preflight | DONE | ecd0b4a8 | Integrated-auth SELECT on maintainpro_e2e_wo_verify succeeded outside sandbox; CREATE TABLE permission=1 | Initial sandbox SSPI error; no data/schema writes; no SA credentials; MaintainProDev/nelna untouched
++F3a | DONE | sha follows | api/web tsc 0; web 377; Jest preview audit 2, key plan, parity 974x27 mismatches 0; tenant 0; RBAC 974/0 | Preview start and stop write actor, target, and tenant. Flag off writes nothing. UI script not run: 3053 is another worktree. F4–F7 not started. 3040/3041 untouched.
