@@ -26,3 +26,4 @@ F3 | IN PROGRESS | a66c8474 | permissions view shows Inherited, Granted, or Deni
 
 
 R1 | DONE | d3563f71 (verified working diff; implementation SHA follows) | api/web tsc 0; web unit 371; Jest 14/14; tenant 0; RBAC 0; parity OFF/develop 0 and ON/grants 0; qa-reviewer PASS | Preserve omitted Studio links in runtime and seed saves; no DB/server use
+R1 commit | DONE | b318a154 | qa-reviewer PASS; gates above | Implementation committed. Diff export context whitespace corrected in follow-up.

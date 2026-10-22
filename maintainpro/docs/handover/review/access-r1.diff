@@ -7,17 +7,17 @@ index 994db912..443753d3 100644
  import { grantAccessStudioKeys } from "./grant-access-studio-keys";
  import { isAccessStudioKey } from "../common/auth/access-route-keys";
 +import { accessStudioEnabled } from "../common/auth/effective-permissions";
- 
+
  const prisma = new PrismaClient();
- 
+
 @@ -47,19 +48,28 @@ function getSeedPassword(): string {
  // Console's permission-catalog sync endpoint. Do not re-duplicate here.
  const permissionCatalog = PERMISSION_CATALOG.filter((permission) => !isAccessStudioKey(permission));
- 
+
 -async function syncRolePermissions(roleId: string, permissionIds: string[]): Promise<void> {
 +export async function syncRolePermissions(roleId: string, permissionIds: string[], client: PrismaClient = prisma): Promise<void> {
    const uniquePermissionIds = [...new Set(permissionIds.filter(Boolean))];
- 
+
 -  await prisma.$transaction([
 -    prisma.rolePermission.deleteMany({ where: { roleId } }),
 -    ...(uniquePermissionIds.length > 0
@@ -48,7 +48,7 @@ index 994db912..443753d3 100644
 +    }
 +  });
  }
- 
+
  async function syncUserSkills(userId: string, skills: string[]): Promise<void> {
 diff --git a/maintainpro/apps/api/src/modules/roles/roles.service.ts b/maintainpro/apps/api/src/modules/roles/roles.service.ts
 index 93bf4faa..2263debb 100644
@@ -60,7 +60,7 @@ index 93bf4faa..2263debb 100644
  import { PrismaService } from "../../database/prisma.service";
 +import { isAccessStudioKey } from "../../common/auth/access-route-keys";
 +import { accessStudioEnabled } from "../../common/auth/effective-permissions";
- 
+
  export type PublicPermissionSummary = {
    id: string;
 @@ -152,11 +154,14 @@ export class RolesService {
@@ -78,7 +78,7 @@ index 93bf4faa..2263debb 100644
 +        (accessStudioEnabled() || !isAccessStudioKey(row.permission.key))
 +      );
        const addedIds = uniquePermissionIds.filter((permissionId) => !existingIds.has(permissionId));
- 
+
        if (removed.length > 0) {
 diff --git a/apps/api/test/access-role-save.spec.ts b/apps/api/test/access-role-save.spec.ts
 new file mode 100644
