@@ -20,3 +20,15 @@ Delivery: implementation committed as `f7f75f14` and pushed only to `origin/fix/
 ## 2026-10-22 — asset documents and inspection evidence on the private disk
 
 fix/asset-inspection-storage | DONE | fix/asset-inspection-storage | 3e2cba16 | https://github.com/jkchinthaka/newmone/pull/132 | API tsc 0; web tsc 0; web unit 367/0; Jest asset-inspection-storage 8 plus related evidence/planning 70; tenant unapproved 0; RBAC 972/0 | Stacked on #128 because that PR is still open. Local configured storage uses the work-order provider for new asset documents and inspection evidence. Non-local behaviour and existing records stay readable. No schema change, no database writes, no Docker, 3040/3041 untouched. Review export: docs/handover/review/asset-inspection-storage.md.
+Access Studio files were not edited. This branch is `fix/grant-script-prod` from `origin/develop` `658ae0c2`.
+
+## Production grant script
+
+- `scripts/ops/grant-v103-permissions.ts` dry-runs unless `--apply` is passed.
+- `--apply` requires `--confirm-database=` to equal the database name in `DATABASE_URL`.
+- The database name `nelna` is refused before a client is opened, including dry-run.
+- The script prints the planned KEEP and GRANT lines.
+- Guard tests: `scripts/ops/grant-v103-guard.test.ts`, 4 passed.
+- `docs/handover/GO_LIVE_RUNBOOK.md` post-deploy steps match that command.
+
+API and web source were not changed. The guard test does not open a database.

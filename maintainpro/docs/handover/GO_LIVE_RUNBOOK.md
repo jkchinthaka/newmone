@@ -131,12 +131,16 @@ After the app is up on deploy tag `v1.0.4`, IT grants `maintenance_requests.crea
 ```powershell
 cd C:\MaintainPro\maintainpro
 $env:DATABASE_URL = "sqlserver://localhost:1433;database=MaintainProProd;integratedSecurity=true;trustServerCertificate=true;encrypt=true"
-npx tsx scripts/ops/grant-v103-permissions.ts --dry-run
+npx tsx scripts/ops/grant-v103-permissions.ts
 ```
 
-Review the KEEP and GRANT lines. Then IT runs the same command without `--dry-run`.
+That command is a dry-run. It prints the planned KEEP and GRANT lines and writes nothing. After IT reviews those lines, apply only with the exact database name:
 
-The script in this tag exits unless the database name starts with `maintainpro_e2e_`. A dry-run pointed at `MaintainProProd` prints that refusal and writes nothing. Do not point it at `MaintainProDev` or `nelna`. Do not use `sa`.
+```powershell
+npx tsx scripts/ops/grant-v103-permissions.ts --apply --confirm-database=MaintainProProd
+```
+
+`--apply` without `--confirm-database` matching `DATABASE_URL` exits and writes nothing. The database `nelna` is refused for both dry-run and apply. Use Windows integrated authentication. Do not use `sa`.
 
 ---
 
