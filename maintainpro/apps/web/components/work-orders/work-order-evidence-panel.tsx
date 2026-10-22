@@ -431,7 +431,7 @@ export function WorkOrderEvidencePanel({
                 {requirements.qrVerificationStatus === "VERIFIED" || requirements.qrVerificationStatus === "OVERRIDDEN"
                   ? "✓"
                   : "○"}{" "}
-                QR verification ({requirements.qrVerificationStatus})
+                QR verification ({requirements.qrVerificationStatus === "VERIFIED" || requirements.qrVerificationStatus === "OVERRIDDEN" ? "done" : "scan the asset or vehicle tag"})
               </li>
             ) : null}
           </ul>

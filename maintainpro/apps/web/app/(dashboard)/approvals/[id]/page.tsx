@@ -94,12 +94,13 @@ export default function ApprovalDetailPage() {
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-2 text-sm font-semibold">Approval chain</h2>
+        {/* Rules use one approver; the level number is not shown. */}
+        <h2 className="mb-2 text-sm font-semibold">Approver</h2>
         <ul className="space-y-2 text-sm">
           {steps.map((step) => (
             <li key={String(step.id)} className="flex justify-between gap-2 border-b border-slate-100 pb-2">
               <span>
-                Level {String(step.level)} · {String(step.approverRole ?? "User")} · {String(step.status)}
+                {String(step.approverRole ?? "User").replaceAll("_", " ")} · {String(step.status).replaceAll("_", " ").toLowerCase()}
               </span>
               <span className="text-xs text-slate-500">
                 {step.dueAt ? `Due ${new Date(String(step.dueAt)).toLocaleString()}` : ""}

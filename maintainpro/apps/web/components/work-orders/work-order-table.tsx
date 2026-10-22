@@ -34,7 +34,8 @@ type WorkOrderTableProps = {
   onStatusChange: (workOrder: WorkOrder, status: WorkOrderStatus) => void;
   onAssign: (workOrder: WorkOrder, technicianId: string) => void;
   onComplete: (workOrder: WorkOrder) => void;
-  onDelete: (workOrder: WorkOrder) => void;
+  /** Cancel action. Left out for roles the API does not allow to cancel. */
+  onDelete?: (workOrder: WorkOrder) => void;
   onEdit: (workOrder: WorkOrder) => void;
   actorRole?: string | null;
   onPrimary?: (workOrder: WorkOrder, actionId?: string) => void;
@@ -224,7 +225,7 @@ export function WorkOrderTable({
           >
             <Pencil size={12} /> Edit
           </button>
-          {getValidWorkOrderActions(workOrder.status).some((descriptor) => descriptor.action === "CANCEL") ? (
+          {onDelete && getValidWorkOrderActions(workOrder.status).some((descriptor) => descriptor.action === "CANCEL") ? (
             <button
               type="button"
               onClick={() => onDelete(workOrder)}

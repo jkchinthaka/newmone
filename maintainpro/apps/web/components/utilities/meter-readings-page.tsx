@@ -16,6 +16,7 @@ import { formatCompact, formatDate, formatQuantity, getErrorMessage, toNumber } 
 import { useCreateUtilityReadingMutation, useUtilityMetersQuery, useUtilityReadingsQuery } from "./hooks";
 import { DataTable, EmptyState, LoadingPanel, ModalShell } from "./shared-ui";
 import type { ReadingFormValues, UtilityRole } from "./types";
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
 
 const readingFormSchema = z.object({
   meterId: z.string().min(1, "Meter is required"),
@@ -42,7 +43,7 @@ export default function MeterReadingsPage() {
     resolver: zodResolver(readingFormSchema),
     defaultValues: {
       meterId,
-      readingDate: new Date().toISOString().slice(0, 10),
+      readingDate: colomboTodayYmd(),
       readingValue: 0,
       notes: "",
       images: ""
@@ -88,7 +89,7 @@ export default function MeterReadingsPage() {
   const openModal = () => {
     readingForm.reset({
       meterId,
-      readingDate: new Date().toISOString().slice(0, 10),
+      readingDate: colomboTodayYmd(),
       readingValue: 0,
       notes: "",
       images: ""

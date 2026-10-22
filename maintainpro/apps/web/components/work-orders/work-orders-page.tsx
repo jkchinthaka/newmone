@@ -56,6 +56,8 @@ import { WorkOrderTable } from "./work-order-table";
 import type { WorkOrderDetailTab } from "./work-order-detail-tabs";
 import { WORK_ORDER_STATUSES, type WorkOrder, type WorkOrderSortField, type WorkOrderStatus, type WorkOrderViewMode } from "./types";
 
+const CANCEL_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER"]);
+
 function readCurrentUserId(): string | null {
   if (typeof window === "undefined") {
     return null;
@@ -301,27 +303,38 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     }
   };
 
+  // Same roles the API allows to cancel (SUPERVISOR_ROLE_NAMES). Others do not see the button.
+  const canCancelWorkOrders = CANCEL_ROLES.has(currentUser.role ?? "");
+
   const handleDelete = async (workOrder: WorkOrder) => {
-    const confirmed = await confirm({
+    const reason = await prompt({
       title: `Cancel ${workOrder.woNumber}?`,
-      description:
-        "This cancels the work order and keeps the historical record. It does not permanently delete the work order.",
-      confirmLabel: "Cancel work order",
-      cancelLabel: "Keep work order",
-      variant: "destructive"
+      description: "The work order is cancelled and its history is kept. It is not deleted.",
+      label: "Reason for cancelling",
+      required: true,
+      validate: (value) => (value.trim().length < 3 ? "Enter at least 3 characters." : null),
+      submitLabel: "Cancel work order",
+      cancelLabel: "Keep work order"
     });
-    if (!confirmed) {
+    if (!reason?.trim()) {
       return;
     }
 
     try {
-      await deleteMutation.mutateAsync(workOrder.id);
-      toast.success("Work order cancelled");
+      // The governed status change works from any open status; DELETE only allowed OPEN jobs for admins.
+      await apiClient.patch(`/work-orders/${workOrder.id}/status`, {
+        status: "CANCELLED",
+        cancelReason: reason.trim(),
+        expectedVersion: workOrder.version
+      });
+      toast.success(`${workOrder.woNumber} cancelled`);
       setSelectedIds((current) => current.filter((id) => id !== workOrder.id));
+      await workOrdersQuery.refetch();
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   };
+
 
   const handleAssign = async (workOrder: WorkOrder, technicianId: string) => {
     try {
@@ -643,7 +656,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             onHold={(workOrder) => void handleStatusChange(workOrder, "ON_HOLD")}
             onComplete={(workOrder) => setCompletionTarget(workOrder)}
             onAssign={(workOrder, technicianId) => void handleAssign(workOrder, technicianId)}
-            onDelete={(workOrder) => void handleDelete(workOrder)}
+            onDelete={canCancelWorkOrders ? (workOrder) => void handleDelete(workOrder) : undefined}
             onEdit={openEditModal}
             canApprove={canApproveWorkOrders}
             onApprove={(workOrder) => void handleApprove(workOrder)}
@@ -680,7 +693,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             onStatusChange={(workOrder, status) => void handleStatusChange(workOrder, status)}
             onAssign={(workOrder, technicianId) => void handleAssign(workOrder, technicianId)}
             onComplete={(workOrder) => setCompletionTarget(workOrder)}
-            onDelete={(workOrder) => void handleDelete(workOrder)}
+            onDelete={canCancelWorkOrders ? (workOrder) => void handleDelete(workOrder) : undefined}
             onEdit={openEditModal}
             actorRole={currentUser.role}
             onPrimary={(workOrder, actionId) => void handlePrimary(workOrder, actionId)}

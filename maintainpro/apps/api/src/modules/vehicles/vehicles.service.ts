@@ -1052,10 +1052,29 @@ export class VehiclesService {
         });
       }
 
+      // A repair job can start while the vehicle is still out (status moves to UNDER_MAINTENANCE).
+      // It must still be able to come back in; it stays UNDER_MAINTENANCE until the job closes.
+      const lastMovement = await tx.vehicleGateMovement.findFirst({
+        where: {
+          vehicleId: id,
+          status: { in: [GateMovementStatus.ALLOWED, GateMovementStatus.OVERRIDE_APPROVED] }
+        },
+        orderBy: { occurredAt: "desc" },
+        select: { movementType: true }
+      });
+      const outForRepair =
+        vehicle.status === VehicleStatus.UNDER_MAINTENANCE && lastMovement?.movementType === GateMovementType.OUT;
+      // Work already started while it was out: it comes in to the workshop, not back to the pool.
+      const openRepairs = await tx.workOrder.count({
+        where: {
+          vehicleId: id,
+          status: { in: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD, WorkOrderStatus.REWORK_REQUIRED] }
+        }
+      });
       const claimed = await tx.vehicle.updateMany({
-        where: { id, status: VehicleStatus.IN_USE },
+        where: { id, status: outForRepair ? VehicleStatus.UNDER_MAINTENANCE : VehicleStatus.IN_USE },
         data: {
-          status: VehicleStatus.AVAILABLE,
+          status: outForRepair || openRepairs > 0 ? VehicleStatus.UNDER_MAINTENANCE : VehicleStatus.AVAILABLE,
           currentMileage: data.meterReading,
           serviceStatus
         }

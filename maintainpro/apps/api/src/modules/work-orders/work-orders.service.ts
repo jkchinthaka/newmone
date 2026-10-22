@@ -113,6 +113,7 @@ import { WarrantiesService } from "../warranties/warranties.service";
 import { ReliabilityService } from "../reliability/reliability.service";
 import { preferExtensionValue, syncWorkOrderExtensions } from "./work-order-extension-sync.util";
 import { pmBaselineAfterClose } from "../planning/pm-baseline";
+import { vehicleServiceAfterClose } from "./vehicle-service-reset";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId"> & {
   permissions?: string[];
@@ -2997,6 +2998,7 @@ export class WorkOrdersService {
       }
     );
     await this.completePmOccurrenceForClosedWorkOrder(current);
+    await this.resetVehicleServiceDueAfterService(current);
     if (this.workOrderDomain) {
       await this.workOrderDomain.releaseTargetIfLastOpenWorkOrder(id, actor);
     }
@@ -3008,6 +3010,51 @@ export class WorkOrdersService {
    * Governed PM baseline advance: occurrence completes only when the WO is CLOSED
    * (not when the WO was merely generated).
    */
+  /** A closed service job on a vehicle moves its next service due forward, so the gate stops blocking it. */
+  private async resetVehicleServiceDueAfterService(workOrder: {
+    id: string;
+    tenantId: string;
+    vehicleId?: string | null;
+    type: WorkOrderType | string;
+    pmPlanId?: string | null;
+  }) {
+    if (!workOrder.vehicleId) return;
+    if (workOrder.type !== WorkOrderType.PREVENTIVE && !workOrder.pmPlanId) return;
+    try {
+      const [vehicle, closed] = await Promise.all([
+        this.prisma.vehicle.findFirst({
+          where: { id: workOrder.vehicleId, tenantId: workOrder.tenantId },
+          select: {
+            id: true,
+            currentMileage: true,
+            serviceIntervalDays: true,
+            serviceIntervalMileage: true,
+            nextServiceDate: true,
+            nextServiceMileage: true
+          }
+        }),
+        this.prisma.workOrder.findUnique({ where: { id: workOrder.id }, select: { completionMeterReading: true } })
+      ]);
+      if (!vehicle) return;
+      await this.prisma.vehicle.update({
+        where: { id: vehicle.id },
+        data: vehicleServiceAfterClose({
+          closedAt: new Date(),
+          reading: closed?.completionMeterReading ?? Number(vehicle.currentMileage ?? 0),
+          intervalDays: vehicle.serviceIntervalDays,
+          intervalMileage: vehicle.serviceIntervalMileage,
+          nextServiceDate: vehicle.nextServiceDate,
+          nextServiceMileage: vehicle.nextServiceMileage
+        })
+      });
+    } catch (error) {
+      // The close itself has succeeded; fleet staff can still edit the service due on the vehicle.
+      this.logger.warn(
+        `Vehicle service due not reset for work order ${workOrder.id}: ${error instanceof Error ? error.message : "unknown error"}`
+      );
+    }
+  }
+
   private async completePmOccurrenceForClosedWorkOrder(workOrder: {
     id: string;
     tenantId: string;
