@@ -44,7 +44,7 @@ export default function RegisterAssetPage() {
       {createdId ? (
         <div className="space-y-2">
           <p role="status">Asset registered.</p>
-          <Link href={`/assets/${createdId}` as never}>Open asset</Link>
+          <Link href={`/assets?asset=${encodeURIComponent(createdId)}` as never}>Open asset</Link>
           <button type="button" onClick={() => setCreatedId("")}>Register another</button>
         </div>
       ) : null}

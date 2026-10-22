@@ -81,11 +81,11 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
     roleKey: "MANAGER",
     title: "Manager Home",
     cards: [
-      { id: "kpi-reports", title: "KPI Reports", href: "/reports/performance", description: "Maintenance and fleet KPIs", kpiCodes: ["WO_OVERDUE", "PM_COMPLIANCE", "MTTR", "MTBF"] },
+      { id: "kpi-reports", title: "KPI Reports", href: "/reports/operations", description: "Maintenance and fleet KPIs", kpiCodes: ["WO_OVERDUE", "PM_COMPLIANCE", "MTTR", "MTBF"] },
       { id: "backlog", title: "Backlog", href: "/work-orders", description: "Open backlog", kpiCodes: ["WO_BACKLOG"] },
-      { id: "pm-compliance", title: "PM Compliance", href: "/reports/performance?search=preventive", description: "PM compliance", kpiCodes: ["PM_COMPLIANCE"] },
+      { id: "pm-compliance", title: "PM Compliance", href: "/reports/operations?search=preventive", description: "PM compliance", kpiCodes: ["PM_COMPLIANCE"] },
       { id: "downtime", title: "Downtime", href: "/reports/assets?search=downtime", description: "Asset downtime", kpiCodes: ["DOWNTIME", "AVAILABILITY"] },
-      { id: "cost", title: "Maintenance Cost", href: "/reports/financials", description: "Period spend", kpiCodes: ["MAINTENANCE_COST", "COST_PER_KM"] },
+      { id: "cost", title: "Maintenance Cost", href: "/reports/operations", description: "Period spend", kpiCodes: ["MAINTENANCE_COST", "COST_PER_KM"] },
       { id: "repeat-failures", title: "Repeat Failures", href: "/reports/maintenance-exceptions", description: "Recurring problems", kpiCodes: ["REPEAT_FAILURE"] },
       { id: "management-intel", title: "Management Intelligence", href: "/reports/management-intelligence", description: "Executive metrics" }
     ]

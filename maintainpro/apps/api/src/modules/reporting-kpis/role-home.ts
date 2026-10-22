@@ -186,7 +186,7 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       {
         id: "kpi-reports",
         title: "KPI Reports",
-        href: "/reports/performance",
+        href: "/reports/operations",
         description: "Maintenance and fleet KPI dashboard",
         kpiCodes: ["WO_OVERDUE", "PM_COMPLIANCE", "MTTR", "MTBF"]
       },
@@ -200,7 +200,7 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       {
         id: "pm-compliance",
         title: "PM Compliance",
-        href: "/reports/performance?search=preventive",
+        href: "/reports/operations?search=preventive",
         description: "Preventive maintenance compliance",
         kpiCodes: ["PM_COMPLIANCE"]
       },
@@ -214,7 +214,7 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       {
         id: "cost",
         title: "Maintenance Cost",
-        href: "/reports/financials",
+        href: "/reports/operations",
         description: "Period maintenance spend",
         kpiCodes: ["MAINTENANCE_COST", "COST_PER_KM"]
       },
