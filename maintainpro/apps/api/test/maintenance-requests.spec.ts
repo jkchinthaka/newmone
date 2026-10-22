@@ -906,6 +906,23 @@ describe("company requester scope", () => {
     jest.clearAllMocks();
   });
 
+  it("scopes mine=true to the actor and tenant even when they can view every request", async () => {
+    const manager = {
+      sub: "manager-1",
+      role: "MANAGER",
+      tenantId: tenantA,
+      permissions: ["maintenance_requests.view_all", "maintenance_requests.triage"]
+    };
+    prisma.maintenanceRequest.count.mockResolvedValue(0);
+    prisma.maintenanceRequest.findMany.mockResolvedValue([]);
+    await service.list("tenant-b", manager, { mine: true, page: 1, limit: 25 } as never);
+    expect(prisma.maintenanceRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tenantId: "tenant-b", reportedById: "manager-1" })
+      })
+    );
+  });
+
   it("keeps a finance employee on their own rows when mine is false", async () => {
     prisma.maintenanceRequest.count.mockResolvedValue(0);
     prisma.maintenanceRequest.findMany.mockResolvedValue([]);

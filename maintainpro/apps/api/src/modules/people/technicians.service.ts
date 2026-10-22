@@ -54,6 +54,26 @@ export class TechniciansService {
       return row.linkedUser?.isActive !== false;
     });
 
+    const openJobs = new Map<string, number>();
+    if (scopedTenant && typeof this.prisma.workOrderAssignee?.groupBy === "function") {
+      const grouped = await this.prisma.workOrderAssignee.groupBy({
+        by: ["employeeId"],
+        where: {
+          tenantId: scopedTenant,
+          employeeId: { in: eligible.map((row) => row.id) },
+          assignmentStatus: { not: "REMOVED" },
+          workOrder: {
+            tenantId: scopedTenant,
+            status: { in: ["ASSIGNED", "IN_PROGRESS", "ON_HOLD"] }
+          }
+        },
+        _count: { _all: true }
+      });
+      for (const group of grouped) {
+        if (group.employeeId) openJobs.set(group.employeeId, group._count._all);
+      }
+    }
+
     const enriched = await Promise.all(
       eligible.map(async (row) => {
         const todayAllocatedHours = await this.workforcePlanning.getAllocatedHoursForDay({
@@ -83,6 +103,7 @@ export class TechniciansService {
           roleName: row.linkedUser?.role.name ?? null,
           todayAllocatedHours,
           workloadPercentage,
+          openJobCount: openJobs.get(row.id) ?? 0,
           availabilityLabel:
             workloadPercentage >= 90 ? "High load" : workloadPercentage >= 70 ? "Busy" : "Available"
         };

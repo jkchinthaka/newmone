@@ -50,6 +50,7 @@ export function parseWorkOrderListQuery(raw: Record<string, string | undefined>)
     myAssignedOnly: raw.myAssignedOnly,
     jobDomain: raw.jobDomain?.trim().toUpperCase() || undefined,
     domainId: raw.domainId,
+    sla: raw.sla?.trim() || undefined,
     smartView: raw.smartView
   };
 

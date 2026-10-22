@@ -117,6 +117,7 @@ export function formatQueueDue(
 export function nextActionLabel(row: {
   actionRequired?: Array<{ label: string; severity?: string }>;
   partsStatus?: string | null;
+  sla?: string | null;
   evidenceStatus?: string | null;
   status?: string;
 }): { label: string; tone: "critical" | "warn" | "ok" | "neutral" } {
@@ -189,6 +190,8 @@ export function queueFiltersAfterChipRemove(
       return { evidenceStatus: "", ...page };
     case "partsStatus":
       return { partsStatus: "", ...page };
+    case "sla":
+      return { sla: "", ...page };
     case "dates":
       return { dateFrom: "", dateTo: "", ...page };
     case "categoryId":

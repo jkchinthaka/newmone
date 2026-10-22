@@ -202,6 +202,17 @@ export function WorkOrderTable({
               {next.label}
             </button>
           ) : null}
+          {workOrder.approvalStatus === "PENDING" &&
+          workOrder.status === "OPEN" &&
+          ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER"].includes(actorRole ?? "") ? (
+            <button
+              type="button"
+              onClick={() => onPrimary?.(workOrder, "approve-assign")}
+              className="inline-flex min-h-11 items-center rounded-md bg-brand-700 px-2 py-1 text-xs font-semibold text-white"
+            >
+              Approve & assign
+            </button>
+          ) : null}
           <details className="relative">
             <summary className="cursor-pointer list-none rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700">More</summary>
             <div className="mt-1 flex flex-wrap gap-1">

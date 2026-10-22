@@ -156,8 +156,8 @@ export function InventoryControlPage() {
     <div className="space-y-4">
       <OperationalJobsHeader
         eyebrow="Inventory"
-        title="Inventory Control Center"
-        description="Maintenance parts visibility, ERP stock snapshot, reservations, and maintenance usage. Bileeta remains the stock authority."
+        title="Spare Parts"
+        description="Stock balance comes from the ERP. Part requests and usage charts stay on the work order."
         actions={
           <>
             <button type="button" className="h-9 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>Refresh</button>
@@ -170,7 +170,7 @@ export function InventoryControlPage() {
         <p className="text-sm text-rose-700" role="alert">{summaryError}</p>
       ) : (
         <>
-          <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:grid-cols-6" aria-label="Inventory summary">
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6" aria-label="Inventory summary">
             {(
               [
                 ["Total parts", summary?.totalItems],
@@ -181,9 +181,9 @@ export function InventoryControlPage() {
                 ["Pending imports", summary?.pendingImports]
               ] as Array<[string, number | undefined]>
             ).map(([label, value]) => (
-              <div key={label} className="rounded-md border border-slate-200 bg-white px-3 py-2">
-                <dt className="text-xs text-slate-500">{label}</dt>
-                <dd className="font-semibold tabular-nums text-slate-900">{value ?? "–"}</dd>
+              <div key={label} className="rounded-card border border-slate-200 bg-white p-4 shadow-card">
+                <dt className="text-sm font-medium text-slate-600">{label}</dt>
+                <dd className="mt-3 text-2xl font-semibold tabular-nums text-slate-900">{value ?? "–"}</dd>
               </div>
             ))}
           </dl>

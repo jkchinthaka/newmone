@@ -13,9 +13,10 @@ import {
   requestTriageExplanation,
   requestValueLabel,
   requesterFacingStatus,
+  requestTrackerIndex,
   resolveRequestMenuActivation
 } from "../maintenance-request-ui";
-import { getVisibleNavigationItems, REQUEST_LIST_PERMISSIONS } from "../navigation";
+import { getVisibleNavigationItems, isNavItemActive, NAVIGATION_ITEMS, REQUEST_LIST_PERMISSIONS } from "../navigation";
 
 describe("maintenance request labels", () => {
   it("uses business wording instead of raw codes", () => {
@@ -155,6 +156,19 @@ describe("Requests navigation visibility", () => {
     assert.equal(hasRequests("SALES", ["maintenance_requests.create", "maintenance_requests.view_own"]), true);
     assert.equal(hasRequests("SECURITY_OFFICER", [...REQUEST_LIST_PERMISSIONS]), true);
   });
+
+  it("shows My requests only to roles that can create requests", () => {
+    const visible = (role: string, permissions: string[]) =>
+      getVisibleNavigationItems(role, { permissions }).some((item) => item.id === "my-requests");
+    assert.equal(visible("SALES", ["maintenance_requests.create", "maintenance_requests.view_own"]), true);
+    assert.equal(visible("FINANCE", ["maintenance_requests.view_own"]), false);
+    assert.equal(visible("ADMIN", []), true);
+    const mine = NAVIGATION_ITEMS.find((item) => item.id === "my-requests");
+    const requests = NAVIGATION_ITEMS.find((item) => item.id === "requests");
+    assert.equal(mine && isNavItemActive("/requests/mine", mine), true);
+    assert.equal(requests && isNavItemActive("/requests/mine", requests), false);
+    assert.equal(requests && isNavItemActive("/requests/new", requests), true);
+  });
 });
 
 describe("request action menu activation", () => {
@@ -170,5 +184,16 @@ describe("request action menu activation", () => {
     assert.equal(plan.closeMenu, true);
     assert.equal(plan.navigateTo, null);
     assert.equal(plan.runCommand, true);
+  });
+});
+
+describe("request tracker", () => {
+  it("moves from submitted to done using the request and the work order", () => {
+    assert.equal(requestTrackerIndex("NEW", null), 0);
+    assert.equal(requestTrackerIndex("APPROVED", null), 1);
+    assert.equal(requestTrackerIndex("CONVERTED_TO_WO", "ASSIGNED"), 1);
+    assert.equal(requestTrackerIndex("CONVERTED_TO_WO", "IN_PROGRESS"), 2);
+    assert.equal(requestTrackerIndex("CONVERTED_TO_WO", "CLOSED"), 3);
+    assert.equal(requestTrackerIndex("CANCELLED", "CLOSED"), 0);
   });
 });

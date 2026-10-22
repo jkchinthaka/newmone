@@ -101,6 +101,12 @@ export function employeesMatchingDesignation<T extends { designation?: string | 
   });
 }
 
+export function assignmentLoadLabel(openJobs: number) {
+  const tone = openJobs >= 3 ? "Busy" : "Available";
+  const jobs = openJobs === 1 ? "1 job" : `${openJobs} jobs`;
+  return `${tone} · ${jobs}`;
+}
+
 export function formatEmployeeOptionLabel(input: {
   fullName: string;
   effectiveDesignation?: string | null;
@@ -108,10 +114,12 @@ export function formatEmployeeOptionLabel(input: {
   departmentName?: string | null;
   availabilityLabel?: string | null;
   workloadPercentage?: number | null;
+  openJobCount?: number | null;
 }): string {
   const designation = input.effectiveDesignation?.trim() || "Unspecified";
   const location = [input.branchName, input.departmentName].filter((part) => Boolean(part && String(part).trim())).join(" / ");
   const availability = input.availabilityLabel?.trim() || "Availability unknown";
   const workload = typeof input.workloadPercentage === "number" ? `${input.workloadPercentage}% load` : "";
-  return [input.fullName.trim(), designation, location, availability, workload].filter(Boolean).join(" — ");
+  const jobs = typeof input.openJobCount === "number" ? assignmentLoadLabel(input.openJobCount) : "";
+  return [input.fullName.trim(), designation, location, availability, workload, jobs].filter(Boolean).join(" — ");
 }

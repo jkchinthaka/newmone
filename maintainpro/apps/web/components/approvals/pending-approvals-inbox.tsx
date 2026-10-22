@@ -116,6 +116,7 @@ export function PendingApprovalsInbox({
         {!bulk.sameKind ? <span className="text-sm text-amber-700">Select one type</span> : null}
       </div>
 
+      <div className="lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(16rem,0.8fr)] lg:items-start lg:gap-4">
       {loading ? (
         <div className="mt-4 space-y-2" data-testid="approval-skeleton">
           <div className="h-16 animate-pulse rounded-lg bg-slate-100" />
@@ -171,8 +172,8 @@ export function PendingApprovalsInbox({
       )}
 
       {open ? (
-        <div className="fixed inset-0 z-40 flex justify-end bg-slate-900/30" onClick={() => setOpen(null)}>
-          <aside className="h-full w-full max-w-md overflow-y-auto bg-white p-5 shadow-xl" role="dialog" aria-label="Approval details" onClick={(event) => event.stopPropagation()}>
+        <div className="fixed inset-0 z-40 flex justify-end bg-slate-900/30 lg:static lg:inset-auto lg:z-auto lg:mt-4 lg:block lg:bg-transparent" onClick={() => setOpen(null)}>
+          <aside className="h-full w-full max-w-md overflow-y-auto rounded-card border border-slate-200 bg-white p-5 shadow-xl lg:h-auto lg:max-w-none lg:shadow-card" role="dialog" aria-label="Approval details" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs uppercase text-slate-500">{open.tab.replaceAll("_", " ")}</p>
@@ -214,6 +215,7 @@ export function PendingApprovalsInbox({
           </aside>
         </div>
       ) : null}
+      </div>
     </div>
   );
 }
