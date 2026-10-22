@@ -19,5 +19,7 @@ F2.5 | DONE | b3f248a3 | @Permissions added beside @Roles | @Roles stay in place
 F2.6 | DONE | b3f248a3 | seed grants and scripts/ops/grant-access-studio-keys.ts | dry-run is the default; --apply refuses nelna and MaintainProDev
 F2.7 | BLOCKED | b3f248a3 | helper text still shown | seed parity is 0 mismatches; the text stays until a live tenant dry-run is clean
 F2.8 | DONE | b3f248a3 | startup stays off unless seed version >= 1 and live keys match | one error log, API still boots
-F2.9 | BLOCKED | b3f248a3 | service role checks not listed yet | next step after this commit
+F2.9 | BLOCKED | pending | service role checks listed in docs/handover/access/service-role-checks.md | role-limited badge is not on the access screen yet
+
+
 
