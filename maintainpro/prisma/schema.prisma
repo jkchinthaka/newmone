@@ -24,6 +24,7 @@ model Tenant {
   stripeCustomer               StripeCustomer?
   stripeInvoices               StripeInvoice[]
   users                        User[]
+  userPermissionOverrides      UserPermissionOverride[]
   roles                        Role[]
   assets                       Asset[]
   vehicles                     Vehicle[]
@@ -312,6 +313,23 @@ model Permission {
   roleLinks RolePermission[]
 }
 
+model UserPermissionOverride {
+  id            String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId      String   @db.NVarChar(36)
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  userId        String   @db.NVarChar(36)
+  user          User     @relation("PermissionOverrideSubject", fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  permissionKey String   @db.NVarChar(191)
+  effect        String   @db.NVarChar(8)
+  reason        String   @db.NVarChar(Max)
+  createdById   String   @db.NVarChar(36)
+  createdBy     User     @relation("PermissionOverrideAuthor", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt     DateTime @default(now())
+
+  @@unique([tenantId, userId, permissionKey])
+  @@index([tenantId, userId])
+}
+
 model User {
   id                         String      @id @default(cuid()) @db.NVarChar(36)
   tenantId                   String?     @db.NVarChar(36)
@@ -345,6 +363,8 @@ model User {
   createdAt                  DateTime    @default(now())
   updatedAt                  DateTime    @updatedAt
 
+  permissionOverrides         UserPermissionOverride[]    @relation("PermissionOverrideSubject")
+  permissionOverridesAuthored UserPermissionOverride[]    @relation("PermissionOverrideAuthor")
   assignedWorkOrders          WorkOrder[]                 @relation("TechnicianWorkOrders")
   createdWorkOrders           WorkOrder[]                 @relation("CreatorWorkOrders")
   approvedWorkOrders          WorkOrder[]                 @relation("ApprovedWorkOrders")

@@ -159,3 +159,8 @@ Branch `fix/sweep-e2e-tenant`. Local `npm run test:e2e:full-stack` against the r
 2026-10-21 v1.0.2 tag `0cac1eb8` already on main. Downtime tab: unit 1 passed, web unit 346 passed, web tsc 0, register e2e 1 passed. Safety-card commit only; tag not moved.
 2026-10-21 v1.0.3 flow: assign-from-open, six-role dropdown, grant script, next action, plain errors, legacy filters hidden. API tsc 0, web tsc 0, web unit 353 passed, assign/approval/legacy jest passed, audit tenant and rbac 0. Local full Jest still has pre-existing HTTP 401s that also fail on the release tree.
 2026-10-21 wo-flow-v103 Playwright 1 passed (CSRF, asset request, one login per role, photo bytes, QR scan, labour hold). PR #104 merged to develop. PR #105 develop to main still running required checks.
+2026-10-21 ui/foundation: dashboard primitives and status map added. Pages unchanged.
+2026-10-21 ci/run-gates-on-develop: release-validate and full-stack-e2e also run on pull requests into develop. SQL Server gate stays path-filtered, not branch-filtered.
+2026-10-21 ui/maintenance-dashboard: /maintenance restyle only. Web tsc 0, web unit 355 passed. Full-stack, uat-roles, and wo-flow not run (local DB is MaintainProDev).
+2026-10-21 ui/maintenance-dashboard: light-only tokens, page title, and the quiet View all button. Not merged.
+2026-10-21 ui/wo-drawer: drawer redesign polish (one save hint, tab underline, evidence copy, Colombo dates, mobile stepper). Local commit only.

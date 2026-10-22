@@ -103,6 +103,31 @@ export function requesterFacingStatus(
   }
 }
 
+export const REQUEST_TRACKER_LABELS = ["Submitted", "Approved", "In progress", "Done"] as const;
+
+/** Index of the current step on Submitted → Approved → In progress → Done. */
+export function requestTrackerIndex(
+  status: string | null | undefined,
+  workOrderStatus?: string | null
+) {
+  const request = (status ?? "").toUpperCase();
+  const workOrder = (workOrderStatus ?? "").toUpperCase();
+  if (request === "REJECTED" || request === "CANCELLED" || workOrder === "CANCELLED") return 0;
+  if (workOrder === "COMPLETED" || workOrder === "CLOSED" || workOrder === "VERIFIED") return 3;
+  if (request === "CLOSED") return 3;
+  if (
+    workOrder === "IN_PROGRESS" ||
+    workOrder === "ON_HOLD" ||
+    workOrder === "OVERDUE" ||
+    workOrder === "REWORK_REQUIRED" ||
+    workOrder === "TECHNICIAN_COMPLETED"
+  ) {
+    return 2;
+  }
+  if (request === "APPROVED" || request === "CONVERTED_TO_WO" || workOrder.length > 0) return 1;
+  return 0;
+}
+
 function convertedWorkProgress(workOrderStatus?: string | null) {
   switch (workOrderStatus) {
     case "IN_PROGRESS":

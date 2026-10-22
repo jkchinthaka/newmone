@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { MaintenanceSettingsNav } from "@/components/admin/maintenance-settings-nav";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { withTenantScope } from "@/lib/tenant-query";
@@ -87,6 +88,7 @@ export default function AdminPrioritySlaPage() {
 
   return (
     <div className="space-y-6">
+      <MaintenanceSettingsNav />
       <PageBreadcrumbs
         items={[
           { label: "Admin", href: "/admin" },

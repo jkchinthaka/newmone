@@ -315,4 +315,108 @@ describe("PermissionsGuard", () => {
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
   });
+
+  const withStudio = async (flag: string | undefined, run: () => Promise<void>) => {
+    const previous = process.env.ACCESS_STUDIO_ENABLED;
+    if (flag === undefined) {
+      delete process.env.ACCESS_STUDIO_ENABLED;
+    } else {
+      process.env.ACCESS_STUDIO_ENABLED = flag;
+    }
+    try {
+      await run();
+    } finally {
+      if (previous === undefined) {
+        delete process.env.ACCESS_STUDIO_ENABLED;
+      } else {
+        process.env.ACCESS_STUDIO_ENABLED = previous;
+      }
+    }
+  };
+
+  it("lets a grant allow a permission the role does not have", async () => {
+    await withStudio("true", async () => {
+      const findMany = jest.fn().mockResolvedValue([{ permissionKey: "audit.view", effect: "GRANT" }]);
+      const reflector = {
+        getAllAndOverride: jest.fn().mockReturnValue(["audit.view"])
+      } as unknown as Reflector;
+      const guard = new PermissionsGuard(reflector, {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            ...activeUser({ roleName: "VIEWER", permissions: ["assets.view"] }),
+            tenantId: "tenant-a"
+          })
+        },
+        userPermissionOverride: { findMany }
+      } as any);
+
+      await expect(guard.canActivate(buildContext({ sub: "u-1", role: "VIEWER" }))).resolves.toBe(true);
+      expect(findMany).toHaveBeenCalled();
+    });
+  });
+
+  it("lets a deny block a permission the role has", async () => {
+    await withStudio("true", async () => {
+      const reflector = {
+        getAllAndOverride: jest.fn().mockReturnValue(["assets.view"])
+      } as unknown as Reflector;
+      const guard = new PermissionsGuard(reflector, {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            ...activeUser({ roleName: "VIEWER", permissions: ["assets.view"] }),
+            tenantId: "tenant-a"
+          })
+        },
+        userPermissionOverride: {
+          findMany: jest.fn().mockResolvedValue([{ permissionKey: "assets.view", effect: "DENY" }])
+        }
+      } as any);
+
+      await expect(guard.canActivate(buildContext({ sub: "u-1", role: "VIEWER" }))).rejects.toThrow(
+        "Missing required permission"
+      );
+    });
+  });
+
+  it("ignores overrides when the studio flag is off", async () => {
+    await withStudio(undefined, async () => {
+      const findMany = jest.fn().mockResolvedValue([{ permissionKey: "assets.view", effect: "DENY" }]);
+      const reflector = {
+        getAllAndOverride: jest.fn().mockReturnValue(["assets.view"])
+      } as unknown as Reflector;
+      const guard = new PermissionsGuard(reflector, {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            ...activeUser({ roleName: "VIEWER", permissions: ["assets.view"] }),
+            tenantId: "tenant-a"
+          })
+        },
+        userPermissionOverride: { findMany }
+      } as any);
+
+      await expect(guard.canActivate(buildContext({ sub: "u-1", role: "VIEWER" }))).resolves.toBe(true);
+      expect(findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  it("keeps SUPER_ADMIN allowed without reading overrides", async () => {
+    await withStudio("true", async () => {
+      const findMany = jest.fn();
+      const reflector = {
+        getAllAndOverride: jest.fn().mockReturnValue(["audit.view"])
+      } as unknown as Reflector;
+      const guard = new PermissionsGuard(reflector, {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            ...activeUser({ roleName: "SUPER_ADMIN" }),
+            tenantId: "tenant-a"
+          })
+        },
+        userPermissionOverride: { findMany }
+      } as any);
+
+      await expect(guard.canActivate(buildContext({ sub: "u-1", role: "VIEWER" }))).resolves.toBe(true);
+      expect(findMany).not.toHaveBeenCalled();
+    });
+  });
 });

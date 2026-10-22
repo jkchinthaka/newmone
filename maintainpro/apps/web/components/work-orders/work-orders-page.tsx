@@ -26,8 +26,10 @@ import {
 import { useCurrentUser } from "@/lib/use-current-user";
 import { apiClient } from "@/lib/api-client";
 import { primaryWorkOrderAction, selectableWorkOrderStatuses } from "@/lib/work-order-next-action";
+import { approveThenAssign, verifyThenClose } from "@/lib/wo-flow-phase2";
 
 import { CompleteWorkOrderModal } from "./complete-work-order-modal";
+import { approveWorkOrder, assignWorkOrder } from "./api";
 import { getErrorMessage, toTitleCase } from "./helpers";
 import { HoldWorkOrderModal } from "./hold-work-order-modal";
 import {
@@ -110,6 +112,10 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
   const [holdTarget, setHoldTarget] = useState<WorkOrder | null>(null);
   const [rejectTarget, setRejectTarget] = useState<WorkOrder | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [approveAssignTarget, setApproveAssignTarget] = useState<WorkOrder | null>(null);
+  const [approveAssignTech, setApproveAssignTech] = useState("");
+  const [approveAssignStart, setApproveAssignStart] = useState("");
+  const [approveAssignEnd, setApproveAssignEnd] = useState("");
   const createIdempotencyKey = useRef<string | null>(null);
 
   const { filters, updateFilters, resetFilters } = useWorkOrderFilters();
@@ -347,6 +353,13 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       toast.message("Choose a technician in the Assign list.");
       return;
     }
+    if (selected === "approve-assign") {
+      setApproveAssignTarget(workOrder);
+      setApproveAssignTech("");
+      setApproveAssignStart("");
+      setApproveAssignEnd("");
+      return;
+    }
     if (selected === "start") {
       await handleStatusChange(workOrder, "IN_PROGRESS");
       return;
@@ -355,20 +368,58 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       setCompletionTarget(workOrder);
       return;
     }
-    try {
-      const verified = await apiClient.post<{ data?: { version?: number } }>(`/work-orders/${workOrder.id}/verify-supervisor`, {
-        expectedVersion: workOrder.version,
-        verificationNote: "Verified from the work order list"
-      });
-      await apiClient.post(`/work-orders/${workOrder.id}/close`, {
-        expectedVersion: verified.data?.data?.version ?? workOrder.version,
-        note: "Closed after verification"
-      });
-      toast.success(`${workOrder.woNumber} verified and closed`);
-      await workOrdersQuery.refetch();
-    } catch (error) {
-      toast.error(getErrorMessage(error));
+    const result = await verifyThenClose({
+      verify: () =>
+        apiClient.post<{ data?: { version?: number } }>(`/work-orders/${workOrder.id}/verify-supervisor`, {
+          expectedVersion: workOrder.version,
+          verificationNote: "Verified from the work order list"
+        }),
+      close: (verified) =>
+        apiClient.post(`/work-orders/${workOrder.id}/close`, {
+          expectedVersion: verified.data?.data?.version ?? workOrder.version,
+          note: "Closed after verification"
+        })
+    });
+    if (!result.ok) {
+      toast.error(
+        result.stage === "close"
+          ? `${getErrorMessage(result.error)} The work order stays verified.`
+          : getErrorMessage(result.error)
+      );
+      if (result.stage === "close") await workOrdersQuery.refetch();
+      return;
     }
+    toast.success(`${workOrder.woNumber} verified and closed`);
+    await workOrdersQuery.refetch();
+  };
+
+  const submitApproveAssign = async () => {
+    if (!approveAssignTarget || !approveAssignTech || !approveAssignStart || !approveAssignEnd) return;
+    const target = approveAssignTarget;
+    const result = await approveThenAssign({
+      approve: () => approveWorkOrder(target.id),
+      assign: (approved) =>
+        assignWorkOrder(target.id, approveAssignTech, {
+          expectedVersion: approved.version,
+          plannedStartAt: new Date(approveAssignStart).toISOString(),
+          plannedEndAt: new Date(approveAssignEnd).toISOString()
+        })
+    });
+    if (!result.ok) {
+      toast.error(
+        result.stage === "assign"
+          ? `${getErrorMessage(result.error)} The work order stays approved.`
+          : getErrorMessage(result.error)
+      );
+      if (result.stage === "assign") {
+        setApproveAssignTarget(null);
+        await workOrdersQuery.refetch();
+      }
+      return;
+    }
+    toast.success(`${target.woNumber} approved and assigned`);
+    setApproveAssignTarget(null);
+    await workOrdersQuery.refetch();
   };
 
   const handleApprove = async (workOrder: WorkOrder) => {
@@ -687,13 +738,21 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       )}
 
       {view === "queues" ? null : (
-        <p className="summary-strip" aria-label="Work order counts">
-          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.total}</span> all</span>
-          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.open}</span> open</span>
-          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.inProgress}</span> in progress</span>
-          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.overdue}</span> overdue</span>
-          <span><span className="font-semibold tabular-nums">{workOrdersQuery.stats.completed}</span> completed</span>
-        </p>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Work order counts">
+          {(
+            [
+              ["Open", workOrdersQuery.stats.open, "text-slate-900"],
+              ["In progress", workOrdersQuery.stats.inProgress, "text-slate-900"],
+              ["Overdue", workOrdersQuery.stats.overdue, workOrdersQuery.stats.overdue > 0 ? "text-red-700" : "text-slate-900"],
+              ["Completed", workOrdersQuery.stats.completed, "text-slate-900"]
+            ] as Array<[string, number, string]>
+          ).map(([label, value, tone]) => (
+            <article key={label} className="rounded-card border border-slate-200 bg-white p-4 shadow-card">
+              <p className="text-sm font-medium text-slate-600">{label}</p>
+              <p className={`mt-3 text-2xl font-semibold tabular-nums ${tone}`}>{value}</p>
+            </article>
+          ))}
+        </div>
       )}
 
       <motion.section
@@ -785,6 +844,44 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             });
         }}
       />
+
+      {approveAssignTarget ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 p-4">
+          <form
+            role="dialog"
+            aria-label="Approve and assign"
+            className="w-full max-w-md rounded-card border border-slate-200 bg-white p-4 shadow-card"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitApproveAssign();
+            }}
+          >
+            <h2 className="text-lg font-semibold">Approve & assign</h2>
+            <p className="mt-1 text-sm text-slate-600">{approveAssignTarget.woNumber}</p>
+            <label className="mt-3 block text-sm">
+              Technician
+              <select required className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" value={approveAssignTech} onChange={(event) => setApproveAssignTech(event.target.value)}>
+                <option value="">Select a technician</option>
+                {technicians.map((technician) => (
+                  <option key={technician.id} value={technician.id}>{technician.fullName}</option>
+                ))}
+              </select>
+            </label>
+            <label className="mt-3 block text-sm">
+              Planned start
+              <input required type="datetime-local" className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" value={approveAssignStart} onChange={(event) => setApproveAssignStart(event.target.value)} />
+            </label>
+            <label className="mt-3 block text-sm">
+              Planned end
+              <input required type="datetime-local" className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" value={approveAssignEnd} onChange={(event) => setApproveAssignEnd(event.target.value)} />
+            </label>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" className="min-h-10 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setApproveAssignTarget(null)}>Cancel</button>
+              <button type="submit" className="min-h-10 rounded-md bg-brand-700 px-3 text-sm font-semibold text-white">Approve & assign</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
 
       <CompleteWorkOrderModal
         open={Boolean(completionTarget)}

@@ -37,6 +37,7 @@ const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
   ],
   "/assets": [{ label: "Assets" }],
   "/requests": [{ label: "Requests" }],
+  "/requests/mine": [{ label: "My requests" }],
   "/requests/new": [
     { label: "Requests", href: "/requests" },
     { label: "Report Issue" }

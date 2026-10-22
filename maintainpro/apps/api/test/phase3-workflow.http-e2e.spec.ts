@@ -27,6 +27,7 @@ import { WorkOrderGovernanceService } from "../src/modules/work-orders/work-orde
 import { WorkOrderPartsService } from "../src/modules/work-orders/work-order-parts.service";
 import { WorkOrderQueuesService } from "../src/modules/work-orders/work-order-queues.service";
 import { WorkOrderDomainService } from "../src/modules/work-orders/work-order-domain.service";
+import { WorkOrderInsightsService } from "../src/modules/work-orders/work-order-insights.service";
 import { WorkOrdersService } from "../src/modules/work-orders/work-orders.service";
 import { VendorRepairService } from "../src/modules/work-orders/vendor-repair.service";
 import { MaintenanceConfigService } from "../src/modules/maintenance-config/maintenance-config.service";
@@ -193,6 +194,7 @@ const prisma = {
     { provide: VendorRepairService, useValue: vendorRepairService },
     { provide: WorkOrderQueuesService, useValue: workOrderQueuesService },
     { provide: WorkOrderDomainService, useValue: workOrderDomainService },
+    { provide: WorkOrderInsightsService, useValue: { forWorkOrder: jest.fn() } },
     { provide: MaintenanceConfigService, useValue: maintenanceConfigService },
     { provide: WorkOrderTaxonomyService, useValue: createWorkOrderTaxonomyServiceMock() },
     { provide: ErpStockSyncService, useValue: erpStockSyncService },

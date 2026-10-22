@@ -16,6 +16,7 @@ import { WorkOrderPartsService } from "./work-order-parts.service";
 import { WorkOrderQueuesService } from "./work-order-queues.service";
 import { WorkOrderDomainService } from "./work-order-domain.service";
 import { WorkOrdersService } from "./work-orders.service";
+import { WorkOrderInsightsService } from "./work-order-insights.service";
 import { EvidenceService } from "../evidence/evidence.service";
 import { VendorRepairService } from "./vendor-repair.service";
 import { WorkOrderTaxonomyService } from "../work-order-taxonomy/work-order-taxonomy.service";
@@ -53,7 +54,8 @@ export class WorkOrdersController {
     private readonly vendorRepairService: VendorRepairService,
     private readonly workOrderTaxonomyService: WorkOrderTaxonomyService,
     private readonly workOrderDomainService: WorkOrderDomainService,
-    private readonly maintenanceConfig: MaintenanceConfigService
+    private readonly maintenanceConfig: MaintenanceConfigService,
+    private readonly workOrderInsightsService: WorkOrderInsightsService
   ) {}
 
   @Get("governance/parts-exceptions")
@@ -376,6 +378,13 @@ export class WorkOrdersController {
   ) {
     const data = await this.workOrdersService.create(body, req.user);
     return { data, message: "Work order created" };
+  }
+
+  @Get(":id/insights")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "SUPERVISOR")
+  async insights(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.workOrderInsightsService.forWorkOrder(req.user?.tenantId ?? null, id);
+    return { data, message: "Work order insights fetched" };
   }
 
   @Get(":id")
@@ -740,11 +749,13 @@ export class WorkOrdersController {
   async assign(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { technicianId: string; reason?: string; expectedVersion?: number }
+    @Body() body: { technicianId: string; reason?: string; expectedVersion?: number; plannedStartAt?: string; plannedEndAt?: string }
   ) {
     const data = await this.workOrdersService.assign(id, body.technicianId, req.user, {
       reason: body.reason,
-      expectedVersion: body.expectedVersion
+      expectedVersion: body.expectedVersion,
+      plannedStartAt: body.plannedStartAt,
+      plannedEndAt: body.plannedEndAt
     });
     return { data, message: "Work order assigned" };
   }

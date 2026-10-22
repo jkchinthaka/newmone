@@ -1,9 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { downtimeCategoryLabel, formatDrawerDateTime, formatDowntimeElapsed, formatDowntimeSpan } from "@/lib/work-order-drawer-display";
 import { withTenantScope } from "@/lib/tenant-query";
 
 type DowntimeSegment = {
@@ -20,7 +23,17 @@ type DowntimeSummary = {
 
 type Props = {
   workOrderId: string;
+  readOnly?: boolean;
 };
+
+function LiveElapsed({ startedAt }: { startedAt: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return <span className="font-semibold tabular-nums text-amber-900">{formatDowntimeElapsed(startedAt, now)}</span>;
+}
 
 const DOWNTIME_CATEGORIES = [
   "ACTIVE_REPAIR",
@@ -34,7 +47,7 @@ const DOWNTIME_CATEGORIES = [
   "OTHER"
 ];
 
-export function WorkOrderSafetyPanel({ workOrderId }: Props) {
+export function WorkOrderSafetyPanel({ workOrderId, readOnly = false }: Props) {
   const qc = useQueryClient();
   const downtimeQuery = useQuery({
     queryKey: withTenantScope(["work-order", workOrderId, "downtime"]),
@@ -66,7 +79,9 @@ export function WorkOrderSafetyPanel({ workOrderId }: Props) {
     onError: (error) => toast.error(getApiErrorMessage(error, "Could not close downtime segment."))
   });
 
-  const openSegments = (downtimeQuery.data?.segments ?? []).filter((segment) => !segment.endedAt);
+  const segments = downtimeQuery.data?.segments ?? [];
+  const openSegments = segments.filter((segment) => !segment.endedAt);
+  const now = Date.now();
 
   return (
     <div className="space-y-4" aria-labelledby="wo-safety-heading">
@@ -77,41 +92,80 @@ export function WorkOrderSafetyPanel({ workOrderId }: Props) {
         </p>
 
         {downtimeQuery.isLoading ? (
-          <p className="mt-3 text-sm text-slate-600">Loading downtime…</p>
+          <div className="mt-3">
+            <p className="sr-only">Loading downtime…</p>
+            <SkeletonCard />
+          </div>
         ) : downtimeQuery.isError ? (
-          <p className="mt-3 text-sm text-rose-700" role="alert">
-            {getApiErrorMessage(downtimeQuery.error, "Could not load downtime.")}
-          </p>
+          <div className="mt-3">
+            <ErrorState
+              message={getApiErrorMessage(downtimeQuery.error, "Could not load downtime.")}
+              onRetry={() => void downtimeQuery.refetch()}
+            />
+          </div>
         ) : (
           <div className="mt-3 space-y-3">
             {openSegments.length === 0 ? (
               <p className="text-sm text-slate-600">No open downtime segments.</p>
             ) : (
-              <ul className="space-y-2">
-                {openSegments.map((segment) => (
-                  <li
-                    key={segment.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-200 px-3 py-2 text-sm"
-                  >
-                    <span>
-                      {segment.category}
-                      <span className="ml-2 text-xs text-slate-500">
-                        opened {new Date(segment.startedAt).toLocaleString()}
-                      </span>
-                    </span>
+              openSegments.map((segment) => (
+                <div
+                  key={segment.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-amber-950">Asset down now</p>
+                    <p className="text-xs text-amber-900">
+                      Started {formatDrawerDateTime(segment.startedAt)} · {downtimeCategoryLabel(segment.category)}
+                    </p>
+                  </div>
+                  <LiveElapsed startedAt={segment.startedAt} />
+                  {readOnly ? null : (
                     <button
                       type="button"
-                      className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
+                      className="rounded border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-50"
                       disabled={closeDowntime.isPending}
                       onClick={() => closeDowntime.mutate(segment.id)}
                     >
                       Close segment
                     </button>
-                  </li>
-                ))}
-              </ul>
+                  )}
+                </div>
+              ))
             )}
 
+            {segments.length === 0 ? (
+              <EmptyState title="No downtime recorded" description="Open a segment when the asset cannot be used." />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-xs text-slate-500">
+                      <th className="py-2 pr-3">Category</th>
+                      <th className="py-2 pr-3">Start</th>
+                      <th className="py-2 pr-3">End</th>
+                      <th className="py-2 pr-3">Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {segments.map((segment) => (
+                      <tr key={segment.id} className="border-b border-slate-100">
+                        <td className="py-2 pr-3">
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                            {downtimeCategoryLabel(segment.category)}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-3">{formatDrawerDateTime(segment.startedAt)}</td>
+                        <td className="py-2 pr-3">{segment.endedAt ? formatDrawerDateTime(segment.endedAt) : "running"}</td>
+                        <td className="py-2 pr-3">{formatDowntimeSpan(segment.startedAt, segment.endedAt, now)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {readOnly ? null : (
             <label className="block text-sm text-slate-700">
               <span className="font-medium">Open segment</span>
               <select
@@ -130,11 +184,12 @@ export function WorkOrderSafetyPanel({ workOrderId }: Props) {
                 </option>
                 {DOWNTIME_CATEGORIES.map((category) => (
                   <option key={category} value={category}>
-                    {category.replaceAll("_", " ")}
+                    {downtimeCategoryLabel(category)}
                   </option>
                 ))}
               </select>
             </label>
+            )}
           </div>
         )}
       </div>

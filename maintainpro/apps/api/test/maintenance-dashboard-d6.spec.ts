@@ -179,6 +179,56 @@ describe("D6 maintenance dashboard opsOverview", () => {
     ]);
   });
 
+  it("shows the assignees-table name when technicianId is empty", async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        id: "wo-6",
+        woNumber: "WO-2026-0006",
+        title: "Assigned without a technician id",
+        jobDomain: "MACHINERY",
+        status: "ASSIGNED",
+        priority: "HIGH",
+        dueDate: null,
+        technician: null,
+        assignees: [{ isPrimary: true, employee: { fullName: "Nimal Silva" } }]
+      }
+    ]);
+    const prisma = mockPrisma({ workOrder: { count: jest.fn().mockResolvedValue(0), findMany } });
+    const service = new MaintenanceConfigService(prisma as never);
+    const data = await service.opsOverview({
+      sub: "admin-1",
+      tenantId: "tenant-a",
+      role: "ADMIN"
+    });
+
+    expect(data.priorityWorkList[0]?.assigneeName).toBe("Nimal Silva");
+  });
+
+  it("falls back to the technician name when the assignees table is empty", async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        id: "wo-7",
+        woNumber: "WO-2026-0007",
+        title: "Legacy technician only",
+        jobDomain: "SERVICE",
+        status: "ASSIGNED",
+        priority: "HIGH",
+        dueDate: null,
+        technician: { firstName: "Asha", lastName: "Perera" },
+        assignees: []
+      }
+    ]);
+    const prisma = mockPrisma({ workOrder: { count: jest.fn().mockResolvedValue(0), findMany } });
+    const service = new MaintenanceConfigService(prisma as never);
+    const data = await service.opsOverview({
+      sub: "admin-1",
+      tenantId: "tenant-a",
+      role: "ADMIN"
+    });
+
+    expect(data.priorityWorkList[0]?.assigneeName).toBe("Asha Perera");
+  });
+
   it("fails closed without tenant", async () => {
     const service = new MaintenanceConfigService(mockPrisma() as never);
     await expect(

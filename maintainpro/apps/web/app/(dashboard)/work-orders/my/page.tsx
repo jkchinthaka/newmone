@@ -6,8 +6,11 @@ import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
+import { ClipboardList, Clock3, PauseCircle } from "lucide-react";
+
 import { OperationalPageHeader } from "@/components/operational/operational-page-header";
 import { QueueTabBar } from "@/components/operational/queue-tab-bar";
+import { EmptyState, ErrorState, KpiCard, SkeletonCard, StatusBadge } from "@/components/ui/dashboard";
 import { resolveMyJobFilter, myJobPurpose } from "@/lib/my-job-filters";
 import { getVisibleNavigationItems } from "@/lib/navigation";
 import { useCurrentUser } from "@/lib/use-current-user";
@@ -15,7 +18,6 @@ import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { JOB_CHANGED_MESSAGE, classifyJobActionError } from "@/lib/job-action-outcome";
 import { mutationErrorMessage, showMutationError } from "@/lib/mutation-feedback";
 import { humanWorkOrderStatusLabel } from "@/components/work-orders/helpers";
-import { ErrorState } from "@/components/ui/page-state";
 import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 
 type NextAction = { kind: "start" | "continue" | "summary" | "open" | "blocked"; label: string; reason?: string };
@@ -188,6 +190,18 @@ export default function MyJobsPage() {
   );
 
   const filtersActive = Boolean(search || status || priority || due || (view && view !== "active"));
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const listKpis = {
+    active: items.filter((job) => !["COMPLETED", "CLOSED", "CANCELLED", "VERIFIED"].includes(job.status)).length,
+    dueToday: items.filter((job) => {
+      if (!job.dueDate) return false;
+      const due = new Date(job.dueDate);
+      due.setHours(0, 0, 0, 0);
+      return due.getTime() === todayStart.getTime();
+    }).length,
+    onHold: items.filter((job) => job.status === "ON_HOLD").length
+  };
 
   async function startJob(job: MyJob) {
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -280,10 +294,10 @@ export default function MyJobsPage() {
   }
 
   return (
-    <div className="ops-page">
+    <div className="ops-page pb-24 md:pb-0">
       <OperationalPageHeader
         title="My Jobs"
-        description="Work assigned to you, ordered by urgency."
+        description="Jobs assigned to you, most urgent first."
         actions={
           <>
             {allWorkOrders ? (
@@ -318,6 +332,12 @@ export default function MyJobsPage() {
         />
       </div>
       <p className="text-sm text-slate-600">{myJobPurpose(view)}</p>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <KpiCard label="Active" value={String(listKpis.active)} icon={ClipboardList} tone="brand" />
+        <KpiCard label="Due today" value={String(listKpis.dueToday)} icon={Clock3} tone="red" />
+        <KpiCard label="On hold" value={String(listKpis.onHold)} icon={PauseCircle} tone="amber" />
+      </div>
 
       <form
         className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 md:grid-cols-4"
@@ -371,84 +391,48 @@ export default function MyJobsPage() {
       {capped ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">Showing the first 500 assigned jobs. Narrow the list with search if you cannot find a job.</p> : null}
       {blocker ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="alert">{blocker}</p> : null}
       {dialog}
-      {forbidden ? <ErrorState title="You cannot view assigned jobs." description="Your role does not include this workspace." onRetry={() => void refresh()} /> : null}
-      {!forbidden && error ? <ErrorState title="We couldn't load your jobs." description={error} onRetry={() => void refresh()} /> : null}
+      {forbidden ? <ErrorState message="You cannot view assigned jobs. Your role does not include this workspace." onRetry={() => void refresh()} /> : null}
+      {!forbidden && error ? <ErrorState message={`We couldn't load your jobs. ${error}`} onRetry={() => void refresh()} /> : null}
 
       {loading ? (
-        <div className="space-y-2" aria-busy="true" aria-label="Loading jobs">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-label="Loading jobs">
           {[0, 1, 2].map((row) => (
-            <div key={row} className="h-20 animate-pulse rounded-xl bg-slate-100" />
+            <SkeletonCard key={row} />
           ))}
         </div>
       ) : null}
 
       {!loading && !error && items.length === 0 && !filtersActive ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
-          <h2 className="font-semibold text-slate-900">No jobs assigned to you</h2>
-          <p className="mt-1 text-sm text-slate-600">When a work order is assigned to your user, it will appear here.</p>
-          <button type="button" className="mt-3 min-h-11 rounded border border-slate-300 px-3 text-sm" onClick={() => void refresh()}>Refresh</button>
-        </div>
+        <EmptyState
+          title="No jobs assigned to you"
+          description="When a work order is assigned to your user, it will appear here."
+          action={<button type="button" className="min-h-11 rounded border border-slate-300 px-3 text-sm" onClick={() => void refresh()}>Refresh</button>}
+        />
       ) : null}
       {!loading && !error && items.length === 0 && filtersActive ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
-          <h2 className="font-semibold text-slate-900">No jobs match your filters</h2>
-          <button type="button" className="mt-3 min-h-11 rounded border border-slate-300 px-3 text-sm" onClick={() => { setSearchInput(""); writeQuery({ filter: null, view: null, search: null, status: null, priority: null, due: null }); }}>Clear filters</button>
-        </div>
+        <EmptyState
+          title="No jobs match your filters"
+          description="Clear the view or search to see assigned jobs."
+          action={<button type="button" className="min-h-11 rounded border border-slate-300 px-3 text-sm" onClick={() => { setSearchInput(""); writeQuery({ filter: null, view: null, search: null, status: null, priority: null, due: null }); }}>Clear filters</button>}
+        />
       ) : null}
 
-      <ul className="space-y-3 md:hidden">
-        {items.map((job) => (
-          <li key={job.id} className="rounded-xl border border-slate-200 bg-white p-4">
-            <JobBody
-              job={job}
-              starting={startingId === job.id}
-              onStart={() => void startJob(job)}
-              onHold={() => void holdJob(job)}
-              onResume={() => void resumeJob(job)}
-              onComplete={() => void completeJob(job)}
-            />
-          </li>
-        ))}
-      </ul>
-
-      <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
-        <table className="min-w-full text-left text-sm">
-          <thead className="border-b bg-slate-50 text-slate-600">
-            <tr>
-              <th className="px-3 py-2">Work order</th>
-              <th className="px-3 py-2">Asset and location</th>
-              <th className="px-3 py-2">Priority</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Due</th>
-              <th className="px-3 py-2">Next action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((job) => (
-              <tr key={job.id} className="border-b last:border-0">
-                <td className="px-3 py-3">
-                  <Link className="font-medium text-brand-700 underline" href={`/maintenance/jobs?wo=${job.id}` as Route}>{job.woNumber}</Link>
-                  <div className="text-slate-700">{job.title}</div>
-                </td>
-                <td className="px-3 py-3">{locationLabel(job)}</td>
-                <td className="px-3 py-3">{job.priority}</td>
-                <td className="px-3 py-3">{humanWorkOrderStatusLabel(job.status)}</td>
-                <td className="px-3 py-3">{relativeDue(job.dueDate)}</td>
-                <td className="px-3 py-3">
-                  <JobAction
-                    job={job}
-                    starting={startingId === job.id}
-                    onStart={() => void startJob(job)}
-                    onHold={() => void holdJob(job)}
-                    onResume={() => void resumeJob(job)}
-                    onComplete={() => void completeJob(job)}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {!loading && items.length > 0 ? (
+        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {items.map((job) => (
+            <li key={job.id} className="rounded-card border border-slate-200 bg-white p-4 shadow-card">
+              <JobBody
+                job={job}
+                starting={startingId === job.id}
+                onStart={() => void startJob(job)}
+                onHold={() => void holdJob(job)}
+                onResume={() => void resumeJob(job)}
+                onComplete={() => void completeJob(job)}
+              />
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       {total > 25 ? (
         <div className="flex items-center gap-2 text-sm">
@@ -479,14 +463,16 @@ function JobBody({
   return (
     <div>
       <div className="flex items-start justify-between gap-2">
-        <Link className="font-semibold text-brand-700 underline" href={`/maintenance/jobs?wo=${job.id}` as Route}>{job.woNumber}</Link>
-        <span className="text-xs font-medium uppercase text-slate-600">{job.priority}</span>
+        <StatusBadge status={job.status} />
+        <span className="text-xs font-medium uppercase text-slate-500">{job.priority}</span>
       </div>
-      <p className="mt-1 text-sm text-slate-800">{job.title}</p>
+      <p className="mt-2 text-xs text-slate-500">{job.woNumber}</p>
+      <p className="text-sm font-semibold text-slate-900">{job.title}</p>
       <p className="mt-1 text-sm text-slate-600">{locationLabel(job)}</p>
-      <p className="mt-1 text-sm">{humanWorkOrderStatusLabel(job.status)} · {relativeDue(job.dueDate)}</p>
-      <div className="mt-3">
+      <p className="mt-1 text-xs text-slate-500">{relativeDue(job.dueDate)}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <JobAction job={job} starting={starting} onStart={onStart} onHold={onHold} onResume={onResume} onComplete={onComplete} />
+        <Link className="inline-flex min-h-11 items-center rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-800" href={`/maintenance/jobs?wo=${job.id}` as Route}>Open</Link>
       </div>
     </div>
   );
@@ -511,7 +497,7 @@ function JobAction({
     return (
       <button
         type="button"
-        className="min-h-11 rounded bg-brand-600 px-3 text-sm text-white disabled:opacity-60"
+        className="min-h-11 rounded-md bg-brand-600 px-3 text-sm font-medium text-white disabled:opacity-60"
         disabled={starting}
         onClick={(event) => {
           event.currentTarget.disabled = true;
@@ -525,14 +511,14 @@ function JobAction({
   if (job.status === "IN_PROGRESS") {
     return (
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="min-h-11 rounded border px-3 text-sm disabled:opacity-60" disabled={starting} onClick={onHold}>Hold</button>
-        <button type="button" className="min-h-11 rounded bg-brand-600 px-3 text-sm text-white disabled:opacity-60" disabled={starting} onClick={onComplete}>Complete</button>
+        <button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm disabled:opacity-60" disabled={starting} onClick={onHold}>Hold</button>
+        <button type="button" className="min-h-11 rounded-md bg-brand-600 px-3 text-sm font-medium text-white disabled:opacity-60" disabled={starting} onClick={onComplete}>Complete</button>
       </div>
     );
   }
   if (job.status === "ON_HOLD") {
     return (
-      <button type="button" className="min-h-11 rounded bg-brand-600 px-3 text-sm text-white disabled:opacity-60" disabled={starting} onClick={onResume}>
+      <button type="button" className="min-h-11 rounded-md bg-brand-600 px-3 text-sm font-medium text-white disabled:opacity-60" disabled={starting} onClick={onResume}>
         Resume
       </button>
     );

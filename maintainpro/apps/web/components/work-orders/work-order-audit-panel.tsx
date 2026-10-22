@@ -5,6 +5,7 @@ import { Loader2, ShieldCheck } from "lucide-react";
 
 import { fetchEntityAudit, type AuditEntry } from "@/lib/audit-api";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { formatDrawerDateTime } from "@/lib/work-order-drawer-display";
 import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
 
 const AUDIT_EVENT_LABELS: Record<string, string> = {
@@ -159,7 +160,7 @@ export function WorkOrderAuditPanel({ workOrderId }: Props) {
             <li key={entry.id} className="px-3 py-2 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-medium text-slate-900">{formatAuditAction(entry)}</span>
-                <span className="text-xs text-slate-500">{new Date(entry.createdAt).toLocaleString()}</span>
+                <span className="text-xs text-slate-500">{formatDrawerDateTime(entry.createdAt)}</span>
               </div>
               <p className="mt-1 text-xs text-slate-600">
                 {entry.entity}

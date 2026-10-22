@@ -14,6 +14,7 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import { assertWorkOrderAcceptsFieldMutation } from "../../common/utils/work-order-terminal-lock";
 import {
   assertTechnicianAssignedToWorkOrder,
   canOverrideQrMismatch,
@@ -156,6 +157,7 @@ export class EvidenceService {
       status: true,
       facilityIssue: { select: { id: true } }
     });
+    assertWorkOrderAcceptsFieldMutation(workOrder.status, "upload evidence");
     await assertTechnicianAssignedToWorkOrder({ actor, workOrderId: workOrder.id, prisma: this.prisma });
 
     if (body.clientGeneratedId?.trim()) {
@@ -287,6 +289,7 @@ export class EvidenceService {
       status: true,
       facilityIssue: { select: { id: true } }
     });
+    assertWorkOrderAcceptsFieldMutation(workOrder.status, "upload evidence");
     await assertTechnicianAssignedToWorkOrder({ actor, workOrderId: workOrder.id, prisma: this.prisma });
 
     if (body.clientGeneratedId?.trim()) {
@@ -380,7 +383,13 @@ export class EvidenceService {
       return { ok: false, status: "blocked", message: readiness.message };
     }
 
-    const workOrder = await this.findTenantScopedWorkOrder(workOrderId, actor);
+    const workOrder = await this.findTenantScopedWorkOrder(workOrderId, actor, {
+      id: true,
+      tenantId: true,
+      status: true,
+      facilityIssue: { select: { id: true, tenantId: true } }
+    });
+    assertWorkOrderAcceptsFieldMutation(workOrder.status, "upload evidence");
     const tenantId = this.resolveTenantId(actor);
 
     const attachment = await this.prisma.evidenceAttachment.findFirst({
@@ -479,7 +488,13 @@ export class EvidenceService {
       throw new BadRequestException("Evidence file bytes are required.");
     }
 
-    const workOrder = await this.findTenantScopedWorkOrder(workOrderId, actor);
+    const workOrder = await this.findTenantScopedWorkOrder(workOrderId, actor, {
+      id: true,
+      tenantId: true,
+      status: true,
+      facilityIssue: { select: { id: true } }
+    });
+    assertWorkOrderAcceptsFieldMutation(workOrder.status, "upload evidence");
     await assertTechnicianAssignedToWorkOrder({ actor, workOrderId: workOrder.id, prisma: this.prisma });
     const attachment = await this.findEvidenceOrThrow(workOrderId, evidenceId, actor);
     if (attachment.status !== EvidenceAttachmentStatus.PENDING) {

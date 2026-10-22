@@ -93,6 +93,7 @@ import {
   FRAUD_AUDIT_EVENTS,
   FRAUD_CONTROL_ENABLED
 } from "../../common/utils/fraud-control.util";
+import { withSqlConflictRetry } from "../../common/utils/sql-conflict-retry";
 import { PrismaService } from "../../database/prisma.service";
 import { WorkOrderDomainService } from "./work-order-domain.service";
 import type { JwtPayload } from "../auth/auth.types";
@@ -117,6 +118,8 @@ type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId"> & {
 type AssignOptions = {
   reason?: string;
   expectedVersion?: number;
+  plannedStartAt?: string;
+  plannedEndAt?: string;
 };
 
 @Injectable()
@@ -1599,10 +1602,24 @@ export class WorkOrdersService {
       throw new BadRequestException("Reassignment reason is required when changing technician.");
     }
 
+    let plannedStartAt: Date | undefined;
+    let plannedEndAt: Date | undefined;
+    if (options?.plannedStartAt || options?.plannedEndAt) {
+      if (!options.plannedStartAt || !options.plannedEndAt) {
+        throw new BadRequestException("Planned start and end are both required.");
+      }
+      plannedStartAt = new Date(options.plannedStartAt);
+      plannedEndAt = new Date(options.plannedEndAt);
+      if (Number.isNaN(plannedStartAt.getTime()) || Number.isNaN(plannedEndAt.getTime()) || plannedEndAt <= plannedStartAt) {
+        throw new BadRequestException("Planned window must end after it starts.");
+      }
+    }
+
     const assignmentData = {
       technicianId,
       status: WorkOrderStatus.ASSIGNED,
-      version: { increment: 1 as const }
+      version: { increment: 1 as const },
+      ...(plannedStartAt && plannedEndAt ? { plannedStartAt, plannedEndAt } : {})
     };
 
     let employee = await this.prisma.employee.findFirst({
@@ -1624,7 +1641,7 @@ export class WorkOrdersService {
       }
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    await withSqlConflictRetry(() => this.prisma.$transaction(async (tx) => {
       // Lock the technician, then the work order. Same order on every assignment avoids a lock cycle.
       const lockedUsers = await tx.$queryRaw<Array<{ id: string }>>`
         SELECT [id] FROM [User] WITH (UPDLOCK, ROWLOCK)
@@ -1810,7 +1827,7 @@ export class WorkOrdersService {
             })
         }
       });
-    }, { maxWait: 5_000, timeout: 15_000 });
+    }, { maxWait: 5_000, timeout: 15_000 }));
 
     const updated = await this.findOneWithRelations(id, actor);
 

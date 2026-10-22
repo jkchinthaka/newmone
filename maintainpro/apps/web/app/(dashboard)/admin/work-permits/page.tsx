@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { DateTimeField } from "@/components/forms/date-fields";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { MaintenanceSettingsNav } from "@/components/admin/maintenance-settings-nav";
 import { toDateTimeLocalValue } from "@/lib/workforce-designations";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
@@ -93,6 +94,7 @@ export default function AdminWorkPermitsPage() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
+      <MaintenanceSettingsNav />
       <PageBreadcrumbs
         items={[
           { label: "Admin", href: "/admin" },

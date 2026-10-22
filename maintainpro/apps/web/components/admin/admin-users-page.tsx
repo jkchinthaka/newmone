@@ -9,7 +9,8 @@ import { ArrowLeft, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
-import { ErrorState, InlineLoadingState, PermissionState } from "@/components/ui/page-state";
+import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard";
+import { PermissionState } from "@/components/ui/page-state";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { fetchAdminUserAccessList, updateAdminUserStatus, type AdminUserDetail } from "@/lib/admin-users-api";
 import { fetchAdminRolesPermissionsMatrix } from "@/lib/admin-roles-api";
@@ -19,6 +20,7 @@ import { apiClient } from "@/lib/api-client";
 import type { AdminUserAccessRow } from "@/lib/admin-users";
 import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
+import { showPermissionOverridesCard } from "@/lib/permission-overrides";
 
 import { AdminUserFormDialog } from "./admin-user-form-dialog";
 import { AdminUserPasswordDialog } from "./admin-user-password-dialog";
@@ -32,6 +34,7 @@ export function AdminUsersPage() {
   const isAdmin = isAdminConsoleRole(roleName);
   const isSuperAdmin = roleName === "SUPER_ADMIN";
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
@@ -72,13 +75,14 @@ export function AdminUsersPage() {
     const needle = search.trim().toLowerCase();
     return rows.filter((row) => {
       if (focusUserId && row.id !== focusUserId) return false;
+      if (roleFilter && row.roleName !== roleFilter) return false;
       if (!needle) return true;
       return [row.displayName, row.email, row.roleName, row.tenantName ?? "", row.tenantId ?? ""]
         .join(" ")
         .toLowerCase()
         .includes(needle);
     });
-  }, [focusUserId, query.data, search]);
+  }, [focusUserId, query.data, roleFilter, search]);
 
   const handleStatusAction = async (row: AdminUserAccessRow) => {
     const nextActive = !row.isActive;
@@ -204,10 +208,23 @@ export function AdminUsersPage() {
         />
       </label>
 
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Group">
+        <button type="button" aria-pressed={roleFilter == null} className={`min-h-11 rounded-full border px-3 text-sm ${roleFilter == null ? "border-brand-600 bg-brand-600 text-white" : "border-slate-200 bg-white"}`} onClick={() => setRoleFilter(null)}>
+          All {query.data?.length ?? 0}
+        </button>
+        {[...new Set((query.data ?? []).map((row) => row.roleName))].map((roleName) => (
+          <button key={roleName} type="button" aria-pressed={roleFilter === roleName} className={`min-h-11 rounded-full border px-3 text-sm ${roleFilter === roleName ? "border-brand-600 bg-brand-50 text-brand-800" : "border-slate-200 bg-white"}`} onClick={() => setRoleFilter(roleName)}>
+            {roleName.replace(/_/g, " ")} {(query.data ?? []).filter((row) => row.roleName === roleName).length}
+          </button>
+        ))}
+      </div>
+
       {query.isLoading ? (
-        <InlineLoadingState label="Loading users and access data…" />
+        <div className="grid gap-3 sm:grid-cols-2" aria-busy="true"><SkeletonCard /><SkeletonCard /></div>
       ) : query.isError ? (
-        <ErrorState title="Could not load users" error={query.error} onRetry={() => query.refetch()} />
+        <ErrorState message={`Could not load users. ${query.error instanceof Error ? query.error.message : ""}`} onRetry={() => query.refetch()} />
+      ) : filteredRows.length === 0 ? (
+        <EmptyState title="No users found" description="No users were returned for your admin scope." />
       ) : (
         <UserAccessTable
           actionContext={{
@@ -232,6 +249,13 @@ export function AdminUsersPage() {
             onSaved={refreshUsers}
             roles={matrixQuery.data?.roles ?? []}
             user={editingUser}
+            showPermissionOverrides={showPermissionOverridesCard({
+              role: roleName,
+              accessStudioEnabled: user.accessStudioEnabled === true,
+              editingUserId: editingUser?.id ?? null,
+              currentUserId: user.id
+            })}
+            permissionOptions={matrixQuery.data?.permissions ?? []}
           />
           <AdminUserPasswordDialog
             open={Boolean(passwordTarget)}

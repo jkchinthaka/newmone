@@ -26,11 +26,7 @@ Any AI session can end abruptly (usage limits). Continuity lives in the repo, no
 
 ## Run the current project
 
-When the user says "Run this project", "Start MaintainPro", "Open localhost", or "Run current project", use `npm run dev:current` inside the canonical worktree from `maintainpro/scripts/canonical-project.json`. Do not start `npm run dev` from another checkout, and do not treat a listening port as current until `/dev/identity` matches that worktree. The fallback command is:
-
-```powershell
-node C:\Users\chint\AppData\Local\MaintainPro\worktrees\release-final-20261013\maintainpro\scripts\start-current.mjs
-```
+When the user says "Run this project", "Start MaintainPro", "Open localhost", or "Run current project", run `npm run dev:current` inside `C:\Users\chint\AppData\Local\MaintainPro\worktrees\app\maintainpro`. Local app runs only on 3040 (API) and 3041 (web) from the 'app' worktree. Agents must not start other dev servers; e2e uses its own temporary stack and must stop it when done.
 
 ## Repository layout
 
