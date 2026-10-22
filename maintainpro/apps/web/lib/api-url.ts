@@ -19,7 +19,7 @@ function resolveUpstreamApiBaseUrl(): string {
   }
 
   // Explicit local development default only — never a remote production host.
-  return "http://localhost:3000/api";
+  return "http://localhost:3040/api";
 }
 
 function trimTrailingSlash(value: string) {

@@ -291,7 +291,7 @@ export class NotificationUatService {
   }
 
   private renderTemplate(templateKey: NotificationUatTemplateKey, variables?: UatTemplateVariables) {
-    const frontendUrl = this.configService.get<string>("FRONTEND_URL", "http://localhost:3001");
+    const frontendUrl = this.configService.get<string>("FRONTEND_URL", "http://localhost:3041");
     const actionUrl = variables?.actionUrl ?? `${frontendUrl}/notifications`;
 
     switch (templateKey) {

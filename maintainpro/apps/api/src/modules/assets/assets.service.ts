@@ -1664,7 +1664,7 @@ export class AssetsService {
 
   private getAssetScanUrl(assetId: string) {
     const frontendBaseUrl = (
-      this.configService.get<string>("FRONTEND_URL") ?? "http://localhost:3001"
+      this.configService.get<string>("FRONTEND_URL") ?? "http://localhost:3041"
     ).replace(/\/$/, "");
     return `${frontendBaseUrl}/assets?assetId=${encodeURIComponent(assetId)}`;
   }

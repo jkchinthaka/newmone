@@ -110,7 +110,7 @@ async function main() {
     }
   });
 
-  const frontendUrl = (process.env.FRONTEND_URL ?? "http://localhost:3001").replace(/\/$/, "");
+  const frontendUrl = (process.env.FRONTEND_URL ?? "http://localhost:3041").replace(/\/$/, "");
 
   for (const location of cleaningLocations) {
     const scanUrl = `${frontendUrl}/cleaning/scan?code=${location.qrCode}`;

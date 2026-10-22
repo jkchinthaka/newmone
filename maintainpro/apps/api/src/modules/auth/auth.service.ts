@@ -628,7 +628,7 @@ export class AuthService {
 
     const frontendBase =
       this.configService.get<string>("FRONTEND_URL") ??
-      this.configService.get<string>("CORS_ORIGIN", "http://localhost:3001").split(",")[0].trim();
+      this.configService.get<string>("CORS_ORIGIN", "http://localhost:3041").split(",")[0].trim();
     const resetLink = `${frontendBase.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(token)}`;
 
     try {
