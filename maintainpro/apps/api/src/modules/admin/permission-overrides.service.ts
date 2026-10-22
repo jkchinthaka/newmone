@@ -6,7 +6,7 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
-import { AuditAction } from "@prisma/client";
+import { AuditAction, Prisma } from "@prisma/client";
 
 import { accessStudioEnabled } from "../../common/auth/effective-permissions";
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
@@ -85,29 +85,40 @@ export class PermissionOverridesService {
       throw new ConflictException("An override already exists for this permission");
     }
 
-    const row = await this.prisma.userPermissionOverride.create({
-      data: {
-        tenantId: target.tenantId,
-        userId: target.id,
-        permissionKey,
-        effect,
-        reason,
-        createdById: actor.sub
+    try {
+      const row = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.userPermissionOverride.create({
+          data: {
+            tenantId: target.tenantId,
+            userId: target.id,
+            permissionKey,
+            effect,
+            reason,
+            createdById: actor.sub
+          }
+        });
+
+        await writeAuditTrail(tx as unknown as PrismaService, {
+          entity: "UserPermissionOverride",
+          entityId: created.id,
+          action: AuditAction.CREATE,
+          module: "admin",
+          actor,
+          reason,
+          tenantId: target.tenantId,
+          afterData: { userId: target.id, permissionKey, effect }
+        });
+
+        return created;
+      });
+
+      return { data: row, message: "Permission override saved" };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new ConflictException("An override already exists for this permission");
       }
-    });
-
-    await writeAuditTrail(this.prisma, {
-      entity: "UserPermissionOverride",
-      entityId: row.id,
-      action: AuditAction.CREATE,
-      module: "admin",
-      actor,
-      reason,
-      tenantId: target.tenantId,
-      afterData: { userId: target.id, permissionKey, effect }
-    });
-
-    return { data: row, message: "Permission override saved" };
+      throw error;
+    }
   }
 
   async remove(actor: JwtPayload, userId: string, permissionKey: string, reason: string) {
@@ -137,16 +148,18 @@ export class PermissionOverridesService {
       throw new NotFoundException("Permission override not found");
     }
 
-    await this.prisma.userPermissionOverride.delete({ where: { id: row.id } });
-    await writeAuditTrail(this.prisma, {
-      entity: "UserPermissionOverride",
-      entityId: row.id,
-      action: AuditAction.DELETE,
-      module: "admin",
-      actor,
-      reason: auditReason,
-      tenantId: target.tenantId,
-      beforeData: { userId: target.id, permissionKey: row.permissionKey, effect: row.effect }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userPermissionOverride.delete({ where: { id: row.id } });
+      await writeAuditTrail(tx as unknown as PrismaService, {
+        entity: "UserPermissionOverride",
+        entityId: row.id,
+        action: AuditAction.DELETE,
+        module: "admin",
+        actor,
+        reason: auditReason,
+        tenantId: target.tenantId,
+        beforeData: { userId: target.id, permissionKey: row.permissionKey, effect: row.effect }
+      });
     });
 
     return { data: { id: row.id }, message: "Permission override removed" };

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { RoleName } from "@prisma/client";
 
@@ -37,9 +37,13 @@ export class PermissionOverridesController {
   remove(
     @Req() request: AuthedRequest,
     @Param("id") id: string,
-    @Query("permissionKey") permissionKey = "",
-    @Query("reason") reason = ""
+    @Body() body: PermissionOverrideInput = {}
   ) {
-    return this.permissionOverrides.remove(request.user, id, permissionKey, reason);
+    return this.permissionOverrides.remove(
+      request.user,
+      id,
+      body?.permissionKey ?? "",
+      body?.reason ?? ""
+    );
   }
 }

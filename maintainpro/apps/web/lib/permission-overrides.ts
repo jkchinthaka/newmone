@@ -1,3 +1,13 @@
+export const PERMISSION_OVERRIDE_SCOPE_NOTE =
+  "Overrides apply to permission-checked actions only; role-gated screens still follow the user's role.";
+
+/** DELETE body. permissionKey and reason stay out of the query string. */
+export function permissionOverrideDeleteConfig(permissionKey: string, reason: string) {
+  return {
+    data: { permissionKey, reason }
+  };
+}
+
 export function showPermissionOverridesCard(input: {
   role: string | null;
   accessStudioEnabled: boolean;

@@ -1,4 +1,15 @@
+import { ConflictException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
+
+import { PermissionOverridesController } from "../src/modules/admin/permission-overrides.controller";
 import { PermissionOverridesService } from "../src/modules/admin/permission-overrides.service";
+
+function uniqueError() {
+  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+    code: "P2002",
+    clientVersion: "test"
+  });
+}
 
 describe("PermissionOverridesService", () => {
   const actor = {
@@ -21,17 +32,24 @@ describe("PermissionOverridesService", () => {
     }
   });
 
-  const database = () => ({
-    user: { findFirst: jest.fn() },
-    permission: { findUnique: jest.fn() },
-    userPermissionOverride: {
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      delete: jest.fn()
-    },
-    auditLog: { create: jest.fn().mockResolvedValue({ id: "audit-1" }) }
-  });
+  const database = () => {
+    const prisma = {
+      user: { findFirst: jest.fn() },
+      permission: { findUnique: jest.fn() },
+      userPermissionOverride: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        delete: jest.fn()
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({ id: "audit-1" }) },
+      $transaction: jest.fn()
+    };
+    prisma.$transaction.mockImplementation(async (callback: (tx: typeof prisma) => Promise<unknown>) =>
+      callback(prisma)
+    );
+    return prisma;
+  };
 
   it("does not read overrides for a user outside the actor tenant", async () => {
     const prisma = database();
@@ -120,6 +138,29 @@ describe("PermissionOverridesService", () => {
         })
       })
     );
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns a conflict when create hits a unique constraint", async () => {
+    const prisma = database();
+    prisma.permission.findUnique.mockResolvedValue({ key: "assets.view" });
+    prisma.user.findFirst.mockResolvedValue({ id: "user-2", tenantId: "tenant-a" });
+    prisma.userPermissionOverride.findUnique.mockResolvedValue(null);
+    prisma.userPermissionOverride.create.mockRejectedValue(uniqueError());
+    const service = new PermissionOverridesService(prisma as never);
+
+    const error = await service
+      .create(actor, "user-2", {
+        permissionKey: "assets.view",
+        effect: "GRANT",
+        reason: "cover the night shift"
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect((error as ConflictException).getStatus()).toBe(409);
+    expect((error as ConflictException).message).toBe("An override already exists for this permission");
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 
   it("does not read the override table when the flag is off", async () => {
@@ -130,5 +171,22 @@ describe("PermissionOverridesService", () => {
     await expect(service.list(actor, "user-2")).rejects.toThrow();
     expect(prisma.user.findFirst).not.toHaveBeenCalled();
     expect(prisma.userPermissionOverride.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("PermissionOverridesController", () => {
+  it("reads permissionKey and reason from the JSON body on delete", async () => {
+    const service = {
+      remove: jest.fn().mockResolvedValue({ data: { id: "override-1" }, message: "Permission override removed" })
+    };
+    const controller = new PermissionOverridesController(service as never);
+    const actor = { sub: "admin-1", email: "super@maintainpro.local", role: "SUPER_ADMIN", tenantId: "tenant-a" };
+
+    await controller.remove({ user: actor }, "user-2", {
+      permissionKey: "assets.view",
+      reason: "shift ended"
+    });
+
+    expect(service.remove).toHaveBeenCalledWith(actor, "user-2", "assets.view", "shift ended");
   });
 });
