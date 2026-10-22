@@ -30,7 +30,7 @@ test("later refreshes keep the choice made at sign-in", () => {
 
 test("login page shows the help desk link, remember box and the 5/10/30 lock rule", () => {
   const page = readFileSync(path.resolve(__dirname, "../../app/(auth)/login/page.tsx"), "utf8");
-  assert.equal(IT_HELP_DESK_URL, "https://nelna-helpdesk.southeastasia.cloudapp.azure.com/login");
+  assert.equal(IT_HELP_DESK_URL, "https://nelna-helpdesk.southeastasia.cloudapp.azure.com/submit");
   assert.equal(LOGIN_ATTEMPTS_BEFORE_LOCK, 5);
   assert.deepEqual([...LOGIN_LOCKOUT_MINUTES], [5, 10, 30]);
   assert.match(page, /Sign in to MaintainPro/);
