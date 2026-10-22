@@ -48,6 +48,7 @@ import {
   type TriggerContext,
   type TriggerDefinition
 } from "./trigger-engine";
+import { initialPmNextDueAt } from "./pm-baseline";
 
 type Actor = Pick<JwtPayload, "sub" | "tenantId" | "role" | "email"> & {
   permissions?: string[];
@@ -302,6 +303,7 @@ export class PlanningService {
         autoCreateWorkOrder: input.autoCreateWorkOrder ?? true,
         combineMode: input.combineMode ?? PmTriggerCombineMode.EARLIEST,
         effectiveFrom: input.effectiveFrom ?? new Date(),
+        nextDueAt: initialPmNextDueAt(input.effectiveFrom ?? new Date(), input.triggers) ?? undefined,
         currentRevision: 1,
         triggers: input.triggers?.length
           ? {

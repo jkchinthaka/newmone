@@ -315,7 +315,9 @@ export class WorkOrderPartsService {
       ...summary,
       netPartCost: summary.usedCost,
       lineCount: lines.length,
-      unaccountedLines: lines.filter((line) => pendingQuantity(line) > 0 && line.issuedQuantity > 0).length
+      unaccountedLines: lines.filter((line) => pendingQuantity(line) > 0 && line.issuedQuantity > 0).length,
+      /** Returns the technician handed back that stores has not confirmed yet. */
+      pendingReturnLines: lines.filter((line) => (line.pendingReturnQuantity ?? 0) > 0).length
     };
   }
 
@@ -465,12 +467,13 @@ export class WorkOrderPartsService {
       throw new BadRequestException("Authenticated actor required");
     }
 
-    const nextReturned = line.returnedQuantity + data.confirmedQuantity;
+    // Scrap and damaged returns go to damagedQuantity only. Adding them to returnedQuantity too
+    // counted them twice and left fewer units for the technician to mark as used.
+    const isDamagedReturn =
+      line.returnCondition === PartReturnCondition.SCRAP || line.returnCondition === PartReturnCondition.USED_DAMAGED;
+    const nextReturned = isDamagedReturn ? line.returnedQuantity : line.returnedQuantity + data.confirmedQuantity;
     const nextPending = line.pendingReturnQuantity - data.confirmedQuantity;
-    const nextDamaged =
-      line.returnCondition === PartReturnCondition.SCRAP || line.returnCondition === PartReturnCondition.USED_DAMAGED
-        ? line.damagedQuantity + data.confirmedQuantity
-        : line.damagedQuantity;
+    const nextDamaged = isDamagedReturn ? line.damagedQuantity + data.confirmedQuantity : line.damagedQuantity;
 
     const shouldRestock =
       line.returnCondition === PartReturnCondition.UNUSED || line.returnCondition === PartReturnCondition.WRONG_PART;

@@ -1021,6 +1021,18 @@ export class ApprovalsService {
     if (decision.finalStatus === ApprovalRequestStatus.APPROVED) {
       await this.applyApprovedSideEffects(request, input.actor);
     }
+    // A rejection must reach the work order too, or the next Start opens a fresh request and the rejection is lost.
+    if (decision.finalStatus === ApprovalRequestStatus.REJECTED && request.subjectEntityType === "WorkOrder") {
+      await this.prisma.workOrder.updateMany({
+        where: { id: request.subjectEntityId, tenantId, approvalStatus: "PENDING" },
+        data: {
+          approvalStatus: "REJECTED",
+          rejectionReason: input.reason?.trim() || null,
+          approvedAt: null,
+          approvedById: null
+        }
+      });
+    }
 
     return this.getRequest(request.id, input.actor);
   }

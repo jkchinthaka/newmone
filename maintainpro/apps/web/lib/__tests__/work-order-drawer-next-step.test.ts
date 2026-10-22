@@ -26,3 +26,20 @@ test("next step per role and status", () => {
   assert.equal(queueNextControl({ status: "TECHNICIAN_COMPLETED", role: "ADMIN" }).kind, "action");
   assert.equal(queueNextControl({ status: "OPEN", role: "TECHNICIAN" }).kind, "view");
 });
+
+test("a verified job offers Close job to managers, with a reason prompt for early close", () => {
+  assert.deepEqual(queueNextControl({ status: "VERIFIED", role: "MANAGER" }), {
+    kind: "action",
+    actionId: "close",
+    label: "Close job"
+  });
+  assert.equal(queueNextControl({ status: "VERIFIED", role: "TECHNICIAN" }).kind, "view");
+  assert.match(page, /requester confirmation is still pending/i);
+  assert.match(page, /if \(selected === "close"\)/);
+});
+
+test("My Jobs Complete opens the full completion form", () => {
+  const myJobs = readFileSync(path.resolve(__dirname, "../../app/(dashboard)/work-orders/my/page.tsx"), "utf8");
+  assert.match(myJobs, /router\.push\(`\/work-orders\?wo=\$\{encodeURIComponent\(job\.id\)\}`/);
+  assert.doesNotMatch(myJobs, /complete-technician/);
+});

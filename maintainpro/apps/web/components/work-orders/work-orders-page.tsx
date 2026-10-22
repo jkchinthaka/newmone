@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { ErrorState, LoadingCardSkeleton, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { JobsViewSwitcher } from "@/components/operational/jobs-view-switcher";
 import { OperationalPageHeader } from "@/components/operational/operational-page-header";
@@ -92,6 +93,7 @@ type WorkOrdersPageProps = {
 
 export default function WorkOrdersPage({ jobDomain, heading, description }: WorkOrdersPageProps) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const { prompt, dialog: promptDialog } = usePromptDialog();
   const [view, setView] = useState<WorkOrderViewMode>("queues");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [queueStatusRows, setQueueStatusRows] = useState<BulkCancelRow[]>([]);
@@ -330,6 +332,33 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     }
   };
 
+  const postClose = (workOrder: WorkOrder, expectedVersion: number | undefined, overrideReason?: string) =>
+    apiClient.post(`/work-orders/${workOrder.id}/close`, {
+      expectedVersion,
+      note: "Closed after verification",
+      ...(overrideReason ? { overrideReason } : {})
+    });
+
+  /** High-priority jobs wait for the requester. Closing early needs a reason, so ask for one and retry. */
+  const closeWithReasonIfNeeded = async (workOrder: WorkOrder, expectedVersion: number | undefined) => {
+    try {
+      await postClose(workOrder, expectedVersion);
+      return true;
+    } catch (error) {
+      if (!/requester confirmation is still pending/i.test(getErrorMessage(error))) throw error;
+      const reason = await prompt({
+        title: `Close ${workOrder.woNumber} now`,
+        description: "The requester has not confirmed the repair yet.",
+        label: "Reason to close before confirmation",
+        required: true,
+        submitLabel: "Close job"
+      });
+      if (!reason?.trim()) throw new Error("Closing was cancelled.");
+      await postClose(workOrder, expectedVersion, reason.trim());
+      return true;
+    }
+  };
+
   const handlePrimary = async (workOrder: WorkOrder, actionId?: string) => {
     const action = primaryWorkOrderAction({
       status: workOrder.status,
@@ -370,17 +399,23 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       setCompletionTarget(workOrder);
       return;
     }
+    if (selected === "close") {
+      try {
+        await closeWithReasonIfNeeded(workOrder, workOrder.version);
+        toast.success(`${workOrder.woNumber} closed`);
+      } catch (error) {
+        toast.error(`${getErrorMessage(error)} The work order stays verified.`);
+      }
+      await workOrdersQuery.refetch();
+      return;
+    }
     const result = await verifyThenClose({
       verify: () =>
         apiClient.post<{ data?: { version?: number } }>(`/work-orders/${workOrder.id}/verify-supervisor`, {
           expectedVersion: workOrder.version,
           verificationNote: "Verified from the work order list"
         }),
-      close: (verified) =>
-        apiClient.post(`/work-orders/${workOrder.id}/close`, {
-          expectedVersion: verified.data?.data?.version ?? workOrder.version,
-          note: "Closed after verification"
-        })
+      close: (verified) => closeWithReasonIfNeeded(workOrder, verified.data?.data?.version ?? workOrder.version)
     });
     if (!result.ok) {
       toast.error(
@@ -1012,6 +1047,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
 
       {busy ? <div className="fixed bottom-4 right-4 rounded-full bg-slate-900 px-3 py-1 text-xs text-white">Processing...</div> : null}
       {confirmDialog}
+      {promptDialog}
     </div>
   );
 }

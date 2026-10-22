@@ -1,5 +1,5 @@
 export type WorkOrderNextAction = {
-  id: "assign" | "start" | "complete" | "verify-close" | "send-back";
+  id: "assign" | "start" | "complete" | "verify-close" | "close" | "send-back";
   label: string;
   disabledReason?: string;
 };
@@ -28,6 +28,8 @@ export function primaryWorkOrderAction(input: {
   if (input.status === "ASSIGNED" && tech) return { id: "start", label: "Start job" };
   if (input.status === "IN_PROGRESS" && tech) return { id: "complete", label: "Mark complete" };
   if (input.status === "TECHNICIAN_COMPLETED" && verifier) return { id: "verify-close", label: "Verify & close" };
+  // Verified but not closed yet, e.g. the close step needed a reason for a high-priority job.
+  if (input.status === "VERIFIED" && verifier) return { id: "close", label: "Close job" };
   if (input.status === "REWORK_REQUIRED" && tech) return { id: "start", label: "Start job" };
   return null;
 }

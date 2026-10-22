@@ -271,26 +271,13 @@ export default function MyJobsPage() {
     }
   }
 
-  async function completeJob(job: MyJob) {
-    const note = await prompt({
-      title: `Complete ${job.woNumber}`,
-      label: "Completion note",
-      required: true
-    });
-    if (!note?.trim()) return;
-    setStartingId(job.id);
-    try {
-      await apiClient.post(`/work-orders/${job.id}/complete-technician`, {
-        completionNote: note.trim(),
-        expectedVersion: job.version
-      });
-      toast.success(`${job.woNumber} submitted for verification.`);
-      await refresh();
-    } catch (err) {
-      toast.error(mutationErrorMessage(err, "This job could not be completed."));
-    } finally {
-      setStartingId(null);
-    }
+  /**
+   * Completion needs more than a note: before/after photos, QR check, and an odometer reading on
+   * vehicle jobs. Open the job so the full completion form (with those checks) is used.
+   */
+  function completeJob(job: MyJob) {
+    toast.message(`Fill in the completion details for ${job.woNumber}.`);
+    router.push(`/work-orders?wo=${encodeURIComponent(job.id)}` as Route);
   }
 
   return (
