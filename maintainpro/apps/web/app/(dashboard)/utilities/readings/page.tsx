@@ -1,69 +1,60 @@
 "use client";
 
-import { FormEvent, useEffect, useId, useMemo, useRef, useState } from "react";
-import { DateTimeField } from "@/components/forms/date-fields";
+import { FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+
+import { RecordView } from "@/components/utilities/meter-readings/record-view";
+import { SearchView } from "@/components/utilities/meter-readings/search-view";
+import type { MeterRecord, ReadingRecord, RecentReadingRow } from "@/components/utilities/meter-readings/types";
 import { QrScanner } from "@/components/qr/qr-scanner";
+import { PageShell } from "@/components/ui/dashboard";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { colomboDateTimeToIso, colomboNowTime, colomboTodayYmd } from "@/lib/colombo-datetime";
 import {
-  acceptReadingDraft,
-  comparableConsumptions,
-  consumptionWarning,
-  meterFractionDigits,
-  readingAllowsFraction,
-  readingFieldError
-} from "@/lib/meter-reading-input";
+  HIGH_USAGE_COPY,
+  averageDailyUse,
+  formatMeterQuantity,
+  formatRecorded,
+  formatSignedUse,
+  lastSevenSpark,
+  meterLine,
+  myRecentReadings,
+  readingListStatus,
+  readingTimeInFuture,
+  savedReadingMessage,
+  sinceLastLabel,
+  usagePreview
+} from "@/lib/meter-readings-display";
+import { acceptReadingDraft, meterFractionDigits, readingFieldError } from "@/lib/meter-reading-input";
 import { useCurrentUser } from "@/lib/use-current-user";
 
 const READING_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC"]);
 const RECENT_KEY = "maintainpro:recent-meters";
 
-type Meter = {
-  id: string;
-  meterNumber: string;
-  location?: string | null;
-  description?: string | null;
-  type?: string;
-  unit?: string | null;
-  isActive?: boolean;
-};
-type Reading = {
-  id: string;
-  readingValue: number | string;
-  readingDate: string;
-  notes?: string | null;
-  consumption?: number | string | null;
-};
-
-function colomboNow() {
-  const parts = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Asia/Colombo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(new Date());
-  return parts.replace(" ", "T");
-}
-
-function recorder(notes?: string | null) {
-  return notes?.match(/\[by:([^\]]+)\]/)?.[1] ?? "Not recorded";
-}
-
-function readRecent(): Meter[] {
+function readRecent(): MeterRecord[] {
   if (typeof window === "undefined") return [];
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(RECENT_KEY) ?? "[]") as Meter[];
+    const parsed = JSON.parse(window.localStorage.getItem(RECENT_KEY) ?? "[]") as MeterRecord[];
     return Array.isArray(parsed) ? parsed.filter((row) => row && typeof row.id === "string").slice(0, 5) : [];
   } catch {
     return [];
   }
 }
 
-function rememberMeter(meter: Meter) {
+function rememberMeter(meter: MeterRecord) {
   const next = [meter, ...readRecent().filter((row) => row.id !== meter.id)].slice(0, 5);
   window.localStorage.setItem(RECENT_KEY, JSON.stringify(next));
   return next;
+}
+
+function matches(meter: MeterRecord, needle: string) {
+  return `${meter.id} ${meter.meterNumber} ${meter.location ?? ""} ${meter.description ?? ""}`.toLowerCase().includes(needle);
+}
+
+const METER_HISTORY_TAKE = 50;
+const MY_READINGS_TAKE = 50;
+
+function meterReadingCountLabel(count: number): string {
+  return count >= METER_HISTORY_TAKE ? `${METER_HISTORY_TAKE}+ saved` : `${count} saved`;
 }
 
 export default function MeterReadingsPage() {
@@ -71,87 +62,186 @@ export default function MeterReadingsPage() {
   const allowed = READING_ROLES.has(user.role ?? "");
   const valueHintId = useId();
   const [query, setQuery] = useState("");
+  const [appliedNeedle, setAppliedNeedle] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
-  const [meters, setMeters] = useState<Meter[]>([]);
-  const [recent, setRecent] = useState<Meter[]>([]);
-  const [selected, setSelected] = useState<Meter | null>(null);
-  const [history, setHistory] = useState<Reading[]>([]);
-  const [myReadings, setMyReadings] = useState<Reading[]>([]);
+  const [allMeters, setAllMeters] = useState<MeterRecord[]>([]);
+  const [myReadings, setMyReadings] = useState<ReadingRecord[]>([]);
+  const [latestReadings, setLatestReadings] = useState<ReadingRecord[]>([]);
+  const [metersState, setMetersState] = useState<"loading" | "ready" | "error">("loading");
+  const [metersError, setMetersError] = useState("");
+  const [readingsState, setReadingsState] = useState<"loading" | "ready" | "error">("loading");
+  const [readingsError, setReadingsError] = useState("");
+  const [recent, setRecent] = useState<MeterRecord[]>([]);
+  const [selected, setSelected] = useState<MeterRecord | null>(null);
+  const [history, setHistory] = useState<ReadingRecord[]>([]);
+  const [historyState, setHistoryState] = useState<"loading" | "ready" | "error">("ready");
+  const [historyError, setHistoryError] = useState("");
   const [value, setValue] = useState("");
   const [rejectedDraft, setRejectedDraft] = useState("");
-  const [readingAt, setReadingAt] = useState(colomboNow);
+  const [readingAt, setReadingAt] = useState(() => colomboDateTimeToIso(colomboTodayYmd(), colomboNowTime()));
   const [note, setNote] = useState("");
   const [reset, setReset] = useState(false);
   const [resetReason, setResetReason] = useState("");
   const [warning, setWarning] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const attemptKey = useRef<string | null>(null);
+  const historyRequest = useRef("");
   const valueRef = useRef<HTMLInputElement | null>(null);
+  const bindValue = useCallback((node: HTMLInputElement | null) => {
+    valueRef.current = node;
+  }, []);
+  const selectedId = selected?.id ?? "";
 
   useEffect(() => {
     setRecent(readRecent());
+    void loadMeters();
+    void loadReadingList();
   }, []);
 
-  const last = history[0];
+  useEffect(() => {
+    if (!selectedId) return;
+    const handle = window.setTimeout(() => valueRef.current?.focus(), 0);
+    return () => window.clearTimeout(handle);
+  }, [selectedId]);
+
   const fractionDigits = meterFractionDigits(selected?.unit, selected?.type);
   const fieldError = value ? readingFieldError(value, fractionDigits) : "Enter the meter reading.";
-  const draftError = rejectedDraft || (value ? fieldError : "");
-  const preview = useMemo(() => {
-    if (!selected || fieldError || !last) return null;
-    const next = Number(value);
-    const previous = Number(last.readingValue);
-    if (!Number.isFinite(next) || !Number.isFinite(previous) || next < previous) return null;
-    return consumptionWarning(next - previous, comparableConsumptions(history));
-  }, [fieldError, history, last, selected, value]);
+  const draftError = rejectedDraft || (value ? fieldError ?? "" : "");
+  const last = history[0];
+  const preview = useMemo(
+    () => usagePreview(value, fractionDigits, last, history),
+    [fractionDigits, history, last, value]
+  );
+  const latestByMeter = useMemo(() => {
+    const map = new Map<string, ReadingRecord>();
+    for (const row of [...latestReadings, ...myReadings].sort((left, right) => new Date(right.readingDate).getTime() - new Date(left.readingDate).getTime())) {
+      if (!row.meterId || map.has(row.meterId)) continue;
+      map.set(row.meterId, row);
+    }
+    return map;
+  }, [latestReadings, myReadings]);
+  const visibleMeters = useMemo(() => {
+    const found = appliedNeedle ? allMeters.filter((meter) => matches(meter, appliedNeedle)) : allMeters;
+    return [...found].sort((left, right) => {
+      const leftTime = new Date(latestByMeter.get(left.id)?.readingDate ?? 0).getTime();
+      const rightTime = new Date(latestByMeter.get(right.id)?.readingDate ?? 0).getTime();
+      return rightTime - leftTime;
+    });
+  }, [allMeters, appliedNeedle, latestByMeter]);
+  const recentRows = useMemo<RecentReadingRow[]>(() => {
+    const known = [...myReadings, ...latestReadings];
+    return myRecentReadings(myReadings, user.id ?? "").map((row) => {
+      const meter = row.meter ?? allMeters.find((item) => item.id === row.meterId) ?? null;
+      const amount = Number(row.consumption ?? NaN);
+      const sameMeter = known
+        .filter((item, index, rows) => item.meterId && item.meterId === row.meterId && rows.findIndex((other) => other.id === item.id) === index)
+        .sort((left, right) => new Date(right.readingDate).getTime() - new Date(left.readingDate).getTime());
+      return {
+        id: row.id,
+        meterNumber: meter?.meterNumber ?? "Meter",
+        meterLine: meterLine(meter?.description, meter?.location),
+        reading: formatMeterQuantity(row.readingValue, meter?.unit) ?? String(row.readingValue),
+        used: Number.isFinite(amount) ? formatSignedUse(amount, meter?.unit) : null,
+        recorded: formatRecorded(row.readingDate) ?? "",
+        status: readingListStatus(row, sameMeter)
+      };
+    });
+  }, [allMeters, latestReadings, myReadings, user.id]);
 
-  async function loadHistory(meter: Meter) {
-    const [latestResponse, mineResponse] = await Promise.all([
-      apiClient.get("/utilities/meters/latest-readings"),
-      apiClient.get("/utilities/readings", { params: { mine: "true", days: 7, take: 50 } })
-    ]);
-    const latestRows = (latestResponse.data?.data ?? []) as Array<Reading & { meter?: { id?: string } | null }>;
-    const latest = latestRows.find((row) => row.meter?.id === meter.id);
-    const mineRows = ((mineResponse.data?.data ?? []) as Array<Reading & { meterId?: string; meter?: { id?: string } | null }>).filter(
-      (row) => row.meterId === meter.id || row.meter?.id === meter.id
-    );
-    setMyReadings(mineRows);
-    setHistory(latest ? [latest, ...mineRows.filter((row) => row.id !== latest.id)] : mineRows);
+  async function loadMeters() {
+    setMetersState("loading");
+    setMetersError("");
+    try {
+      const response = await apiClient.get("/utilities/meters");
+      setAllMeters((response.data?.data ?? []) as MeterRecord[]);
+      setMetersState("ready");
+    } catch (cause) {
+      setMetersError(getApiErrorMessage(cause, "Meters could not be loaded."));
+      setMetersState("error");
+    }
+  }
+
+  async function loadReadingList() {
+    setReadingsState("loading");
+    setReadingsError("");
+    try {
+      // Bounded lists: the latest reading per meter, and this user's last 7 days (max 50).
+      const [latestResponse, mineResponse] = await Promise.all([
+        apiClient.get("/utilities/meters/latest-readings"),
+        apiClient.get("/utilities/readings", { params: { mine: "true", days: 7, take: MY_READINGS_TAKE } })
+      ]);
+      setLatestReadings((latestResponse.data?.data ?? []) as ReadingRecord[]);
+      setMyReadings((mineResponse.data?.data ?? []) as ReadingRecord[]);
+      setReadingsState("ready");
+    } catch (cause) {
+      setReadingsError(getApiErrorMessage(cause, "Readings could not be loaded."));
+      setReadingsState("error");
+    }
   }
 
   async function search(event?: FormEvent, scanned?: string) {
     event?.preventDefault();
-    setError("");
-    const response = await apiClient.get("/utilities/meters");
-    const rows = (response.data?.data ?? []) as Meter[];
+    setNotice("");
     const needle = (scanned ?? query).trim().toLowerCase();
-    const found = needle
-      ? rows.filter((row) =>
-          `${row.id} ${row.meterNumber} ${row.location ?? ""} ${row.description ?? ""}`.toLowerCase().includes(needle)
-        )
-      : rows;
-    setMeters(found);
-    if (scanned && found.length === 1) await choose(found[0]);
-    if (scanned && found.length === 0) setError("No meter in this tenant matched the scanned code.");
+    setAppliedNeedle(needle);
+    if (scanned) setQuery(scanned);
+    try {
+      const response = await apiClient.get("/utilities/meters");
+      const rows = (response.data?.data ?? []) as MeterRecord[];
+      setAllMeters(rows);
+      setMetersState("ready");
+      const found = needle ? rows.filter((row) => matches(row, needle)) : rows;
+      if (scanned && found.length === 1) await choose(found[0]);
+      if (scanned && found.length === 0) setNotice("No meter in this tenant matched the scanned code.");
+    } catch (cause) {
+      setMetersError(getApiErrorMessage(cause, "Meters could not be loaded."));
+      setMetersState("error");
+    }
   }
 
-  async function choose(meter: Meter) {
-    setSelected(meter);
+  async function loadHistory(meter: MeterRecord, options?: { quiet?: boolean }) {
+    historyRequest.current = meter.id;
+    if (!options?.quiet) {
+      setHistoryState("loading");
+      setHistoryError("");
+    }
+    try {
+      const response = await apiClient.get(`/utilities/meters/${meter.id}/readings`, { params: { take: METER_HISTORY_TAKE } });
+      if (historyRequest.current !== meter.id) return;
+      const rows = (response.data?.data ?? []) as ReadingRecord[];
+      rows.sort((left, right) => new Date(right.readingDate).getTime() - new Date(left.readingDate).getTime());
+      setHistory(rows);
+      setHistoryState("ready");
+    } catch (cause) {
+      if (historyRequest.current !== meter.id) return;
+      setHistory([]);
+      setHistoryError(getApiErrorMessage(cause, "Meter readings could not be loaded."));
+      setHistoryState("error");
+    }
+  }
+
+  async function choose(meter: MeterRecord) {
+    const fresh = allMeters.find((row) => row.id === meter.id) ?? meter;
+    setSelected(fresh);
     setMessage("");
     setWarning("");
+    setError("");
+    setNotice("");
     setValue("");
     setRejectedDraft("");
+    setNote("");
     setReset(false);
     setResetReason("");
     attemptKey.current = null;
-    setRecent(rememberMeter(meter));
-    await loadHistory(meter);
-    valueRef.current?.focus();
+    setRecent(rememberMeter(fresh));
+    await loadHistory(fresh);
   }
 
   function onReadingChange(incoming: string) {
-    const next = acceptReadingDraft(value, incoming, fractionDigits);
+    const next = acceptReadingDraft(value, incoming.replace(/,/g, ""), fractionDigits);
     setValue(next.value);
     setRejectedDraft(next.rejected ? "Only numbers are allowed in the reading." : "");
   }
@@ -163,6 +253,10 @@ export default function MeterReadingsPage() {
       setError("Enter a reason for the meter reset or replacement.");
       return;
     }
+    if (readingTimeInFuture(readingAt)) {
+      setError("Reading time cannot be in the future.");
+      return;
+    }
     setSaving(true);
     setError("");
     setMessage("");
@@ -171,23 +265,26 @@ export default function MeterReadingsPage() {
       attemptKey.current = `${signature}|${crypto.randomUUID()}`;
     }
     const idempotencyKey = attemptKey.current.slice(signature.length + 1);
+    const savedValue = value.trim();
+    const savedAt = readingAt;
     try {
       const response = await apiClient.post(`/utilities/meters/${selected.id}/readings`, {
         readingDate: new Date(readingAt).toISOString(),
-        readingValue: value.trim(),
+        readingValue: savedValue,
         notes: note,
         resetReason: reset ? resetReason.trim() : undefined,
         idempotencyKey
       });
-      const saved = response.data?.data as { warning?: string | null; consumption?: number | null };
-      setWarning(saved?.warning ?? "");
-      setMessage(saved?.consumption == null ? "Reading saved." : `Reading saved. Consumption ${saved.consumption}.`);
+      const saved = response.data?.data as { warning?: string | null };
+      setWarning(saved?.warning ? HIGH_USAGE_COPY : "");
+      setMessage(savedReadingMessage(selected.meterNumber, savedValue, selected.unit, savedAt));
       setValue("");
       setNote("");
       setReset(false);
       setResetReason("");
       attemptKey.current = null;
-      await loadHistory(selected);
+      await loadHistory(selected, { quiet: true });
+      void loadReadingList();
     } catch (cause) {
       setError(getApiErrorMessage(cause, "The reading could not be saved."));
     } finally {
@@ -196,39 +293,91 @@ export default function MeterReadingsPage() {
   }
 
   if (!allowed) {
-    return (
-      <main className="mx-auto max-w-lg p-4">
-        <h1 className="text-2xl font-semibold text-slate-900">Access required</h1>
-        <p className="mt-2 text-sm text-slate-600">Your role cannot record meter readings.</p>
-      </main>
-    );
+    return <PageShell title="Access required" subtitle="Your role cannot record meter readings.">{null}</PageShell>;
   }
 
-  return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-3 sm:p-4">
-      <header>
-        <h1 className="text-2xl font-semibold text-slate-900">Meter Readings</h1>
-        <p className="mt-1 text-sm text-slate-600">Record the number on the meter. Search, scan, or pick a recent meter.</p>
-      </header>
+  const average = averageDailyUse(history);
+  const averageText = average == null ? null : formatMeterQuantity(average, selected?.unit);
+  const spark = lastSevenSpark(history);
 
-      <form className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]" onSubmit={(event) => void search(event)}>
-        <label className="sr-only" htmlFor="meter-search">
-          Search by meter number, name, or location
-        </label>
-        <input
-          id="meter-search"
-          className="min-h-12 min-w-0 rounded-xl border border-slate-300 px-3 text-base"
-          placeholder="Meter number, name, or location"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        <button className="min-h-12 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white" type="submit">
-          Search
-        </button>
-        <button className="min-h-12 rounded-xl border border-slate-300 px-4 text-sm font-semibold" type="button" onClick={() => setScanOpen(true)}>
-          Scan QR
-        </button>
-      </form>
+  return (
+    <div className="min-w-0">
+      {selected ? (
+        <div className="space-y-2">
+          <p className="text-sm text-slate-600">
+            <button className="font-medium text-brand-800" type="button" onClick={() => setSelected(null)}>
+              Meter Readings
+            </button>
+            <span> / {selected.meterNumber}</span>
+          </p>
+        <PageShell
+          title="Record reading"
+          actions={
+            <button className="hidden min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 min-[641px]:inline-flex" type="button" onClick={() => setSelected(null)}>
+              Change meter
+            </button>
+          }
+        >
+          <RecordView
+            meter={selected}
+            history={history}
+            historyState={historyState}
+            historyError={historyError}
+            onRetryHistory={() => void loadHistory(selected)}
+            value={value}
+            onValueChange={onReadingChange}
+            fractionDigits={fractionDigits}
+            draftError={draftError}
+            valueHintId={valueHintId}
+            valueRef={bindValue}
+            usageText={preview ? formatSignedUse(preview.consumption, selected.unit) : null}
+            usageTone={preview ? (preview.warning ? "high" : "normal") : null}
+            sinceLast={last ? sinceLastLabel(last.readingDate) : null}
+            averageText={averageText}
+            spark={spark}
+            readingCount={historyState === "ready" ? meterReadingCountLabel(history.length) : null}
+            readingAt={readingAt}
+            onReadingAt={setReadingAt}
+            reset={reset}
+            onReset={setReset}
+            resetReason={resetReason}
+            onResetReason={setResetReason}
+            note={note}
+            onNote={setNote}
+            warning={preview?.warning || warning}
+            message={message}
+            error={error}
+            saving={saving}
+            submitDisabled={saving || historyState === "loading" || Boolean(fieldError)}
+            onSubmit={(event) => void submit(event)}
+            onChangeMeter={() => setSelected(null)}
+            onScanNext={() => setScanOpen(true)}
+          />
+        </PageShell>
+        </div>
+      ) : (
+        <PageShell title="Meter Readings" subtitle="Record the number on the meter. Search, scan, or pick a recent meter.">
+          <SearchView
+            query={query}
+            onQueryChange={setQuery}
+            onSearch={(event) => void search(event)}
+            onScan={() => setScanOpen(true)}
+            recent={recent}
+            onPick={(meter) => void choose(meter)}
+            meters={visibleMeters}
+            latestByMeter={latestByMeter}
+            metersState={metersState}
+            metersError={metersError}
+            onRetryMeters={() => void loadMeters()}
+            readings={recentRows}
+            readingsState={readingsState}
+            readingsError={readingsError}
+            onRetryReadings={() => void loadReadingList()}
+            notice={notice}
+            filtered={Boolean(appliedNeedle)}
+          />
+        </PageShell>
+      )}
       <QrScanner
         open={scanOpen}
         title="Scan meter QR"
@@ -240,159 +389,6 @@ export default function MeterReadingsPage() {
           void search(undefined, code);
         }}
       />
-
-      {recent.length > 0 ? (
-        <section aria-label="Recently used meters">
-          <h2 className="text-sm font-semibold text-slate-700">Recently used</h2>
-          <ul className="mt-2 flex flex-wrap gap-2">
-            {recent.map((meter) => (
-              <li key={meter.id}>
-                <button className="min-h-11 rounded-full border border-slate-300 px-3 text-sm" type="button" onClick={() => void choose(meter)}>
-                  {meter.meterNumber}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      <ul className="space-y-2">
-        {meters.map((meter) => (
-          <li key={meter.id}>
-            <button className="min-h-12 w-full rounded-xl border border-slate-200 px-3 py-2 text-left" type="button" onClick={() => void choose(meter)}>
-              <span className="font-medium">{meter.meterNumber}</span>
-              <span className="mt-0.5 block text-sm text-slate-600">{meter.location || "No location"}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-
-      {selected ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4" aria-label="Selected meter">
-          <h2 className="text-lg font-semibold">{selected.meterNumber}</h2>
-          <p className="text-sm text-slate-600">
-            {selected.location || "No location"} · {selected.unit || "No unit"} · {selected.isActive === false ? "Inactive" : "Active"}
-          </p>
-          <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-slate-500">Previous reading</dt>
-              <dd className="font-medium">{last ? String(last.readingValue) : "None"}</dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Date and time</dt>
-              <dd className="font-medium">{last ? new Date(last.readingDate).toLocaleString() : "None"}</dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Recorded by</dt>
-              <dd className="font-medium">{recorder(last?.notes)}</dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Unit and status</dt>
-              <dd className="font-medium">
-                {selected.unit || "No unit"} · {selected.isActive === false ? "Inactive" : "Active"}
-              </dd>
-            </div>
-          </dl>
-        </section>
-      ) : (
-        <p className="text-sm text-slate-600">Select a meter to record a reading.</p>
-      )}
-
-      {selected ? (
-        <form className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4" onSubmit={(event) => void submit(event)}>
-          <h2 className="text-lg font-semibold">New Reading</h2>
-          <label className="block text-sm font-medium" htmlFor="reading-value">
-            Reading
-          </label>
-          <input
-            ref={valueRef}
-            id="reading-value"
-            className="min-h-14 w-full rounded-xl border border-slate-300 px-3 text-2xl"
-            inputMode={readingAllowsFraction(fractionDigits) ? "decimal" : "numeric"}
-            autoComplete="off"
-            enterKeyHint="done"
-            aria-invalid={draftError ? "true" : "false"}
-            aria-describedby={valueHintId}
-            value={value}
-            onChange={(event) => onReadingChange(event.target.value)}
-            onPaste={(event) => {
-              event.preventDefault();
-              onReadingChange(event.clipboardData.getData("text"));
-            }}
-          />
-          <p id={valueHintId} className={draftError ? "text-sm text-rose-700" : "text-sm text-slate-500"} role={draftError ? "alert" : undefined}>
-            {draftError ||
-              (fractionDigits === 0 ? "Whole numbers only." : `Up to ${fractionDigits} decimal places.`)}
-          </p>
-          <DateTimeField label="Date and time" value={readingAt} onChange={setReadingAt} />
-          <input required value={readingAt} readOnly tabIndex={-1} aria-hidden="true" className="sr-only" />
-          <label className="block text-sm font-medium" htmlFor="reading-note">
-            Note
-          </label>
-          <textarea id="reading-note" className="min-h-20 w-full rounded-xl border border-slate-300 px-3 py-2" value={note} onChange={(event) => setNote(event.target.value)} />
-          <label className="flex min-h-12 items-center gap-3 text-sm font-medium">
-            <input className="h-5 w-5" type="checkbox" checked={reset} onChange={(event) => setReset(event.target.checked)} />
-            Meter reset or replacement
-          </label>
-          {reset ? (
-            <div>
-              <label className="block text-sm font-medium" htmlFor="reset-reason">
-                Reset reason
-              </label>
-              <input
-                id="reset-reason"
-                className="mt-1 min-h-12 w-full rounded-xl border border-slate-300 px-3"
-                required
-                value={resetReason}
-                onChange={(event) => setResetReason(event.target.value)}
-              />
-              <p className="mt-1 text-sm text-slate-600">Required. Explain why this reading is lower than the previous one.</p>
-            </div>
-          ) : null}
-          {preview ? (
-            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
-              {preview}
-            </p>
-          ) : null}
-          {warning ? (
-            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
-              {warning}
-            </p>
-          ) : null}
-          {message ? (
-            <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900" role="status">
-              {message}
-            </p>
-          ) : null}
-          {error ? (
-            <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <button
-            className="min-h-12 w-full rounded-xl bg-slate-900 px-4 text-base font-semibold text-white disabled:opacity-60"
-            disabled={saving || Boolean(fieldError)}
-            type="submit"
-          >
-            {saving ? "Saving reading..." : "Save Reading"}
-          </button>
-        </form>
-      ) : null}
-
-      <section>
-        <h2 className="font-semibold text-slate-900">My recent readings</h2>
-        {myReadings.length === 0 ? (
-          <p className="mt-1 text-sm text-slate-600">No readings recorded by you for this meter yet.</p>
-        ) : (
-          <ul className="mt-2 space-y-1 text-sm">
-            {myReadings.map((row) => (
-              <li key={row.id}>
-                {String(row.readingValue)} · {new Date(row.readingDate).toLocaleString()}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </main>
+    </div>
   );
 }

@@ -77,8 +77,9 @@ export class UtilitiesController {
 
   @Get("meters/:id/readings")
   @Roles(...METER_READING_ROLES)
-  async readings(@Req() req: AuthedRequest, @Param("id") id: string) {
-    const data = await this.utilitiesService.readings(id, req.user?.tenantId ?? null);
+  async readings(@Req() req: AuthedRequest, @Param("id") id: string, @Query("take") take?: string) {
+    const options = take === undefined ? undefined : { take: this.parseMeterTake(take) };
+    const data = await this.utilitiesService.readings(id, req.user?.tenantId ?? null, options);
     return { data, message: "Readings fetched" };
   }
 
@@ -95,6 +96,13 @@ export class UtilitiesController {
       this.readingListOptions(mine, days, take, req.user?.sub)
     );
     return { data, message: "Readings fetched" };
+  }
+
+  private parseMeterTake(take: string): number {
+    if (!/^\d+$/.test(take) || Number(take) < 1 || Number(take) > 50) {
+      throw new BadRequestException("take must be a whole number from 1 to 50.");
+    }
+    return Number(take);
   }
 
   private readingListOptions(mine?: string, days?: string, take?: string, userId?: string) {

@@ -125,10 +125,14 @@ export class UtilitiesService {
     }
   }
 
-  async readings(id: string, tenantId: string | null) {
+  async readings(id: string, tenantId: string | null, options?: { take?: number }) {
     await this.meter(id, tenantId);
 
-    return this.prisma.meterReading.findMany({ where: { meterId: id }, orderBy: { readingDate: "desc" } });
+    return this.prisma.meterReading.findMany({
+      where: { meterId: id },
+      orderBy: { readingDate: "desc" },
+      ...(options?.take != null ? { take: options.take } : {})
+    });
   }
 
   async allReadings(

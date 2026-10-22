@@ -23,11 +23,14 @@ test("utilities routes are not marked active as assets", () => {
   assert.equal(source.includes("/utilities/readings"), true);
 });
 
-test("meter readings page asks for the latest reading and a bounded mine list", () => {
+test("meter readings page only asks for bounded reading lists", () => {
   const source = readFileSync("app/(dashboard)/utilities/readings/page.tsx", "utf8");
   assert.equal(source.includes("/utilities/meters/latest-readings"), true);
   assert.equal(source.includes('mine: "true"'), true);
   assert.equal(source.includes("days: 7"), true);
-  assert.equal(source.includes("take: 50"), true);
-  assert.equal(source.includes("/utilities/meters/${meter.id}/readings"), false);
+  assert.equal(source.includes("take: MY_READINGS_TAKE"), true);
+  // The selected meter's own history (all users) feeds previous reading, avg per day and the sparkline.
+  assert.equal(source.includes("/utilities/meters/${meter.id}/readings`, { params: { take: METER_HISTORY_TAKE } }"), true);
+  assert.equal(/apiClient\.get\("\/utilities\/readings"\)/.test(source), false);
+  assert.match(source, /const METER_HISTORY_TAKE = 50;/);
 });

@@ -7,7 +7,7 @@ const TENANT_A = "tenant-a";
 
 function prismaMock() {
   return {
-    utilityMeter: { findMany: jest.fn() },
+    utilityMeter: { findMany: jest.fn(), findFirst: jest.fn() },
     meterReading: { findMany: jest.fn(), groupBy: jest.fn() }
   };
 }
@@ -92,4 +92,34 @@ describe("meter reading list limits", () => {
     await controller.allReadings(req, "true", "7", "50");
     expect(service.allReadings).toHaveBeenLastCalledWith(TENANT_A, { mineUserId: "user-1", days: 7, take: 50 });
   });
+  it("bounds one meter's history only when take is passed, inside the caller's tenant", async () => {
+    const prisma = prismaMock();
+    prisma.utilityMeter.findFirst.mockResolvedValue({ id: "meter-a", tenantId: TENANT_A });
+    prisma.meterReading.findMany.mockResolvedValue([]);
+    const service = new UtilitiesService(prisma as never);
+
+    await service.readings("meter-a", TENANT_A);
+    expect(prisma.meterReading.findMany.mock.calls[0][0].take).toBeUndefined();
+
+    await service.readings("meter-a", TENANT_A, { take: 50 });
+    expect(prisma.utilityMeter.findFirst).toHaveBeenCalledWith({ where: { id: "meter-a", tenantId: TENANT_A } });
+    expect(prisma.meterReading.findMany.mock.calls[1][0]).toEqual(
+      expect.objectContaining({ where: { meterId: "meter-a" }, orderBy: { readingDate: "desc" }, take: 50 })
+    );
+  });
+
+  it("validates the per-meter take", async () => {
+    const service = { readings: jest.fn().mockResolvedValue([]) };
+    const controller = new UtilitiesController(service as never);
+    const req = { user: { sub: "user-1", role: "TECHNICIAN", tenantId: TENANT_A } };
+
+    await controller.readings(req, "meter-a");
+    expect(service.readings).toHaveBeenLastCalledWith("meter-a", TENANT_A, undefined);
+    await controller.readings(req, "meter-a", "50");
+    expect(service.readings).toHaveBeenLastCalledWith("meter-a", TENANT_A, { take: 50 });
+    for (const bad of ["0", "51", "abc", "-1"]) {
+      await expect(controller.readings(req, "meter-a", bad)).rejects.toBeInstanceOf(BadRequestException);
+    }
+  });
 });
+
