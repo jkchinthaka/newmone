@@ -3,11 +3,11 @@ import { isPrivateAbsoluteStorageRoot } from "./local-storage-root";
 
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid("development", "test", "production").default("development"),
-  PORT: Joi.number().default(3000),
+  PORT: Joi.number().default(3000), // Docker images and e2e stacks listen on 3000; the local launcher and the go-live service set 3040.
   HTTP_KEEP_ALIVE_TIMEOUT_MS: Joi.number().integer().min(1000).default(65000),
   HTTP_HEADERS_TIMEOUT_MS: Joi.number().integer().min(1000).default(66000),
-  CORS_ORIGIN: Joi.string().default("http://localhost:3001"),
-  FRONTEND_URL: Joi.string().uri().default("http://localhost:3001"),
+  CORS_ORIGIN: Joi.string().default("http://localhost:3041"),
+  FRONTEND_URL: Joi.string().uri().default("http://localhost:3041"),
   DATABASE_PROVIDER: Joi.string().valid("sqlserver", "mongodb").default("sqlserver"),
   PRIMARY_DATABASE_URL: Joi.string().allow(""),
   BACKUP_DATABASE_URL: Joi.string().allow(""),

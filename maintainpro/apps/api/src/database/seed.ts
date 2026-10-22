@@ -1554,7 +1554,7 @@ async function main() {
   ];
 
   for (const location of cleaningLocations) {
-    const scanUrl = `${process.env.FRONTEND_URL ?? "http://localhost:3001"}/cleaning/scan?code=${location.qrCode}`;
+    const scanUrl = `${process.env.FRONTEND_URL ?? "http://localhost:3041"}/cleaning/scan?code=${location.qrCode}`;
 
     await prisma.cleaningLocation.upsert({
       where: { qrCode: location.qrCode },

@@ -286,7 +286,7 @@ export class BillingService {
     const billingInterval = dto.billingInterval ?? BillingInterval.MONTHLY;
     const seats = dto.seats ?? 5;
 
-    const frontendUrl = this.configService.get<string>("FRONTEND_URL") ?? "http://localhost:3001";
+    const frontendUrl = this.configService.get<string>("FRONTEND_URL") ?? "http://localhost:3041";
     const successUrl = dto.successUrl ?? `${frontendUrl}/billing?checkout=success`;
     const cancelUrl = dto.cancelUrl ?? `${frontendUrl}/billing?checkout=canceled`;
 
