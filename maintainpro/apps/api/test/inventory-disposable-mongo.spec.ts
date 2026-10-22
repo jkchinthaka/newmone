@@ -74,7 +74,20 @@ describeDisposable("inventory disposable Mongo validation", () => {
   }, 180000);
 
   afterAll(async () => {
-    await prisma?.$disconnect();
+    try {
+      if (prisma && tenantId) {
+        await prisma.stockMovement.deleteMany({ where: { tenantId } });
+        await prisma.inventoryIdempotency.deleteMany({ where: { tenantId } });
+        await prisma.inventoryStockIssueIdempotency.deleteMany({ where: { tenantId } });
+        await prisma.warehouseItemBalance.deleteMany({ where: { tenantId } });
+        await prisma.auditLog.deleteMany({ where: { tenantId } });
+        await prisma.sparePart.deleteMany({ where: { tenantId } });
+        await prisma.warehouse.deleteMany({ where: { tenantId } });
+        await prisma.tenant.delete({ where: { id: tenantId } });
+      }
+    } finally {
+      await prisma?.$disconnect();
+    }
   });
 
   it("enforces warehouse/item balance uniqueness", async () => {

@@ -73,7 +73,8 @@ describeIfDisposable("navigation admin remediation on disposable SQL Server", ()
 
   afterAll(async () => {
     try {
-      await deleteDisposableTenants(prisma, [tenantId, otherTenantId]);
+      const created = [tenantId, otherTenantId].filter(Boolean);
+      await deleteDisposableTenants(prisma, created);
     } finally {
       await prisma.$disconnect();
     }

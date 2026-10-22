@@ -34,7 +34,7 @@ fleet 404: not reproduced
 Tenant switcher UI removed for phase 1. Restore from git history when a second company goes live.
 Restore archive/fix--ux-confirmed-defects and archive/test--playwright-qa-suite into develop after go-live (conflict review needed).
 
-Cleanup: `apps/api/test/nav-admin-remediation.integration.spec.ts` creates leftover "Nav admin" / "Nav other" tenants (`nav-admin-${stamp}` / `nav-other-${stamp}`) and does not delete them. Delete those fixtures after the spec, on disposable `maintainpro_e2e_*` databases only.
+Cleanup: `nav-admin-remediation.integration.spec.ts` deletes only the `nav-admin-*` and `nav-other-*` tenants it creates, through `deleteDisposableTenants`, on `maintainpro_e2e_*` databases.
 
 SQL deadlock/write conflict in WorkOrdersService.assign: fixed by pull request #115. `assign()` retries SQL Server 1205, snapshot write conflict 3960, and Prisma P2034.
 

@@ -77,3 +77,4 @@ Gates: web `tsc --noEmit` exit 0. Web unit 371 passed, 0 failed. API source was 
 - The meter details "Readings" row shows "50+ saved" when the bounded list is full.
 - `mine` still matches `[by:<userId>]` in notes. A real `createdById` column on MeterReading would be more reliable (no schema change in this PR).
 - Gates (cloud checkout): API tsc 0, web tsc 0, web unit 372/372, utilities/meter Jest 4 suites 26/26. Browser and DB tests not run here.
+test/cleanup-specs | DONE | test/cleanup-specs | 84bee67a | 135 | API tsc 0; web tsc 0; web unit 367/0; Jest company-requester 1, nav-admin 5, inventory-mongo skipped 10; tenant 0; RBAC 971/0 | Save-mapping e2e not re-run: spec not in git, ports 3052/3053 already in use. 3040/3041 untouched. Historical 6/12 left as open items. Pull request https://github.com/jkchinthaka/newmone/pull/135.
