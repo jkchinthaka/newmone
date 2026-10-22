@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import {
   ApprovalDecisionStatus,
   ApprovalProcessType,
@@ -124,6 +124,8 @@ type AssignOptions = {
 
 @Injectable()
 export class WorkOrdersService {
+  private readonly logger = new Logger(WorkOrdersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
@@ -1215,7 +1217,15 @@ export class WorkOrdersService {
       // DB-3: dual-write normalized extensions (same write path; legacy columns remain).
       await this.syncNormalizedExtensions(created.id, tenantId, db);
 
-      return this.syncCreateTimeApprovals(created, actor);
+      const synced = await this.syncCreateTimeApprovals(created, actor);
+      if (!options?.tx && (await this.promoteSuppliedTechnician(synced, actor))) {
+        const promoted = await this.prisma.workOrder.findUnique({
+          where: { id: synced.id },
+          select: { status: true, version: true }
+        });
+        return promoted ? { ...synced, ...promoted } : synced;
+      }
+      return synced;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to create work order";
       throw new BadRequestException(`Failed to create work order: ${message}`);
@@ -1367,7 +1377,52 @@ export class WorkOrdersService {
       });
     }
 
+    if (validatedTechnicianId && (await this.promoteSuppliedTechnician(updated, actor))) {
+      return this.findOne(id, actor);
+    }
     return updated;
+  }
+
+  /** Called after the assignees panel adds a person, which links the technician but does not change status. */
+  async promoteAssignedTechnician(id: string, actor?: Actor): Promise<void> {
+    const current = await this.findOne(id, actor);
+    await this.promoteSuppliedTechnician(current, actor);
+  }
+
+  /**
+   * A technician picked on the create or edit form, or added on the assignees panel, takes the Assign technician path, so the job
+   * moves to ASSIGNED and the technician sees Start on My Jobs. Approval still comes first: a
+   * pending or rejected job stays OPEN and the manager assigns it after approval.
+   */
+  private async promoteSuppliedTechnician(
+    workOrder: {
+      id: string;
+      status: WorkOrderStatus;
+      approvalStatus: WorkOrderApprovalStatus | string;
+      technicianId?: string | null;
+      version?: number | null;
+    },
+    actor?: Actor
+  ): Promise<boolean> {
+    if (!workOrder.technicianId || !actor?.sub) return false;
+    if (workOrder.status !== WorkOrderStatus.OPEN && workOrder.status !== WorkOrderStatus.PLANNED) return false;
+    if (
+      workOrder.approvalStatus !== WorkOrderApprovalStatus.APPROVED &&
+      workOrder.approvalStatus !== "NOT_REQUIRED"
+    ) {
+      return false;
+    }
+    try {
+      await this.assign(workOrder.id, workOrder.technicianId, actor, {
+        expectedVersion: workOrder.version ?? undefined
+      });
+      return true;
+    } catch (error) {
+      // The job is saved with the chosen technician. It stays OPEN and Assign technician still works.
+      const message = error instanceof Error ? error.message : "assignment failed";
+      this.logger.warn(`Work order ${workOrder.id} kept OPEN after technician was picked: ${message}`);
+      return false;
+    }
   }
 
   private async assertVendorAssignable(supplierId: string, actor?: Actor) {

@@ -805,6 +805,12 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             : undefined
         }
         initialTab={editorState.detailTab ?? recordLink.tab}
+        actorRole={currentUser.role}
+        onPrimaryAction={(workOrder, actionId) => {
+          // Assign stays in this drawer (assignment tab). Other steps open their own dialog, so close the drawer first.
+          if (actionId !== "assign") closeEditorModal();
+          handleQueueAction(workOrder, actionId);
+        }}
         onClose={closeEditorModal}
         onCreate={(values) => {
           if (!canCreateWorkOrders) {
