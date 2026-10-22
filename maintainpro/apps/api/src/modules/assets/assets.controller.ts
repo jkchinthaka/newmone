@@ -373,8 +373,11 @@ export class AssetsController {
       req.user?.tenantId ?? null,
       documentId
     );
+    const safeName = file.filename.replace(/["\r\n]/g, "");
     res.setHeader("Content-Type", file.mimeType);
-    res.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${safeName}"`);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "private, no-store");
     res.send(file.buffer);
   }
 

@@ -1,5 +1,6 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Put, Query, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Param, Post, Put, Query, Req, Res, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import type { Response } from "express";
 import {
   AssetMeterType,
   CalibrationResult,
@@ -347,6 +348,25 @@ export class PlanningController {
       contentBase64: String(body.contentBase64 ?? "")
     });
     return { data, message: "Inspection evidence recorded" };
+  }
+
+  @Get("inspections/:id/evidence/:evidenceId/content")
+  @Roles(...READ_ROLES)
+  @Permissions("planning.view")
+  async downloadInspectionEvidence(
+    @Req() req: AuthedRequest,
+    @Res() res: Response,
+    @Param("id") id: string,
+    @Param("evidenceId") evidenceId: string
+  ) {
+    const file = await this.planning.readInspectionEvidence(req.user, id, evidenceId);
+    const safeName = file.fileName.replace(/["\r\n]/g, "");
+    res.setHeader("Content-Type", file.mimeType);
+    res.setHeader("Content-Length", String(file.bytes.length));
+    res.setHeader("Content-Disposition", `attachment; filename="${safeName}"`);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.send(file.bytes);
   }
 
   @Post("inspections/:id/complete")
