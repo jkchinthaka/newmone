@@ -14,7 +14,7 @@ import { AuditAction, RoleName, TenantInvitationStatus, TenantMembershipRole, Us
 import * as bcrypt from "bcryptjs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
-import { accessStudioEnabled, loadEffectivePermissionKeys } from "../../common/auth/effective-permissions";
+import { accessStudioEnabled, loadEffectivePermissionKeys, readAccessConfigVersion } from "../../common/auth/effective-permissions";
 import { toJsonText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 import { requestContext } from "../../common/context/request-context";
@@ -895,7 +895,8 @@ export class AuthService {
         permissions: permissionKeys,
         tenantId: resolvedTenantId,
         enabledFeatures,
-        accessStudioEnabled: accessStudioEnabled()
+        accessStudioEnabled: accessStudioEnabled(),
+        accessConfigVersion: await readAccessConfigVersion(this.prisma, resolvedTenantId)
       },
       message: "Profile fetched"
     };

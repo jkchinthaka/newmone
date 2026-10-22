@@ -1,7 +1,8 @@
 import { ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 
-import { PermissionsGuard } from "../src/common/guards/permissions.guard";
+import { PermissionsGuard, hasCompatiblePermission } from "../src/common/guards/permissions.guard";
+import { WorkOrdersController } from "../src/modules/work-orders/work-orders.controller";
 import { OperationsController } from "../src/modules/operations/operations.controller";
 import { PredictiveAiController } from "../src/modules/predictive-ai/predictive-ai.controller";
 import { VehiclesController } from "../src/modules/vehicles/vehicles.controller";
@@ -417,6 +418,34 @@ describe("PermissionsGuard", () => {
 
       await expect(guard.canActivate(buildContext({ sub: "u-1", role: "VIEWER" }))).resolves.toBe(true);
       expect(findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  it("denies work_orders.verify when that key is denied even if manage would alias it", async () => {
+    await withStudio("true", async () => {
+      const guard = new PermissionsGuard(new Reflector(), {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            ...activeUser({ roleName: "MANAGER", permissions: ["work_orders.manage"] }),
+            tenantId: "tenant-a"
+          })
+        },
+        userPermissionOverride: {
+          findMany: jest.fn().mockResolvedValue([{ permissionKey: "work_orders.verify", effect: "DENY" }])
+        }
+      } as any);
+      const context = {
+        getHandler: () => WorkOrdersController.prototype.returnToService,
+        getClass: () => WorkOrdersController,
+        switchToHttp: () => ({
+          getRequest: () => ({ user: { sub: "u-1", role: "MANAGER" } })
+        })
+      } as unknown as ExecutionContext;
+
+      await expect(guard.canActivate(context)).rejects.toThrow("Missing required permission");
+      expect(
+        hasCompatiblePermission(new Set(["work_orders.manage"]), "work_orders.verify", "MANAGER", new Set(["work_orders.verify"]))
+      ).toBe(false);
     });
   });
 });

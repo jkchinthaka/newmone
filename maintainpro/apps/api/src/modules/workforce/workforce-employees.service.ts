@@ -15,6 +15,7 @@ import {
 import { stringArrayToText, toStringArray } from "../../common/utils/json-text";
 import { syncUserSkills } from "../../common/utils/user-skills.util";
 import { PrismaService } from "../../database/prisma.service";
+import { assertLoadedSuperAdminCanChange } from "../../common/auth/last-super-admin";
 import { tenantWhere } from "../../common/utils/tenant-scope.util";
 import type { CreateWorkforceEmployeeDto, UpdateWorkforceEmployeeDto } from "./dto/workforce-employee.dto";
 
@@ -421,6 +422,9 @@ export class WorkforceEmployeesService {
       }
 
       if (Object.keys(userPatch).length > 0) {
+        if (userPatch.isActive === false) {
+          await this.blockLastSuperAdminChange(existing.linkedUserId, { nextIsActive: false });
+        }
         await this.prisma.user.update({
           where: { id: existing.linkedUserId },
           data: userPatch
@@ -519,5 +523,27 @@ export class WorkforceEmployeesService {
     }
 
     return employee;
+  }
+
+  private async blockLastSuperAdminChange(
+    userId: string,
+    change: { nextIsActive?: boolean; nextRoleName?: string | null; deleting?: boolean }
+  ) {
+    if (!this.prisma.user?.findUnique || !this.prisma.user?.count) return;
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, tenantId: true, isActive: true, role: { select: { name: true } } }
+    });
+    if (!user?.role?.name) return;
+    await assertLoadedSuperAdminCanChange(
+      this.prisma,
+      {
+        id: user.id,
+        tenantId: user.tenantId ?? null,
+        isActive: user.isActive !== false,
+        role: { name: user.role.name }
+      },
+      change
+    );
   }
 }

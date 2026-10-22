@@ -9,7 +9,7 @@ import {
 import { Reflector } from "@nestjs/core";
 
 import { PrismaService } from "../../database/prisma.service";
-import { loadEffectivePermissionKeys } from "../auth/effective-permissions";
+import { loadEffectiveAccess } from "../auth/effective-permissions";
 import { rolePermissionKeys } from "../utils/role-permissions.util";
 import { PERMISSIONS_KEY } from "../decorators/permissions.decorator";
 
@@ -180,16 +180,17 @@ export class PermissionsGuard implements CanActivate {
     }
 
     const roleKeys = rolePermissionKeys(dbUser.role);
-    const effectiveKeys = await loadEffectivePermissionKeys(
+    const access = await loadEffectiveAccess(
       this.prisma,
       { id: dbUser.id, tenantId: dbUser.tenantId ?? null },
       roleKeys
     );
 
     return this.assertHasPermissions(
-      this.toPermissionSet(effectiveKeys),
+      this.toPermissionSet(access.keys),
       requiredPermissions,
-      dbUser.role.name
+      dbUser.role.name,
+      access.denied
     );
   }
 
@@ -224,10 +225,11 @@ export class PermissionsGuard implements CanActivate {
   private assertHasPermissions(
     userPermissions: Set<string>,
     requiredPermissions: string[],
-    role?: string | null
+    role?: string | null,
+    denied?: ReadonlySet<string>
   ): boolean {
     const missingPermissions = requiredPermissions.filter(
-      (permission) => !this.hasPermission(userPermissions, permission, role)
+      (permission) => !this.hasPermission(userPermissions, permission, role, denied)
     );
 
     if (missingPermissions.length > 0) {
@@ -250,9 +252,10 @@ export class PermissionsGuard implements CanActivate {
   private hasPermission(
     userPermissions: Set<string>,
     requiredPermission: string,
-    role?: string | null
+    role?: string | null,
+    denied?: ReadonlySet<string>
   ): boolean {
-    return hasCompatiblePermission(userPermissions, requiredPermission, role);
+    return hasCompatiblePermission(userPermissions, requiredPermission, role, denied);
   }
 }
 
@@ -263,8 +266,15 @@ export class PermissionsGuard implements CanActivate {
 export function hasCompatiblePermission(
   userPermissions: ReadonlySet<string>,
   requiredPermission: string,
-  role?: string | null
+  role?: string | null,
+  deniedPermissions?: ReadonlySet<string>
 ): boolean {
+  // A DENY on the required key blocks every alias that would otherwise satisfy it.
+  // A DENY on an alias key stops that alias from counting. A direct grant still allows.
+  if (deniedPermissions?.has(requiredPermission)) {
+    return false;
+  }
+
   if (userPermissions.has(requiredPermission)) {
     return true;
   }
@@ -274,7 +284,7 @@ export function hasCompatiblePermission(
     return false;
   }
 
-  return (COMPATIBLE_PERMISSION_ALIASES[requiredPermission] ?? []).some((permission) =>
-    userPermissions.has(permission)
+  return (COMPATIBLE_PERMISSION_ALIASES[requiredPermission] ?? []).some(
+    (permission) => userPermissions.has(permission) && !deniedPermissions?.has(permission)
   );
 }

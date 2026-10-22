@@ -15,6 +15,7 @@ import * as bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 
 import { requestContext } from "../../common/context/request-context";
+import { assertLoadedSuperAdminCanChange } from "../../common/auth/last-super-admin";
 import { createPaginationMeta } from "../../common/utils/pagination-meta";
 import { clampPage, clampPageSize } from "../../common/utils/pagination.util";
 import { stringArrayToText, toStringArray } from "../../common/utils/json-text";
@@ -546,6 +547,7 @@ export class PeopleService {
     }
 
     if (dto.active === false && existing.linkedUserId) {
+      await this.blockLastSuperAdminChange(existing.linkedUserId, { nextIsActive: false });
       await this.prisma.user.update({
         where: { id: existing.linkedUserId },
         data: { isActive: false }
@@ -791,6 +793,7 @@ export class PeopleService {
     const employee = await this.findOne(employeeId);
     if (!employee.linkedUserId) throw new BadRequestException("Employee has no login account");
 
+    await this.blockLastSuperAdminChange(employee.linkedUserId, { nextIsActive: false });
     await this.prisma.user.update({
       where: { id: employee.linkedUserId },
       data: { isActive: false }
@@ -940,5 +943,27 @@ export class PeopleService {
       metadata: { event: "invitation_revoked" }
     });
     return { revoked: true };
+  }
+
+  private async blockLastSuperAdminChange(
+    userId: string,
+    change: { nextIsActive?: boolean; nextRoleName?: string | null; deleting?: boolean }
+  ) {
+    if (!this.prisma.user?.findUnique || !this.prisma.user?.count) return;
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, tenantId: true, isActive: true, role: { select: { name: true } } }
+    });
+    if (!user?.role?.name) return;
+    await assertLoadedSuperAdminCanChange(
+      this.prisma,
+      {
+        id: user.id,
+        tenantId: user.tenantId ?? null,
+        isActive: user.isActive !== false,
+        role: { name: user.role.name }
+      },
+      change
+    );
   }
 }

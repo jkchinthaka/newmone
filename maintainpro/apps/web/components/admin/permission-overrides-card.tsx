@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import {
   PERMISSION_OVERRIDE_SCOPE_NOTE,
-  permissionOverrideDeleteConfig
+  permissionOverrideDeleteConfig,
+  removalReasonIsNew
 } from "@/lib/permission-overrides";
 
 type OverrideRow = {
@@ -14,6 +15,7 @@ type OverrideRow = {
   permissionKey: string;
   effect: string;
   reason: string;
+  expiresAt?: string | null;
 };
 
 type PermissionOption = {
@@ -33,6 +35,8 @@ export function PermissionOverridesCard({
   const [permissionKey, setPermissionKey] = useState(permissionOptions[0]?.key ?? "");
   const [effect, setEffect] = useState<"GRANT" | "DENY">("GRANT");
   const [reason, setReason] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [removalReasons, setRemovalReasons] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
@@ -65,9 +69,11 @@ export function PermissionOverridesCard({
       await apiClient.post(`/admin/users/${userId}/permission-overrides`, {
         permissionKey,
         effect,
-        reason: reason.trim()
+        reason: reason.trim(),
+        expiresAt: expiresAt || null
       });
       setReason("");
+      setExpiresAt("");
       toast.success("Permission override saved.");
       await load();
     } catch (error) {
@@ -78,11 +84,16 @@ export function PermissionOverridesCard({
   };
 
   const removeOverride = async (row: OverrideRow) => {
+    const removalReason = removalReasons[row.id] ?? "";
+    if (!removalReasonIsNew(row.reason, removalReason)) {
+      toast.error("Enter a new removal reason.");
+      return;
+    }
     setBusy(true);
     try {
       await apiClient.delete(
         `/admin/users/${userId}/permission-overrides`,
-        permissionOverrideDeleteConfig(row.permissionKey, row.reason)
+        permissionOverrideDeleteConfig(row.permissionKey, removalReason.trim())
       );
       toast.success("Permission override removed.");
       await load();
@@ -112,16 +123,29 @@ export function PermissionOverridesCard({
               key={row.id}
               className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
             >
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-slate-800">
                   {row.permissionKey}{" "}
                   <span className="text-xs font-semibold uppercase text-slate-500">{row.effect}</span>
                 </p>
                 <p className="text-xs text-slate-500">{row.reason}</p>
+                {row.expiresAt ? (
+                  <p className="text-xs text-slate-500">Expires {row.expiresAt.slice(0, 10)}</p>
+                ) : null}
+                <label className="mt-2 block text-xs font-medium text-slate-600">
+                  Removal reason
+                  <input
+                    value={removalReasons[row.id] ?? ""}
+                    onChange={(event) =>
+                      setRemovalReasons((current) => ({ ...current, [row.id]: event.target.value }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800"
+                  />
+                </label>
               </div>
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || !removalReasonIsNew(row.reason, removalReasons[row.id] ?? "")}
                 onClick={() => void removeOverride(row)}
                 className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
               >
@@ -157,6 +181,15 @@ export function PermissionOverridesCard({
             <option value="GRANT">Grant</option>
             <option value="DENY">Deny</option>
           </select>
+        </label>
+        <label className="text-xs font-medium text-slate-600">
+          Expires
+          <input
+            type="date"
+            value={expiresAt}
+            onChange={(event) => setExpiresAt(event.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800"
+          />
         </label>
         <label className="text-xs font-medium text-slate-600 sm:col-span-2">
           Reason
