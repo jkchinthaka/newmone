@@ -89,7 +89,7 @@ export function DriverIntelligenceDashboard() {
             <RefreshCw size={15} className={query.isFetching ? "animate-spin" : ""} aria-hidden="true" /> Refresh
           </button>
           <Link
-            href={"/reports/driver-intelligence" as Route}
+            href={"/reports/operations" as Route}
             className="inline-flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 shadow-sm transition hover:bg-brand-100"
           >
             Reports <ArrowRight size={15} aria-hidden="true" />

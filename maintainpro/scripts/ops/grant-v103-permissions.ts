@@ -1,27 +1,20 @@
 import { PrismaClient } from "@prisma/client";
 
 import { applyV103Grants } from "../../apps/api/src/database/v103-grants";
-
-function databaseName(url: string): string {
-  const named = url.match(/(?:^|;)database=([^;]+)/i);
-  if (named?.[1]) return decodeURIComponent(named[1]);
-  const path = url.split("?")[0] ?? "";
-  return decodeURIComponent(path.slice(path.lastIndexOf("/") + 1));
-}
+import { resolveGrantInvocation } from "./grant-v103-guard";
 
 async function main() {
-  const dryRun = process.argv.includes("--dry-run");
-  const url = process.env.DATABASE_URL?.trim() ?? "";
-  const name = url ? databaseName(url) : "";
-  if (!/^maintainpro_e2e_/i.test(name)) {
-    console.error("Refusing: DATABASE_URL must target a maintainpro_e2e_* database.");
+  const decision = resolveGrantInvocation(process.argv.slice(2), process.env.DATABASE_URL?.trim() ?? "");
+  if (!decision.ok) {
+    console.error(decision.reason);
     process.exit(1);
   }
   const prisma = new PrismaClient();
   try {
-    const lines = await applyV103Grants(prisma, { dryRun });
-    console.log(dryRun ? "DRY-RUN" : "APPLIED");
-    console.log(`database=${name}`);
+    const lines = await applyV103Grants(prisma, { dryRun: decision.dryRun });
+    console.log(decision.dryRun ? "DRY-RUN" : "APPLIED");
+    console.log(`database=${decision.database}`);
+    console.log(decision.dryRun ? "Planned changes:" : "Applied changes:");
     for (const line of lines) console.log(line);
     if (lines.length === 0) console.log("No changes.");
   } finally {

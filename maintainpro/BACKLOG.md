@@ -4,10 +4,10 @@
 
 ## company-requester.integration.spec.ts
 
-`afterAll` deletes only the maintenance requests the test records. The test also creates an isolation tenant (`Requester isolation tenant` / `req-iso-*`) and, on the seeded `default` tenant, one role, its permission links, and one user for each department. Cleaning that up has to keep the seeded tenant and follow every row `MaintenanceRequestsService.create` writes on that shared tenant.
+`afterAll` on `test/cleanup-specs` deletes the requests, audit rows, notifications, refresh tokens, memberships, invitations, skills, users, role permissions, and `QA_*_REQUESTER` roles created by this spec. It also removes earlier leftovers with the same email and role names, and `req-iso-*` tenants. A department manager pointer or request-history actor that points at one of those fixture users is cleared. The seeded default tenant stays.
 
 ## inventory-disposable-mongo.spec.ts
 
-`afterAll` only disconnects. The suite is skipped unless `DISPOSABLE_MONGO_URL` is set. It creates a tenant plus inventory ledger rows on Mongo, not on SQL Server.
+`afterAll` deletes stock movements, idempotency rows, warehouse balances, audit rows, parts, warehouses, and the tenant this suite created. The suite still runs only when `DISPOSABLE_MONGO_URL` is set.
 
 `apps/web/e2e-real` has no `tenant.create`. `verified-stock.integration.spec.ts` and `machine-lookup.integration.spec.ts` already delete the tenants they create.

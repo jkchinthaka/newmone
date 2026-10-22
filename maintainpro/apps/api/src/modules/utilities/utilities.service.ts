@@ -125,13 +125,20 @@ export class UtilitiesService {
     }
   }
 
-  async readings(id: string, tenantId: string | null) {
+  async readings(id: string, tenantId: string | null, options?: { take?: number }) {
     await this.meter(id, tenantId);
 
-    return this.prisma.meterReading.findMany({ where: { meterId: id }, orderBy: { readingDate: "desc" } });
+    return this.prisma.meterReading.findMany({
+      where: { meterId: id },
+      orderBy: { readingDate: "desc" },
+      ...(options?.take != null ? { take: options.take } : {})
+    });
   }
 
-  async allReadings(tenantId: string | null) {
+  async allReadings(
+    tenantId: string | null,
+    options?: { mineUserId?: string; days?: number; take?: number }
+  ) {
     // Scope to meters owned by this tenant, then fetch their readings. Avoids
     // Prisma's required-relation `include` throwing on dangling meterIds while
     // also enforcing tenant isolation (MeterReading has no tenantId of its own).
@@ -142,14 +149,46 @@ export class UtilitiesService {
     if (meters.length === 0) return [];
 
     const meterMap = new Map(meters.map((m) => [m.id, m]));
+    const where: Prisma.MeterReadingWhereInput = { meterId: { in: meters.map((m) => m.id) } };
+    if (options?.mineUserId) {
+      where.notes = { contains: `[by:${options.mineUserId}]` };
+    }
+    if (options?.days != null) {
+      where.readingDate = { gte: new Date(Date.now() - options.days * 24 * 60 * 60 * 1000) };
+    }
     const readings = await this.prisma.meterReading.findMany({
-      where: { meterId: { in: meters.map((m) => m.id) } },
-      orderBy: { readingDate: "desc" }
+      where,
+      orderBy: { readingDate: "desc" },
+      ...(options?.take != null ? { take: options.take } : {})
     });
 
     return readings
       .filter((r) => meterMap.has(r.meterId))
       .map((r) => ({ ...r, meter: meterMap.get(r.meterId) }));
+  }
+
+  async latestReadings(tenantId: string | null) {
+    const scopedTenantId = requireTenantId(tenantId);
+    const meters = await this.prisma.utilityMeter.findMany({
+      where: { tenantId: scopedTenantId }
+    });
+    if (meters.length === 0) return [];
+    const meterMap = new Map(meters.map((meter) => [meter.id, meter]));
+    const grouped = await this.prisma.meterReading.groupBy({
+      by: ["meterId"],
+      where: { meterId: { in: [...meterMap.keys()] } },
+      _max: { readingDate: true }
+    });
+    const pairs = grouped.filter((row) => row._max.readingDate);
+    if (pairs.length === 0) return [];
+    const readings = await this.prisma.meterReading.findMany({
+      where: {
+        OR: pairs.map((row) => ({ meterId: row.meterId, readingDate: row._max.readingDate as Date }))
+      }
+    });
+    return readings
+      .filter((reading) => meterMap.has(reading.meterId))
+      .map((reading) => ({ ...reading, meter: meterMap.get(reading.meterId) }));
   }
 
   async consumptionChart(id: string, tenantId: string | null) {

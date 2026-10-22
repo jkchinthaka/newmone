@@ -60,7 +60,11 @@ function isBinaryUpstreamResponse(contentType: string | null): boolean {
     mime.startsWith("audio/") ||
     mime.startsWith("video/") ||
     mime === "application/pdf" ||
-    mime === "application/octet-stream"
+    mime === "application/octet-stream" ||
+    mime === "text/csv" ||
+    mime === "application/csv" ||
+    mime === "application/vnd.ms-excel" ||
+    mime === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   );
 }
 

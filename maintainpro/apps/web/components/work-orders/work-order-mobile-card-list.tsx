@@ -70,16 +70,16 @@ export function WorkOrderMobileCardList({ rows, onOpen, onAction, actorRole, job
               </div>
             </dl>
             {mileage ? <p className="mt-1 text-xs text-slate-500">{mileage}</p> : null}
-            <div className="mt-3">
+            {/* View is always available so a phone user can read the job before acting on it. */}
+            <div className="mt-3 flex flex-wrap gap-2">
               {control.kind === "action" ? (
                 <button type="button" className="inline-flex min-h-10 items-center rounded-md bg-brand-600 px-3 text-sm font-semibold text-white" onClick={() => onAction?.(row, control.actionId)}>
                   {control.label}
                 </button>
-              ) : (
-                <button type="button" aria-label={`Open ${row.woNumber}`} className="inline-flex min-h-10 items-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-800" onClick={() => onOpen(row)}>
-                  View
-                </button>
-              )}
+              ) : null}
+              <button type="button" aria-label={`Open ${row.woNumber}`} className="inline-flex min-h-10 items-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-800" onClick={() => onOpen(row)}>
+                View
+              </button>
             </div>
           </article>
         );

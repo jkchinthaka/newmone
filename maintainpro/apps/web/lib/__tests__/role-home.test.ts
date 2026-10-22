@@ -78,11 +78,17 @@ test("resolveRoleHome: case-insensitive and trims whitespace", () => {
 test("manager report cards deep-link to distinct report views", () => {
   const profile = resolveRoleHome("MANAGER");
   const hrefs = new Map(profile.cards.map((card) => [card.id, card.href]));
-  assert.equal(hrefs.get("kpi-reports"), "/reports/performance");
-  assert.equal(hrefs.get("pm-compliance"), "/reports/performance?search=preventive");
+  assert.equal(hrefs.get("kpi-reports"), "/reports/operations");
+  assert.equal(hrefs.get("pm-compliance"), "/reports/operations?search=preventive");
   assert.equal(hrefs.get("downtime"), "/reports/assets?search=downtime");
-  assert.equal(hrefs.get("cost"), "/reports/financials");
+  assert.equal(hrefs.get("cost"), "/maintenance/jobs");
   assert.equal(hrefs.get("repeat-failures"), "/reports/maintenance-exceptions");
+});
+
+test("maintenance cost stays hidden when the role cannot open work-order insights", () => {
+  assert.equal(resolveRoleHome("MAINTENANCE_MANAGER").cards.some((card) => card.id === "cost"), false);
+  assert.equal(resolveRoleHome("FINANCE").cards.some((card) => card.id === "cost"), false);
+  assert.equal(resolveRoleHome("MANAGER").cards.some((card) => card.id === "cost"), true);
 });
 
 test("every ROLE_HOME_PROFILES entry has at least one card with a non-empty href", () => {

@@ -178,6 +178,7 @@ model Tenant {
   domainEventOutbox            DomainEventOutbox[]
   budgetCommitments            BudgetCommitment[]
   stockCountSessions           StockCountSession[]
+  gateChecks                   GateCheck[]
   /// Phase 10 — fleet lifecycle: tyres, batteries, driver assignment history
   vehicleTyres                 VehicleTyre[]
   vehicleBatteries             VehicleBattery[]
@@ -368,6 +369,7 @@ model User {
   assignedWorkOrders          WorkOrder[]                 @relation("TechnicianWorkOrders")
   createdWorkOrders           WorkOrder[]                 @relation("CreatorWorkOrders")
   approvedWorkOrders          WorkOrder[]                 @relation("ApprovedWorkOrders")
+  gateChecks                  GateCheck[]                 @relation("GateCheckCheckedBy")
   verifiedWorkOrders          WorkOrder[]                 @relation("VerifiedWorkOrders")
   reopenedWorkOrders          WorkOrder[]                 @relation("ReopenedWorkOrders")
   qrVerifiedWorkOrders        WorkOrder[]                 @relation("QrVerifiedWorkOrders")
@@ -1043,6 +1045,7 @@ model Vehicle {
   gpsLocations         GpsLocation[]
   meterLogs            VehicleMeterLog[]
   gateMovements        VehicleGateMovement[]
+  gateChecks           GateCheck[]
   documents            VehicleDocument[]
   accidents            AccidentReport[]
   insuranceClaims      InsuranceClaim[]
@@ -1385,6 +1388,23 @@ model MaintenanceLog {
   @@index([assetId])
   @@index([vehicleId])
   @@index([performedAt])
+}
+
+model GateCheck {
+  id          String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId    String   @db.NVarChar(36)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicleId   String   @db.NVarChar(36)
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  checkedById String   @db.NVarChar(36)
+  checkedBy   User     @relation("GateCheckCheckedBy", fields: [checkedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// READY | BLOCKED
+  result      String   @db.NVarChar(16)
+  reasons     String   @db.NVarChar(Max)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, vehicleId])
 }
 
 model WorkOrder {

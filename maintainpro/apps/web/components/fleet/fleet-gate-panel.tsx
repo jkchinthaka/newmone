@@ -61,7 +61,20 @@ export function FleetGatePanel() {
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [history, setHistory] = useState<Movement[] | null>(null);
+  const [todayChecks, setTodayChecks] = useState<Array<{ id: string; registrationNo: string; result: string; createdAt: string }>>([]);
   const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    apiClient
+      .get("/vehicles/gate-checks", { signal: controller.signal })
+      .then((response) => {
+        const payload = response.data?.data;
+        setTodayChecks(Array.isArray(payload) ? payload : []);
+      })
+      .catch(() => setTodayChecks([]));
+    return () => controller.abort();
+  }, [reloadKey]);
 
   useEffect(() => setDraftQuery(state.q), [state.q]);
 
@@ -211,6 +224,21 @@ export function FleetGatePanel() {
           </>
         }
       />
+      <section className="rounded-lg border border-slate-200 bg-white p-3">
+        <h2 className="text-sm font-semibold text-slate-900">Today at the gate</h2>
+        {todayChecks.length === 0 ? (
+          <p className="mt-2 text-sm text-slate-600">No gate checks yet today.</p>
+        ) : (
+          <ul className="mt-2 space-y-1 text-sm">
+            {todayChecks.map((check) => (
+              <li key={check.id} className="flex justify-between gap-3">
+                <span>{check.registrationNo}</span>
+                <span className={check.result === "BLOCKED" ? "text-red-700" : "text-brand-700"}>{check.result === "BLOCKED" ? "Blocked" : "Ready"}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
         <section className="order-2 rounded-lg border border-slate-200 bg-white lg:order-1">
           <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
