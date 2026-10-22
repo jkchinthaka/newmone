@@ -127,7 +127,7 @@ export default function ApprovalsInboxPage() {
   return (
     <div className="ops-page">
       <PageBreadcrumbs items={[{ label: "Approvals", href: "/approvals" }]} />
-      <ResponsivePageHeader title="Pending Approvals" description="One inbox for requests, work, parts, and vendor documents." />
+      <ResponsivePageHeader title="Approvals" description="Items waiting for your decision. You cannot approve your own requests." />
       {error ? <ErrorState title="Could not load approvals" description={error} onRetry={() => void refresh()} /> : null}
       <PendingApprovalsInbox
         items={items}
