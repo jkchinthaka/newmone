@@ -31,7 +31,13 @@ const OTHER_LABELS: Record<string, string> = {
   REJECTED: "Rejected",
   RETURNED: "Returned",
   CONVERTED: "Converted",
-  PENDING: "Pending"
+  PENDING: "Pending",
+  SAVED: "Saved",
+  HIGH_USAGE: "High usage",
+  ELECTRICITY: "Electricity",
+  WATER: "Water",
+  GAS: "Gas",
+  INACTIVE: "Inactive"
 };
 
 const OTHER_TONES: Record<string, StatusTone> = {
@@ -42,7 +48,13 @@ const OTHER_TONES: Record<string, StatusTone> = {
   RETURNED: "amber",
   CONVERTED: "brand",
   PENDING: "amber",
-  CANCELLED: "neutral"
+  CANCELLED: "neutral",
+  SAVED: "emerald",
+  HIGH_USAGE: "amber",
+  ELECTRICITY: "amber",
+  WATER: "sky",
+  GAS: "brand",
+  INACTIVE: "neutral"
 };
 
 export function statusBadgePresentation(status: string): { label: string; tone: StatusTone } {
