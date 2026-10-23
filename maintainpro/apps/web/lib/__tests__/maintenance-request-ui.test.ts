@@ -157,17 +157,36 @@ describe("Requests navigation visibility", () => {
     assert.equal(hasRequests("SECURITY_OFFICER", [...REQUEST_LIST_PERMISSIONS]), true);
   });
 
-  it("shows My requests only to roles that can create requests", () => {
-    const visible = (role: string, permissions: string[]) =>
-      getVisibleNavigationItems(role, { permissions }).some((item) => item.id === "my-requests");
-    assert.equal(visible("SALES", ["maintenance_requests.create", "maintenance_requests.view_own"]), true);
-    assert.equal(visible("FINANCE", ["maintenance_requests.view_own"]), false);
-    assert.equal(visible("ADMIN", []), true);
-    const mine = NAVIGATION_ITEMS.find((item) => item.id === "my-requests");
+  it("shows one Requests entry per person", () => {
+    const ids = (role: string, permissions: string[]) => getVisibleNavigationItems(role, { permissions }).map((item) => item.id);
+    // My requests is a tab inside Requests, so it is never a second menu entry.
+    for (const [role, keys] of [
+      ["SALES", ["maintenance_requests.create", "maintenance_requests.view_own"]],
+      ["SECURITY_OFFICER", ["maintenance_requests.create"]],
+      ["INVENTORY_KEEPER", ["maintenance_requests.create"]],
+      ["MANAGER", ["maintenance_requests.create", "maintenance_requests.view_own", "maintenance_requests.view_all", "maintenance_requests.triage"]],
+      ["ADMIN", []]
+    ] as const) {
+      const visible = ids(role, [...keys]);
+      assert.equal(visible.filter((id) => id === "requests" || id === "my-requests").length, 1, role);
+    }
+    const label = (role: string, permissions: string[]) =>
+      getVisibleNavigationItems(role, { permissions }).find((item) => item.id === "requests")?.label;
+    assert.equal(label("SECURITY_OFFICER", ["maintenance_requests.create"]), "My requests");
+    assert.equal(label("MANAGER", ["maintenance_requests.view_own", "maintenance_requests.triage"]), "Requests");
     const requests = NAVIGATION_ITEMS.find((item) => item.id === "requests");
-    assert.equal(mine && isNavItemActive("/requests/mine", mine), true);
-    assert.equal(requests && isNavItemActive("/requests/mine", requests), false);
-    assert.equal(requests && isNavItemActive("/requests/new", requests), true);
+    const report = NAVIGATION_ITEMS.find((item) => item.id === "report-issue");
+    assert.equal(requests && isNavItemActive("/requests/mine", requests), true);
+    assert.equal(report && isNavItemActive("/requests/new", report), true);
+    assert.equal(requests && isNavItemActive("/requests/new", requests), false);
+  });
+
+  it("offers Report issue to everyone who can create a request, technicians included", () => {
+    const has = (role: string, permissions: string[]) =>
+      getVisibleNavigationItems(role, { permissions }).some((item) => item.id === "report-issue");
+    assert.equal(has("TECHNICIAN", ["work_orders.view_own", "maintenance_requests.create", "maintenance_requests.view_own"]), true);
+    assert.equal(has("SECURITY_OFFICER", ["maintenance_requests.create"]), true);
+    assert.equal(has("FINANCE", ["maintenance_requests.view_own"]), false);
   });
 });
 

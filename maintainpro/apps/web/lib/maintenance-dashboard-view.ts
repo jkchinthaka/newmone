@@ -44,7 +44,7 @@ export const MANAGER_ACTION_CARDS = [
 ] as const;
 
 export const WORKLOAD_CARDS = [
-  { id: "open", label: "Open", href: workOrderFilterHref("open"), countKey: "openJobs", queue: "open-load" },
+  { id: "open", label: "Active jobs", href: workOrderFilterHref("open"), countKey: "openJobs", queue: "open-load" },
   { id: "unassigned", label: "Unassigned", href: workOrderFilterHref("unassigned"), countKey: "unassignedJobs", queue: "unassigned" },
   {
     id: "in-progress",

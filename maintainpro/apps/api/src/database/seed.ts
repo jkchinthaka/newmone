@@ -275,6 +275,8 @@ const rolePermissions: Record<RoleName, string[]> = {
     "dashboard.view",
     "work_orders.update_status",
     "work_orders.view_own",
+    // Technicians report faults they find (existing databases: scripts/ops/grant-v103-permissions.ts).
+    "maintenance_requests.create",
     "part_requests.create",
     "part_requests.view",
     "inventory.manage",

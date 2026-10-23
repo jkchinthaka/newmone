@@ -148,11 +148,11 @@ export function humanWorkOrderStatusLabel(status: string): string {
     ASSIGNED: "Assigned",
     IN_PROGRESS: "In Progress",
     ON_HOLD: "On Hold",
-    TECHNICIAN_COMPLETED: "Completed — Awaiting Verification",
-    REWORK_REQUIRED: "Return for Correction",
+    TECHNICIAN_COMPLETED: "Awaiting verification",
+    REWORK_REQUIRED: "Sent back for rework",
     VERIFIED: "Verified",
     CLOSED: "Closed",
-    COMPLETED: "Closed (Legacy)",
+    COMPLETED: "Closed",
     CANCELLED: "Cancelled",
     OVERDUE: "Overdue (Legacy)"
   };

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
+import { Plus } from "lucide-react";
 
 import { getApiErrorMessage } from "@/lib/api-client";
 import {
@@ -39,9 +40,17 @@ export default function MyRequestsPage() {
 
   return (
     <div className="space-y-4 p-4">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">My requests</h1>
-        <p className="text-sm text-slate-600">Requests you submitted. This page is read-only.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">My requests</h1>
+          <p className="text-sm text-slate-600">Problems you reported and where they are now.</p>
+        </div>
+        <Link
+          href={"/requests/new" as Route}
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
+        >
+          <Plus size={16} aria-hidden /> Report issue
+        </Link>
       </div>
       {loading ? <p className="text-sm text-slate-600">Loading requests...</p> : null}
       {error ? (
@@ -50,7 +59,12 @@ export default function MyRequestsPage() {
         </p>
       ) : null}
       {!loading && !error && items.length === 0 ? (
-        <p className="text-sm text-slate-600">No requests yet.</p>
+        <div className="rounded-card border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600">
+          <p>No requests yet.</p>
+          <Link href={"/requests/new" as Route} className="mt-2 inline-flex min-h-11 items-center font-semibold text-brand-700">
+            Report a problem
+          </Link>
+        </div>
       ) : null}
       <ul className="space-y-3">
         {items.map((item) => {

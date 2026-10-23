@@ -303,7 +303,8 @@ export function useAssignWorkOrder() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, technicianId }: { id: string; technicianId: string }) => assignWorkOrder(id, technicianId),
+    mutationFn: ({ id, technicianId, reason, expectedVersion }: { id: string; technicianId: string; reason?: string; expectedVersion?: number }) =>
+      assignWorkOrder(id, technicianId, { reason, expectedVersion }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: WORK_ORDERS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: WORK_ORDER_TECHNICIANS_QUERY_KEY });

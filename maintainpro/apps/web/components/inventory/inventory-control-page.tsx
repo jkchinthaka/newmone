@@ -3,19 +3,22 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Boxes, Database, Lock, Package, Upload, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Boxes, Database, Lock, Package, Upload, Wrench, type LucideIcon } from "lucide-react";
 
 import { ActiveFilterChips, JobsEmptyState, JobsLoadingSkeleton, JobsPagination, OperationalJobsHeader } from "@/components/operational";
 import { BarList, KpiCard, SectionCard } from "@/components/ui/dashboard";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { visibleTopUsedParts } from "@/lib/batch-3-presentation";
 import { canReadInventoryAnalytics } from "@/lib/user-role";
+import { workOrderRecordHref } from "@/lib/operational-deep-link";
+import { formatEnumLabel, partRequestStatusLabel, priorityLabel } from "@/lib/display-labels";
+import { extractRoleName } from "@/lib/role-redirect";
+import { useCurrentUser } from "@/lib/use-current-user";
 import type { StatusTone } from "@/lib/dashboard-status";
 import { getTopUsedParts } from "./api";
 import type { TopUsedPartPoint } from "./types";
 import {
   INVENTORY_EMPTY,
-  INVENTORY_QUANTITY_CAPTION,
   inventoryControlFromSearch,
   inventoryControlSearch,
   inventoryFreshnessLabel,
@@ -38,6 +41,28 @@ type PartRow = {
   updatedAt?: string | null;
 };
 
+type PartToIssue = {
+  id: string;
+  status: string;
+  quantityToIssue: number;
+  requestedAt?: string;
+  part?: { id: string; name: string; partNumber: string; availableQuantity?: number | null } | null;
+  workOrder?: { id: string; woNumber?: string | null; title?: string | null; priority?: string | null } | null;
+  requestedBy?: string | null;
+};
+
+/** GET /inventory/parts-to-issue: @Roles(PART_REQUEST_ISSUE_ROLES) + part_requests.view. */
+const PARTS_TO_ISSUE_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "MANAGER", "INVENTORY_KEEPER", "OPERATIONS_MANAGER"]);
+
+function canSeePartsToIssue(role: string | null, permissions: readonly string[]): boolean {
+  if (!role || !PARTS_TO_ISSUE_ROLES.has(role)) return false;
+  if (role === "SUPER_ADMIN" || role === "ADMIN" || permissions.length === 0) return true;
+  return permissions.includes("part_requests.view");
+}
+
+/** Plain caption for the stock cards. */
+const STOCK_CAPTION = "On hand comes from the ERP. Available is on hand minus parts held for jobs.";
+
 type Dashboard = {
   totalItems?: number;
   onHand?: number;
@@ -49,6 +74,11 @@ type Dashboard = {
 
 export function InventoryControlPage() {
   const router = useRouter();
+  const user = useCurrentUser();
+  const roleName = extractRoleName({ role: user.role });
+  const showPartsToIssue = canSeePartsToIssue(roleName, user.permissions);
+  const [partsToIssue, setPartsToIssue] = useState<{ items: PartToIssue[]; total: number } | null>(null);
+  const [partsToIssueError, setPartsToIssueError] = useState<string | null>(null);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const state = useMemo(() => inventoryControlFromSearch(new URLSearchParams(searchParams.toString())), [searchParams]);
@@ -97,6 +127,30 @@ export function InventoryControlPage() {
       cancelled = true;
     };
   }, [reloadKey]);
+
+  useEffect(() => {
+    if (!showPartsToIssue) {
+      setPartsToIssue(null);
+      return;
+    }
+    const controller = new AbortController();
+    setPartsToIssueError(null);
+    void apiClient
+      .get("/inventory/parts-to-issue", { signal: controller.signal, params: { limit: 10 } })
+      .then((response) => {
+        const payload = response.data?.data ?? {};
+        setPartsToIssue({
+          items: Array.isArray(payload.items) ? payload.items : [],
+          total: Number(payload.total ?? 0)
+        });
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        setPartsToIssue(null);
+        setPartsToIssueError(getApiErrorMessage(err, "Parts to issue could not be loaded."));
+      });
+    return () => controller.abort();
+  }, [showPartsToIssue, reloadKey]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -159,7 +213,7 @@ export function InventoryControlPage() {
   }
 
   function exportPage() {
-    const header = "Part,Code,ERP code,Snapshot,Reserved,Advisory,Location";
+    const header = "Part,Code,ERP code,On hand,Reserved,Available,Location";
     const lines = rows.map((row) => [row.name, row.partNumber, row.erpCode ?? "", row.quantityInStock ?? "", row.reservedQuantity ?? "", row.availableQuantity ?? "", row.location ?? ""].join(","));
     const blob = new Blob([[header, ...lines].join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -172,7 +226,7 @@ export function InventoryControlPage() {
 
   const chips = [
     state.q ? { key: "q", label: `Search: ${state.q}` } : null,
-    state.stock ? { key: "stock", label: "Snapshot zero" } : null,
+    state.stock ? { key: "stock", label: "Out of stock" } : null,
     state.category ? { key: "category", label: state.category } : null,
     state.supplierId ? { key: "supplierId", label: "Supplier" } : null,
     state.location ? { key: "location", label: state.location } : null,
@@ -184,7 +238,7 @@ export function InventoryControlPage() {
       <OperationalJobsHeader
         eyebrow="Inventory"
         title="Spare Parts"
-        description="Stock balance comes from the ERP. Part requests and usage charts stay on the work order."
+        description="Stock comes from the ERP. Issue parts from the work order's Parts tab."
         actions={
           <>
             <button type="button" className="h-9 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>Refresh</button>
@@ -204,10 +258,10 @@ export function InventoryControlPage() {
             {(
               [
                 ["Total parts", summary?.totalItems, Package, "neutral"],
-                ["ERP snapshot", summary?.onHand, Database, "sky"],
+                ["On hand", summary?.onHand, Database, "sky"],
                 ["Reserved", summary?.reserved, Lock, "amber"],
-                ["Advisory", summary?.available, Boxes, "emerald"],
-                ["Snapshot zero", summary?.outOfStock, AlertTriangle, "red"],
+                ["Available", summary?.available, Boxes, "emerald"],
+                ["Out of stock", summary?.outOfStock, AlertTriangle, "red"],
                 ["Pending imports", summary?.pendingImports, Upload, "neutral"]
               ] as Array<[string, number | undefined, LucideIcon, StatusTone]>
             ).map(([label, value, Icon, tone]) => (
@@ -221,25 +275,72 @@ export function InventoryControlPage() {
               />
             ))}
           </div>
-          <p className="text-sm text-slate-600">{INVENTORY_QUANTITY_CAPTION}</p>
+          <p className="text-sm text-slate-600">{STOCK_CAPTION}</p>
         </>
       )}
+      {showPartsToIssue ? (
+        <SectionCard
+          title={partsToIssue && partsToIssue.total > 0 ? `Parts to issue (${partsToIssue.total})` : "Parts to issue"}
+          description="Approved part requests waiting for stores. Open the job to issue the parts."
+        >
+          {partsToIssueError ? (
+            <div role="alert" className="flex flex-wrap items-center gap-3">
+              <p className="text-sm text-rose-800">{partsToIssueError}</p>
+              <button type="button" className="h-9 rounded-md border border-rose-300 bg-white px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>Retry</button>
+            </div>
+          ) : !partsToIssue ? (
+            <p className="text-sm text-slate-600">Loading parts to issue…</p>
+          ) : partsToIssue.items.length === 0 ? (
+            <p className="text-sm text-slate-600">Nothing to issue right now.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100" aria-label="Parts to issue">
+              {partsToIssue.items.map((row) => (
+                <li key={row.id}>
+                  <Link
+                    href={(row.workOrder?.id ? workOrderRecordHref(row.workOrder.id, "parts") : "/work-orders") as never}
+                    className="flex min-h-12 flex-wrap items-center justify-between gap-2 py-2 text-sm hover:bg-slate-50"
+                  >
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-2 font-medium text-slate-900">
+                        <Wrench aria-hidden size={14} className="shrink-0 text-slate-500" />
+                        {row.part?.name ?? "Part"} × {row.quantityToIssue}
+                      </span>
+                      <span className="block text-xs text-slate-600">
+                        {[row.workOrder?.woNumber, row.workOrder?.title].filter(Boolean).join(" · ") || "Work order"}
+                        {row.requestedBy ? ` · for ${row.requestedBy}` : ""}
+                      </span>
+                    </span>
+                    <span className="text-xs text-slate-600">
+                      {partRequestStatusLabel(row.status)}
+                      {row.workOrder?.priority ? ` · ${priorityLabel(row.workOrder.priority)}` : ""}
+                      {typeof row.part?.availableQuantity === "number" ? ` · ${row.part.availableQuantity} available` : ""}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          {partsToIssue && partsToIssue.total > partsToIssue.items.length ? (
+            <p className="mt-2 text-xs text-slate-500">Showing the oldest {partsToIssue.items.length} of {partsToIssue.total}.</p>
+          ) : null}
+        </SectionCard>
+      ) : null}
       {topUsed ? (
         <SectionCard title="Most used parts (30 days)" description="Units issued">
           <BarList items={topUsed.map((row) => ({ name: row.partName, value: row.quantity }))} />
         </SectionCard>
       ) : null}
       <div className="flex flex-wrap gap-3 text-sm">
-        <button type="button" className="text-brand-800" onClick={() => write({ ...inventoryControlFromSearch(new URLSearchParams()), stock: "out", pageSize: state.pageSize })}>Show snapshot zero</button>
+        <button type="button" className="text-brand-800" onClick={() => write({ ...inventoryControlFromSearch(new URLSearchParams()), stock: "out", pageSize: state.pageSize })}>Show out of stock</button>
         <Link href={"/inventory/erp-import" as never} className="text-brand-800">Pending imports</Link>
       </div>
       <section className="rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
           <label className="sr-only" htmlFor="inventory-search">Search parts</label>
           <input id="inventory-search" value={draftQuery} onChange={(event) => setDraftQuery(event.target.value)} placeholder="Part name, code, or ERP code" className="h-9 min-w-48 flex-1 rounded-md border border-slate-300 px-3 text-sm" />
-          <select aria-label="Snapshot status" value={state.stock} onChange={(event) => write({ ...state, stock: event.target.value as InventoryControlState["stock"], page: 1 })} className="h-9 rounded-md border border-slate-300 px-2 text-sm">
-            <option value="">Snapshot</option>
-            <option value="out">Zero</option>
+          <select aria-label="Stock" value={state.stock} onChange={(event) => write({ ...state, stock: event.target.value as InventoryControlState["stock"], page: 1 })} className="h-9 rounded-md border border-slate-300 px-2 text-sm">
+            <option value="">Any stock</option>
+            <option value="out">Out of stock</option>
           </select>
           <select aria-label="Sort" value={`${state.sortBy}:${state.sortDir}`} onChange={(event) => {
             const [sortBy, sortDir] = event.target.value.split(":");
@@ -248,7 +349,7 @@ export function InventoryControlPage() {
             <option value="updatedAt:desc">Recently updated</option>
             <option value="name:asc">Name</option>
             <option value="partNumber:asc">Part code</option>
-            <option value="quantityInStock:asc">Snapshot low to high</option>
+            <option value="quantityInStock:asc">On hand, low to high</option>
           </select>
           <button type="button" className="h-9 px-2 text-sm" onClick={() => write({ ...inventoryControlFromSearch(new URLSearchParams()), partId: state.partId })}>Clear</button>
         </div>
@@ -284,7 +385,7 @@ export function InventoryControlPage() {
                   <article className={`rounded-lg border p-3 ${row.id === state.partId ? "border-brand-300 bg-brand-50" : "border-slate-200 bg-white"}`}>
                     <button type="button" className="min-h-11 text-left font-medium text-slate-900" onClick={() => write({ ...state, partId: row.id })}>{row.name}</button>
                     <p className="text-xs text-slate-500">{row.partNumber}</p>
-                    <p className="mt-1 text-xs text-slate-600">Snapshot {row.quantityInStock ?? 0} · Reserved {row.reservedQuantity ?? 0} · Advisory {row.availableQuantity ?? 0}</p>
+                    <p className="mt-1 text-xs text-slate-600">On hand {row.quantityInStock ?? 0} · Reserved {row.reservedQuantity ?? 0} · Available {row.availableQuantity ?? 0}</p>
                     <p className="mt-1 text-xs text-slate-500">{inventoryFreshnessLabel({ updatedAt: row.updatedAt, lastMovementAt: last })}</p>
                     <p className="mt-1 text-sm text-slate-700">{action}</p>
                     <button type="button" className="mt-2 text-sm text-brand-800" onClick={() => { write({ ...state, partId: row.id }); void loadMovements(row.id); }}>View usage</button>
@@ -299,9 +400,9 @@ export function InventoryControlPage() {
                 <tr>
                   <th className="px-3 py-2">Part</th>
                   <th className="px-3 py-2">ERP</th>
-                  <th className="px-3 py-2">Availability</th>
+                  <th className="px-3 py-2">On hand</th>
                   <th className="hidden px-3 py-2 md:table-cell">Reserved</th>
-                  <th className="hidden px-3 py-2 md:table-cell">Advisory</th>
+                  <th className="hidden px-3 py-2 md:table-cell">Available</th>
                   <th className="px-3 py-2">Next</th>
                   <th className="px-3 py-2"><span className="sr-only">Actions</span></th>
                 </tr>
@@ -318,7 +419,7 @@ export function InventoryControlPage() {
                         <p className="text-xs text-slate-500">{inventoryFreshnessLabel({ updatedAt: row.updatedAt, lastMovementAt: last })}</p>
                       </td>
                       <td className="px-3 py-2">{row.erpCode?.trim() ? row.erpCode : "Unmapped"}</td>
-                      <td className="px-3 py-2">Snapshot {row.quantityInStock ?? 0}</td>
+                      <td className="px-3 py-2">{row.quantityInStock ?? 0}</td>
                       <td className="hidden px-3 py-2 md:table-cell">{row.reservedQuantity ?? 0}</td>
                       <td className="hidden px-3 py-2 md:table-cell">{row.availableQuantity ?? 0}</td>
                       <td className={`px-3 py-2 ${action === "Ready" ? "text-slate-600" : "font-medium"}`}>{action}</td>
@@ -346,11 +447,11 @@ export function InventoryControlPage() {
         <section id="inventory-detail" className="rounded-lg border border-slate-200 bg-white p-4 text-sm" aria-live="polite">
           <h2 className="font-semibold">{selected.name}</h2>
           <p className="text-slate-600">{selected.partNumber} · {selected.erpCode?.trim() ? `ERP ${selected.erpCode}` : "Unmapped"} · {selected.supplier?.name || "No supplier"} · {selected.location || "No location"}</p>
-          <p className="mt-2">Snapshot {selected.quantityInStock ?? 0}. Reserved {selected.reservedQuantity ?? 0}. Advisory available {selected.availableQuantity ?? 0}. These quantities follow the ERP snapshot and maintenance reservations. They are not a second stock ledger.</p>
+          <p className="mt-2">On hand {selected.quantityInStock ?? 0}. Reserved {selected.reservedQuantity ?? 0}. Available {selected.availableQuantity ?? 0}. On hand comes from the ERP; reserved parts are held for jobs.</p>
           <p className="mt-1 text-slate-600">{inventoryFreshnessLabel({ updatedAt: selected.updatedAt, lastMovementAt: selected.stockMovements?.[0]?.createdAt ?? null })}</p>
           {movements ? (
             <ul className="mt-2 space-y-1 text-xs text-slate-600">
-              {movements.length === 0 ? <li>No movements loaded.</li> : movements.slice(0, 8).map((row) => <li key={row.id}>{row.type} · {row.quantity} · {row.createdAt ? new Date(row.createdAt).toLocaleString() : ""}</li>)}
+              {movements.length === 0 ? <li>No movements loaded.</li> : movements.slice(0, 8).map((row) => <li key={row.id}>{formatEnumLabel(row.type)} · {row.quantity} · {row.createdAt ? new Date(row.createdAt).toLocaleString() : ""}</li>)}
             </ul>
           ) : null}
         </section>

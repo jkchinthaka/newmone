@@ -255,7 +255,7 @@ export async function updateWorkOrderStatus(id: string, payload: UpdateWorkOrder
 export async function assignWorkOrder(
   id: string,
   technicianId: string,
-  options?: { plannedStartAt?: string; plannedEndAt?: string; expectedVersion?: number }
+  options?: { plannedStartAt?: string; plannedEndAt?: string; expectedVersion?: number; reason?: string }
 ): Promise<WorkOrder> {
   const response = await apiClient.post<ApiEnvelope<WorkOrder>>(`/work-orders/${id}/assign`, {
     technicianId,

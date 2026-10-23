@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -18,7 +18,14 @@ import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { JOB_CHANGED_MESSAGE, classifyJobActionError } from "@/lib/job-action-outcome";
 import { mutationErrorMessage, showMutationError } from "@/lib/mutation-feedback";
 import { humanWorkOrderStatusLabel } from "@/components/work-orders/helpers";
-import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
+import { useFocusTrap } from "@/lib/use-focus-trap";
+import {
+  MY_JOB_HOLD_CHOICES,
+  buildHoldPayload,
+  sentBackLabel,
+  validateHoldNote,
+  type MyJobHoldCode
+} from "@/lib/my-job-hold";
 
 type NextAction = { kind: "start" | "continue" | "summary" | "open" | "blocked"; label: string; reason?: string };
 
@@ -35,6 +42,8 @@ type MyJob = {
   asset?: { name?: string | null; assetTag?: string | null } | null;
   functionalLocation?: { name?: string | null; code?: string | null } | null;
   site?: { name?: string | null } | null;
+  /** Supervisor's send-back reason (REWORK_REQUIRED jobs only). */
+  verificationRejectionReason?: string | null;
   nextAction: NextAction;
 };
 
@@ -87,7 +96,7 @@ export default function MyJobsPage() {
   const pathname = usePathname();
   const params = useSearchParams();
   const user = useCurrentUser();
-  const { prompt, dialog } = usePromptDialog();
+  const [holdTarget, setHoldTarget] = useState<MyJob | null>(null);
   const view = resolveMyJobFilter({ filter: params.get("filter"), view: params.get("view") });
   const search = params.get("search") || "";
   const status = params.get("status") || "";
@@ -235,24 +244,23 @@ export default function MyJobsPage() {
     }
   }
 
-  async function holdJob(job: MyJob) {
-    const reason = await prompt({
-      title: `Hold ${job.woNumber}`,
-      label: "Reason",
-      required: true
-    });
-    if (!reason?.trim()) return;
+  function holdJob(job: MyJob) {
+    setHoldTarget(job);
+  }
+
+  /** Returns an error message to keep the dialog open, or null when the hold was saved. */
+  async function sendHold(job: MyJob, code: MyJobHoldCode, note: string): Promise<string | null> {
     setStartingId(job.id);
     try {
-      await apiClient.post(`/work-orders/${job.id}/hold`, {
-        holdReasonCode: "OTHER",
-        delayReason: reason.trim(),
-        expectedVersion: job.version
-      });
+      await apiClient.post(`/work-orders/${job.id}/hold`, buildHoldPayload(code, note, job.version));
       toast.success(`${job.woNumber} placed on hold.`);
+      setHoldTarget(null);
       await refresh();
+      return null;
     } catch (err) {
-      toast.error(mutationErrorMessage(err, "This job could not be placed on hold."));
+      const message = mutationErrorMessage(err, "This job could not be placed on hold.");
+      toast.error(message);
+      return message;
     } finally {
       setStartingId(null);
     }
@@ -377,7 +385,14 @@ export default function MyJobsPage() {
 
       {capped ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">Showing the first 500 assigned jobs. Narrow the list with search if you cannot find a job.</p> : null}
       {blocker ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="alert">{blocker}</p> : null}
-      {dialog}
+      {holdTarget ? (
+        <HoldJobDialog
+          job={holdTarget}
+          submitting={startingId === holdTarget.id}
+          onCancel={() => setHoldTarget(null)}
+          onSubmit={(code, note) => sendHold(holdTarget, code, note)}
+        />
+      ) : null}
       {forbidden ? <ErrorState message="You cannot view assigned jobs. Your role does not include this workspace." onRetry={() => void refresh()} /> : null}
       {!forbidden && error ? <ErrorState message={`We couldn't load your jobs. ${error}`} onRetry={() => void refresh()} /> : null}
 
@@ -412,7 +427,7 @@ export default function MyJobsPage() {
                 job={job}
                 starting={startingId === job.id}
                 onStart={() => void startJob(job)}
-                onHold={() => void holdJob(job)}
+                onHold={() => holdJob(job)}
                 onResume={() => void resumeJob(job)}
                 onComplete={() => void completeJob(job)}
               />
@@ -457,6 +472,11 @@ function JobBody({
       <p className="text-sm font-semibold text-slate-900">{job.title}</p>
       <p className="mt-1 text-sm text-slate-600">{locationLabel(job)}</p>
       <p className="mt-1 text-xs text-slate-500">{relativeDue(job.dueDate)}</p>
+      {sentBackLabel(job) ? (
+        <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-sm text-amber-950">
+          {sentBackLabel(job)}
+        </p>
+      ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <JobAction job={job} starting={starting} onStart={onStart} onHold={onHold} onResume={onResume} onComplete={onComplete} />
         <Link className="inline-flex min-h-11 items-center rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-800" href={`/maintenance/jobs?wo=${job.id}` as Route}>Open</Link>
@@ -516,6 +536,102 @@ function JobAction({
         {job.nextAction.label}
       </Link>
       {job.nextAction.reason ? <p className="mt-1 text-xs text-slate-600">{job.nextAction.reason}</p> : null}
+    </div>
+  );
+}
+
+function HoldJobDialog({
+  job,
+  submitting,
+  onCancel,
+  onSubmit
+}: {
+  job: MyJob;
+  submitting: boolean;
+  onCancel: () => void;
+  onSubmit: (code: MyJobHoldCode, note: string) => Promise<string | null>;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
+  const [code, setCode] = useState<MyJobHoldCode>("WAITING_PARTS");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useFocusTrap(true, panelRef, { initialFocusRef: noteRef, onEscape: submitting ? undefined : onCancel });
+
+  async function handleSubmit() {
+    const problem = validateHoldNote(note);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    setError(await onSubmit(code, note));
+  }
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 p-4 sm:items-center">
+      <button type="button" aria-label="Close dialog backdrop" className="absolute inset-0" onClick={submitting ? undefined : onCancel} disabled={submitting} />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="hold-job-title"
+        className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
+      >
+        <h2 id="hold-job-title" className="text-lg font-semibold text-slate-900">Hold {job.woNumber}</h2>
+        <fieldset className="mt-4">
+          <legend className="text-sm font-medium text-slate-700">Why are you stopping?</legend>
+          <div className="mt-2 grid gap-2">
+            {MY_JOB_HOLD_CHOICES.map((choice) => (
+              <label
+                key={choice.code}
+                className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 text-sm ${
+                  code === choice.code ? "border-brand-400 bg-brand-50 font-medium text-slate-900" : "border-slate-200 text-slate-700"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="hold-reason"
+                  value={choice.code}
+                  checked={code === choice.code}
+                  disabled={submitting}
+                  onChange={() => setCode(choice.code)}
+                />
+                {choice.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <label className="mt-4 block text-sm font-medium text-slate-700" htmlFor="hold-job-note">
+          Note (required)
+        </label>
+        <textarea
+          id="hold-job-note"
+          ref={noteRef}
+          rows={2}
+          value={note}
+          disabled={submitting}
+          placeholder={code === "WAITING_PARTS" ? "Which part?" : code === "WAITING_APPROVAL" ? "Whose approval?" : "What is the problem?"}
+          aria-invalid={error ? "true" : "false"}
+          aria-describedby={error ? "hold-job-error" : undefined}
+          onChange={(event) => {
+            setNote(event.target.value);
+            if (error) setError(null);
+          }}
+          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900"
+        />
+        {error ? (
+          <p id="hold-job-error" className="mt-1 text-sm text-rose-600" role="alert">{error}</p>
+        ) : null}
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" disabled={submitting} onClick={onCancel} className="min-h-11 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700 disabled:opacity-60">
+            Cancel
+          </button>
+          <button type="button" disabled={submitting} onClick={() => void handleSubmit()} className="min-h-11 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white disabled:opacity-60">
+            {submitting ? "Saving..." : "Put on hold"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

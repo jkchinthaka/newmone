@@ -13,7 +13,9 @@ import {
   FileCheck2,
   Home,
   Layers,
+  LayoutDashboard,
   Search,
+  ShieldAlert,
   ShieldCheck,
   Truck,
   UserCircle2,
@@ -37,7 +39,9 @@ const MOBILE_ICON_MAP: Record<string, LucideIcon> = {
   Truck,
   Layers,
   BarChart3,
-  ShieldCheck
+  ShieldCheck,
+  ShieldAlert,
+  LayoutDashboard
 };
 
 type Props = {
@@ -60,7 +64,9 @@ export function MobileBottomNav({ onOpenSearch }: Props) {
           const baseHref = item.href.split("?")[0];
           const active =
             item.action !== "search" &&
-            (pathname === baseHref || pathname.startsWith(`${baseHref}/`) || pathname.startsWith(item.href));
+            (item.activeMatch === "exact"
+              ? pathname === baseHref
+              : pathname === baseHref || pathname.startsWith(`${baseHref}/`));
           const Icon = MOBILE_ICON_MAP[item.icon] ?? Home;
 
           if (item.action === "search") {

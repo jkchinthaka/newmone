@@ -337,12 +337,42 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
 
 
   const handleAssign = async (workOrder: WorkOrder, technicianId: string) => {
+    // Changing an existing technician needs a reason; ask before calling the API instead of failing.
+    let reason: string | undefined;
+    if (workOrder.technicianId && workOrder.technicianId !== technicianId) {
+      const answer = await prompt({
+        title: `Change technician on ${workOrder.woNumber}`,
+        label: "Reason for the change",
+        required: true,
+        validate: (value) => (value.trim().length < 3 ? "Enter at least 3 characters." : null),
+        submitLabel: "Change technician"
+      });
+      if (!answer?.trim()) return;
+      reason = answer.trim();
+    }
     try {
-      await assignMutation.mutateAsync({ id: workOrder.id, technicianId });
+      await assignMutation.mutateAsync({ id: workOrder.id, technicianId, reason, expectedVersion: workOrder.version });
       toast.success("Technician assigned");
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
+  };
+
+  /** Stores must confirm part returns before a job can close. Say so before verifying, with a way to the Parts tab. */
+  const partsReturnsSettled = async (workOrder: WorkOrder) => {
+    try {
+      const response = await apiClient.get<{ data?: { pendingReturnLines?: number } }>(`/work-orders/${workOrder.id}/parts/summary`);
+      const pending = response.data?.data?.pendingReturnLines ?? 0;
+      if (pending > 0) {
+        toast.error(`Waiting for stores to confirm ${pending} part return${pending === 1 ? "" : "s"}. Close the job after that.`, {
+          action: { label: "Open Parts", onClick: () => openEditModal(workOrder, "parts") }
+        });
+        return false;
+      }
+    } catch {
+      // If the summary cannot load, let the server decide.
+    }
+    return true;
   };
 
   const postClose = (workOrder: WorkOrder, expectedVersion: number | undefined, overrideReason?: string) =>
@@ -382,9 +412,18 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     if (!selected) return;
     if (selected === action?.id && action?.disabledReason) return;
     if (selected === "send-back") {
+      const reason = await prompt({
+        title: `Send ${workOrder.woNumber} back for rework`,
+        description: "The technician sees this on My Jobs.",
+        label: "What needs to be fixed?",
+        required: true,
+        validate: (value) => (value.trim().length < 3 ? "Enter at least 3 characters." : null),
+        submitLabel: "Send back"
+      });
+      if (!reason?.trim()) return;
       try {
         await apiClient.post(`/work-orders/${workOrder.id}/reject-supervisor`, {
-          reason: "Sent back for rework"
+          reason: reason.trim()
         });
         toast.success(`${workOrder.woNumber} sent back`);
         await workOrdersQuery.refetch();
@@ -394,22 +433,29 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       return;
     }
     if (selected === "assign") {
-      toast.message("Choose a technician in the Assign list.");
+      openEditModal(workOrder, "assignment");
       return;
     }
     if (selected === "approve-assign") {
+      if (currentUser.id && workOrder.createdById === currentUser.id) {
+        toast.message("You created this job. Another manager must approve it.");
+        return;
+      }
       setApproveAssignTarget(workOrder);
       setApproveAssignTech("");
       setApproveAssignStart("");
       setApproveAssignEnd("");
       return;
     }
-    if (selected === "start") {
+    if (selected === "start" || selected === "resume") {
       await handleStatusChange(workOrder, "IN_PROGRESS");
       return;
     }
     if (selected === "complete") {
       setCompletionTarget(workOrder);
+      return;
+    }
+    if ((selected === "close" || selected === "verify-close") && !(await partsReturnsSettled(workOrder))) {
       return;
     }
     if (selected === "close") {
@@ -696,6 +742,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             onDelete={canCancelWorkOrders ? (workOrder) => void handleDelete(workOrder) : undefined}
             onEdit={openEditModal}
             actorRole={currentUser.role}
+            currentUserId={currentUser.id}
             onPrimary={(workOrder, actionId) => void handlePrimary(workOrder, actionId)}
           />
         )}
@@ -954,6 +1001,11 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
         workOrder={completionTarget}
         submitting={statusMutation.isPending}
         onClose={() => setCompletionTarget(null)}
+        onOpenTab={(tab) => {
+          const target = completionTarget;
+          setCompletionTarget(null);
+          if (target) openEditModal(target, tab);
+        }}
         onSubmit={(payload) => {
           if (!completionTarget) {
             return;

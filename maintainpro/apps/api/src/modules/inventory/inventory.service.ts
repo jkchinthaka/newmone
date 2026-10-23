@@ -1918,6 +1918,58 @@ export class InventoryService {
     return retried;
   }
 
+  /**
+   * Read-only "Parts to issue" list for stores: approved part requests that still have
+   * quantity to hand out. Tenant-scoped; closed or cancelled jobs are left out.
+   */
+  async partsToIssue(actor?: Actor, limitRaw?: number) {
+    const tenantId = this.resolveTenantId(actor);
+    const limit = Number.isFinite(limitRaw) && Number(limitRaw) > 0 ? Math.min(Math.floor(Number(limitRaw)), 50) : 10;
+    const where: Prisma.PartRequestWhereInput = {
+      tenantId,
+      status: { in: [PartRequestStatus.APPROVED, PartRequestStatus.PARTIALLY_ISSUED] },
+      workOrder: { tenantId, status: { notIn: ["CLOSED", "CANCELLED", "VERIFIED"] } }
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.partRequest.findMany({
+        where,
+        select: {
+          id: true,
+          status: true,
+          requestedQuantity: true,
+          approvedQuantity: true,
+          issuedQuantity: true,
+          createdAt: true,
+          part: { select: { id: true, name: true, partNumber: true, availableQuantity: true } },
+          workOrder: { select: { id: true, woNumber: true, title: true, priority: true } },
+          requestedBy: { select: { firstName: true, lastName: true } }
+        },
+        orderBy: { createdAt: "asc" },
+        take: limit
+      }),
+      this.prisma.partRequest.count({ where })
+    ]);
+    return {
+      total,
+      items: rows.map((row) => {
+        const approved = row.approvedQuantity ?? row.requestedQuantity;
+        return {
+          id: row.id,
+          status: row.status,
+          quantityToIssue: Math.max(0, approved - (row.issuedQuantity ?? 0)),
+          approvedQuantity: approved,
+          issuedQuantity: row.issuedQuantity ?? 0,
+          requestedAt: row.createdAt,
+          part: row.part,
+          workOrder: row.workOrder,
+          requestedBy: row.requestedBy
+            ? `${row.requestedBy.firstName ?? ""} ${row.requestedBy.lastName ?? ""}`.trim() || null
+            : null
+        };
+      })
+    };
+  }
+
   async dashboard(actor?: Actor) {
     const tenantId = this.resolveTenantId(actor);
     const startOfToday = new Date();
