@@ -1,7 +1,8 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import {
   ApprovalDecisionStatus,
   ApprovalProcessType,
+  ApprovalDecisionOutcome,
   ApprovalRequestStatus,
   ApprovalStage,
   ApprovalTrigger,
@@ -13,6 +14,7 @@ import {
   Prisma,
   RoleName,
   WorkOrderApprovalStatus,
+  WorkOrderAssigneeStatus,
   WorkOrderStatus,
   WorkOrderType,
   QrVerificationStatus,
@@ -110,6 +112,8 @@ import { MaintenanceTemplatesService } from "../maintenance-config/maintenance-t
 import { WarrantiesService } from "../warranties/warranties.service";
 import { ReliabilityService } from "../reliability/reliability.service";
 import { preferExtensionValue, syncWorkOrderExtensions } from "./work-order-extension-sync.util";
+import { pmBaselineAfterClose } from "../planning/pm-baseline";
+import { vehicleServiceAfterClose } from "./vehicle-service-reset";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId"> & {
   permissions?: string[];
@@ -124,6 +128,8 @@ type AssignOptions = {
 
 @Injectable()
 export class WorkOrdersService {
+  private readonly logger = new Logger(WorkOrdersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
@@ -1215,7 +1221,15 @@ export class WorkOrdersService {
       // DB-3: dual-write normalized extensions (same write path; legacy columns remain).
       await this.syncNormalizedExtensions(created.id, tenantId, db);
 
-      return this.syncCreateTimeApprovals(created, actor);
+      const synced = await this.syncCreateTimeApprovals(created, actor);
+      if (!options?.tx && (await this.promoteSuppliedTechnician(synced, actor))) {
+        const promoted = await this.prisma.workOrder.findUnique({
+          where: { id: synced.id },
+          select: { status: true, version: true }
+        });
+        return promoted ? { ...synced, ...promoted } : synced;
+      }
+      return synced;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to create work order";
       throw new BadRequestException(`Failed to create work order: ${message}`);
@@ -1367,7 +1381,52 @@ export class WorkOrdersService {
       });
     }
 
+    if (validatedTechnicianId && (await this.promoteSuppliedTechnician(updated, actor))) {
+      return this.findOne(id, actor);
+    }
     return updated;
+  }
+
+  /** Called after the assignees panel adds a person, which links the technician but does not change status. */
+  async promoteAssignedTechnician(id: string, actor?: Actor): Promise<void> {
+    const current = await this.findOne(id, actor);
+    await this.promoteSuppliedTechnician(current, actor);
+  }
+
+  /**
+   * A technician picked on the create or edit form, or added on the assignees panel, takes the Assign technician path, so the job
+   * moves to ASSIGNED and the technician sees Start on My Jobs. Approval still comes first: a
+   * pending or rejected job stays OPEN and the manager assigns it after approval.
+   */
+  private async promoteSuppliedTechnician(
+    workOrder: {
+      id: string;
+      status: WorkOrderStatus;
+      approvalStatus: WorkOrderApprovalStatus | string;
+      technicianId?: string | null;
+      version?: number | null;
+    },
+    actor?: Actor
+  ): Promise<boolean> {
+    if (!workOrder.technicianId || !actor?.sub) return false;
+    if (workOrder.status !== WorkOrderStatus.OPEN && workOrder.status !== WorkOrderStatus.PLANNED) return false;
+    if (
+      workOrder.approvalStatus !== WorkOrderApprovalStatus.APPROVED &&
+      workOrder.approvalStatus !== "NOT_REQUIRED"
+    ) {
+      return false;
+    }
+    try {
+      await this.assign(workOrder.id, workOrder.technicianId, actor, {
+        expectedVersion: workOrder.version ?? undefined
+      });
+      return true;
+    } catch (error) {
+      // The job is saved with the chosen technician. It stays OPEN and Assign technician still works.
+      const message = error instanceof Error ? error.message : "assignment failed";
+      this.logger.warn(`Work order ${workOrder.id} kept OPEN after technician was picked: ${message}`);
+      return false;
+    }
   }
 
   private async assertVendorAssignable(supplierId: string, actor?: Actor) {
@@ -1758,6 +1817,19 @@ export class WorkOrdersService {
         });
       }
 
+      if (isReassignment && current.technicianId) {
+        // The previous technician loses the job: no longer in their My Jobs and they cannot start it.
+        await tx.workOrderAssignee.updateMany({
+          where: {
+            workOrderId: id,
+            tenantId,
+            assignmentStatus: { not: WorkOrderAssigneeStatus.REMOVED },
+            employee: { linkedUserId: current.technicianId }
+          },
+          data: { assignmentStatus: WorkOrderAssigneeStatus.REMOVED, isPrimary: false }
+        });
+      }
+
       if (assignment.promoteFromOpen) {
         await this.recordAudit(
           {
@@ -1932,6 +2004,22 @@ export class WorkOrdersService {
       });
     }
 
+    // When an approval rule opened a request for this job, record the decision there as well.
+    // Otherwise Start finds the request still PENDING and puts the job back to "awaiting approval".
+    const openRequest = await this.approvalsService?.findOpenRequest(this.resolveTenantId(actor), "WorkOrder", id);
+    if (openRequest && this.approvalsService) {
+      const decided = await this.approvalsService.decide({
+        actor: approver,
+        requestId: openRequest.id,
+        decision: ApprovalDecisionOutcome.APPROVED,
+        reason: notes
+      });
+      if (decided.status !== ApprovalRequestStatus.APPROVED) {
+        // A further approval level is still waiting; the job stays pending until it approves.
+        return this.findOne(id, actor);
+      }
+    }
+
     const updated = await this.prisma.workOrder.update({
       where: { id },
       data: {
@@ -1971,6 +2059,18 @@ export class WorkOrdersService {
     if (current.status === WorkOrderStatus.COMPLETED) {
       throw new BadRequestException("Cannot reject a completed work order");
     }
+
+    const openRequest = await this.approvalsService?.findOpenRequest(this.resolveTenantId(actor), "WorkOrder", id);
+    if (openRequest && this.approvalsService) {
+      await this.approvalsService.decide({
+        actor: this.assertActor(actor),
+        requestId: openRequest.id,
+        decision: ApprovalDecisionOutcome.REJECTED,
+        reason: trimmedReason
+      });
+    }
+
+    await this.closeActiveLabourSessions(id, undefined, this.resolveTenantId(actor));
 
     const updated = await this.prisma.workOrder.update({
       where: { id },
@@ -2162,7 +2262,8 @@ export class WorkOrdersService {
       } else {
         assertValidHoldReason(holdCode, holdNotes);
       }
-      await this.closeActiveLabourSessions(id, actor?.sub ?? current.technicianId ?? undefined, tenantId);
+      // Hold and completion stop the clock for everyone on the job, not only the person pressing the button.
+      await this.closeActiveLabourSessions(id, undefined, tenantId);
     }
 
     if (targetStatus === WorkOrderStatus.IN_PROGRESS) {
@@ -2187,6 +2288,8 @@ export class WorkOrdersService {
 
     if (targetStatus === WorkOrderStatus.CANCELLED) {
       assertReasonProvided("Cancel reason", data.cancelReason);
+      // A cancelled job must not leave a running labour session that blocks the technician's next Start.
+      await this.closeActiveLabourSessions(id, undefined, tenantId);
     }
 
     let authoritativeCompletion: { actualHours: number; actualCost: number; partsCost: number } | null = null;
@@ -2280,7 +2383,8 @@ export class WorkOrdersService {
         throw error;
       }
 
-      await this.closeActiveLabourSessions(id, actor?.sub ?? current.technicianId ?? undefined, tenantId);
+      // Hold and completion stop the clock for everyone on the job, not only the person pressing the button.
+      await this.closeActiveLabourSessions(id, undefined, tenantId);
       await this.assertPartsReconciledForCompletion(id, actor);
       authoritativeCompletion = await this.computeAuthoritativeHoursAndCost(id, actor);
 
@@ -2320,7 +2424,8 @@ export class WorkOrdersService {
           );
         }
       }
-      await this.closeActiveLabourSessions(id, actor?.sub ?? current.technicianId ?? undefined, tenantId);
+      // Hold and completion stop the clock for everyone on the job, not only the person pressing the button.
+      await this.closeActiveLabourSessions(id, undefined, tenantId);
       await this.assertPartsReconciledForCompletion(id, actor);
       authoritativeCompletion = await this.computeAuthoritativeHoursAndCost(id, actor);
     }
@@ -2365,7 +2470,8 @@ export class WorkOrdersService {
         ? current.repairCompletedAt ?? new Date()
         : current.repairCompletedAt;
     const heldAt =
-      targetStatus === WorkOrderStatus.ON_HOLD ? current.heldAt ?? new Date() : current.heldAt;
+      // Each hold starts now; reusing the first hold time made later hold durations too long.
+      targetStatus === WorkOrderStatus.ON_HOLD ? new Date() : current.heldAt;
     const resumedAt =
       current.status === WorkOrderStatus.ON_HOLD && targetStatus === WorkOrderStatus.IN_PROGRESS
         ? new Date()
@@ -2791,6 +2897,11 @@ export class WorkOrdersService {
       requesterConfirmationNote?: string | null;
     };
     assertAllowedStatusTransition(current.status, WorkOrderStatus.CLOSED);
+    // Returns cannot be confirmed once the job is closed, so stores must confirm them first.
+    const partsAtClose = await this.workOrderPartsService.getCostSummary(id, actor);
+    if ((partsAtClose.pendingReturnLines ?? 0) > 0) {
+      throw new BadRequestException("Stores must confirm the pending part returns before this work order is closed.");
+    }
     const overrideReason = options?.overrideReason?.trim();
     const now = new Date();
     if (
@@ -2887,6 +2998,7 @@ export class WorkOrdersService {
       }
     );
     await this.completePmOccurrenceForClosedWorkOrder(current);
+    await this.resetVehicleServiceDueAfterService(current);
     if (this.workOrderDomain) {
       await this.workOrderDomain.releaseTargetIfLastOpenWorkOrder(id, actor);
     }
@@ -2898,6 +3010,51 @@ export class WorkOrdersService {
    * Governed PM baseline advance: occurrence completes only when the WO is CLOSED
    * (not when the WO was merely generated).
    */
+  /** A closed service job on a vehicle moves its next service due forward, so the gate stops blocking it. */
+  private async resetVehicleServiceDueAfterService(workOrder: {
+    id: string;
+    tenantId: string;
+    vehicleId?: string | null;
+    type: WorkOrderType | string;
+    pmPlanId?: string | null;
+  }) {
+    if (!workOrder.vehicleId) return;
+    if (workOrder.type !== WorkOrderType.PREVENTIVE && !workOrder.pmPlanId) return;
+    try {
+      const [vehicle, closed] = await Promise.all([
+        this.prisma.vehicle.findFirst({
+          where: { id: workOrder.vehicleId, tenantId: workOrder.tenantId },
+          select: {
+            id: true,
+            currentMileage: true,
+            serviceIntervalDays: true,
+            serviceIntervalMileage: true,
+            nextServiceDate: true,
+            nextServiceMileage: true
+          }
+        }),
+        this.prisma.workOrder.findUnique({ where: { id: workOrder.id }, select: { completionMeterReading: true } })
+      ]);
+      if (!vehicle) return;
+      await this.prisma.vehicle.update({
+        where: { id: vehicle.id },
+        data: vehicleServiceAfterClose({
+          closedAt: new Date(),
+          reading: closed?.completionMeterReading ?? Number(vehicle.currentMileage ?? 0),
+          intervalDays: vehicle.serviceIntervalDays,
+          intervalMileage: vehicle.serviceIntervalMileage,
+          nextServiceDate: vehicle.nextServiceDate,
+          nextServiceMileage: vehicle.nextServiceMileage
+        })
+      });
+    } catch (error) {
+      // The close itself has succeeded; fleet staff can still edit the service due on the vehicle.
+      this.logger.warn(
+        `Vehicle service due not reset for work order ${workOrder.id}: ${error instanceof Error ? error.message : "unknown error"}`
+      );
+    }
+  }
+
   private async completePmOccurrenceForClosedWorkOrder(workOrder: {
     id: string;
     tenantId: string;
@@ -2943,9 +3100,38 @@ export class WorkOrdersService {
           }
         });
       }
+      const [plan, closed] = await Promise.all([
+        this.prisma.pmPlan.findUnique({
+          where: { id: workOrder.pmPlanId },
+          select: {
+            nextDueMeterValue: true,
+            lastCompletionMileage: true,
+            lastCompletionHours: true,
+            triggers: { select: { kind: true, intervalDays: true, intervalValue: true } }
+          }
+        }),
+        this.prisma.workOrder.findUnique({
+          where: { id: workOrder.id },
+          select: { completionMeterReading: true, vehicleId: true }
+        })
+      ]);
+      const triggers = (plan?.triggers ?? []).map((t) => ({
+        kind: String(t.kind),
+        intervalDays: t.intervalDays,
+        intervalValue: t.intervalValue
+      }));
+      const meterInterval = triggers.find((t) => t.kind === "METER" && (t.intervalValue ?? 0) > 0)?.intervalValue ?? null;
+      const lastMeter = plan?.lastCompletionMileage ?? plan?.lastCompletionHours ?? null;
       await this.prisma.pmPlan.update({
         where: { id: workOrder.pmPlanId },
-        data: { lastCompletionAt: now }
+        data: pmBaselineAfterClose({
+          closedAt: now,
+          triggers,
+          completionReading: closed?.completionMeterReading ?? null,
+          isVehicle: Boolean(closed?.vehicleId),
+          previousThreshold:
+            plan?.nextDueMeterValue ?? (meterInterval != null ? (lastMeter ?? 0) + meterInterval : null)
+        })
       });
     } catch {
       // Baseline advance must not block WO close; Technical Admin can reconcile.
@@ -2969,6 +3155,9 @@ export class WorkOrdersService {
         status: WorkOrderStatus.REWORK_REQUIRED,
         verificationStatus: WorkOrderVerificationStatus.REJECTED,
         verificationRejectionReason: trimmedReason,
+        // Rework is not finished yet; the next completion records its own date and SLA result.
+        completedDate: null,
+        repairCompletedAt: null,
         version: { increment: 1 }
       }
     });
@@ -4549,6 +4738,7 @@ export class WorkOrdersService {
             actor
           );
         }
+        await this.promoteAssignedTechnician(workOrderId, actor);
 
         if (input.expectedCompletionDate) {
           await this.prisma.workOrder.update({

@@ -16,7 +16,8 @@ type KanbanBoardProps = {
   onHold: (workOrder: WorkOrder) => void;
   onComplete: (workOrder: WorkOrder) => void;
   onAssign: (workOrder: WorkOrder, technicianId: string) => void;
-  onDelete: (workOrder: WorkOrder) => void;
+  /** Cancel action. Left out for roles the API does not allow to cancel. */
+  onDelete?: (workOrder: WorkOrder) => void;
   onEdit: (workOrder: WorkOrder) => void;
   canApprove?: boolean;
   onApprove?: (workOrder: WorkOrder) => void;

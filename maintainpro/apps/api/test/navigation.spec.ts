@@ -288,9 +288,11 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
   });
 
   it("provides role default favorites", () => {
-    expect(getDefaultFavoriteNavIds("TECHNICIAN")).toEqual(
-      expect.arrayContaining(["all-jobs"])
-    );
+    // My Jobs is the technician's main entry (same work as Work Orders > My Tasks).
+    expect(getDefaultFavoriteNavIds("TECHNICIAN")[0]).toBe("my-jobs");
+    expect(getDefaultFavoriteNavIds("TECHNICIAN")).not.toContain("all-jobs");
+    // Security officers cannot open the fleet overview; their favourite is the gate.
+    expect(getDefaultFavoriteNavIds("SECURITY_OFFICER")).toEqual(["fleet-gate"]);
     expect(getDefaultFavoriteNavIds("TECHNICIAN")).not.toContain("home");
     expect(getDefaultFavoriteNavIds("INVENTORY_KEEPER")).toEqual(
       expect.arrayContaining(["spare-parts"])
@@ -311,7 +313,24 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     const technicianMobile = getMobileBottomNavItems("TECHNICIAN");
     expect(technicianMobile.some((item) => item.id === "home")).toBe(false);
     expect(technicianMobile.some((item) => item.action === "search")).toBe(true);
-    expect(technicianMobile.some((item) => item.id === "work-orders")).toBe(true);
+    // First tab is the login home for the role.
+    expect(technicianMobile[0]).toEqual(expect.objectContaining({ id: "my-jobs", label: "My Jobs", href: "/work-orders/my" }));
+    const inventoryMobile = getMobileBottomNavItems("INVENTORY_KEEPER");
+    expect(inventoryMobile[0]).toEqual(expect.objectContaining({ label: "Inventory", href: "/inventory" }));
+    const securityMobile = getMobileBottomNavItems("SECURITY_OFFICER");
+    expect(securityMobile[0]).toEqual(expect.objectContaining({ id: "fleet-gate", label: "Gate", href: "/fleet/gate" }));
+    expect(securityMobile.some((item) => item.href === "/fleet")).toBe(false);
+  });
+
+  it("keeps the domain job lanes out of the technician menu but not the manager menu", () => {
+    const lanes = ["machinery-jobs", "service-jobs", "vehicle-jobs"];
+    const technicianIds = getVisibleNavigationItems("TECHNICIAN").map((item) => item.id);
+    for (const id of lanes) expect(technicianIds).not.toContain(id);
+    expect(technicianIds).toContain("my-jobs");
+    const managerIds = getVisibleNavigationItems("MANAGER").map((item) => item.id);
+    for (const id of lanes) expect(managerIds).toContain(id);
+    // Deep links still open for technicians.
+    expect(canAccessNavigationPath("/maintenance/jobs/machinery", "TECHNICIAN", [])).toBe(true);
   });
 
   it("does not invent FG records in mobile nav without FG access", () => {

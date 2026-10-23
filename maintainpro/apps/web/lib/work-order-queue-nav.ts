@@ -1,5 +1,7 @@
 import type { WorkOrderQueueFilters, WorkOrderQueueKey } from "./work-order-queues-api";
 import { DEFAULT_QUEUE_FILTERS } from "./work-order-queues-api";
+import { formatEnumLabel, priorityLabel, workOrderStatusLabel } from "./display-labels";
+import { jobDomainLabel } from "./job-domain";
 
 /** Queues kept on the primary tab row. Other accessible queues go in More. */
 export const PRIMARY_QUEUE_KEYS = [
@@ -22,8 +24,8 @@ const PRIMARY_LABELS: Record<string, string> = {
   "open-requests": "Open",
   assigned: "Assigned",
   "in-progress": "In Progress",
-  "waiting-parts": "Waiting Parts",
-  "supervisor-verification": "Verification",
+  "waiting-parts": "Waiting for parts",
+  "supervisor-verification": "Awaiting verification",
   overdue: "Overdue",
   unassigned: "Unassigned",
   "high-priority": "High Priority",
@@ -133,7 +135,7 @@ export function nextActionLabel(row: {
     return { label: "Evidence missing", tone: "warn" };
   }
   if (row.status === "TECHNICIAN_COMPLETED") {
-    return { label: "Verification required", tone: "warn" };
+    return { label: "Awaiting verification", tone: "warn" };
   }
   if (row.status === "COMPLETED" || row.status === "CLOSED" || row.status === "VERIFIED") {
     return { label: "Ready", tone: "ok" };
@@ -146,15 +148,16 @@ export type QueueFilterChip = { key: string; label: string };
 export function activeQueueFilterChips(filters: WorkOrderQueueFilters): QueueFilterChip[] {
   const chips: QueueFilterChip[] = [];
   if (filters.query.trim().length >= 2) chips.push({ key: "query", label: filters.query.trim() });
-  if (filters.status !== "ALL") chips.push({ key: "status", label: filters.status.replaceAll("_", " ") });
-  if (filters.priority !== "ALL") chips.push({ key: "priority", label: filters.priority });
+  // Chips use the same status names as the list pills, never raw codes such as TECHNICIAN_COMPLETED.
+  if (filters.status !== "ALL") chips.push({ key: "status", label: workOrderStatusLabel(filters.status) });
+  if (filters.priority !== "ALL") chips.push({ key: "priority", label: `${priorityLabel(filters.priority)} priority` });
   if (filters.technicianId) chips.push({ key: "technicianId", label: "Assignee" });
-  if (filters.jobDomain) chips.push({ key: "jobDomain", label: filters.jobDomain });
+  if (filters.jobDomain) chips.push({ key: "jobDomain", label: jobDomainLabel(filters.jobDomain) });
   if (filters.overdueOnly) chips.push({ key: "overdueOnly", label: "Overdue" });
   if (filters.highRiskOnly) chips.push({ key: "highRiskOnly", label: "High risk" });
   if (filters.triageOnly) chips.push({ key: "triageOnly", label: "Triage" });
-  if (filters.evidenceStatus) chips.push({ key: "evidenceStatus", label: `Evidence: ${filters.evidenceStatus}` });
-  if (filters.partsStatus) chips.push({ key: "partsStatus", label: `Parts: ${filters.partsStatus}` });
+  if (filters.evidenceStatus) chips.push({ key: "evidenceStatus", label: `Evidence: ${formatEnumLabel(filters.evidenceStatus)}` });
+  if (filters.partsStatus) chips.push({ key: "partsStatus", label: `Parts: ${formatEnumLabel(filters.partsStatus)}` });
   if (filters.dateFrom || filters.dateTo) {
     chips.push({ key: "dates", label: `Created ${filters.dateFrom || "…"}–${filters.dateTo || "…"}` });
   }

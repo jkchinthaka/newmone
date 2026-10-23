@@ -8,7 +8,6 @@ import type { MeterRecord, ReadingRecord, RecentReadingRow } from "@/components/
 import { QrScanner } from "@/components/qr/qr-scanner";
 import { PageShell } from "@/components/ui/dashboard";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
-import { colomboDateTimeToIso, colomboNowTime, colomboTodayYmd } from "@/lib/colombo-datetime";
 import {
   HIGH_USAGE_COPY,
   averageDailyUse,
@@ -16,10 +15,12 @@ import {
   formatRecorded,
   formatSignedUse,
   lastSevenSpark,
+  lowerThanLastWarning,
   meterLine,
   myRecentReadings,
   readingListStatus,
   readingTimeInFuture,
+  readingTimeNow,
   savedReadingMessage,
   sinceLastLabel,
   usagePreview
@@ -78,7 +79,7 @@ export default function MeterReadingsPage() {
   const [historyError, setHistoryError] = useState("");
   const [value, setValue] = useState("");
   const [rejectedDraft, setRejectedDraft] = useState("");
-  const [readingAt, setReadingAt] = useState(() => colomboDateTimeToIso(colomboTodayYmd(), colomboNowTime()));
+  const [readingAt, setReadingAt] = useState(() => readingTimeNow());
   const [note, setNote] = useState("");
   const [reset, setReset] = useState(false);
   const [resetReason, setResetReason] = useState("");
@@ -115,6 +116,7 @@ export default function MeterReadingsPage() {
     () => usagePreview(value, fractionDigits, last, history),
     [fractionDigits, history, last, value]
   );
+  const lowerWarning = lowerThanLastWarning(value, fractionDigits, last, selected?.unit);
   const latestByMeter = useMemo(() => {
     const map = new Map<string, ReadingRecord>();
     for (const row of [...latestReadings, ...myReadings].sort((left, right) => new Date(right.readingDate).getTime() - new Date(left.readingDate).getTime())) {
@@ -235,6 +237,8 @@ export default function MeterReadingsPage() {
     setNote("");
     setReset(false);
     setResetReason("");
+    // A new meter is a new reading: the time starts at now, not when the page opened.
+    setReadingAt(readingTimeNow());
     attemptKey.current = null;
     setRecent(rememberMeter(fresh));
     await loadHistory(fresh);
@@ -282,6 +286,7 @@ export default function MeterReadingsPage() {
       setNote("");
       setReset(false);
       setResetReason("");
+      setReadingAt(readingTimeNow());
       attemptKey.current = null;
       await loadHistory(selected, { quiet: true });
       void loadReadingList();
@@ -345,13 +350,17 @@ export default function MeterReadingsPage() {
             note={note}
             onNote={setNote}
             warning={preview?.warning || warning}
+            lowerWarning={lowerWarning}
             message={message}
             error={error}
             saving={saving}
             submitDisabled={saving || historyState === "loading" || Boolean(fieldError)}
             onSubmit={(event) => void submit(event)}
             onChangeMeter={() => setSelected(null)}
-            onScanNext={() => setScanOpen(true)}
+            onScanNext={() => {
+              setReadingAt(readingTimeNow());
+              setScanOpen(true);
+            }}
           />
         </PageShell>
         </div>

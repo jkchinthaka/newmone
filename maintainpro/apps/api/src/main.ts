@@ -43,7 +43,7 @@ async function bootstrap(): Promise<void> {
     .filter(Boolean);
 
   const allowedOrigins = Array.from(
-    new Set(["http://localhost:3001", "http://localhost:5173", ...configuredOrigins])
+    new Set(["http://localhost:3041", "http://127.0.0.1:3041", "http://localhost:3001", "http://localhost:5173", ...configuredOrigins])
   );
 
   app.use(helmet());
@@ -250,6 +250,7 @@ async function bootstrap(): Promise<void> {
     });
   });
 
+  // Docker images and e2e stacks listen on 3000; the local launcher and the go-live service set PORT=3040.
   const port = Number(process.env.PORT ?? 3000);
   const host = process.env.HOST ?? "0.0.0.0";
   await app.listen(port, host);

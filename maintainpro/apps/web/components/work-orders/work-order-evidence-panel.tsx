@@ -18,9 +18,16 @@ import {
   updateOfflineEvidenceDraft
 } from "@/lib/work-order-evidence-offline";
 import {
+  canOverrideQrMismatch,
   canReviewWorkOrderEvidence,
   canUploadWorkOrderEvidence,
+  defaultEvidenceType,
   EVIDENCE_TYPE_OPTIONS,
+  evidenceTypeAfterUpload,
+  isQrMismatchMessage,
+  isQrVerified,
+  QR_OVERRIDE_MIN_REASON,
+  qrStatusLabel,
   evidencePayloadHasSecrets,
   evidenceTypeLabel,
   evidenceUploadDisabledMessage,
@@ -94,17 +101,33 @@ export function WorkOrderEvidencePanel({
   const currentUser = useCurrentUser();
   const [submitting, setSubmitting] = useState(false);
   const [uploadPhase, setUploadPhase] = useState<"idle" | "uploading" | "failed">("idle");
-  const [evidenceType, setEvidenceType] = useState("BEFORE_PHOTO");
+  // Before photo first; once one exists (or right after a before upload) default to After.
+  const [evidenceType, setEvidenceType] = useState(() => defaultEvidenceType(items));
   const [uploadNote, setUploadNote] = useState("");
   const [pendingFile, setPendingFile] = useState<EvidencePickerFile | null>(null);
   const [qrInput, setQrInput] = useState("");
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  /** Value that failed to match (camera or typed). Drives the "Tag missing or damaged?" help. */
+  const [qrMismatchValue, setQrMismatchValue] = useState<string | null>(null);
+  const [qrOverrideReason, setQrOverrideReason] = useState("");
+  const [qrError, setQrError] = useState<string | null>(null);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [offlineQueue, setOfflineQueue] = useState<OfflineEvidenceDraft[]>([]);
 
   const canUpload = canUploadWorkOrderEvidence(currentUser?.role) && isEvidenceUploadEnabled(readiness);
   const canReview = canReviewWorkOrderEvidence(currentUser?.role);
+  const canScanQr = canUploadWorkOrderEvidence(currentUser?.role);
+  const canOverrideQr = canOverrideQrMismatch(currentUser?.role);
+  const qrDone = isQrVerified(requirements?.qrVerificationStatus);
+  const hasBeforePhoto = items.some((item) => item.evidenceType === "BEFORE_PHOTO" && item.status === "UPLOADED");
+
+  useEffect(() => {
+    // New evidence arrived (upload or refresh): move off Before once a before photo exists.
+    if (hasBeforePhoto) {
+      setEvidenceType((current) => (current === "BEFORE_PHOTO" ? "AFTER_PHOTO" : current));
+    }
+  }, [hasBeforePhoto]);
   const storageConfigured = isEvidenceUploadEnabled(readiness);
 
   useEffect(() => {
@@ -202,7 +225,8 @@ export function WorkOrderEvidencePanel({
         }
 
         setUploadPhase("idle");
-        toast.success("Evidence uploaded.");
+        toast.success(`${evidenceTypeLabel(evidenceType)} uploaded.`);
+        setEvidenceType(evidenceTypeAfterUpload(evidenceType));
         setUploadNote("");
         setPendingFile(null);
         await onRefresh?.();
@@ -227,24 +251,38 @@ export function WorkOrderEvidencePanel({
     void draft;
   }
 
-  async function verifyQr() {
-    const scannedValue = qrInput.trim();
+  /**
+   * Camera scans call this straight away; typed values use the Verify button.
+   * overrideReason is only sent by roles the API lets confirm a missing/damaged tag.
+   */
+  async function verifyQr(value?: string, overrideReason?: string) {
+    const scannedValue = (value ?? qrInput).trim();
     if (!scannedValue) {
-      toast.error("Scan or enter an asset/vehicle ID.");
+      setQrError("Scan the tag or type the vehicle number or asset tag.");
       return;
     }
 
     setSubmitting(true);
+    setQrError(null);
     try {
       await apiClient.post(`/work-orders/${workOrderId}/verify-qr`, {
         scannedAssetId: assetId ? scannedValue : undefined,
-        scannedVehicleId: vehicleId ? scannedValue : undefined
+        scannedVehicleId: vehicleId ? scannedValue : undefined,
+        overrideReason: overrideReason?.trim() || undefined
       });
-      toast.success("QR verification completed.");
+      toast.success(overrideReason ? "Job confirmed without tag." : "Tag checked. This is the right asset.");
       setQrInput("");
+      setQrMismatchValue(null);
+      setQrOverrideReason("");
       await onRefresh?.();
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "QR verification failed."));
+      const message = getApiErrorMessage(error, "QR check failed.");
+      if (isQrMismatchMessage(message)) {
+        setQrMismatchValue(scannedValue);
+        setQrError("This tag is not for this job. Check you are at the right asset or vehicle.");
+      } else {
+        setQrError(message);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -431,7 +469,7 @@ export function WorkOrderEvidencePanel({
                 {requirements.qrVerificationStatus === "VERIFIED" || requirements.qrVerificationStatus === "OVERRIDDEN"
                   ? "✓"
                   : "○"}{" "}
-                QR verification ({requirements.qrVerificationStatus})
+                QR tag: {qrStatusLabel(requirements.qrVerificationStatus)}
               </li>
             ) : null}
           </ul>
@@ -461,22 +499,48 @@ export function WorkOrderEvidencePanel({
         {uploadPhase === "failed" ? (
           <p className="mt-2 text-xs text-red-700">Upload failed. Choose the file again to retry.</p>
         ) : null}
+        <div className="mt-3 grid gap-2 sm:grid-cols-2" role="group" aria-label="Photo type">
+          {(["BEFORE_PHOTO", "AFTER_PHOTO"] as const).map((type) => (
+            <button
+              key={type}
+              type="button"
+              aria-pressed={evidenceType === type}
+              disabled={submitting}
+              onClick={() => setEvidenceType(type)}
+              className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold ${
+                evidenceType === type
+                  ? "border-brand-600 bg-brand-600 text-white"
+                  : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+              }`}
+            >
+              <Camera size={16} aria-hidden />
+              {type === "BEFORE_PHOTO" ? "Add before photo" : "Add after photo"}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-slate-600">
+          Adding: <span className="font-semibold text-slate-900">{evidenceTypeLabel(evidenceType)}</span>
+          {evidenceType === "BEFORE_PHOTO" && !hasBeforePhoto ? " (take it before you start the repair)" : ""}
+        </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-slate-600">
-            Evidence type
+            Other file (invoice, part photo...)
             <select
-              value={evidenceType}
-              onChange={(event) => setEvidenceType(event.target.value)}
+              value={evidenceType === "BEFORE_PHOTO" || evidenceType === "AFTER_PHOTO" ? "" : evidenceType}
+              onChange={(event) => setEvidenceType(event.target.value || defaultEvidenceType(items))}
               className="mt-1 w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
             >
-              {EVIDENCE_TYPE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
+              <option value="">Not needed</option>
+              {EVIDENCE_TYPE_OPTIONS.filter((option) => option.value !== "BEFORE_PHOTO" && option.value !== "AFTER_PHOTO").map(
+                (option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                )
+              )}
             </select>
           </label>
-          <label className="text-xs text-slate-600 sm:col-span-2">
+          <label className="text-xs text-slate-600">
             Note (optional)
             <input
               value={uploadNote}
@@ -509,7 +573,7 @@ export function WorkOrderEvidencePanel({
             className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             {submitting ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
-            {isBrowserOnline() ? "Upload selected evidence" : "Queue selected evidence"}
+            {isBrowserOnline() ? `Upload ${evidenceTypeLabel(evidenceType).toLowerCase()}` : "Save to send later"}
           </button>
         </div>
       </div>
@@ -518,42 +582,94 @@ export function WorkOrderEvidencePanel({
       {(assetId || vehicleId) && requirements?.qrRequired ? (
         <div className="rounded-lg border border-slate-200 p-4">
           <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-            <QrCode size={16} /> QR verification
+            <QrCode size={16} /> QR tag check
           </div>
-          <p className="mt-1 text-xs text-slate-600">Confirm you are working on the correct asset or vehicle.</p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <input
-              value={qrInput}
-              onChange={(event) => setQrInput(event.target.value)}
-              placeholder={assetId ? "Scanned asset ID" : "Scanned vehicle ID"}
-              className="min-h-11 min-w-[220px] flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => setQrScannerOpen(true)}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800"
-            >
-              <Camera size={16} aria-hidden />
-              Scan with camera
-            </button>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => void verifyQr()}
-              className="min-h-11 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-            >
-              Verify scan
-            </button>
-          </div>
+          <p
+            className={`mt-2 inline-flex items-center gap-1 text-sm font-medium ${qrDone ? "text-emerald-700" : "text-amber-800"}`}
+            role="status"
+          >
+            {qrDone ? <CheckCircle2 size={14} aria-hidden /> : null}
+            {qrStatusLabel(requirements.qrVerificationStatus)}
+          </p>
+          {readOnly || qrDone ? null : !canScanQr ? (
+            <p className="mt-1 text-xs text-slate-600">The assigned technician scans the tag.</p>
+          ) : (
+            <>
+              <p className="mt-1 text-xs text-slate-600">Scan the tag to confirm you are at the right asset or vehicle.</p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => setQrScannerOpen(true)}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                >
+                  <Camera size={16} aria-hidden />
+                  Scan with camera
+                </button>
+                <input
+                  value={qrInput}
+                  onChange={(event) => {
+                    setQrInput(event.target.value);
+                    setQrError(null);
+                  }}
+                  placeholder="Vehicle number or asset tag"
+                  aria-label="Vehicle number or asset tag"
+                  className="min-h-11 min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm sm:min-w-[200px]"
+                />
+                <button
+                  type="button"
+                  disabled={submitting || !qrInput.trim()}
+                  onClick={() => void verifyQr()}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800 disabled:opacity-60"
+                >
+                  {submitting ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null}
+                  Verify
+                </button>
+              </div>
+              {qrError ? (
+                <p className="mt-2 text-sm text-red-700" role="alert">
+                  {qrError}
+                </p>
+              ) : null}
+              {qrMismatchValue ? (
+                canOverrideQr ? (
+                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-sm font-medium text-amber-950">Tag missing or damaged?</p>
+                    <p className="mt-1 text-xs text-amber-900">If you checked the asset yourself, write why and confirm.</p>
+                    <input
+                      value={qrOverrideReason}
+                      onChange={(event) => setQrOverrideReason(event.target.value)}
+                      placeholder="Reason, e.g. tag broken, checked plate number"
+                      aria-label="Reason to confirm without tag"
+                      className="mt-2 min-h-11 w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-sm"
+                    />
+                    <button
+                      type="button"
+                      disabled={submitting || qrOverrideReason.trim().length < QR_OVERRIDE_MIN_REASON}
+                      onClick={() => void verifyQr(qrMismatchValue, qrOverrideReason)}
+                      className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-amber-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
+                    >
+                      Confirm without tag
+                    </button>
+                    {qrOverrideReason.trim().length < QR_OVERRIDE_MIN_REASON ? (
+                      <p className="mt-1 text-xs text-amber-900">Write at least {QR_OVERRIDE_MIN_REASON} letters.</p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm font-medium text-amber-900">Ask a manager to confirm this job.</p>
+                )
+              ) : null}
+            </>
+          )}
           <QrScanner
             open={qrScannerOpen}
             onClose={() => setQrScannerOpen(false)}
             title="Scan asset or vehicle tag"
             onScan={(value) => {
-              setQrInput(value);
               setQrScannerOpen(false);
-              toast.message("QR value captured — confirm Verify scan.");
+              setQrInput(value);
+              // A camera scan checks straight away. No extra button press.
+              void verifyQr(value);
             }}
           />
         </div>

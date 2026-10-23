@@ -390,7 +390,7 @@ test.describe("authentication", () => {
     await page.goto("/dashboard");
 
     await expect(page).toHaveURL(/\/login\?reason=session_expired/);
-    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sign in to MaintainPro" })).toBeVisible();
   });
 
   test("legacy /home route shows archive label and dashboard link", async ({ page }) => {
@@ -527,6 +527,6 @@ test.describe("authentication", () => {
     await expect(page).toHaveURL(/\/login/);
     await page.goBack({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sign in to MaintainPro" })).toBeVisible();
   });
 });

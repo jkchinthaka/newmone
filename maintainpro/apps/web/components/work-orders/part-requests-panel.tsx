@@ -14,6 +14,12 @@ import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { erpReconciliationLabel } from "@/lib/erp-reconciliation-label";
+import {
+  canPartRequestAction,
+  partLineStatusLabel,
+  partRequestNextStep,
+  partRequestStatusLabel
+} from "@/lib/part-request-ui";
 import { useCurrentUser } from "@/lib/use-current-user";
 import {
   approvePartRequestFinance,
@@ -50,25 +56,6 @@ type SparePartOption = {
   quantityInStock?: number | null;
   unitCost?: number | null;
 };
-
-const STOREKEEPER_ROLES = new Set([
-  "SUPER_ADMIN",
-  "ADMIN",
-  "INVENTORY_KEEPER",
-  "OPERATIONS_MANAGER",
-  "ASSET_MANAGER"
-]);
-
-const APPROVER_ROLES = new Set([
-  "SUPER_ADMIN",
-  "ADMIN",
-  "MANAGER",
-  "ASSET_MANAGER",
-  "INVENTORY_KEEPER",
-  "OPERATIONS_MANAGER"
-]);
-
-const TECHNICIAN_ROLES = new Set(["TECHNICIAN", "MECHANIC"]);
 
 function requestBadge(status: PartRequest["status"]) {
   switch (status) {
@@ -146,10 +133,15 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
     Record<string, { usedQty?: string; returnQty?: string; returnCondition?: PartReturnCondition; confirmQty?: string }>
   >({});
 
-  const canApprove = APPROVER_ROLES.has(role);
-  const canIssue = STOREKEEPER_ROLES.has(role);
-  const canMarkUsage = TECHNICIAN_ROLES.has(role) || STOREKEEPER_ROLES.has(role);
-  const canConfirmReturn = STOREKEEPER_ROLES.has(role);
+  // Buttons a role can never use are hidden (not shown disabled). Lists mirror the API @Roles.
+  const canCreate = canPartRequestAction(role, "create");
+  const canApprove = canPartRequestAction(role, "approve_operational");
+  const canFinanceApprove = canPartRequestAction(role, "approve_finance");
+  const canReject = canPartRequestAction(role, "reject");
+  const canIssue = canPartRequestAction(role, "issue");
+  const canMarkUsage = canPartRequestAction(role, "mark_used");
+  const canRequestReturn = canPartRequestAction(role, "request_return");
+  const canConfirmReturn = canPartRequestAction(role, "confirm_return");
 
   const selectedPart = useMemo(() => parts.find((p) => p.id === partId), [partId, parts]);
 
@@ -173,7 +165,7 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
     if (!Number.isFinite(qty) || qty <= 0) return null;
     const snapshot = selectedPart.quantityInStock ?? 0;
     if (snapshot < qty) {
-      return "ERP snapshot is not verified available stock. The server rejects an issue above the verified balance.";
+      return "Stock may be too low. The store will check before issuing.";
     }
     return null;
   }, [quantity, selectedPart]);
@@ -251,10 +243,10 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
 
   return (
     <div className="space-y-4">
-      {readOnly ? null : (
+      {readOnly || !canCreate ? null : (
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-900">1. Request Parts</h3>
-        <p className="mt-1 text-xs text-slate-500">Technicians can request parts. Stock availability is shown before submit.</p>
+        <h3 className="text-sm font-semibold text-slate-900">Request parts</h3>
+        <p className="mt-1 text-xs text-slate-500">Pick a part and how many you need.</p>
 
         <div className="mt-3 grid gap-2">
           {partsSearchAvailable ? (
@@ -310,7 +302,7 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
               onClick={() => void handleCreate()}
               className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-50 hover:bg-brand-500"
             >
-              <PackagePlus size={14} /> Request Part
+              <PackagePlus size={14} /> Request part
             </button>
           </div>
         </div>
@@ -319,7 +311,7 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-900">Parts for this job</h3>
+          <h3 className="text-sm font-semibold text-slate-900">Part requests</h3>
           <button
             type="button"
             onClick={() => void refresh()}
@@ -350,35 +342,47 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
                       <p className="text-amber-700">High-cost part requires finance approval.</p>
                     ) : null}
                   </div>
-                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${requestBadge(pr.status)}`}>
-                    {pr.status.replace(/_/g, " ")}
+                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${requestBadge(pr.status)}`}>
+                    {partRequestStatusLabel(pr.status)}
                   </span>
                 </div>
 
-                {readOnly ? null : (
+                {readOnly ? null : (() => {
+                  const showApprove = canApprove && pr.status === "PENDING_OPERATIONAL";
+                  const showFinance = canFinanceApprove && pr.status === "PENDING_FINANCE";
+                  const showIssue = canIssue && (pr.status === "APPROVED" || pr.status === "PARTIALLY_ISSUED");
+                  const showReject =
+                    canReject && (pr.status === "PENDING_OPERATIONAL" || pr.status === "PENDING_FINANCE");
+                  if (!showApprove && !showFinance && !showIssue && !showReject) {
+                    const nextStep = partRequestNextStep(pr.status);
+                    return nextStep ? <p className="mt-2 text-xs text-slate-600">{nextStep}</p> : null;
+                  }
+                  return (
                 <div className="mt-2 flex flex-wrap gap-2">
+                  {showApprove ? (
                   <button
                     type="button"
-                    disabled={busyId === pr.id || pr.status !== "PENDING_OPERATIONAL" || !canApprove}
-                    title={!canApprove ? "Manager approval required." : undefined}
+                    disabled={busyId === pr.id}
                     onClick={() =>
                       withBusy(pr.id, async () => {
                         try {
                           await approvePartRequestOperational(workOrderId, pr.id);
-                          toast.success("Operational approval recorded.");
+                          toast.success("Request approved.");
                           await refresh();
                         } catch (err) {
                           toast.error(getApiErrorMessage(err, "Approval failed."));
                         }
                       })
                     }
-                    className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                    className="inline-flex min-h-9 items-center gap-1 rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
                   >
                     <CheckCircle2 size={12} /> Approve
                   </button>
+                  ) : null}
+                  {showFinance ? (
                   <button
                     type="button"
-                    disabled={busyId === pr.id || pr.status !== "PENDING_FINANCE" || !canApprove}
+                    disabled={busyId === pr.id}
                     onClick={() =>
                       withBusy(pr.id, async () => {
                         try {
@@ -390,52 +394,48 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
                         }
                       })
                     }
-                    className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                    className="inline-flex min-h-9 items-center gap-1 rounded-md bg-indigo-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
                   >
-                    <CheckCircle2 size={12} /> Finance Approve
+                    <CheckCircle2 size={12} /> Finance approve
                   </button>
+                  ) : null}
+                  {showIssue ? (
                   <button
                     type="button"
-                    disabled={
-                      busyId === pr.id ||
-                      (pr.status !== "APPROVED" && pr.status !== "PARTIALLY_ISSUED") ||
-                      !canIssue
-                    }
-                    title={!canIssue ? "Only storekeepers can issue stock." : undefined}
+                    disabled={busyId === pr.id}
                     onClick={() =>
                       withBusy(pr.id, async () => {
                         try {
                           await issuePartRequest(workOrderId, pr.id);
-                          toast.success("Part issued to work order.");
+                          toast.success("Part issued to this job.");
                           await refresh();
                         } catch (err) {
                           toast.error(getApiErrorMessage(err, "Issue failed."));
                         }
                       })
                     }
-                    className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                    className="inline-flex min-h-9 items-center gap-1 rounded-md bg-sky-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
                   >
                     <Send size={12} /> Issue
                   </button>
-                  <div className="flex items-center gap-1">
+                  ) : null}
+                  {showReject ? (
+                  <div className="flex w-full flex-wrap items-center gap-1 sm:w-auto">
                     <input
                       value={rejectReasons[pr.id] ?? ""}
                       onChange={(event) => setRejectReasons((prev) => ({ ...prev, [pr.id]: event.target.value }))}
-                      placeholder="Reject reason"
-                      className="rounded-md border border-slate-200 px-2 py-1 text-[11px]"
+                      placeholder="Reason to reject"
+                      aria-label="Reason to reject"
+                      className="min-h-9 min-w-0 flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs"
                     />
                     <button
                       type="button"
-                      disabled={
-                        busyId === pr.id ||
-                        !canApprove ||
-                        (pr.status !== "PENDING_OPERATIONAL" && pr.status !== "PENDING_FINANCE")
-                      }
+                      disabled={busyId === pr.id || !(rejectReasons[pr.id] ?? "").trim()}
                       onClick={() =>
                         withBusy(pr.id, async () => {
                           const note = (rejectReasons[pr.id] ?? "").trim();
                           if (!note) {
-                            toast.error("Provide rejection reason.");
+                            toast.error("Write why you reject it.");
                             return;
                           }
                           try {
@@ -448,13 +448,18 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
                           }
                         })
                       }
-                      className="inline-flex items-center gap-1 rounded-md bg-rose-600 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                      className="inline-flex min-h-9 items-center gap-1 rounded-md bg-rose-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
                     >
                       <XCircle size={12} /> Reject
                     </button>
+                    {!(rejectReasons[pr.id] ?? "").trim() ? (
+                      <p className="w-full text-[11px] text-slate-500">Write a reason to reject.</p>
+                    ) : null}
                   </div>
+                  ) : null}
                 </div>
-                )}
+                  );
+                })()}
               </li>
             ))}
           </ul>
@@ -462,9 +467,10 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-900">3–4. Issued Parts & Usage / Return</h3>
+        <h3 className="text-sm font-semibold text-slate-900">Issued parts: used or returned</h3>
+        <p className="mt-1 text-xs text-slate-500">Every issued part must be marked used or returned before the job can be completed.</p>
         {lines.length === 0 ? (
-          <p className="mt-2 text-xs text-slate-500">No part lines yet.</p>
+          <p className="mt-2 text-xs text-slate-500">No parts issued yet.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-full text-left text-xs">
@@ -501,10 +507,10 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
                       <td className="py-2 pr-3">{line.part?.quantityInStock ?? "—"}</td>
                       <td className="py-2 pr-3">
                         <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${lineBadge(line.lineStatus)}`}>
-                          {line.lineStatus.replace(/_/g, " ")}
+                          {partLineStatusLabel(line.lineStatus)}
                         </span>
                         {pending > 0 && line.issuedQuantity > 0 ? (
-                          <p className="mt-1 text-amber-700">Balance: {pending}</p>
+                          <p className="mt-1 text-amber-700">Not yet used or returned: {pending}</p>
                         ) : null}
                       </td>
                       <td className="py-2">
@@ -546,11 +552,11 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
                                 }
                                 className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-white disabled:opacity-50"
                               >
-                                Mark Used
+                                Mark used
                               </button>
                             </div>
                           ) : null}
-                          {line.issuedQuantity > 0 && pending > 0 && canMarkUsage ? (
+                          {line.issuedQuantity > 0 && pending > 0 && canRequestReturn ? (
                             <div className="flex flex-wrap gap-1">
                               <input
                                 type="number"
@@ -647,7 +653,7 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
                                 }
                                 className="rounded bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold text-white disabled:opacity-50"
                               >
-                                Confirm Return
+                                Confirm return
                               </button>
                             </div>
                           ) : null}
@@ -664,7 +670,7 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-900">5. Cost Summary</h3>
+        <h3 className="text-sm font-semibold text-slate-900">Cost summary</h3>
         {summary ? (
           <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
             <div>

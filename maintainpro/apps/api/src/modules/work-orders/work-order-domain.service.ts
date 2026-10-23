@@ -103,11 +103,9 @@ export class WorkOrderDomainService {
       if (vehicle.status === VehicleStatus.DISPOSED) {
         throw new BadRequestException("Cannot start work on a disposed vehicle.");
       }
-      if (
-        !raw ||
-        vehicle.status === VehicleStatus.AVAILABLE ||
-        vehicle.status === VehicleStatus.IN_USE
-      ) {
+      // An IN_USE vehicle is outside the gate. It stays IN_USE so security can gate it back in;
+      // gate-in then marks it UNDER_MAINTENANCE because this job is open.
+      if (!raw || vehicle.status === VehicleStatus.AVAILABLE) {
         await this.prisma.vehicle.update({
           where: { id: vehicle.id },
           data: { status: VehicleStatus.UNDER_MAINTENANCE }

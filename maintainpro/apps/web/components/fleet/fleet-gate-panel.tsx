@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard";
 import { ActiveFilterChips, JobsPagination, OperationalJobsHeader } from "@/components/operational";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { gateMovementLabel, vehicleStatusLabel } from "@/lib/display-labels";
 import {
   GATE_EMPTY,
   gateActionForStatus,
@@ -14,12 +15,21 @@ import {
   gateDeskSearch,
   gateListStatus,
   gateMeterError,
+  gateNextLabel,
+  gateNextSteps,
+  gateNoActionText,
+  gateOverrideMode,
+  gateOverrideOutcome,
   gatePresenceLabel,
   gateReadinessLabel,
   gateReasonHref,
+  gateReasonText,
   splitGateReasons,
   type GateDeskState
 } from "@/lib/gate-operations";
+import { canAccessNavigationPath } from "@/lib/navigation";
+import { extractRoleName } from "@/lib/role-redirect";
+import { useCurrentUser } from "@/lib/use-current-user";
 
 type VehicleRow = {
   id: string;
@@ -46,6 +56,10 @@ type Movement = {
 export function FleetGatePanel() {
   const router = useRouter();
   const pathname = usePathname();
+  const user = useCurrentUser();
+  const roleName = extractRoleName({ role: user.role });
+  const overrideMode = gateOverrideMode(roleName, user.permissions);
+  const canOpen = (path: string) => canAccessNavigationPath(path, roleName, user.permissions);
   const searchParams = useSearchParams();
   const state = useMemo(() => gateDeskFromSearch(new URLSearchParams(searchParams.toString())), [searchParams]);
   const [draftQuery, setDraftQuery] = useState(state.q);
@@ -63,6 +77,8 @@ export function FleetGatePanel() {
   const [history, setHistory] = useState<Movement[] | null>(null);
   const [todayChecks, setTodayChecks] = useState<Array<{ id: string; registrationNo: string; result: string; createdAt: string }>>([]);
   const [reloadKey, setReloadKey] = useState(0);
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -156,6 +172,8 @@ export function FleetGatePanel() {
 
   useEffect(() => {
     if (state.vehicleId) document.getElementById("gate-action")?.scrollIntoView({ block: "nearest" });
+    setOverrideOpen(false);
+    setOverrideReason("");
   }, [state.vehicleId]);
 
   const action = gateActionForStatus(selected?.status);
@@ -192,6 +210,48 @@ export function FleetGatePanel() {
     }
   }
 
+  async function requestOverride() {
+    if (!selected || action !== "out" || submitting) return;
+    const validation = gateMeterError(meter, Number(selected.currentMileage ?? 0));
+    if (validation) {
+      setNotice(validation);
+      return;
+    }
+    if (overrideReason.trim().length < 3) {
+      setNotice("Write why the vehicle must leave.");
+      return;
+    }
+    setSubmitting(true);
+    setNotice(null);
+    try {
+      // Same endpoint as gate out. The API checks the GATE_OVERRIDE approval and the approver.
+      const response = await apiClient.post(`/vehicles/${selected.id}/gate-out`, {
+        meterReading: Number(meter),
+        checkpoint: checkpoint.trim() || "Main gate",
+        allowOverride: true,
+        overrideReason: overrideReason.trim()
+      });
+      const payload = response.data?.data ?? {};
+      const outcome = gateOverrideOutcome({ allowed: payload.allowed !== false });
+      setNotice(outcome.message);
+      if (outcome.kind === "released") {
+        setOverrideOpen(false);
+        setOverrideReason("");
+        setReloadKey((value) => value + 1);
+      }
+    } catch (err) {
+      const failure = err as { response?: { status?: number; data?: { error?: { code?: string } } } };
+      const outcome = gateOverrideOutcome({
+        errorCode: failure.response?.data?.error?.code ?? null,
+        errorStatus: failure.response?.status ?? null,
+        errorMessage: getApiErrorMessage(err, "Override could not be sent.")
+      });
+      setNotice(outcome.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function loadHistory() {
     if (!selected) return;
     try {
@@ -206,7 +266,7 @@ export function FleetGatePanel() {
   const chips = [
     state.q ? { key: "q", label: `Search: ${state.q}` } : null,
     state.presence ? { key: "presence", label: state.presence === "inside" ? "Inside" : "Outside" } : null,
-    state.status ? { key: "status", label: state.status.replaceAll("_", " ") } : null,
+    state.status ? { key: "status", label: vehicleStatusLabel(state.status) } : null,
     state.service ? { key: "service", label: "Service overdue" } : null,
     state.location ? { key: "location", label: state.location } : null
   ].filter(Boolean) as Array<{ key: string; label: string }>;
@@ -216,7 +276,7 @@ export function FleetGatePanel() {
       <OperationalJobsHeader
         eyebrow="Fleet"
         title="Fleet Gate Operations"
-        description="Find a vehicle, check readiness, then record gate out or gate in. This screen does not override a block."
+        description="Find a vehicle, check readiness, then record gate out or gate in."
         actions={
           <>
             <button type="button" className="h-9 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>Refresh</button>
@@ -252,7 +312,7 @@ export function FleetGatePanel() {
             <select aria-label="Availability" value={state.status} onChange={(event) => write({ ...state, status: event.target.value, page: 1 })} className="h-9 rounded-md border border-slate-300 px-2 text-sm">
               <option value="">Availability</option>
               {["AVAILABLE", "IN_USE", "UNDER_MAINTENANCE", "OUT_OF_SERVICE", "DISPOSED"].map((status) => (
-                <option key={status} value={status}>{status.replaceAll("_", " ")}</option>
+                <option key={status} value={status}>{vehicleStatusLabel(status)}</option>
               ))}
             </select>
             <button type="button" className="h-9 rounded-md border border-slate-300 px-3 text-sm" aria-expanded={more} onClick={() => setMore((value) => !value)}>More filters</button>
@@ -294,7 +354,7 @@ export function FleetGatePanel() {
                       <span className="block font-medium text-slate-900">{row.registrationNo}</span>
                       <span className="block text-sm text-slate-600">{[row.make, row.vehicleModel].filter(Boolean).join(" ") || row.assetTag || "Vehicle"}</span>
                       <span className="mt-1 block text-sm text-slate-700">
-                        {row.status?.replaceAll("_", " ") || "—"} · {gatePresenceLabel(row.status)} · {next === "out" ? "Gate out" : next === "in" ? "Gate in" : "Unavailable"}
+                        {next ? `${vehicleStatusLabel(row.status)} · ${gatePresenceLabel(row.status)} · ${gateNextLabel(row.status)}` : `${vehicleStatusLabel(row.status)} · ${gateNextLabel(row.status)}`}
                       </span>
                     </button>
                   </li>
@@ -322,10 +382,10 @@ export function FleetGatePanel() {
                           <button type="button" className="font-medium text-slate-900" onClick={() => write({ ...state, vehicleId: row.id })}>{row.registrationNo}</button>
                         </td>
                         <td className="px-3 py-2 text-slate-600">{[row.make, row.vehicleModel].filter(Boolean).join(" ") || row.assetTag || "Vehicle"}</td>
-                        <td className="px-3 py-2">{row.status?.replaceAll("_", " ") || "—"}</td>
-                        <td className="px-3 py-2">{gatePresenceLabel(row.status)}</td>
+                        <td className="px-3 py-2">{vehicleStatusLabel(row.status)}</td>
+                        <td className="px-3 py-2">{next ? gatePresenceLabel(row.status) : "—"}</td>
                         <td className="hidden px-3 py-2 md:table-cell">{row.currentMileage ?? "—"}</td>
-                        <td className="px-3 py-2">{next === "out" ? "Gate out" : next === "in" ? "Gate in" : "Unavailable"}</td>
+                        <td className="px-3 py-2">{gateNextLabel(row.status)}</td>
                       </tr>
                     );
                   })}
@@ -344,17 +404,25 @@ export function FleetGatePanel() {
               <p><span className="text-slate-500">Registration </span><Link href={`/vehicles/${selected.id}` as never} className="font-medium">{selected.registrationNo}</Link></p>
               <p><span className="text-slate-500">Vehicle </span>{[selected.make, selected.vehicleModel].filter(Boolean).join(" ") || "—"}</p>
               <p><span className="text-slate-500">Odometer </span>{selected.currentMileage ?? "—"} km</p>
-              <p><span className="text-slate-500">Gate </span>{gatePresenceLabel(selected.status)}</p>
-              <p><span className="text-slate-500">Readiness </span><span className={`ml-1 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${reasons?.blocked ? "bg-red-100 text-red-800" : reasons && !reasons.blocked ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>{reasons?.blocked ? "BLOCKED" : reasons && !reasons.blocked ? "READY" : gateReadinessLabel({ action, reasons, reasonsError })}</span></p>
+              <p><span className="text-slate-500">Status </span>{vehicleStatusLabel(selected.status)}</p>
+              {action ? <p><span className="text-slate-500">Gate </span>{gatePresenceLabel(selected.status)}</p> : null}
+              <p><span className="text-slate-500">Readiness </span><span className={`ml-1 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${reasons?.blocked ? "bg-red-100 text-red-800" : reasons && !reasons.blocked ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>{reasons?.blocked ? "Blocked" : reasons && !reasons.blocked ? "Ready" : action ? gateReadinessLabel({ action, reasons, reasonsError }) : "No gate action"}</span></p>
               {reasons?.blocked ? (
                 <div>
                   <p className="font-medium text-red-800">Cannot gate out</p>
                   <ul className="mt-1 list-disc pl-5">
                     {reasons.blockedReasons.map((reason) => {
-                      const href = gateReasonHref(reason, selected.id, selected.registrationNo);
-                      return <li key={reason}>{href ? <Link href={href as never}>{reason}</Link> : reason}</li>;
+                      const href = gateReasonHref(reason, selected.id, selected.registrationNo, canOpen);
+                      const text = gateReasonText(reason);
+                      return <li key={reason}>{href ? <Link href={href as never} className="text-brand-800 underline">{text}</Link> : text}</li>;
                     })}
                   </ul>
+                  <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+                    <p className="font-medium text-amber-950">What to do next</p>
+                    <ul className="mt-1 list-disc space-y-1 pl-5 text-amber-950">
+                      {gateNextSteps(reasons.blockedReasons).map((step) => <li key={step}>{step}</li>)}
+                    </ul>
+                  </div>
                 </div>
               ) : null}
               <label className="block" htmlFor="gate-meter">Meter reading
@@ -374,7 +442,33 @@ export function FleetGatePanel() {
                   {submitting ? "Recording…" : "Gate in"}
                 </button>
               ) : null}
-              {!action ? <p>This status cannot gate in or gate out.</p> : null}
+              {action === "out" && reasons?.blocked && overrideMode ? (
+                <div className="rounded-md border border-slate-200 p-3">
+                  {!overrideOpen ? (
+                    <button type="button" className="min-h-11 w-full rounded-md border border-slate-300 text-sm font-medium" onClick={() => setOverrideOpen(true)}>
+                      {overrideMode === "release" ? "Release and gate out" : "Request override"}
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <label className="block" htmlFor="gate-override-reason">Why must it leave?
+                        <textarea id="gate-override-reason" value={overrideReason} onChange={(event) => setOverrideReason(event.target.value)} className="mt-1 min-h-20 w-full rounded-md border border-slate-300 px-3 py-2" placeholder="e.g. Urgent delivery, manager agreed by phone" />
+                      </label>
+                      <p className="text-xs text-slate-500">
+                        {overrideMode === "release"
+                          ? "You are releasing a blocked vehicle. This is recorded with your name."
+                          : "A manager must approve this. The vehicle stays inside until then."}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button type="button" disabled={submitting || Boolean(meterError) || overrideReason.trim().length < 3} onClick={() => void requestOverride()} className="min-h-11 rounded-md bg-amber-700 text-sm font-medium text-white disabled:opacity-50">
+                          {submitting ? "Sending…" : overrideMode === "release" ? "Release and gate out" : "Request override"}
+                        </button>
+                        <button type="button" className="min-h-11 rounded-md border border-slate-300 text-sm" onClick={() => setOverrideOpen(false)}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+              {!action ? <p className="rounded-md bg-slate-50 p-3 text-slate-700">{gateNoActionText(selected.status)}</p> : null}
               {action === "out" ? <p className="text-xs text-slate-500">Gate in is hidden because the vehicle is inside.</p> : null}
               {action === "in" ? <p className="text-xs text-slate-500">Gate out is hidden because the vehicle is already outside.</p> : null}
               {notice ? <p className="font-medium">{notice}</p> : null}
@@ -383,7 +477,7 @@ export function FleetGatePanel() {
                   <p className="font-medium">Recent movements</p>
                   <ul className="mt-1 space-y-1 text-xs text-slate-600">
                     {history.length === 0 ? <li>No gate movements yet.</li> : history.map((item) => (
-                      <li key={item.id}>{item.movementType} · {item.status} · {item.checkpoint || "—"} · {item.meterReading ?? "—"} · {item.occurredAt ? new Date(item.occurredAt).toLocaleString() : ""}</li>
+                      <li key={item.id}>{gateMovementLabel(item.movementType)} · {gateMovementLabel(item.status)} · {item.checkpoint || "—"} · {item.meterReading ?? "—"} · {item.occurredAt ? new Date(item.occurredAt).toLocaleString() : ""}</li>
                     ))}
                   </ul>
                 </div>

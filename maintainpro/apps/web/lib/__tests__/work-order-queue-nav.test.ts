@@ -464,7 +464,7 @@ test("active filter chips can be listed and cleared by key", () => {
   });
   assert.deepEqual(
     chips.map((chip) => chip.label),
-    ["HIGH", "Overdue", "Unassigned"]
+    ["High priority", "Overdue", "Unassigned"]
   );
   assert.equal(queueFiltersAfterChipRemove("priority").priority, "ALL");
   assert.equal(queueFiltersAfterChipRemove("overdueOnly").overdueOnly, false);

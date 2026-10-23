@@ -32,6 +32,7 @@ import { InventoryDailyService } from "./inventory-daily.service";
 import { StockCountService } from "./stock-count.service";
 import { ErpExcelImportService } from "./erp-excel-import.service";
 import { ERP_EXCEL_MAX_BYTES } from "./erp-excel-stock.parser";
+import { PART_REQUEST_ISSUE_ROLES } from "../work-orders/part-request-access";
 import {
   ApprovePurchaseOrderDto,
   CreatePurchaseOrderDto,
@@ -455,6 +456,15 @@ export class InventoryController {
   async dashboard(@Req() req: AuthedRequest) {
     const data = await this.inventoryService.dashboard(req.user);
     return { data, message: "Inventory dashboard fetched" };
+  }
+
+  /** Stores inbox: approved part requests still waiting to be issued (read-only). */
+  @Get("parts-to-issue")
+  @Roles(...PART_REQUEST_ISSUE_ROLES)
+  @Permissions("part_requests.view")
+  async partsToIssue(@Req() req: AuthedRequest, @Query("limit") limitRaw?: string) {
+    const data = await this.inventoryService.partsToIssue(req.user, limitRaw ? Number(limitRaw) : undefined);
+    return { data, message: "Parts to issue fetched" };
   }
 
   @Get("warehouses")

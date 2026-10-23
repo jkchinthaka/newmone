@@ -34,9 +34,12 @@ type WorkOrderTableProps = {
   onStatusChange: (workOrder: WorkOrder, status: WorkOrderStatus) => void;
   onAssign: (workOrder: WorkOrder, technicianId: string) => void;
   onComplete: (workOrder: WorkOrder) => void;
-  onDelete: (workOrder: WorkOrder) => void;
+  /** Cancel action. Left out for roles the API does not allow to cancel. */
+  onDelete?: (workOrder: WorkOrder) => void;
   onEdit: (workOrder: WorkOrder) => void;
   actorRole?: string | null;
+  /** Hides Approve & assign on jobs this user created (another manager must approve). */
+  currentUserId?: string | null;
   onPrimary?: (workOrder: WorkOrder, actionId?: string) => void;
 };
 
@@ -55,6 +58,7 @@ export function WorkOrderTable({
   onDelete,
   onEdit,
   actorRole,
+  currentUserId,
   onPrimary
 }: WorkOrderTableProps) {
   void onStatusChange;
@@ -183,18 +187,22 @@ export function WorkOrderTable({
         return (
         <div className="flex flex-wrap items-center gap-1">
           {next ? (
-            <button
-              type="button"
-              title={next.disabledReason}
-              disabled={Boolean(next.disabledReason)}
-              onClick={() => onPrimary?.(workOrder, next.id)}
-              className="inline-flex min-h-9 items-center rounded-md bg-brand-600 px-3 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {next.label}
-            </button>
+            <span className="inline-flex flex-col">
+              <button
+                type="button"
+                disabled={Boolean(next.disabledReason)}
+                onClick={() => onPrimary?.(workOrder, next.id)}
+                className="inline-flex min-h-9 items-center rounded-md bg-brand-600 px-3 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {next.label}
+              </button>
+              {/* Shown as text so phones see why the button is off. */}
+              {next.disabledReason ? <span className="mt-1 max-w-[220px] text-[11px] leading-4 text-slate-600">{next.disabledReason}</span> : null}
+            </span>
           ) : null}
           {workOrder.approvalStatus === "PENDING" &&
           workOrder.status === "OPEN" &&
+          !(currentUserId && workOrder.createdById === currentUserId) &&
           ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER"].includes(actorRole ?? "") ? (
             <button
               type="button"
@@ -224,7 +232,7 @@ export function WorkOrderTable({
           >
             <Pencil size={12} /> Edit
           </button>
-          {getValidWorkOrderActions(workOrder.status).some((descriptor) => descriptor.action === "CANCEL") ? (
+          {onDelete && getValidWorkOrderActions(workOrder.status).some((descriptor) => descriptor.action === "CANCEL") ? (
             <button
               type="button"
               onClick={() => onDelete(workOrder)}

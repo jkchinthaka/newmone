@@ -71,7 +71,7 @@ describe("AuthService login lockout", () => {
     });
   });
 
-  it("locks account for 15 minutes after 5 failed attempts", async () => {
+  it("locks account after 5 failed attempts", async () => {
     const prisma = buildPrisma();
     const passwordHash = await bcrypt.hash("CorrectPass1!", 4);
     prisma.user.findUnique.mockResolvedValue({

@@ -2263,7 +2263,7 @@ export class CleaningService {
     const baseUrl =
       this.configService.get<string>("FRONTEND_URL") ??
       this.configService.get<string>("CORS_ORIGIN")?.split(",")[0]?.trim() ??
-      "http://localhost:3001";
+      "http://localhost:3041";
 
     return `${baseUrl.replace(/\/$/, "")}/cleaning/scan?code=${encodeURIComponent(qrCode)}`;
   }

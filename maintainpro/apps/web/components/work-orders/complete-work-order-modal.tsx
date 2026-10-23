@@ -1,11 +1,59 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle2, Loader2, X } from "lucide-react";
+import { CheckCircle2, Circle, Loader2, RefreshCw, X } from "lucide-react";
+
+import { apiClient } from "@/lib/api-client";
+import {
+  buildCompletionChecklist,
+  completionBlockReason,
+  readCompletionDraft,
+  saveCompletionDraft,
+  type CompletionChecklistTab
+} from "@/lib/work-order-completion-checklist";
+import type { WorkOrderEvidenceRequirements } from "@/lib/work-order-evidence";
 
 import type { WorkOrder } from "./types";
 import { getWorkOrderDueUrgency } from "./helpers";
+import {
+  getWorkOrderPartsSummary,
+  listWorkOrderPartLines,
+  type WorkOrderPartLine,
+  type WorkOrderPartsCostSummary
+} from "./work-order-parts-api";
+
+type CompletionDraftValues = {
+  delayReason: string;
+  completionNote: string;
+  failureCode: string;
+  causeCode: string;
+  remedyCode: string;
+  completionCondition: string;
+  followUpRequired: boolean;
+  followUpNote: string;
+  functionalTestResult: string;
+  roadTestResult: string;
+  completionMeterReading: string;
+  operatingRestriction: string;
+  productionImpact: string;
+};
+
+type ChecklistData = {
+  loading: boolean;
+  failed: boolean;
+  requirements: WorkOrderEvidenceRequirements | null;
+  partLines: WorkOrderPartLine[] | null;
+  partsSummary: WorkOrderPartsCostSummary | null;
+};
+
+const EMPTY_CHECKLIST: ChecklistData = {
+  loading: false,
+  failed: false,
+  requirements: null,
+  partLines: null,
+  partsSummary: null
+};
 
 type CompleteWorkOrderModalProps = {
   open: boolean;
@@ -28,6 +76,8 @@ type CompleteWorkOrderModalProps = {
     productionImpact?: string;
   }) => void;
   technicianMode?: boolean;
+  /** Optional: lets checklist lines jump to the Evidence / Parts tab of this job. */
+  onOpenTab?: (tab: CompletionChecklistTab) => void;
 };
 
 export function CompleteWorkOrderModal({
@@ -36,7 +86,8 @@ export function CompleteWorkOrderModal({
   submitting,
   onClose,
   onSubmit,
-  technicianMode = true
+  technicianMode = true,
+  onOpenTab
 }: CompleteWorkOrderModalProps) {
   const [delayReason, setDelayReason] = useState("");
   const [completionNote, setCompletionNote] = useState("");
@@ -57,26 +108,118 @@ export function CompleteWorkOrderModal({
   const isVehicle = jobDomain === "VEHICLE";
   const isMachinery = jobDomain === "MACHINERY";
   const isService = jobDomain === "SERVICE";
+  const workOrderId = workOrder?.id ?? "";
+  const workOrderStatus = String(workOrder?.status ?? "");
+  /** Which work order the fields were last filled for; drafts save only after that. */
+  const [hydratedFor, setHydratedFor] = useState<string | null>(null);
+  const [checklistData, setChecklistData] = useState<ChecklistData>(EMPTY_CHECKLIST);
 
+  // Fill the form when it opens: the saved draft for this job, or fresh defaults.
+  // Closing and reopening the same job keeps what was typed.
   useEffect(() => {
-    if (!open) {
+    if (!open || !workOrderId) {
+      setHydratedFor(null);
       return;
     }
+    const draft = readCompletionDraft<CompletionDraftValues>(workOrderId, workOrderStatus);
+    setDelayReason(draft?.delayReason ?? "");
+    setCompletionNote(draft?.completionNote ?? "");
+    setFailureCode(draft?.failureCode ?? "");
+    setCauseCode(draft?.causeCode ?? "");
+    setRemedyCode(draft?.remedyCode ?? "");
+    setCompletionCondition(draft?.completionCondition ?? "FIXED");
+    setFollowUpRequired(draft?.followUpRequired ?? false);
+    setFollowUpNote(draft?.followUpNote ?? "");
+    setFunctionalTestResult(draft?.functionalTestResult ?? (isMachinery || isService ? "PASS" : "NOT_REQUIRED"));
+    setRoadTestResult(draft?.roadTestResult ?? (isVehicle ? "PASS" : "NOT_REQUIRED"));
+    setCompletionMeterReading(draft?.completionMeterReading ?? "");
+    setOperatingRestriction(draft?.operatingRestriction ?? "");
+    setProductionImpact(draft?.productionImpact ?? "NONE");
+    setHydratedFor(workOrderId);
+  }, [open, workOrderId, workOrderStatus, isMachinery, isService, isVehicle]);
 
-    setDelayReason("");
-    setCompletionNote("");
-    setFailureCode("");
-    setCauseCode("");
-    setRemedyCode("");
-    setCompletionCondition("FIXED");
-    setFollowUpRequired(false);
-    setFollowUpNote("");
-    setFunctionalTestResult(isMachinery || isService ? "PASS" : "NOT_REQUIRED");
-    setRoadTestResult(isVehicle ? "PASS" : "NOT_REQUIRED");
-    setCompletionMeterReading("");
-    setOperatingRestriction("");
-    setProductionImpact("NONE");
-  }, [open, workOrder, isMachinery, isService, isVehicle]);
+  useEffect(() => {
+    if (!open || !workOrderId || hydratedFor !== workOrderId) {
+      return;
+    }
+    const values: CompletionDraftValues = {
+      delayReason,
+      completionNote,
+      failureCode,
+      causeCode,
+      remedyCode,
+      completionCondition,
+      followUpRequired,
+      followUpNote,
+      functionalTestResult,
+      roadTestResult,
+      completionMeterReading,
+      operatingRestriction,
+      productionImpact
+    };
+    saveCompletionDraft(workOrderId, workOrderStatus, values);
+  }, [
+    open,
+    workOrderId,
+    workOrderStatus,
+    hydratedFor,
+    delayReason,
+    completionNote,
+    failureCode,
+    causeCode,
+    remedyCode,
+    completionCondition,
+    followUpRequired,
+    followUpNote,
+    functionalTestResult,
+    roadTestResult,
+    completionMeterReading,
+    operatingRestriction,
+    productionImpact
+  ]);
+
+  // Same sources as the Evidence and Parts tabs, so the checklist matches what the server checks.
+  const loadChecklist = useCallback(async (id: string, isCancelled: () => boolean = () => false) => {
+    setChecklistData((current) => ({ ...current, loading: true, failed: false }));
+    const [evidence, lines, summary] = await Promise.allSettled([
+      apiClient.get(`/work-orders/${id}/evidence`),
+      listWorkOrderPartLines(id),
+      getWorkOrderPartsSummary(id)
+    ]);
+    if (isCancelled()) return;
+    const requirements =
+      evidence.status === "fulfilled"
+        ? ((evidence.value.data?.data as { requirements?: WorkOrderEvidenceRequirements } | undefined)?.requirements ?? null)
+        : null;
+    setChecklistData({
+      loading: false,
+      failed: evidence.status === "rejected" || lines.status === "rejected" || summary.status === "rejected",
+      requirements,
+      partLines: lines.status === "fulfilled" ? lines.value : null,
+      partsSummary: summary.status === "fulfilled" ? summary.value : null
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open || !workOrderId) {
+      setChecklistData(EMPTY_CHECKLIST);
+      return;
+    }
+    let cancelled = false;
+    void loadChecklist(workOrderId, () => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, workOrderId, loadChecklist]);
+
+  const checklist = buildCompletionChecklist({
+    requirements: checklistData.requirements,
+    partLines: checklistData.partLines,
+    partsSummary: checklistData.partsSummary,
+    isVehicle,
+    odometer: completionMeterReading
+  });
+  const blockReason = checklistData.loading ? "Checking what is needed..." : completionBlockReason(checklist);
 
   return (
     <AnimatePresence>
@@ -112,6 +255,9 @@ export function CompleteWorkOrderModal({
             <form
               onSubmit={(event) => {
                 event.preventDefault();
+                if (blockReason) {
+                  return;
+                }
                 if (requiresDelayReason && !delayReason.trim()) {
                   return;
                 }
@@ -145,6 +291,58 @@ export function CompleteWorkOrderModal({
               }}
               className="space-y-4 px-5 py-4"
             >
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3" aria-live="polite">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-slate-900">Before you submit</p>
+                  <button
+                    type="button"
+                    disabled={checklistData.loading || !workOrderId}
+                    onClick={() => void loadChecklist(workOrderId)}
+                    className="inline-flex min-h-9 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 disabled:opacity-60"
+                  >
+                    {checklistData.loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                    Check again
+                  </button>
+                </div>
+                {checklistData.loading ? (
+                  <p className="mt-2 text-xs text-slate-600">Checking photos, QR and parts...</p>
+                ) : null}
+                {checklistData.failed ? (
+                  <p className="mt-2 text-xs text-amber-800">Could not check everything. Tap Check again.</p>
+                ) : null}
+                {checklist.length > 0 ? (
+                  <ul className="mt-2 space-y-2">
+                    {checklist.map((item) => (
+                      <li key={item.key} className="flex items-start gap-2 text-sm">
+                        {item.met ? (
+                          <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" aria-hidden />
+                        ) : (
+                          <Circle size={16} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
+                        )}
+                        <div className="min-w-0">
+                          <p className={item.met ? "text-slate-700" : "font-medium text-slate-900"}>
+                            {item.label}
+                            <span className="sr-only">{item.met ? " — done" : " — not done"}</span>
+                          </p>
+                          {!item.met ? <p className="text-xs text-amber-800">{item.help}</p> : null}
+                          {!item.met && item.tab && onOpenTab ? (
+                            <button
+                              type="button"
+                              onClick={() => onOpenTab(item.tab as CompletionChecklistTab)}
+                              className="mt-1 inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-2 text-xs font-medium text-brand-700"
+                            >
+                              {item.tab === "parts" ? "Go to Parts" : "Go to Evidence"}
+                            </button>
+                          ) : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : !checklistData.loading ? (
+                  <p className="mt-2 text-xs text-slate-600">No photos, QR scan or parts needed for this job.</p>
+                ) : null}
+              </div>
+
               {technicianMode ? (
                 <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
                   Actual hours and cost are calculated by the server from labour sessions and parts.
@@ -318,6 +516,12 @@ export function CompleteWorkOrderModal({
                 </>
               ) : null}
 
+              {blockReason ? (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
+                  {blockReason}
+                </p>
+              ) : null}
+
               <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-3">
                 <button
                   type="button"
@@ -328,8 +532,8 @@ export function CompleteWorkOrderModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-70"
+                  disabled={submitting || Boolean(blockReason)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
                   {technicianMode ? "Submit completion for verification" : "Save completion note"}

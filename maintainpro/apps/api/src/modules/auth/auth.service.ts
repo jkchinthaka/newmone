@@ -30,6 +30,16 @@ import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { AcceptInviteDto } from "./dto/accept-invite.dto";
 import type { AuthTokens, JwtPayload, RefreshTokenPayload } from "./auth.types";
 
+export const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+/** 1st lock 5 minutes, 2nd 10 minutes, 3rd and later 30 minutes. */
+export const LOCKOUT_MINUTES = [5, 10, 30] as const;
+const LOCKOUT_MEMORY_MS = 24 * 60 * 60 * 1000;
+
+export function lockoutMinutesForRound(previousLockouts: number): number {
+  const index = Math.min(Math.max(0, Math.floor(previousLockouts)), LOCKOUT_MINUTES.length - 1);
+  return LOCKOUT_MINUTES[index];
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -301,6 +311,26 @@ export class AuthService {
     };
   }
 
+  /** Lockouts since the last successful sign-in, looking back at most one day. */
+  private async countRecentLockouts(userId: string, lastLogin: Date | null, now: Date): Promise<number> {
+    const dayAgo = new Date(now.getTime() - LOCKOUT_MEMORY_MS);
+    const since = lastLogin && lastLogin > dayAgo ? lastLogin : dayAgo;
+    try {
+      return (
+        (await this.prisma.securityEvent?.count({
+          where: {
+            actorId: userId,
+            eventType: "ACCOUNT_LOCK",
+            reasonCode: "MAX_FAILED_ATTEMPTS",
+            createdAt: { gte: since }
+          }
+        })) ?? 0
+      );
+    } catch {
+      return 0;
+    }
+  }
+
   async login(dto: LoginDto) {
     const now = new Date();
     const user = await this.prisma.user.findUnique({
@@ -369,13 +399,18 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!valid) {
-      const nextFailedAttempts = user.failedLoginAttempts + 1;
-      const shouldLock = nextFailedAttempts >= 5;
+      // A lock that has run out starts a fresh round of five attempts.
+      const lockExpired = Boolean(user.lockedUntil && user.lockedUntil <= now);
+      const nextFailedAttempts = (lockExpired ? 0 : user.failedLoginAttempts) + 1;
+      const shouldLock = nextFailedAttempts >= MAX_FAILED_LOGIN_ATTEMPTS;
+      const lockMinutes = shouldLock
+        ? lockoutMinutesForRound(await this.countRecentLockouts(user.id, user.lastLogin ?? null, now))
+        : 0;
       await this.prisma.user.update({
         where: { id: user.id },
         data: {
           failedLoginAttempts: nextFailedAttempts,
-          lockedUntil: shouldLock ? new Date(now.getTime() + 15 * 60 * 1000) : null
+          lockedUntil: shouldLock ? new Date(now.getTime() + lockMinutes * 60 * 1000) : null
         }
       });
       recordAuthSecurityEvent(this.prisma, {
@@ -628,7 +663,7 @@ export class AuthService {
 
     const frontendBase =
       this.configService.get<string>("FRONTEND_URL") ??
-      this.configService.get<string>("CORS_ORIGIN", "http://localhost:3001").split(",")[0].trim();
+      this.configService.get<string>("CORS_ORIGIN", "http://localhost:3041").split(",")[0].trim();
     const resetLink = `${frontendBase.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(token)}`;
 
     try {

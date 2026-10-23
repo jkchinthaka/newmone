@@ -729,6 +729,8 @@ export class WorkOrdersController {
     }
   ) {
     const data = await this.workOrderAssigneesService.addAssignee(id, body, req.user);
+    // An approved OPEN job with its first technician moves to ASSIGNED, so the technician can start it.
+    await this.workOrdersService.promoteAssignedTechnician(id, req.user);
     return { data, message: "Work order assignee added" };
   }
 

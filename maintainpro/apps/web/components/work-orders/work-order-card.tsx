@@ -26,7 +26,8 @@ type WorkOrderCardProps = {
   onHold: (workOrder: WorkOrder) => void;
   onComplete: (workOrder: WorkOrder) => void;
   onAssign: (workOrder: WorkOrder, technicianId: string) => void;
-  onDelete: (workOrder: WorkOrder) => void;
+  /** Cancel action. Left out for roles the API does not allow to cancel. */
+  onDelete?: (workOrder: WorkOrder) => void;
   onEdit: (workOrder: WorkOrder) => void;
   onApprove?: (workOrder: WorkOrder) => void;
   onReject?: (workOrder: WorkOrder) => void;
@@ -144,11 +145,13 @@ export function WorkOrderCard({
             workOrder.status === "COMPLETED" ||
             workOrder.status === "CANCELLED"
           }
-          title={pendingApproval ? "Manager approval is required before starting work" : undefined}
           className="inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50 disabled:opacity-50"
         >
           <PlayCircle size={12} /> Start Work
         </button>
+        {pendingApproval ? (
+          <p className="col-span-full text-[11px] text-amber-800">Waiting for manager approval before work can start.</p>
+        ) : null}
         <button
           type="button"
           onClick={() => onHold(workOrder)}
@@ -186,14 +189,16 @@ export function WorkOrderCard({
           ))}
         </select>
 
-        <button
-          type="button"
-          onClick={() => onDelete(workOrder)}
-          className="inline-flex items-center justify-center rounded-md border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-          aria-label="Cancel work order"
-        >
-          <Trash2 size={12} />
-        </button>
+        {onDelete ? (
+          <button
+            type="button"
+            onClick={() => onDelete(workOrder)}
+            className="inline-flex items-center justify-center rounded-md border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+            aria-label="Cancel work order"
+          >
+            <Trash2 size={12} />
+          </button>
+        ) : null}
       </div>
     </article>
   );

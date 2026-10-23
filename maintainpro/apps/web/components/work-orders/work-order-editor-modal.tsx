@@ -14,6 +14,7 @@ import { dialogTabTrapDecision, workOrderDrawerEscapeDecision } from "@/lib/over
 import { disableSubmitControl } from "@/lib/submit-lock";
 import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
 import { canVerifyWorkOrder, isWorkOrderStarted } from "@/lib/work-order-governance";
+import { queueNextControl } from "@/lib/batch-3-presentation";
 import { isWorkOrderDrawerReadOnly } from "@/lib/work-order-drawer-display";
 import { overviewDraftDirty, overviewSaveDecision, type OverviewDraft } from "@/lib/work-order-overview-edit";
 import type { WorkOrderActivityTimelineResponse } from "@/lib/work-order-activity";
@@ -85,6 +86,10 @@ type WorkOrderEditorModalProps = {
   onClose: () => void;
   onCreate: (values: WorkOrderCreateFormValue) => void;
   onEdit: (values: WorkOrderEditFormValue) => void;
+  /** Role of the signed-in user. With onPrimaryAction it shows the next lifecycle step in the footer. */
+  actorRole?: string | null;
+  /** Runs the same next step as the list row button (Assign technician, Start job, Mark complete, Verify & close). */
+  onPrimaryAction?: (workOrder: WorkOrder, actionId: string) => void;
 };
 
 export function WorkOrderEditorModal({
@@ -98,7 +103,9 @@ export function WorkOrderEditorModal({
   presetAssetLabel,
   onClose,
   onCreate,
-  onEdit
+  onEdit,
+  actorRole,
+  onPrimaryAction
 }: WorkOrderEditorModalProps) {
   const isCreateMode = mode === "create";
   const reduceMotion = useReducedMotion();
@@ -933,6 +940,24 @@ export function WorkOrderEditorModal({
                     Close
                   </button>
                 )}
+                {!isCreateMode && !editingOverview && workOrder && onPrimaryAction
+                  ? (() => {
+                      const next = queueNextControl({
+                        status: workOrder.status,
+                        role: actorRole,
+                        approvalStatus: workOrder.approvalStatus
+                      });
+                      return next.kind === "action" ? (
+                        <button
+                          type="button"
+                          onClick={() => onPrimaryAction(workOrder, next.actionId)}
+                          className="btn-primary w-full justify-center sm:w-auto"
+                        >
+                          {next.label}
+                        </button>
+                      ) : null;
+                    })()
+                  : null}
                 {saveDecision.showSave ? (
                   <button
                     type="submit"

@@ -84,6 +84,7 @@ import type {
   UtilityType,
   UtilityTypeFilter
 } from "./types";
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
 
 const meterFormSchema = z.object({
   meterNumber: z.string().trim().min(2, "Meter number is required"),
@@ -135,8 +136,8 @@ function defaultAnalyticsFilters(): AnalyticsFilters {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
 
   return {
-    startDate: start.toISOString().slice(0, 10),
-    endDate: now.toISOString().slice(0, 10),
+    startDate: colomboTodayYmd(start),
+    endDate: colomboTodayYmd(now),
     utilityType: "ALL"
   };
 }
@@ -214,7 +215,7 @@ export default function UtilitiesDashboard() {
     resolver: zodResolver(readingFormSchema),
     defaultValues: {
       meterId: "",
-      readingDate: new Date().toISOString().slice(0, 10),
+      readingDate: colomboTodayYmd(),
       readingValue: 0,
       notes: "",
       images: ""
@@ -225,8 +226,8 @@ export default function UtilitiesDashboard() {
     resolver: zodResolver(billFormSchema),
     defaultValues: {
       meterId: "",
-      billingPeriodStart: new Date().toISOString().slice(0, 10),
-      billingPeriodEnd: new Date().toISOString().slice(0, 10),
+      billingPeriodStart: colomboTodayYmd(),
+      billingPeriodEnd: colomboTodayYmd(),
       totalConsumption: 0,
       ratePerUnit: 0,
       baseCharge: 0,
@@ -468,7 +469,7 @@ export default function UtilitiesDashboard() {
 
     readingForm.reset({
       meterId: defaultMeter,
-      readingDate: new Date().toISOString().slice(0, 10),
+      readingDate: colomboTodayYmd(),
       readingValue: 0,
       notes: "",
       images: ""
@@ -504,8 +505,8 @@ export default function UtilitiesDashboard() {
 
     billForm.reset({
       meterId: defaultMeter,
-      billingPeriodStart: new Date().toISOString().slice(0, 10),
-      billingPeriodEnd: new Date().toISOString().slice(0, 10),
+      billingPeriodStart: colomboTodayYmd(),
+      billingPeriodEnd: colomboTodayYmd(),
       totalConsumption: 0,
       ratePerUnit: 0,
       baseCharge: 0,

@@ -275,6 +275,8 @@ const rolePermissions: Record<RoleName, string[]> = {
     "dashboard.view",
     "work_orders.update_status",
     "work_orders.view_own",
+    // Technicians report faults they find (existing databases: scripts/ops/grant-v103-permissions.ts).
+    "maintenance_requests.create",
     "part_requests.create",
     "part_requests.view",
     "inventory.manage",
@@ -1554,7 +1556,7 @@ async function main() {
   ];
 
   for (const location of cleaningLocations) {
-    const scanUrl = `${process.env.FRONTEND_URL ?? "http://localhost:3001"}/cleaning/scan?code=${location.qrCode}`;
+    const scanUrl = `${process.env.FRONTEND_URL ?? "http://localhost:3041"}/cleaning/scan?code=${location.qrCode}`;
 
     await prisma.cleaningLocation.upsert({
       where: { qrCode: location.qrCode },

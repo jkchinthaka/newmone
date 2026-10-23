@@ -120,7 +120,7 @@ export default function AdminApprovalsPage() {
       />
       <ResponsivePageHeader
         title="Approval Matrix"
-        description="Configurable multi-level approval rules. Thresholds stay configurable â€” never hardcoded."
+        description="Each rule names one approver role. Thresholds are set here, not in code."
       />
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
