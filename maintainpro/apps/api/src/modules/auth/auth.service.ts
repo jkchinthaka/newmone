@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   Logger,
@@ -31,13 +33,29 @@ import { AcceptInviteDto } from "./dto/accept-invite.dto";
 import type { AuthTokens, JwtPayload, RefreshTokenPayload } from "./auth.types";
 
 export const MAX_FAILED_LOGIN_ATTEMPTS = 5;
-/** 1st lock 5 minutes, 2nd 10 minutes, 3rd and later 30 minutes. */
-export const LOCKOUT_MINUTES = [5, 10, 30] as const;
+/** 1st lock 30 seconds, 2nd 60 seconds, 3rd and later 90 seconds. */
+export const LOCKOUT_SECONDS = [30, 60, 90] as const;
 const LOCKOUT_MEMORY_MS = 24 * 60 * 60 * 1000;
 
-export function lockoutMinutesForRound(previousLockouts: number): number {
-  const index = Math.min(Math.max(0, Math.floor(previousLockouts)), LOCKOUT_MINUTES.length - 1);
-  return LOCKOUT_MINUTES[index];
+export function lockoutSecondsForRound(previousLockouts: number): number {
+  const index = Math.min(Math.max(0, Math.floor(previousLockouts)), LOCKOUT_SECONDS.length - 1);
+  return LOCKOUT_SECONDS[index];
+}
+
+/**
+ * 429 with the seconds left, so the sign-in page can count down instead of showing
+ * "Incorrect email or password" while the account is locked.
+ */
+export function accountLockedError(retryAfterSeconds: number) {
+  const seconds = Math.max(1, Math.ceil(retryAfterSeconds));
+  return new HttpException(
+    {
+      message: `Too many wrong passwords. Try again in ${seconds} seconds.`,
+      code: "ACCOUNT_LOCKED",
+      metadata: { retryAfterSeconds: seconds }
+    },
+    HttpStatus.TOO_MANY_REQUESTS
+  );
 }
 
 @Injectable()
@@ -389,7 +407,7 @@ export class AuthService {
         identifierHint: dto.email,
         requestId: requestContext.get()?.requestId ?? null
       });
-      throw new UnauthorizedException("Invalid email or password");
+      throw accountLockedError((user.lockedUntil.getTime() - now.getTime()) / 1000);
     }
 
     if (user.temporaryPasswordExpiresAt && user.temporaryPasswordExpiresAt <= now && user.mustChangePassword) {
@@ -403,14 +421,14 @@ export class AuthService {
       const lockExpired = Boolean(user.lockedUntil && user.lockedUntil <= now);
       const nextFailedAttempts = (lockExpired ? 0 : user.failedLoginAttempts) + 1;
       const shouldLock = nextFailedAttempts >= MAX_FAILED_LOGIN_ATTEMPTS;
-      const lockMinutes = shouldLock
-        ? lockoutMinutesForRound(await this.countRecentLockouts(user.id, user.lastLogin ?? null, now))
+      const lockSeconds = shouldLock
+        ? lockoutSecondsForRound(await this.countRecentLockouts(user.id, user.lastLogin ?? null, now))
         : 0;
       await this.prisma.user.update({
         where: { id: user.id },
         data: {
           failedLoginAttempts: nextFailedAttempts,
-          lockedUntil: shouldLock ? new Date(now.getTime() + lockMinutes * 60 * 1000) : null
+          lockedUntil: shouldLock ? new Date(now.getTime() + lockSeconds * 1000) : null
         }
       });
       recordAuthSecurityEvent(this.prisma, {
@@ -423,6 +441,7 @@ export class AuthService {
         requestId: requestContext.get()?.requestId ?? null,
         metadata: { attemptBucket: nextFailedAttempts }
       });
+      if (shouldLock) throw accountLockedError(lockSeconds);
       throw new UnauthorizedException("Invalid email or password");
     }
 

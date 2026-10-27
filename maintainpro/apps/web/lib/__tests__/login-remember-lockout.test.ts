@@ -4,7 +4,14 @@ import path from "node:path";
 import test from "node:test";
 
 import { rememberSignIn } from "../bff-proxy";
-import { IT_HELP_DESK_URL, LOGIN_ATTEMPTS_BEFORE_LOCK, LOGIN_LOCKOUT_MINUTES } from "../support-links";
+import {
+  IT_HELP_DESK_URL,
+  LOGIN_ATTEMPTS_BEFORE_LOCK,
+  LOGIN_LOCKOUT_SECONDS,
+  formatCountdown,
+  formatLockLength,
+  lockSecondsFromError
+} from "../support-links";
 
 function fakeRequest(header?: string, cookie?: string) {
   return {
@@ -28,13 +35,27 @@ test("later refreshes keep the choice made at sign-in", () => {
   assert.equal(rememberSignIn(fakeRequest(), ["work-orders"]), true);
 });
 
-test("login page shows the help desk link, remember box and the 5/10/30 lock rule", () => {
+test("login page shows the help desk link, remember box and the 30s/1m/1m30s lock rule", () => {
   const page = readFileSync(path.resolve(__dirname, "../../app/(auth)/login/page.tsx"), "utf8");
   assert.equal(IT_HELP_DESK_URL, "https://nelna-helpdesk.southeastasia.cloudapp.azure.com/submit");
   assert.equal(LOGIN_ATTEMPTS_BEFORE_LOCK, 5);
-  assert.deepEqual([...LOGIN_LOCKOUT_MINUTES], [5, 10, 30]);
+  assert.deepEqual([...LOGIN_LOCKOUT_SECONDS], [30, 60, 90]);
+  assert.deepEqual(LOGIN_LOCKOUT_SECONDS.map(formatLockLength), ["30 sec", "1 min", "1 min 30 sec"]);
   assert.match(page, /Sign in to MaintainPro/);
   assert.match(page, /Keep me signed in on this device/);
   assert.match(page, /"x-remember-me": values\.rememberMe \? "1" : "0"/);
   assert.match(page, /href=\{IT_HELP_DESK_URL\}/);
+});
+
+test("a locked account counts down instead of saying the password is wrong", () => {
+  const page = readFileSync(path.resolve(__dirname, "../../app/(auth)/login/page.tsx"), "utf8");
+  const locked = { response: { status: 429, data: { error: { code: "ACCOUNT_LOCKED", metadata: { retryAfterSeconds: 30 } } } } };
+  assert.equal(lockSecondsFromError(locked), 30);
+  assert.equal(lockSecondsFromError({ response: { status: 401, data: {} } }), null);
+  assert.equal(lockSecondsFromError({ response: { status: 429, data: { error: { code: "RATE_LIMIT" } } } }), null);
+  assert.equal(formatCountdown(27), "0:27");
+  assert.equal(formatCountdown(90), "1:30");
+  assert.match(page, /disabled=\{busy \|\| locked\}/);
+  assert.match(page, /Try again in \{formatCountdown\(lockSecondsLeft\)\}/);
+  assert.match(page, /rememberMe: false/);
 });

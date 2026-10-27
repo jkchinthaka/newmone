@@ -1,8 +1,8 @@
-import { UnauthorizedException } from "@nestjs/common";
+import { HttpException } from "@nestjs/common";
 import * as bcrypt from "bcryptjs";
 import { RoleName } from "@prisma/client";
 
-import { AuthService, lockoutMinutesForRound } from "../src/modules/auth/auth.service";
+import { AuthService, lockoutSecondsForRound } from "../src/modules/auth/auth.service";
 
 const config = { get: jest.fn((_key: string, fallback?: unknown) => fallback) };
 
@@ -14,10 +14,11 @@ async function attempt(user: Record<string, unknown>, previousLocks: number) {
   };
   const service = new AuthService(prisma as any, {} as any, config as any, { dispatch: jest.fn() } as any);
   const before = Date.now();
-  await expect(service.login({ email: "tech@nelna.lk", password: "Wrong-1" })).rejects.toThrow(UnauthorizedException);
+  const error = await service.login({ email: "tech@nelna.lk", password: "Wrong-1" }).catch((e: unknown) => e);
+  expect(error).toBeInstanceOf(HttpException);
   const data = prisma.user.update.mock.calls[0][0].data as { failedLoginAttempts: number; lockedUntil: Date | null };
-  const minutes = data.lockedUntil ? Math.round((data.lockedUntil.getTime() - before) / 60_000) : 0;
-  return { data, minutes, prisma };
+  const seconds = data.lockedUntil ? Math.round((data.lockedUntil.getTime() - before) / 1000) : 0;
+  return { data, seconds, prisma, error: error as HttpException };
 }
 
 describe("progressive login lockout", () => {
@@ -37,14 +38,22 @@ describe("progressive login lockout", () => {
     linkedWorkforceEmployees: []
   });
 
-  it("maps lock rounds to 5, 10 and 30 minutes", () => {
-    expect([0, 1, 2, 3, 9].map(lockoutMinutesForRound)).toEqual([5, 10, 30, 30, 30]);
+  it("maps lock rounds to 30, 60 and 90 seconds", () => {
+    expect([0, 1, 2, 3, 9].map(lockoutSecondsForRound)).toEqual([30, 60, 90, 90, 90]);
   });
 
-  it("first lock is 5 minutes, second 10, third 30", async () => {
-    expect((await attempt({ ...base(), failedLoginAttempts: 4 }, 0)).minutes).toBe(5);
-    expect((await attempt({ ...base(), failedLoginAttempts: 4 }, 1)).minutes).toBe(10);
-    expect((await attempt({ ...base(), failedLoginAttempts: 4 }, 2)).minutes).toBe(30);
+  it("first lock is 30 seconds, second 60, third 90, and the reply carries the countdown", async () => {
+    const first = await attempt({ ...base(), failedLoginAttempts: 4 }, 0);
+    expect(first.seconds).toBe(30);
+    expect(first.error.getStatus()).toBe(429);
+    expect(first.error.getResponse()).toMatchObject({ code: "ACCOUNT_LOCKED", metadata: { retryAfterSeconds: 30 } });
+    expect((await attempt({ ...base(), failedLoginAttempts: 4 }, 1)).seconds).toBe(60);
+    expect((await attempt({ ...base(), failedLoginAttempts: 4 }, 2)).seconds).toBe(90);
+  });
+
+  it("a wrong password before the fifth is still 401", async () => {
+    const { error } = await attempt({ ...base(), failedLoginAttempts: 1 }, 0);
+    expect(error.getStatus()).toBe(401);
   });
 
   it("after a lock runs out the user gets a fresh five attempts", async () => {

@@ -94,7 +94,7 @@ describe("AuthService login lockout", () => {
 
     await expect(
       service.login({ email: "user@example.com", password: "WrongPass1!" })
-    ).rejects.toThrow(UnauthorizedException);
+    ).rejects.toMatchObject({ status: 429 });
 
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: "user-1" },
@@ -105,7 +105,7 @@ describe("AuthService login lockout", () => {
     });
   });
 
-  it("blocks login while account is locked", async () => {
+  it("blocks login while account is locked with a countdown (429)", async () => {
     const prisma = buildPrisma();
     const passwordHash = await bcrypt.hash("CorrectPass1!", 4);
     prisma.user.findUnique.mockResolvedValue({
@@ -128,7 +128,7 @@ describe("AuthService login lockout", () => {
 
     await expect(
       service.login({ email: "user@example.com", password: "CorrectPass1!" })
-    ).rejects.toThrow(UnauthorizedException);
+    ).rejects.toMatchObject({ status: 429 });
 
     expect(prisma.user.update).not.toHaveBeenCalled();
   });

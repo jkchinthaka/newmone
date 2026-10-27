@@ -12,7 +12,14 @@ import { resolveLoginEmail, validateWorkEmail } from "@/lib/login-identifier";
 import { resolveAuthorizedDestination } from "@/lib/navigation";
 import { safeInternalReturnPath, type PostLoginUserLike } from "@/lib/role-redirect";
 import { setActiveTenantId } from "@/lib/tenant-context";
-import { IT_HELP_DESK_URL, LOGIN_ATTEMPTS_BEFORE_LOCK, LOGIN_LOCKOUT_MINUTES } from "@/lib/support-links";
+import {
+  IT_HELP_DESK_URL,
+  LOGIN_ATTEMPTS_BEFORE_LOCK,
+  LOGIN_LOCKOUT_SECONDS,
+  formatCountdown,
+  formatLockLength,
+  lockSecondsFromError
+} from "@/lib/support-links";
 
 type LoginForm = {
   email: string;
@@ -23,7 +30,7 @@ type LoginForm = {
 const fieldClass =
   "h-12 w-full rounded-xl border border-slate-300 bg-white pl-11 pr-3.5 text-[15px] text-slate-900 shadow-sm transition placeholder:text-slate-400 hover:border-slate-400 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-slate-50 aria-[invalid=true]:border-rose-400";
 
-const lockRounds = ["1st lock", "2nd lock", "3rd lock"] as const;
+const lockRuleText = `${LOGIN_ATTEMPTS_BEFORE_LOCK} wrong passwords lock the account for ${LOGIN_LOCKOUT_SECONDS.map(formatLockLength).join(", then ")}.`;
 
 function mapLoginError(error: unknown) {
   const status = (error as { response?: { status?: number } })?.response?.status;
@@ -57,6 +64,25 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
   const [sessionCheck, setSessionCheck] = useState<"checking" | "form">("checking");
+  // Wrong passwords counted in this browser per email, to warn before the lock.
+  const [failedByEmail, setFailedByEmail] = useState<Record<string, number>>({});
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const lockSecondsLeft = lockedUntil ? Math.max(0, Math.ceil((lockedUntil - now) / 1000)) : 0;
+  const locked = lockSecondsLeft > 0;
+
+  useEffect(() => {
+    if (!lockedUntil) return;
+    const timer = window.setInterval(() => {
+      const current = Date.now();
+      setNow(current);
+      if (current >= lockedUntil) {
+        setLockedUntil(null);
+        window.clearInterval(timer);
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [lockedUntil]);
   const {
     register,
     handleSubmit,
@@ -65,7 +91,7 @@ export default function LoginPage() {
     defaultValues: {
       email: "",
       password: "",
-      rememberMe: true
+      rememberMe: false
     }
   });
 
@@ -102,7 +128,7 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (values: LoginForm) => {
-    if (busy) return;
+    if (busy || locked) return;
     setBusy(true);
     setError(null);
 
@@ -141,7 +167,28 @@ export default function LoginPage() {
         : [];
       window.location.replace(resolveAuthorizedDestination(payload.user, returnTo, permissions));
     } catch (e) {
-      setError(mapLoginError(e));
+      const emailKey = resolveLoginEmail(values.email).toLowerCase();
+      const lockSeconds = lockSecondsFromError(e);
+      if (lockSeconds) {
+        setFailedByEmail((current) => ({ ...current, [emailKey]: 0 }));
+        setNow(Date.now());
+        setLockedUntil(Date.now() + lockSeconds * 1000);
+        setError(null);
+        return;
+      }
+      const message = mapLoginError(e);
+      if (message === "Incorrect email or password.") {
+        const failed = (failedByEmail[emailKey] ?? 0) + 1;
+        setFailedByEmail((current) => ({ ...current, [emailKey]: failed }));
+        const left = LOGIN_ATTEMPTS_BEFORE_LOCK - failed;
+        setError(
+          left > 0 && failed >= 2
+            ? `${message} ${left} ${left === 1 ? "try" : "tries"} left before a short lock.`
+            : message
+        );
+        return;
+      }
+      setError(message);
     } finally {
       setBusy(false);
     }
@@ -153,22 +200,11 @@ export default function LoginPage() {
         <AuthMarketingPanel />
       </div>
 
-      <section className="relative flex min-h-[100dvh] flex-col items-center justify-start px-4 pb-8 pt-6 sm:px-8 lg:justify-center lg:py-10">
-        <p className="mb-6 flex w-full max-w-[456px] items-center justify-center gap-2 rounded-full border border-brand-100 bg-white px-4 py-2 text-[13px] text-slate-600 shadow-sm lg:absolute lg:right-8 lg:top-7 lg:mb-0 lg:w-auto">
-          Can&apos;t sign in?
-          <a
-            className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-            href={IT_HELP_DESK_URL}
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            Contact IT Help Desk
-            <ExternalLink aria-hidden size={13} />
-          </a>
-        </p>
+      <section className="relative flex min-h-[100dvh] flex-col items-center justify-start px-4 pb-8 pt-6 sm:justify-center sm:px-8 lg:py-10">
 
         <div className="w-full max-w-[456px] rounded-[20px] border border-brand-100 bg-white px-5 py-7 shadow-[0_1px_2px_rgba(16,77,43,0.05),0_24px_48px_-24px_rgba(16,77,43,0.22)] sm:px-10 sm:py-10">
-          <div className="flex items-center gap-3">
+          {/* The brand panel shows the logo on large screens; the card shows it on phones and tablets. */}
+          <div className="flex items-center gap-3 lg:hidden">
             <NelnaLogo decorative size="compact" />
             <div>
               <p className="text-[15px] font-semibold text-slate-900">MaintainPro</p>
@@ -176,7 +212,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <header className="mt-7">
+          <header className="mt-7 lg:mt-0">
             <h1 className="text-[23px] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[26px]">
               Sign in to MaintainPro
             </h1>
@@ -223,7 +259,7 @@ export default function LoginPage() {
                       id="login-email"
                       inputMode="email"
                       name="email"
-                      placeholder="name@nelna.lk"
+                      placeholder="Your work email"
                       type="email"
                     />
                   </span>
@@ -280,6 +316,14 @@ export default function LoginPage() {
                     </p>
                   ) : null}
                 </label>
+                <div className="-mt-2 flex justify-end text-sm">
+                  <a
+                    className="font-semibold text-brand-700 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+                    href="/forgot-password"
+                  >
+                    Forgot password?
+                  </a>
+                </div>
 
                 {busy ? (
                   <p className="sr-only" role="status" aria-live="polite">
@@ -287,26 +331,33 @@ export default function LoginPage() {
                   </p>
                 ) : null}
 
-                <div className="flex flex-col gap-3 text-sm min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
-                  <label className="inline-flex cursor-pointer items-center gap-2.5 whitespace-nowrap text-slate-800" htmlFor="login-remember">
-                    <input
-                      {...register("rememberMe")}
-                      className="h-[18px] w-[18px] cursor-pointer rounded-[5px] border-slate-300 text-brand-600 accent-brand-600 focus-visible:ring-2 focus-visible:ring-brand-500"
-                      disabled={busy}
-                      id="login-remember"
-                      type="checkbox"
-                    />
+                <label className="flex cursor-pointer items-start gap-2.5 text-sm text-slate-800" htmlFor="login-remember">
+                  <input
+                    {...register("rememberMe")}
+                    className="mt-0.5 h-[18px] w-[18px] cursor-pointer rounded-[5px] border-slate-300 text-brand-600 accent-brand-600 focus-visible:ring-2 focus-visible:ring-brand-500"
+                    disabled={busy}
+                    id="login-remember"
+                    type="checkbox"
+                  />
+                  <span>
                     Keep me signed in on this device
-                  </label>
-                  <a
-                    className="whitespace-nowrap font-semibold text-brand-700 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
-                    href="/forgot-password"
-                  >
-                    Forgot password?
-                  </a>
-                </div>
+                    <span className="block text-[12.5px] text-slate-500">Only on your own device, not a shared computer.</span>
+                  </span>
+                </label>
 
-                {error ? (
+                {locked ? (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950" role="status" aria-live="polite">
+                    <p className="flex items-center gap-2 text-sm font-semibold">
+                      <Lock aria-hidden size={15} />
+                      Too many wrong passwords
+                    </p>
+                    <p className="mt-1 text-sm">
+                      Try again in <span className="font-mono text-base font-semibold tabular-nums">{formatCountdown(lockSecondsLeft)}</span>
+                    </p>
+                  </div>
+                ) : null}
+
+                {error && !locked ? (
                   <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">
                     {error}
                   </p>
@@ -314,10 +365,12 @@ export default function LoginPage() {
 
                 <button
                   className="inline-flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-brand-500 to-brand-700 px-4 text-[15px] font-semibold text-white shadow-[0_8px_18px_-8px_rgba(21,90,49,0.6)] transition hover:from-brand-600 hover:to-brand-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-70"
-                  disabled={busy}
+                  disabled={busy || locked}
                   type="submit"
                 >
-                  {busy ? (
+                  {locked ? (
+                    <>Try again in {formatCountdown(lockSecondsLeft)}</>
+                  ) : busy ? (
                     <>
                       <Loader2 aria-hidden className="animate-spin" size={16} />
                       Signing in...
@@ -331,45 +384,21 @@ export default function LoginPage() {
                 </button>
               </form>
 
-              <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3.5">
-                <p className="flex items-center gap-2 text-[13.5px] font-semibold text-amber-900">
-                  <Lock aria-hidden size={15} />
-                  {LOGIN_ATTEMPTS_BEFORE_LOCK} wrong passwords lock the account
-                </p>
-                <ol className="mt-2.5 grid grid-cols-3 gap-2">
-                  {LOGIN_LOCKOUT_MINUTES.map((minutes, index) => (
-                    <li
-                      key={minutes}
-                      className={`rounded-lg border px-2 py-1.5 text-center ${
-                        index === LOGIN_LOCKOUT_MINUTES.length - 1
-                          ? "border-amber-300 bg-amber-100/70"
-                          : "border-amber-200 bg-white"
-                      }`}
-                    >
-                      <span className="block font-mono text-[10.5px] uppercase tracking-wider text-amber-800/80">
-                        {lockRounds[index]}
-                      </span>
-                      <span
-                        className={`text-[15px] font-semibold ${
-                          index === LOGIN_LOCKOUT_MINUTES.length - 1 ? "text-amber-700" : "text-slate-900"
-                        }`}
-                      >
-                        {minutes} min
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
+              <p className="mt-3 flex items-start gap-1.5 text-[12.5px] leading-5 text-slate-500">
+                <Lock aria-hidden className="mt-0.5 shrink-0" size={13} />
+                {lockRuleText}
+              </p>
 
               <p className="mt-6 border-t border-slate-100 pt-5 text-center text-[13.5px] text-slate-500">
-                Need an account?{" "}
+                Can&apos;t sign in or need an account?{" "}
                 <a
-                  className="font-semibold text-brand-700 hover:text-brand-800"
+                  className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:text-brand-800"
                   href={IT_HELP_DESK_URL}
                   rel="noopener noreferrer"
                   target="_blank"
                 >
-                  Raise a Help Desk ticket
+                  Contact IT Help Desk
+                  <ExternalLink aria-hidden size={13} />
                 </a>
               </p>
             </>

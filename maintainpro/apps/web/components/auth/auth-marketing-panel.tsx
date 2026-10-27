@@ -20,7 +20,7 @@ const highlights = [
   }
 ] as const;
 
-export function AuthMarketingPanel({ version }: { version?: string }) {
+export function AuthMarketingPanel() {
   return (
     <section className="relative hidden h-full min-h-[calc(100dvh-3rem)] flex-col overflow-hidden rounded-3xl bg-gradient-to-br from-brand-800 via-brand-900 to-[#0b3a20] p-10 text-white lg:flex xl:p-14">
       {/* Faint field rows, fading toward the bottom right. */}
@@ -63,10 +63,6 @@ export function AuthMarketingPanel({ version }: { version?: string }) {
         </ul>
       </div>
 
-      <div className="relative flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-brand-100/80">
-        <span>Sri Lanka time (UTC+05:30)</span>
-        {version ? <span className="font-mono">v{version}</span> : null}
-      </div>
     </section>
   );
 }
