@@ -1468,6 +1468,7 @@ export enum ApprovalStepStatus {
   REJECTED = "REJECTED",
   SKIPPED = "SKIPPED",
   ESCALATED = "ESCALATED",
+  WAITING = "WAITING",
 }
 
 export enum ApprovalDecisionOutcome {

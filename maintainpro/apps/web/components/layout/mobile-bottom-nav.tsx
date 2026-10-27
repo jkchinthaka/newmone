@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
+import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import {
   AlertTriangle,
@@ -14,6 +15,7 @@ import {
   Home,
   Layers,
   LayoutDashboard,
+  Menu,
   Search,
   ShieldAlert,
   ShieldCheck,
@@ -22,6 +24,7 @@ import {
   type LucideIcon
 } from "lucide-react";
 
+import { MOBILE_NAV_DRAWER_ID } from "@/lib/accessibility";
 import { getMobileBottomNavItems } from "@/lib/navigation";
 import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
@@ -46,20 +49,28 @@ const MOBILE_ICON_MAP: Record<string, LucideIcon> = {
 
 type Props = {
   onOpenSearch?: () => void;
+  /** Opens the full menu drawer, so every page stays reachable from the thumb bar. */
+  onOpenMenu?: () => void;
+  menuOpen?: boolean;
 };
 
-export function MobileBottomNav({ onOpenSearch }: Props) {
+export function MobileBottomNav({ onOpenSearch, onOpenMenu, menuOpen = false }: Props) {
   const pathname = usePathname();
   const user = useCurrentUser();
   const roleName = extractRoleName({ role: user.role });
-  const items = getMobileBottomNavItems(roleName, { permissions: user.permissions });
+  // Navigation is recomputed only when the role or permissions change, not on every route change.
+  const items = useMemo(
+    () => getMobileBottomNavItems(roleName, { permissions: user.permissions }),
+    [roleName, user.permissions]
+  );
+  const columns = items.length + (onOpenMenu ? 1 : 0);
 
   return (
     <nav
       aria-label="Quick navigation"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2 py-1 backdrop-blur xl:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur print:hidden xl:hidden"
     >
-      <ul className={`grid gap-1`} style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+      <ul className={`grid gap-1`} style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
         {items.map((item) => {
           const baseHref = item.href.split("?")[0];
           const active =
@@ -99,6 +110,21 @@ export function MobileBottomNav({ onOpenSearch }: Props) {
             </li>
           );
         })}
+        {onOpenMenu ? (
+          <li>
+            <button
+              type="button"
+              onClick={onOpenMenu}
+              aria-controls={MOBILE_NAV_DRAWER_ID}
+              aria-expanded={menuOpen}
+              aria-haspopup="dialog"
+              className="flex min-h-12 w-full flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-medium text-slate-600"
+            >
+              <Menu size={18} aria-hidden />
+              <span>Menu</span>
+            </button>
+          </li>
+        ) : null}
       </ul>
     </nav>
   );

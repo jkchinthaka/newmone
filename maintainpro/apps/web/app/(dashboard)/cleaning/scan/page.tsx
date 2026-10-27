@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/localization";
 import { QrCode, ScanLine, Timer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -548,7 +549,7 @@ export default function CleaningScanPage() {
                   {result.location.name} marked as cleaned by {result.cleaner.firstName} {result.cleaner.lastName}.
                 </p>
                 <p className="mt-2 text-xs text-emerald-700">
-                  {new Date(result.scannedAt).toLocaleString()} · Schedule {result.scheduleStatus ?? "ON_TIME"} · Geofence {result.geoValidated ? "validated" : "not configured"}
+                  {formatDateTime(result.scannedAt)} · Schedule {result.scheduleStatus ?? "ON_TIME"} · Geofence {result.geoValidated ? "validated" : "not configured"}
                 </p>
               </div>
             ) : (

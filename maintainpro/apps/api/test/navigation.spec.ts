@@ -15,6 +15,9 @@ import {
 } from "../../web/lib/navigation";
 import { getPostLoginRedirect } from "../../web/lib/role-redirect";
 
+// Seeded SECURITY_OFFICER keys (plus the v1.0.3 request grant).
+const SECURITY_OFFICER_KEYS = ["dashboard.view", "vehicles.view", "gate.out.create", "gate.in.create", "maintenance_requests.create"];
+
 describe("navigation config (Phase 1 CMMS scope)", () => {
   it("exposes CMMS primary navigation for admin roles", () => {
     const hrefs = getVisibleNavigationItems("ADMIN").map((item) => item.href);
@@ -112,12 +115,13 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(ids).not.toContain("billing");
   });
 
-  it("maps security officer roles to the Fleet gate only", () => {
-    const securityItems = getVisibleNavigationItems("SECURITY_OFFICER");
+  it("maps security officer roles to Requests; the gate screen is retired from the UI", () => {
+    const securityItems = getVisibleNavigationItems("SECURITY_OFFICER", { permissions: SECURITY_OFFICER_KEYS });
     const ids = securityItems.map((item) => item.id);
 
-    // Owner decision 2026-10-22: security officers use the gate; the fleet overview API excludes them.
-    expect(ids).toEqual(expect.arrayContaining(["fleet-gate"]));
+    // The gate screen was removed from the UI; security officers report problems through Requests.
+    expect(ids).toEqual(expect.arrayContaining(["requests", "report-issue"]));
+    expect(ids).not.toContain("fleet-gate");
     expect(ids).not.toContain("fleet");
     expect(ids).not.toContain("home");
     expect(ids).not.toContain("admin");
@@ -291,8 +295,8 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     // My Jobs is the technician's main entry (same work as Work Orders > My Tasks).
     expect(getDefaultFavoriteNavIds("TECHNICIAN")[0]).toBe("my-jobs");
     expect(getDefaultFavoriteNavIds("TECHNICIAN")).not.toContain("all-jobs");
-    // Security officers cannot open the fleet overview; their favourite is the gate.
-    expect(getDefaultFavoriteNavIds("SECURITY_OFFICER")).toEqual(["fleet-gate"]);
+    // Security officers cannot open the fleet overview; they report problems through Requests.
+    expect(getDefaultFavoriteNavIds("SECURITY_OFFICER")).toEqual(["requests", "report-issue"]);
     expect(getDefaultFavoriteNavIds("TECHNICIAN")).not.toContain("home");
     expect(getDefaultFavoriteNavIds("INVENTORY_KEEPER")).toEqual(
       expect.arrayContaining(["spare-parts"])
@@ -317,9 +321,9 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(technicianMobile[0]).toEqual(expect.objectContaining({ id: "my-jobs", label: "My Jobs", href: "/work-orders/my" }));
     const inventoryMobile = getMobileBottomNavItems("INVENTORY_KEEPER");
     expect(inventoryMobile[0]).toEqual(expect.objectContaining({ label: "Inventory", href: "/inventory" }));
-    const securityMobile = getMobileBottomNavItems("SECURITY_OFFICER");
-    expect(securityMobile[0]).toEqual(expect.objectContaining({ id: "fleet-gate", label: "Gate", href: "/fleet/gate" }));
-    expect(securityMobile.some((item) => item.href === "/fleet")).toBe(false);
+    const securityMobile = getMobileBottomNavItems("SECURITY_OFFICER", { permissions: SECURITY_OFFICER_KEYS });
+    expect(securityMobile[0]).toEqual(expect.objectContaining({ id: "requests", label: "Requests", href: "/requests" }));
+    expect(securityMobile.some((item) => item.href.startsWith("/fleet"))).toBe(false);
   });
 
   it("keeps the domain job lanes out of the technician menu but not the manager menu", () => {

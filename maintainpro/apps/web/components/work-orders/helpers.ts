@@ -3,6 +3,7 @@ import {
   formatDate as formatDateLk
 } from "@/lib/localization";
 
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
 import type {
   SortDirection,
   WorkOrder,
@@ -70,7 +71,7 @@ export function asDateInputValue(value?: string | null): string {
     return "";
   }
 
-  return date.toISOString().slice(0, 10);
+  return colomboTodayYmd(date);
 }
 
 export function formatCurrency(value?: string | number | null): string {

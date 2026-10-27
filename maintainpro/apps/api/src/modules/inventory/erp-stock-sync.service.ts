@@ -342,7 +342,7 @@ export class ErpStockSyncService {
           onHand: true,
           warehouseId: true,
           warehouse: { select: { id: true, code: true } },
-          part: { select: { id: true, partNumber: true, name: true, isActive: true } }
+          part: { select: { id: true, partNumber: true, erpCode: true, name: true, isActive: true } }
         },
         orderBy: [{ part: { partNumber: "asc" } }, { warehouse: { code: "asc" } }]
       });
@@ -352,6 +352,7 @@ export class ErpStockSyncService {
         .map((row) => ({
           id: row.part.id,
           partNumber: row.part.partNumber,
+          erpCode: row.part.erpCode,
           name: row.part.name,
           quantityInStock: row.onHand,
           warehouseId: row.warehouseId,
@@ -366,7 +367,7 @@ export class ErpStockSyncService {
     // Fallback when warehouse balances are not yet populated — still tenant-scoped.
     const parts = await this.prisma.sparePart.findMany({
       where: { tenantId, isActive: true },
-      select: { id: true, partNumber: true, name: true, quantityInStock: true },
+      select: { id: true, partNumber: true, erpCode: true, name: true, quantityInStock: true },
       orderBy: { partNumber: "asc" }
     });
     return parts.map((part) => ({

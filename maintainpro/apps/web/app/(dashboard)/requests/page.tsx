@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -14,6 +15,7 @@ import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard";
 import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { clampPage, createRequestSequencer, isAbortError, totalPagesFor } from "@/lib/list-query-state";
 import {
   approveRequest,
   cancelRequest,
@@ -65,7 +67,7 @@ function formatReported(value: string) {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.round(hours / 24);
   if (days < 14) return `${days} day${days === 1 ? "" : "s"} ago`;
-  return date.toLocaleDateString();
+  return lkDate(date);
 }
 
 function subject(item: MaintenanceRequestListItem) {
@@ -286,15 +288,20 @@ export default function RequestsPage() {
     return () => window.clearTimeout(handle);
   }, [draftQuery, queryText, writeQuery]);
 
+  const sequencer = useRef(createRequestSequencer());
+
+  // Scope is enforced by the API (non-managers only ever get their own requests, triage needs
+  // permission), so the request does not wait on capabilities. Depending on canViewAll made admins
+  // fetch twice: once before and once after the first summary arrived.
   const refresh = useCallback(async () => {
+    const request = sequencer.current.begin();
     setLoading(true);
     setError(null);
     try {
-      const ownScope = capabilities != null && !canViewAll;
-      const triage = view === "triage" && !ownScope;
+      const triage = view === "triage";
       const [result, counts] = await Promise.all([
         listMaintenanceRequests({
-          mine: view === "mine" || ownScope || undefined,
+          mine: view === "mine" || undefined,
           triageQueue: triage || undefined,
           stage: triage ? undefined : stage ?? undefined,
           status: triage || stage ? undefined : status || undefined,
@@ -309,12 +316,15 @@ export default function RequestsPage() {
           page,
           limit
         }),
-        getMaintenanceRequestSummary({ mine: view === "mine" || ownScope })
+        getMaintenanceRequestSummary({ mine: view === "mine" })
       ]);
+      // An older, slower response must not overwrite the latest filters' results.
+      if (!sequencer.current.isLatest(request.id)) return;
       setItems(result.items);
       setTotal(Number(result.meta?.total ?? result.items.length));
       setSummary(counts);
     } catch (err) {
+      if (!sequencer.current.isLatest(request.id) || isAbortError(err)) return;
       const message = getApiErrorMessage(err, "We couldn't load maintenance requests.");
       if (view === "triage" && /triage permission/i.test(message)) {
         writeQuery({ view: "mine", stage: null, status: null });
@@ -322,15 +332,27 @@ export default function RequestsPage() {
       }
       setError(message);
     } finally {
-      setLoading(false);
+      if (sequencer.current.isLatest(request.id)) setLoading(false);
     }
-  }, [assetQuery, canViewAll, converted, from, page, priority, queryText, reporter, sortBy, sortDirection, stage, status, view, writeQuery]);
+  }, [assetQuery, converted, from, page, priority, queryText, reporter, sortBy, sortDirection, stage, status, view, writeQuery]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  const totalPages = Math.max(1, Math.ceil(total / limit));
+  useEffect(() => {
+    const sequence = sequencer.current;
+    return () => sequence.cancel();
+  }, []);
+
+  const totalPages = totalPagesFor(total, limit);
+
+  // ?page= past the last page (old link, rows converted away) jumps back to the last real page.
+  useEffect(() => {
+    if (loading || error) return;
+    const clamped = clampPage(page, total, limit);
+    if (clamped !== page) writeQuery({ page: clamped > 1 ? String(clamped) : null }, false);
+  }, [error, loading, page, total, writeQuery]);
   const fromRow = total === 0 ? 0 : (page - 1) * limit + 1;
   const toRow = Math.min(page * limit, total);
 
@@ -740,7 +762,7 @@ export default function RequestsPage() {
                     </div>
                   </Link>
                   <div className="mt-2 flex items-center justify-between gap-2">
-                    <span className="text-xs text-slate-500" title={new Date(item.reportedAt).toLocaleString()}>
+                    <span className="text-xs text-slate-500" title={lkDateTime(item.reportedAt)}>
                       Reported {formatReported(item.reportedAt)}
                       {item.reportedBy?.name ? ` by ${item.reportedBy.name}` : ""}
                     </span>
@@ -809,7 +831,7 @@ export default function RequestsPage() {
                         ) : null}
                       </td>
                       <td className="px-3 py-3">{item.reportedBy?.name || "—"}</td>
-                      <td className="px-3 py-3 text-slate-600" title={new Date(item.reportedAt).toLocaleString()}>
+                      <td className="px-3 py-3 text-slate-600" title={lkDateTime(item.reportedAt)}>
                         {formatReported(item.reportedAt)}
                       </td>
                       <td className="px-3 py-3 text-right" onClick={(event) => event.stopPropagation()}>

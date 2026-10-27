@@ -237,7 +237,6 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/assets",
   "/assets/health",
   "/fleet",
-  "/fleet/gate",
   "/fleet/tyres",
   "/vehicles",
   "/vehicles/health",
@@ -334,8 +333,8 @@ export const ROLE_DEFAULT_FAVORITE_NAV_IDS: Record<string, readonly string[]> = 
   OPERATIONS_MANAGER: ["reports", "all-jobs", "my-jobs"],
   SUPER_ADMIN: ["admin", "system-health"],
   ADMIN: ["admin"],
-  // The fleet overview is hidden for security officers; their home is the gate desk.
-  SECURITY_OFFICER: ["fleet-gate"],
+  // The fleet overview is hidden for security officers; they report problems through Requests.
+  SECURITY_OFFICER: ["requests", "report-issue"],
   FLEET_MANAGER: ["fleet", "vehicle-jobs"],
   DRIVER: ["fleet"],
   VIEWER: ["reports"],
@@ -562,17 +561,6 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
-    id: "fleet-gate",
-    label: "Gate",
-    href: "/fleet/gate",
-    icon: "ShieldAlert",
-    requiredFeature: "GATE",
-    allowedRoles: mergeRoles(FLEET_ROLES, SECURITY_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES),
-    category: "compliance",
-    description: "Check vehicles in and out at the gate",
-    activeMatch: "exact"
-  },
-  {
     id: "spare-parts",
     label: "Spare Parts",
     href: "/inventory",
@@ -727,7 +715,6 @@ const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/vehicles": ["/fleet"],
   "/vehicles/health": ["/fleet"],
   "/vehicles/costs": ["/fleet"],
-  "/fleet/gate": ["/fleet"],
   "/fleet/tyres": ["/fleet"],
   "/procurement": ["/inventory"],
   "/procurement/vendors": ["/inventory"],
@@ -1064,7 +1051,6 @@ export type MobileBottomNavItem = {
 const MOBILE_HOME_TAB_LABELS: Record<string, string> = {
   "my-jobs": "My Jobs",
   "spare-parts": "Inventory",
-  "fleet-gate": "Gate",
   "maintenance-dashboard": "Dashboard",
   "all-jobs": "Work Orders",
   fleet: "Fleet",
@@ -1115,7 +1101,7 @@ export function getMobileBottomNavItems(
 
   const items: MobileBottomNavItem[] = [];
 
-  // First tab is the page this role lands on after login (My Jobs, Inventory, Gate, ...).
+  // First tab is the page this role lands on after login (My Jobs, Inventory, Requests, ...).
   const home = mobileHomeTab(roleName, visible);
   if (home) {
     items.push(home);

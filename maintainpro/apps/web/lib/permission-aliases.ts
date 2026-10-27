@@ -6,6 +6,8 @@
  * apps/api/test/permission-aliases-parity.spec.ts fails if the two copies drift.
  */
 export const COMPATIBLE_PERMISSION_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  // Anyone who can manage assets can view them.
+  "assets.view": ["assets.manage"],
   "gate.out.create": ["vehicles.operate"],
   "gate.in.create": ["vehicles.operate"],
   // Phase 3 organization/locations reuse established facilities permissions.

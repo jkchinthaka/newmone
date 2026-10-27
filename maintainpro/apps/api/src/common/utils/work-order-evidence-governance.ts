@@ -1,14 +1,22 @@
 import { BadRequestException } from "@nestjs/common";
+import type { ConfigService } from "@nestjs/config";
 import { EvidenceType, EvidenceVerificationStatus, QrVerificationStatus, WorkOrderType } from "@prisma/client";
 
-/** Work order types requiring before/after photos + completion note before technician completion. */
+import { EvidenceStorageProviderService } from "../../modules/evidence/evidence-storage-provider.service";
+
+/**
+ * Single list of work order types requiring before/after photos. Used at technician completion,
+ * supervisor verification, emergency close and close (work-order-governance re-exports it).
+ */
 export const EVIDENCE_REQUIRED_WORK_ORDER_TYPES = new Set<WorkOrderType>([
   WorkOrderType.CORRECTIVE,
   WorkOrderType.EMERGENCY,
   WorkOrderType.ACCIDENT_REPAIR,
   WorkOrderType.PREVENTIVE,
   WorkOrderType.INSPECTION,
-  WorkOrderType.INSTALLATION
+  WorkOrderType.INSTALLATION,
+  WorkOrderType.BREAKDOWN,
+  WorkOrderType.INSPECTION_CORRECTIVE
 ]);
 
 export const QR_VERIFICATION_REQUIRED_TYPES = new Set<WorkOrderType>([
@@ -32,21 +40,60 @@ export function requiresQrVerification(type: WorkOrderType, assetId?: string | n
   return QR_VERIFICATION_REQUIRED_TYPES.has(type);
 }
 
+const STORAGE_ENV_KEYS = [
+  "NODE_ENV",
+  "STORAGE_MODE",
+  "STORAGE_UPLOADS_ENABLED",
+  "STORAGE_LOCAL_PRODUCTION",
+  "STORAGE_LOCAL_ROOT",
+  "STORAGE_MAX_FILE_SIZE_MB",
+  "STORAGE_ALLOWED_MIME_TYPES",
+  "ALLOW_MOCK_IN_PRODUCTION",
+  "MINIO_ENDPOINT",
+  "MINIO_ACCESS_KEY",
+  "MINIO_SECRET_KEY",
+  "MINIO_BUCKET",
+  "CLOUDINARY_CLOUD_NAME",
+  "CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET"
+] as const;
+const BOOLEAN_STORAGE_KEYS = new Set(["STORAGE_UPLOADS_ENABLED", "STORAGE_LOCAL_PRODUCTION", "ALLOW_MOCK_IN_PRODUCTION"]);
+const READINESS_CACHE_MS = 30_000;
+let readinessCache: { key: string; at: number; enabled: boolean } | null = null;
+
+/** process.env view typed the way the Joi-validated ConfigService returns it. */
+function envConfig(): ConfigService {
+  return {
+    get: (key: string, fallback?: unknown) => {
+      const raw = process.env[key];
+      if (raw === undefined || raw === "") return fallback;
+      if (BOOLEAN_STORAGE_KEYS.has(key)) return /^(1|true|yes)$/i.test(raw.trim());
+      return raw;
+    }
+  } as unknown as ConfigService;
+}
+
+/**
+ * Uploads count as enabled only when the evidence storage provider reports `configured`, so
+ * completion rules never demand photos the provider would refuse to store (or waive photos it
+ * can store). Cached briefly because production readiness probes the disk.
+ */
 export function isStorageUploadsEnabled(): boolean {
-  const enabled = /^(1|true|yes)$/i.test((process.env.STORAGE_UPLOADS_ENABLED ?? "").trim());
-  if (!enabled) return false;
-  const mode = (process.env.STORAGE_MODE ?? "").trim().toLowerCase();
-  // MinIO and S3 credentials can be present while live byte transfer is still
-  // unimplemented. Treat those modes as uploads disabled so completion is not
-  // blocked on photos the provider refuses to store.
-  if (mode === "minio" || mode === "s3") return false;
-  return true;
+  const key = STORAGE_ENV_KEYS.map((name) => process.env[name] ?? "").join("\u0000");
+  const now = Date.now();
+  if (readinessCache && readinessCache.key === key && now - readinessCache.at < READINESS_CACHE_MS) {
+    return readinessCache.enabled;
+  }
+  const readiness = new EvidenceStorageProviderService(envConfig()).checkReadiness();
+  const enabled = readiness.state === "configured" && readiness.uploadsEnabled;
+  readinessCache = { key, at: now, enabled };
+  return enabled;
 }
 
 export function evaluateEvidenceRequirements(
   workOrderType: WorkOrderType,
   items: EvidenceLineSnapshot[],
-  options?: { storageEnabled?: boolean; includeRejected?: boolean }
+  options?: { storageEnabled?: boolean; includeRejected?: boolean; overrideReason?: string | null }
 ) {
   const storageEnabled = options?.storageEnabled ?? isStorageUploadsEnabled();
   const active = items.filter((item) => item.status !== "DELETED" && item.status !== "FAILED");
@@ -63,9 +110,11 @@ export function evaluateEvidenceRequirements(
   const isProduction = String(process.env.NODE_ENV ?? "").toLowerCase() === "production";
   // Fail closed in production: required evidence cannot be waived when storage is unavailable.
   // Non-production may proceed with completion note only when storage is explicitly disabled.
-  const storageBlocksCompletion = required && !storageEnabled && isProduction;
+  // An authorized override (caller checks canOverrideCompletionBlock) lifts the storage block.
+  const storageOverridden = Boolean(options?.overrideReason?.trim());
+  const storageBlocksCompletion = required && !storageEnabled && isProduction && !storageOverridden;
   const photoComplete = hasBefore && hasAfter;
-  const waived = required && !storageEnabled && !isProduction;
+  const waived = required && !storageEnabled && (!isProduction || storageOverridden);
   const evidenceSatisfied = storageEnabled ? photoComplete : waived;
   const complete = required && evidenceSatisfied && !storageBlocksCompletion;
 
@@ -98,7 +147,9 @@ export function assertEvidenceForTechnicianCompletion(input: {
     throw new BadRequestException("Technician completion note is required.");
   }
 
-  const checklist = evaluateEvidenceRequirements(input.workOrderType, input.items);
+  const checklist = evaluateEvidenceRequirements(input.workOrderType, input.items, {
+    overrideReason: input.overrideReason
+  });
   if (checklist.storageUnavailableBlocking) {
     throw new BadRequestException(
       "Evidence storage is unavailable. Completion is blocked while required photo evidence cannot be stored (fail closed)."

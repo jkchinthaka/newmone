@@ -12,8 +12,9 @@ export const INVENTORY_FILTERS_STORAGE_KEY = "inventory-filters-v1";
 
 const PENDING_PO_STATUSES = new Set(["PENDING", "ORDERED", "PARTIALLY_RECEIVED"]);
 
-export function formatCurrency(value: number): string {
-  return formatCurrencyLk(Number.isFinite(value) ? value : 0, { fallback: "-" });
+/** LKR. Accepts Decimal strings ("1250.00") from the API as well as numbers. */
+export function formatCurrency(value: number | string | null | undefined): string {
+  return formatCurrencyLk(value, { fallback: "-" });
 }
 
 export function formatDate(value?: string | null): string {
@@ -325,7 +326,7 @@ export function printInventoryReport(parts: InventoryPart[], title: string) {
       </head>
       <body style="font-family:Segoe UI, Arial, sans-serif;padding:24px;">
         <h1 style="margin-bottom:4px;">${title}</h1>
-        <p style="margin-top:0;margin-bottom:16px;color:#475569;">Generated on ${new Date().toLocaleString()}</p>
+        <p style="margin-top:0;margin-bottom:16px;color:#475569;">Generated on ${formatDateTimeLk(new Date())}</p>
         <table style="width:100%;border-collapse:collapse;">
           <thead>
             <tr>

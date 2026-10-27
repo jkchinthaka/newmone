@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -337,8 +337,22 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
   const showBadgeFetch = allItems.some((item) => item.badgeKey);
   const { badges } = useNavBadges(showBadgeFetch, roleName, user.permissions);
 
+  // The group holding the current page always starts open, so the active item is visible.
+  const activeCategory = useMemo(
+    () => groups.find((group) => group.items.some((item) => isNavItemActive(pathname, item, search)))?.category ?? null,
+    [groups, pathname, search]
+  );
+  const isGroupCollapsed = (category: NavCategory) =>
+    collapsedGroups[category] ?? (category !== "workspace" && category !== activeCategory);
+
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const active = navRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    active?.scrollIntoView({ block: "nearest" });
+  }, [pathname, activeCategory]);
+
   const toggleGroup = (category: NavCategory) => {
-    const currentlyCollapsed = collapsedGroups[category] ?? category !== "workspace";
+    const currentlyCollapsed = isGroupCollapsed(category);
     const next = {
       ...collapsedGroups,
       [category]: !currentlyCollapsed
@@ -353,7 +367,7 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
   };
 
   return (
-    <nav aria-label="Main navigation" className={`space-y-4 ${className}`.trim()}>
+    <nav ref={navRef} aria-label="Main navigation" className={`space-y-4 ${className}`.trim()}>
       {favoriteItems.length > 0 ? (
         <div>
           <p className={`px-2 text-xs font-semibold uppercase tracking-[0.14em] ${tone === "inverse" ? "text-accent-500" : "text-slate-500"} ${compact ? "sr-only" : ""}`}>Favorites</p>
@@ -386,7 +400,7 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
               idle: "text-white/90 hover:bg-white/10"
             }
           : GROUP_SURFACE[group.category];
-        const collapsed = compact ? false : collapsedGroups[group.category] ?? group.category !== "workspace";
+        const collapsed = compact ? false : isGroupCollapsed(group.category);
 
         return (
           <div key={group.category} className={compact ? "" : surface.container}>

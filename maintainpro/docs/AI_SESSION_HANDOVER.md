@@ -8,6 +8,49 @@
 > 3. Keep unfinished work on the current feature branch. Never force-push, never discard or
 >    reset someone else's changes, never push unvalidated code to `main`.
 
+**CURRENT (2026-10-28) — production audit fix pass on `release/develop-20261022b` (on top of `403726d4`).** One commit covers the P0 security fixes, P1 data/list fixes, P2 cleanup, workflow defects, Gate Pass UI removal, and the loading/mobile/perf standard.
+- **Security:**
+  - The BFF refresh latch is keyed per refresh-token hash.
+  - Temporary passwords are enforced by a global guard returning 403 `PASSWORD_CHANGE_REQUIRED`; every password-change path clears the flag.
+  - The tenant role is per session: in a non-home tenant it comes from the membership.
+  - `User.sessionVersion` uses migration `20261027090000_user_session_version`. Run `db:migrate:deploy`.
+  - Settings email and password changes use DTOs and need the current password.
+  - X-Real-IP is trusted only from loopback, or from private ranges when `TRUST_PRIVATE_PROXY_PEERS=true` (set in Docker compose).
+  - In production the API binds to 127.0.0.1 unless `HOST` is set (the Dockerfiles set 0.0.0.0).
+  - Unknown users get a timing-equalised bcrypt compare.
+  - Decimals are returned as numbers.
+  - `assets.view` is in the catalog and aliased to `assets.manage`.
+- **Workflows:**
+  - The request is reopened when its work order is rejected or cancelled.
+  - Triagers are notified.
+  - The inbox approves NEW requests.
+  - Multi-level approval steps wait for earlier levels.
+  - A requester is never their own approver.
+  - Rejected part lines are closed, and reservations are released on close or cancel.
+  - Inventory stock-out checks verified stock and writes a work-order part line.
+  - ERP matches `erpCode` first, sums duplicate rows and rejects blank quantities.
+  - Return to service respects other open work orders.
+  - Gate override claims the current status, and the gate service check uses the entered meter.
+  - Backdated meter readings are checked against the readings on both sides.
+  - Colombo-day overdue rules apply.
+  - There is one evidence-type list.
+- **Web:**
+  - Gate screen removed (`/fleet/gate` redirects; backend gate APIs and checks unchanged; security officer lands on `/requests`).
+  - Server work-order counts, list/board pager, server technician filter.
+  - Approvals paging, debounced filters, kept rows during refresh with a small error banner.
+  - Asset selection clears, plus DRAFT and OUT_OF_SERVICE statuses.
+  - LKR and Colombo dates.
+  - One loading standard (`@/components/ui/loading`) and QueryClient defaults (`lib/query-client-defaults.ts`).
+  - 44px touch targets, portal row menus, mobile Menu tab.
+- **Tests:**
+  - API tsc 0. Web tsc 0. Web unit 462/462. `next build` exit 0.
+  - API jest (fast config): 277 suites pass, plus the 4 dynamic-import suites, 40/40, with `--experimental-vm-modules`. DB integration suites are skipped without SQL Server.
+- **Not done:**
+  - `GET /utilities/bills` is still unbounded.
+  - `fetchApprovalInbox` has no abort signal; stale responses are ignored.
+  - Custom tenant role names in `@Roles` (AUDITOR/VENDOR...) were left alone because Role.name is free text.
+  - No browser E2E against SQL Server was run from the cloud.
+
 **CURRENT (2026-10-22) — batch 3b page restyle on `ui/pages-batch-3b`.** Worktree `C:\Users\chint\AppData\Local\MaintainPro\worktrees\ui-batch-3b`, branched from `origin/develop` at `658ae0c2`. UI only: Work Orders, Approvals, Fleet, and Spare Parts. No API, RBAC, schema, or workflow changes. Web `tsc --noEmit` exit 0. Web unit 375 passed, 0 failed. Playwright on temporary ports 3052/3053 against `maintainpro_e2e_wo_verify`: `signed-in-responsive.spec.ts` 3 passed, `batch-3b-visual.spec.ts` 2 passed, horizontal overflow 0, no console errors after sign-in. Those processes were stopped. Ports 3040 and 3041 were left listening. Hidden for missing data: Closed this week; oldest-unassigned age unless that queue page is complete; vendor name and quotation lines; engine hours and revenue licence; fleet badges when the field is absent; part requests to issue (no tenant-wide list); most-used parts when the 30-day analytics response is empty or the role cannot call it. Manager `/approvals` still redirects to `/maintenance` because navigation requires `approvals.view` and that gate was not changed. Screenshots: `docs/handover/ui-redesign/batch-3b/`. Review: `docs/handover/review/ui-batch-3b.diff` and `ui-batch-3b.md`. The independent qa-reviewer did not start because Cursor billing blocked the subagent. That is not a FAIL verdict. Implementation commit `0d30072386f9b6933ab0f254e9c3fb594ec1cfb5`. Branch tip includes this note. Pull request https://github.com/jkchinthaka/newmone/pull/136 is open against `develop`. Do not merge it.
 **CURRENT (2026-10-22) — asset and inspection private disk on `fix/asset-inspection-storage` at `3e2cba16`.** Worktree `C:\Users\chint\AppData\Local\MaintainPro\worktrees\fixes`. Branched from `origin/fix/evidence-local-disk` (`8142a6f4`) because pull request #128 is still open. Pull request https://github.com/jkchinthaka/newmone/pull/132 targets `develop` and is stacked on #128. New asset documents and inspection evidence use that private local-disk provider when it is configured. Existing records stay readable. Non-local uploads are unchanged. API tsc 0. Web tsc 0. Web unit 367 passed. Jest storage 8 passed and related evidence/planning 70 passed. Tenant audit unapproved 0. RBAC 972 routes, violations 0. No schema change. No database writes. Docker and ports 3040/3041 were not used. Review export: `docs/handover/review/asset-inspection-storage.md`. Pull request #132 is open. Next on this worktree is meter-readings paging from `origin/develop`.
 **CURRENT (2026-10-22) — maintenance cost link on `fix/maintenance-cost-link`.** Worktree `C:\Users\chint\AppData\Local\MaintainPro\worktrees\fixes`. Branched from `origin/fix/broken-links` because pull request #129 is still open. Implementation `ab89fa34`. Pull request https://github.com/jkchinthaka/newmone/pull/134. The Maintenance Cost card opens `/maintenance/jobs`, where the work-order drawer shows the labour, parts, and vendor breakdown from pull request #119. `MAINTENANCE_MANAGER` and other roles that are not on `GET /work-orders/:id/insights` do not see the card. API tsc 0. Web tsc 0. Web unit 371 passed. Jest `reporting-kpis-phase13` 98 passed. Tenant audit unapproved 0. RBAC 971 routes, violations 0. Assumption: there is no separate insights index page, so the card opens the work-order list that hosts that breakdown. The page was not opened in a browser. Ports 3040/3041 were not used.

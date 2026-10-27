@@ -9,6 +9,7 @@ import { RequestContextInterceptor } from "./common/context/request-context.inte
 import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
 import { HttpThrottlerGuard } from "./common/guards/http-throttler.guard";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
+import { PasswordChangeRequiredGuard } from "./common/guards/password-change-required.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { resolveTrustedClientIp } from "./common/security/client-ip.util";
@@ -230,6 +231,11 @@ normalizeDatabaseEnvironment();
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard
+    },
+    // Temporary-password accounts may only reach me/logout/password change (403 PASSWORD_CHANGE_REQUIRED).
+    {
+      provide: APP_GUARD,
+      useClass: PasswordChangeRequiredGuard
     },
     {
       provide: APP_GUARD,

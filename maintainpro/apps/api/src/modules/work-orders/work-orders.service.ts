@@ -68,10 +68,14 @@ import {
 import {
   assertEvidenceForSupervisorVerification,
   assertEvidenceForTechnicianCompletion,
-  isStorageUploadsEnabled,
+  evaluateEvidenceRequirements,
   requiresQrVerification
 } from "../../common/utils/work-order-evidence-governance";
 import { canOverrideCompletionBlock } from "../../common/utils/work-order-evidence-rbac";
+import {
+  reopenRequestAfterWorkOrderExit,
+  type WorkOrderExitOutcome
+} from "../maintenance-requests/request-work-order-exit";
 import {
   assertValidEntityId,
   assertValidOptionalObjectId,
@@ -1568,6 +1572,8 @@ export class WorkOrdersService {
     const existing = await this.findOne(id, actor);
 
     if (existing.status === WorkOrderStatus.CANCELLED) {
+      // Replays heal a request left linked by an earlier cancel that failed part-way.
+      await this.afterWorkOrderExit(existing, "CANCELLED", existing.cancelledReason ?? "Work order cancelled", actor);
       return { deleted: false, cancelled: true, id, status: existing.status, message: "Work order already cancelled" };
     }
 
@@ -1604,6 +1610,7 @@ export class WorkOrdersService {
       beforeData: { status: existing.status },
       afterData: { status: updated.status }
     });
+    await this.afterWorkOrderExit(existing, "CANCELLED", reason, actor);
 
     return { deleted: false, cancelled: true, id, status: updated.status };
   }
@@ -2100,6 +2107,7 @@ export class WorkOrdersService {
         rejectionReason: updated.rejectionReason
       }
     });
+    await this.afterWorkOrderExit(current, "REJECTED", trimmedReason, actor);
 
     return updated;
   }
@@ -2408,17 +2416,21 @@ export class WorkOrdersService {
         assertReasonProvided("Emergency close reason", data.emergencyCloseReason);
       }
       if (requiresEvidenceForCompletion(current.type)) {
-        const evidenceCount = await this.prisma.evidenceAttachment.count({
-          where: { workOrderId: id, status: "UPLOADED" }
+        const closeEvidence = await this.prisma.evidenceAttachment.findMany({
+          where: { workOrderId: id, deletedAt: null, status: { not: "DELETED" } },
+          select: { evidenceType: true, status: true, verificationStatus: true }
         });
-        const storageEnabled = isStorageUploadsEnabled();
-        const isProduction = String(process.env.NODE_ENV ?? "").toLowerCase() === "production";
-        if (!storageEnabled && isProduction) {
+        const closeOverride =
+          data.overrideReason?.trim() && canOverrideCompletionBlock(actor?.role as RoleName)
+            ? data.overrideReason
+            : undefined;
+        const checklist = evaluateEvidenceRequirements(current.type, closeEvidence, { overrideReason: closeOverride });
+        if (checklist.storageUnavailableBlocking) {
           throw new BadRequestException(
             "Evidence storage is unavailable. Completion is blocked while required photo evidence cannot be stored (fail closed)."
           );
         }
-        if (storageEnabled && evidenceCount < 2) {
+        if (checklist.storageEnabled && (checklist.missingBefore || checklist.missingAfter) && !closeOverride) {
           throw new BadRequestException(
             "Before and after evidence are required for this work order category when uploads are enabled."
           );
@@ -2730,6 +2742,12 @@ export class WorkOrdersService {
       await this.notifyEnterpriseCompleted(updated, actor);
     }
 
+    if (targetStatus === WorkOrderStatus.CANCELLED) {
+      await this.afterWorkOrderExit(current, "CANCELLED", data.cancelReason ?? "Work order cancelled", actor);
+    } else if (targetStatus === WorkOrderStatus.COMPLETED) {
+      await this.workOrderPartsService.releaseWorkOrderReservations(id, tenantId, actor, "Work order closed");
+    }
+
     if (targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED) {
       const managers = await this.managerUserIds(tenantId);
       await this.notifyWorkOrderUsers(managers, {
@@ -2997,6 +3015,7 @@ export class WorkOrdersService {
         status: updated.status
       }
     );
+    await this.workOrderPartsService.releaseWorkOrderReservations(id, current.tenantId, actor, "Work order closed");
     await this.completePmOccurrenceForClosedWorkOrder(current);
     await this.resetVehicleServiceDueAfterService(current);
     if (this.workOrderDomain) {
@@ -4855,6 +4874,29 @@ export class WorkOrdersService {
     await this.prisma.workOrderPart.updateMany({
       where: { partRequestId: requestId, tenantId: this.resolveTenantId(actor) },
       data: { reservedQuantity: quantity }
+    });
+  }
+
+  /** Rejected/cancelled jobs free their reserved stock and hand a converted request back to review. */
+  private async afterWorkOrderExit(
+    workOrder: { id: string; tenantId: string; woNumber?: string | null },
+    outcome: WorkOrderExitOutcome,
+    reason: string,
+    actor?: Actor
+  ) {
+    await this.workOrderPartsService.releaseWorkOrderReservations(
+      workOrder.id,
+      workOrder.tenantId,
+      actor,
+      outcome === "REJECTED" ? "Work order rejected" : "Work order cancelled"
+    );
+    await reopenRequestAfterWorkOrderExit(this.prisma, this.notificationsService, {
+      tenantId: workOrder.tenantId,
+      workOrderId: workOrder.id,
+      woNumber: workOrder.woNumber,
+      outcome,
+      reason,
+      actorId: actor?.sub
     });
   }
 

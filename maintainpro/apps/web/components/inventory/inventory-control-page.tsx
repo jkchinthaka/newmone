@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Boxes, Database, Lock, Package, Upload, Wrench, type LucideIcon } from "lucide-react";
 
 import { ActiveFilterChips, JobsEmptyState, JobsLoadingSkeleton, JobsPagination, OperationalJobsHeader } from "@/components/operational";
+import { DebouncedField } from "@/components/forms/debounced-field";
 import { BarList, KpiCard, SectionCard } from "@/components/ui/dashboard";
+import { PortalRowMenu } from "@/components/ui/portal-row-menu";
+import { RefreshErrorBanner } from "@/components/ui/refresh-error-banner";
+import { clampPage, listErrorPresentation } from "@/lib/list-query-state";
+import { formatDateTime as lkDateTime } from "@/lib/localization";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { visibleTopUsedParts } from "@/lib/batch-3-presentation";
 import { canReadInventoryAnalytics } from "@/lib/user-role";
@@ -19,6 +24,8 @@ import { getTopUsedParts } from "./api";
 import type { TopUsedPartPoint } from "./types";
 import {
   INVENTORY_EMPTY,
+  normalizePartRow,
+  partsPageMeta,
   inventoryControlFromSearch,
   inventoryControlSearch,
   inventoryFreshnessLabel,
@@ -87,14 +94,20 @@ export function InventoryControlPage() {
   const [meta, setMeta] = useState({ page: 1, pageSize: 25, total: 0, totalPages: 1 });
   const [summary, setSummary] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [more, setMore] = useState(false);
   const [menuId, setMenuId] = useState<string | null>(null);
   const [movements, setMovements] = useState<Array<{ id: string; type?: string; quantity?: number; createdAt?: string }> | null>(null);
+  const [movementsError, setMovementsError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [topUsed, setTopUsed] = useState<TopUsedPartPoint[] | null>(null);
+  const [topUsedError, setTopUsedError] = useState(false);
 
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const errorMode = listErrorPresentation({ isError: Boolean(error), hasData: hasLoaded && rows.length > 0 });
   useEffect(() => setDraftQuery(state.q), [state.q]);
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -115,13 +128,14 @@ export function InventoryControlPage() {
       return;
     }
     let cancelled = false;
-    setTopUsed(null);
+    setTopUsedError(false);
     void getTopUsedParts(8, 30)
       .then((rows) => {
         if (!cancelled) setTopUsed(visibleTopUsedParts(rows));
       })
       .catch(() => {
-        if (!cancelled) setTopUsed(null);
+        // Say so instead of silently hiding the card; keep the last good chart if there was one.
+        if (!cancelled) setTopUsedError(true);
       });
     return () => {
       cancelled = true;
@@ -185,8 +199,10 @@ export function InventoryControlPage() {
       }
     }).then((response) => {
       const payload = response.data?.data ?? {};
-      setRows(Array.isArray(payload.items) ? payload.items : []);
-      setMeta(payload.pagination ?? { page: state.page, pageSize: state.pageSize, total: 0, totalPages: 1 });
+      const items: PartRow[] = Array.isArray(payload.items) ? payload.items.map(normalizePartRow) : [];
+      setRows(items);
+      setMeta(partsPageMeta(response.data, state.page, state.pageSize, items.length));
+      setHasLoaded(true);
     }).catch((err) => {
       if (!controller.signal.aborted) setError(getApiErrorMessage(err, "Unable to load inventory."));
     }).finally(() => {
@@ -195,6 +211,14 @@ export function InventoryControlPage() {
     return () => controller.abort();
   }, [state.q, state.stock, state.category, state.supplierId, state.location, state.mapped, state.sortBy, state.sortDir, state.page, state.pageSize, reloadKey]);
 
+  // ?page= past the last page (old link, filter shrank the list) jumps back to the last real page.
+  useEffect(() => {
+    if (loading || error) return;
+    const clamped = clampPage(state.page, meta.total, state.pageSize);
+    if (clamped !== state.page) write({ ...state, page: clamped });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, error, meta.total, state.page, state.pageSize]);
+
   const selected = rows.find((row) => row.id === state.partId) ?? null;
 
   useEffect(() => {
@@ -202,13 +226,15 @@ export function InventoryControlPage() {
   }, [state.partId]);
 
   async function loadMovements(id: string) {
+    // Movement history has its own error: a failure here must not replace the parts table.
+    setMovementsError(null);
     try {
       const response = await apiClient.get(`/inventory/parts/${id}/movements`);
       const payload = response.data?.data;
       setMovements(Array.isArray(payload) ? payload : []);
     } catch (err) {
-      setMovements([]);
-      setError(getApiErrorMessage(err, "Unable to load movement history."));
+      setMovements(null);
+      setMovementsError(getApiErrorMessage(err, "Unable to load movement history."));
     }
   }
 
@@ -241,16 +267,16 @@ export function InventoryControlPage() {
         description="Stock comes from the ERP. Issue parts from the work order's Parts tab."
         actions={
           <>
-            <button type="button" className="h-9 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>Refresh</button>
-            <button type="button" className="h-9 rounded-md border border-slate-300 px-3 text-sm" onClick={exportPage}>Export page</button>
-            <button type="button" className="h-9 rounded-md border border-slate-300 px-3 text-sm" aria-expanded={more} onClick={() => setMore((value) => !value)}>More filters</button>
+            <button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>Refresh</button>
+            <button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm" onClick={exportPage}>Export page</button>
+            <button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm" aria-expanded={more} onClick={() => setMore((value) => !value)}>More filters</button>
           </>
         }
       />
       {summaryError ? (
         <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
           <p className="text-sm text-rose-800">{summaryError}</p>
-          <button type="button" className="h-9 rounded-md border border-rose-300 bg-white px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>Retry</button>
+          <button type="button" className="min-h-11 rounded-md border border-rose-300 bg-white px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>Retry</button>
         </div>
       ) : (
         <>
@@ -286,7 +312,7 @@ export function InventoryControlPage() {
           {partsToIssueError ? (
             <div role="alert" className="flex flex-wrap items-center gap-3">
               <p className="text-sm text-rose-800">{partsToIssueError}</p>
-              <button type="button" className="h-9 rounded-md border border-rose-300 bg-white px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>Retry</button>
+              <button type="button" className="min-h-11 rounded-md border border-rose-300 bg-white px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>Retry</button>
             </div>
           ) : !partsToIssue ? (
             <p className="text-sm text-slate-600">Loading parts to issue…</p>
@@ -325,8 +351,12 @@ export function InventoryControlPage() {
           ) : null}
         </SectionCard>
       ) : null}
+      {topUsedError && !topUsed ? (
+        <RefreshErrorBanner message="Most used parts could not be loaded." onRetry={() => setReloadKey((value) => value + 1)} />
+      ) : null}
       {topUsed ? (
         <SectionCard title="Most used parts (30 days)" description="Units issued">
+          {topUsedError ? <p className="mb-2 text-xs text-amber-800">Could not refresh. Showing the last loaded chart.</p> : null}
           <BarList items={topUsed.map((row) => ({ name: row.partName, value: row.quantity }))} />
         </SectionCard>
       ) : null}
@@ -337,32 +367,33 @@ export function InventoryControlPage() {
       <section className="rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
           <label className="sr-only" htmlFor="inventory-search">Search parts</label>
-          <input id="inventory-search" value={draftQuery} onChange={(event) => setDraftQuery(event.target.value)} placeholder="Part name, code, or ERP code" className="h-9 min-w-48 flex-1 rounded-md border border-slate-300 px-3 text-sm" />
-          <select aria-label="Stock" value={state.stock} onChange={(event) => write({ ...state, stock: event.target.value as InventoryControlState["stock"], page: 1 })} className="h-9 rounded-md border border-slate-300 px-2 text-sm">
+          <input id="inventory-search" value={draftQuery} onChange={(event) => setDraftQuery(event.target.value)} placeholder="Part name, code, or ERP code" className="min-h-11 min-w-48 flex-1 rounded-md border border-slate-300 px-3 text-sm" />
+          <select aria-label="Stock" value={state.stock} onChange={(event) => write({ ...state, stock: event.target.value as InventoryControlState["stock"], page: 1 })} className="min-h-11 rounded-md border border-slate-300 px-2 text-sm">
             <option value="">Any stock</option>
             <option value="out">Out of stock</option>
           </select>
           <select aria-label="Sort" value={`${state.sortBy}:${state.sortDir}`} onChange={(event) => {
             const [sortBy, sortDir] = event.target.value.split(":");
             write({ ...state, sortBy: sortBy as InventoryControlState["sortBy"], sortDir: sortDir === "asc" ? "asc" : "desc", page: 1 });
-          }} className="h-9 rounded-md border border-slate-300 px-2 text-sm">
+          }} className="min-h-11 rounded-md border border-slate-300 px-2 text-sm">
             <option value="updatedAt:desc">Recently updated</option>
             <option value="name:asc">Name</option>
             <option value="partNumber:asc">Part code</option>
             <option value="quantityInStock:asc">On hand, low to high</option>
           </select>
-          <button type="button" className="h-9 px-2 text-sm" onClick={() => write({ ...inventoryControlFromSearch(new URLSearchParams()), partId: state.partId })}>Clear</button>
+          <button type="button" className="min-h-11 px-2 text-sm" onClick={() => write({ ...inventoryControlFromSearch(new URLSearchParams()), partId: state.partId })}>Clear</button>
         </div>
         {more ? (
           <div className="flex flex-wrap gap-2 border-b border-slate-200 px-3 py-2">
-            <label className="text-sm">Category
-              <input value={state.category} onChange={(event) => write({ ...state, category: event.target.value, page: 1 })} className="ml-2 h-9 rounded-md border border-slate-300 px-2" />
+            {/* Debounced: typing a category/location sends one request after a pause, not one per key. */}
+            <label className="flex items-center gap-2 text-sm">Category
+              <DebouncedField label="Category" placeholder="Any category" value={state.category} onCommit={(category) => write({ ...stateRef.current, category, page: 1 })} className="min-h-11 rounded-md border border-slate-300 px-2" />
             </label>
-            <label className="text-sm">Location
-              <input value={state.location} onChange={(event) => write({ ...state, location: event.target.value, page: 1 })} className="ml-2 h-9 rounded-md border border-slate-300 px-2" />
+            <label className="flex items-center gap-2 text-sm">Location
+              <DebouncedField label="Location" placeholder="Any location" value={state.location} onCommit={(location) => write({ ...stateRef.current, location, page: 1 })} className="min-h-11 rounded-md border border-slate-300 px-2" />
             </label>
             <label className="text-sm">Mapping
-              <select aria-label="ERP mapping" value={state.mapped} onChange={(event) => write({ ...state, mapped: event.target.value as InventoryControlState["mapped"], page: 1 })} className="ml-2 h-9 rounded-md border border-slate-300 px-2">
+              <select aria-label="ERP mapping" value={state.mapped} onChange={(event) => write({ ...state, mapped: event.target.value as InventoryControlState["mapped"], page: 1 })} className="ml-2 min-h-11 rounded-md border border-slate-300 px-2">
                 <option value="">Any</option>
                 <option value="yes">Mapped</option>
                 <option value="no">Unmapped</option>
@@ -371,11 +402,16 @@ export function InventoryControlPage() {
           </div>
         ) : null}
         <ActiveFilterChips chips={chips} onRemove={(key) => write({ ...state, [key]: "", page: 1 })} onClearAll={() => write({ ...inventoryControlFromSearch(new URLSearchParams()), partId: state.partId })} />
-        {loading ? <JobsLoadingSkeleton label="Loading inventory" /> : null}
-        {!loading && error ? <div className="px-4 py-8 text-center text-sm"><p>{error}</p><button type="button" className="mt-2 font-medium text-brand-700" onClick={() => setReloadKey((value) => value + 1)}>Retry</button></div> : null}
-        {!loading && !error && rows.length === 0 ? <JobsEmptyState title={INVENTORY_EMPTY} /> : null}
-        {!loading && !error && rows.length > 0 ? (
-          <>
+        {loading && !hasLoaded ? <JobsLoadingSkeleton label="Loading inventory" /> : null}
+        {errorMode === "full" ? <div className="px-4 py-8 text-center text-sm"><p>{error}</p><button type="button" className="mt-2 min-h-11 font-medium text-brand-700" onClick={() => setReloadKey((value) => value + 1)}>Retry</button></div> : null}
+        {errorMode === "banner" ? (
+          <div className="px-3 pt-3">
+            <RefreshErrorBanner message={`${error} Showing the last loaded parts.`} onRetry={() => setReloadKey((value) => value + 1)} retrying={loading} />
+          </div>
+        ) : null}
+        {hasLoaded && !loading && !error && rows.length === 0 ? <JobsEmptyState title={INVENTORY_EMPTY} /> : null}
+        {hasLoaded && errorMode !== "full" && rows.length > 0 ? (
+          <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
           <ul className="space-y-2 p-3 md:hidden">
             {rows.map((row) => {
               const last = row.stockMovements?.[0]?.createdAt ?? null;
@@ -423,15 +459,18 @@ export function InventoryControlPage() {
                       <td className="hidden px-3 py-2 md:table-cell">{row.reservedQuantity ?? 0}</td>
                       <td className="hidden px-3 py-2 md:table-cell">{row.availableQuantity ?? 0}</td>
                       <td className={`px-3 py-2 ${action === "Ready" ? "text-slate-600" : "font-medium"}`}>{action}</td>
-                      <td className="relative px-3 py-2">
-                        <button type="button" aria-label={`Actions for ${row.partNumber}`} aria-expanded={menuId === row.id} className="h-8 w-8 rounded-md hover:bg-slate-100" onClick={() => setMenuId(menuId === row.id ? null : row.id)}>⋯</button>
-                        {menuId === row.id ? (
-                          <div className="absolute right-2 z-10 w-48 rounded-md border border-slate-200 bg-white py-1 text-sm shadow">
-                            <button type="button" className="block w-full px-3 py-1.5 text-left hover:bg-slate-50" onClick={() => { setMenuId(null); write({ ...state, partId: row.id }); }}>Open</button>
-                            <button type="button" className="block w-full px-3 py-1.5 text-left hover:bg-slate-50" onClick={() => { setMenuId(null); write({ ...state, partId: row.id }); void loadMovements(row.id); }}>View usage</button>
-                            <Link className="block px-3 py-1.5 hover:bg-slate-50" href={"/maintenance-supply" as never}>View mapping</Link>
-                          </div>
-                        ) : null}
+                      <td className="px-3 py-2">
+                        {/* Portal menu: the table's overflow-x-auto wrapper can no longer clip it. */}
+                        <PortalRowMenu
+                          label={`Actions for ${row.partNumber}`}
+                          open={menuId === row.id}
+                          onOpenChange={(open) => setMenuId(open ? row.id : null)}
+                          items={[
+                            { label: "Open", onSelect: () => write({ ...state, partId: row.id }) },
+                            { label: "View usage", onSelect: () => { write({ ...state, partId: row.id }); void loadMovements(row.id); } },
+                            { label: "View mapping", href: "/maintenance-supply" }
+                          ]}
+                        />
                       </td>
                     </tr>
                   );
@@ -439,9 +478,9 @@ export function InventoryControlPage() {
               </tbody>
             </table>
           </div>
-          </>
+          </div>
         ) : null}
-        {!loading && !error ? <JobsPagination page={meta.page} totalPages={meta.totalPages} total={meta.total} pageSize={state.pageSize} onPageChange={(page) => write({ ...state, page })} onPageSizeChange={(pageSize) => write({ ...state, pageSize, page: 1 })} /> : null}
+        {hasLoaded && errorMode !== "full" ? <JobsPagination page={meta.page} totalPages={meta.totalPages} total={meta.total} pageSize={state.pageSize} onPageChange={(page) => write({ ...state, page })} onPageSizeChange={(pageSize) => write({ ...state, pageSize, page: 1 })} /> : null}
       </section>
       {selected ? (
         <section id="inventory-detail" className="rounded-lg border border-slate-200 bg-white p-4 text-sm" aria-live="polite">
@@ -449,9 +488,13 @@ export function InventoryControlPage() {
           <p className="text-slate-600">{selected.partNumber} · {selected.erpCode?.trim() ? `ERP ${selected.erpCode}` : "Unmapped"} · {selected.supplier?.name || "No supplier"} · {selected.location || "No location"}</p>
           <p className="mt-2">On hand {selected.quantityInStock ?? 0}. Reserved {selected.reservedQuantity ?? 0}. Available {selected.availableQuantity ?? 0}. On hand comes from the ERP; reserved parts are held for jobs.</p>
           <p className="mt-1 text-slate-600">{inventoryFreshnessLabel({ updatedAt: selected.updatedAt, lastMovementAt: selected.stockMovements?.[0]?.createdAt ?? null })}</p>
-          {movements ? (
+          {movementsError ? (
+            <div className="mt-2">
+              <RefreshErrorBanner message={movementsError} onRetry={() => void loadMovements(selected.id)} />
+            </div>
+          ) : movements ? (
             <ul className="mt-2 space-y-1 text-xs text-slate-600">
-              {movements.length === 0 ? <li>No movements loaded.</li> : movements.slice(0, 8).map((row) => <li key={row.id}>{formatEnumLabel(row.type)} · {row.quantity} · {row.createdAt ? new Date(row.createdAt).toLocaleString() : ""}</li>)}
+              {movements.length === 0 ? <li>No movements loaded.</li> : movements.slice(0, 8).map((row) => <li key={row.id}>{formatEnumLabel(row.type)} · {row.quantity} · {lkDateTime(row.createdAt)}</li>)}
             </ul>
           ) : null}
         </section>

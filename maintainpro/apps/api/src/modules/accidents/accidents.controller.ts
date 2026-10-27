@@ -34,10 +34,7 @@ export class AccidentsController {
       page: paged ? Number(pageRaw) : undefined,
       pageSize: pageSizeRaw ? Number(pageSizeRaw) : undefined
     });
-    if (paged && data && typeof data === "object" && "items" in data) {
-      return { data: data.items, meta: data.meta, message: "Accidents fetched" };
-    }
-    return { data, message: "Accidents fetched" };
+    return { data: data.items, meta: data.meta, message: "Accidents fetched" };
   }
 
   @Post()

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/localization";
 import { useMemo, type ReactNode } from "react";
 import { AlertTriangle, Building2, CheckCircle2, Clock3, ShieldCheck, Siren } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -265,7 +266,7 @@ export function CleaningOverview() {
               items={data.alerts.rejectedVisits.map((item) => ({
                 id: item.id,
                 primary: `${item.locationName} (${item.cleanerName})`,
-                secondary: item.rejectionReason || new Date(item.scannedAt).toLocaleString()
+                secondary: item.rejectionReason || formatDateTime(item.scannedAt)
               }))}
             />
 

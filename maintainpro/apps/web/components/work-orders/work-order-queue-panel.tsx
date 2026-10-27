@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { AlertTriangle, ChevronDown, ClipboardList, UserX } from "lucide-react";
 
@@ -15,6 +15,8 @@ import { QueueTabBar } from "@/components/operational/queue-tab-bar";
 import { withLockedJobDomain } from "@/lib/domain-jobs-columns";
 import { KpiCard } from "@/components/ui/dashboard";
 import { ErrorState } from "@/components/ui/page-state";
+import { RefreshErrorBanner } from "@/components/ui/refresh-error-banner";
+import { backgroundPollingOptions, clampPage, listErrorPresentation, totalPagesFor } from "@/lib/list-query-state";
 import { deriveWorkOrderKpis, oldestAgeDays } from "@/lib/batch-3-presentation";
 import { getApiErrorMessage, isDatabaseUnavailableError } from "@/lib/api-client";
 import { JOB_DOMAINS, JOB_DOMAIN_LABELS } from "@/lib/job-domain";
@@ -55,6 +57,7 @@ import { selectableWorkOrderStatuses } from "@/lib/work-order-next-action";
 import { WORK_ORDER_STATUSES, type TechnicianOption, type WorkOrder } from "./types";
 
 const EMPTY_QUEUE_ROWS: WorkOrderQueueItem[] = [];
+const QUEUE_POLL_MS = 30_000;
 
 type Props = {
   onOpenWorkOrder: (workOrder: WorkOrder) => void;
@@ -227,7 +230,7 @@ export function WorkOrderQueuePanel({
     queryFn: () => fetchWorkOrderQueueSummary(jobDomain),
     retry: shouldRetryQueueRequest,
     refetchOnWindowFocus: true,
-    refetchInterval: (query) => (query.state.error ? false : 30_000)
+    ...backgroundPollingOptions(QUEUE_POLL_MS)
   });
 
   const summaryData: WorkOrderQueueSummary = summaryQuery.data ?? FALLBACK_QUEUE_SUMMARY;
@@ -286,16 +289,22 @@ export function WorkOrderQueuePanel({
 
 
   const isTechnician = roleName === "TECHNICIAN" || roleName === "MECHANIC";
-  const listFilters = isTechnician && filters.queue === "all" ? { ...filters, queue: "my-tasks" as const } : filters;
+  const listFilters = useMemo(
+    () => (isTechnician && filters.queue === "all" ? { ...filters, queue: "my-tasks" as const } : filters),
+    [filters, isTechnician]
+  );
+  const listRequestKey = workOrderQueueRequestKey(listFilters);
 
   const queueQuery = useQuery({
-    queryKey: withTenantScope(["work-orders", "queue", workOrderQueueRequestKey(listFilters)]),
+    queryKey: withTenantScope(["work-orders", "queue", listRequestKey]),
     queryFn: () => fetchWorkOrderQueue(listFilters),
-    enabled: true,
     retry: shouldRetryQueueRequest,
     refetchOnWindowFocus: true,
-    refetchInterval: (query) => (query.state.error ? false : 30_000)
+    // Keep the current rows (dimmed) while the next page/filter loads instead of blanking the table.
+    placeholderData: keepPreviousData,
+    ...backgroundPollingOptions(QUEUE_POLL_MS)
   });
+  const queueErrorMode = listErrorPresentation({ isError: queueQuery.isError, hasData: Boolean(queueQuery.data) });
 
   const visibleQueues = useMemo(() => {
     const role = currentUser?.role ?? "";
@@ -339,7 +348,17 @@ export function WorkOrderQueuePanel({
   const actionRequiredCount =
     summaryData.queues?.find((queue) => queue.key === "action-required")?.count ?? 0;
 
-  const totalPages = Math.max(1, Math.ceil((queueQuery.data?.total ?? 0) / filters.pageSize));
+  const queueTotal = queueQuery.data?.total ?? 0;
+  const totalPages = totalPagesFor(queueTotal, filters.pageSize);
+
+  // A page past the end (rows removed, URL from an old link) jumps back to the last real page.
+  useEffect(() => {
+    if (!queueQuery.data || queueQuery.isPlaceholderData) return;
+    const clamped = clampPage(filtersRef.current.page, queueQuery.data.total ?? 0, filtersRef.current.pageSize);
+    if (clamped !== filtersRef.current.page) {
+      setFilters((current) => (current.page === clamped ? current : { ...current, page: clamped }));
+    }
+  }, [queueQuery.data, queueQuery.isPlaceholderData]);
 
   const updateFilters = (patch: Partial<WorkOrderQueueFilters>) => {
     if (patch.query !== undefined) {
@@ -653,9 +672,18 @@ export function WorkOrderQueuePanel({
           onClearAll={clearFilters}
         />
 
+        {queueErrorMode === "banner" ? (
+          <div className="px-3 pt-3">
+            <RefreshErrorBanner
+              message="Could not refresh work orders. Showing the last loaded list."
+              onRetry={() => void queueQuery.refetch()}
+              retrying={queueQuery.isFetching}
+            />
+          </div>
+        ) : null}
         {queueQuery.isLoading ? (
           <TableLoadingRows />
-        ) : queueQuery.isError ? (
+        ) : queueErrorMode === "full" ? (
           <div className="p-6">
             <ErrorState
               title="Unable to load work orders"
@@ -694,7 +722,7 @@ export function WorkOrderQueuePanel({
             }
           />
         ) : (
-          <>
+          <div className={queueQuery.isPlaceholderData ? "opacity-60 transition-opacity" : undefined} aria-busy={queueQuery.isPlaceholderData}>
             <WorkOrderCompactTable
               rows={rows}
               selectedIds={selectedIds}
@@ -713,13 +741,13 @@ export function WorkOrderQueuePanel({
               actorRole={currentUser.role}
               jobDomain={jobDomain}
             />
-          </>
+          </div>
         )}
 
         <JobsPagination
           page={filters.page}
           totalPages={totalPages}
-          total={queueQuery.data?.total ?? 0}
+          total={queueTotal}
           pageSize={filters.pageSize}
           onPageChange={(page) => updateFilters({ page })}
           onPageSizeChange={(pageSize) => updateFilters({ pageSize, page: 1 })}

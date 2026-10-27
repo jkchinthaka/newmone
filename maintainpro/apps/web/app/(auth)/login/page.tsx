@@ -12,6 +12,7 @@ import { resolveLoginEmail, validateWorkEmail } from "@/lib/login-identifier";
 import { resolveAuthorizedDestination } from "@/lib/navigation";
 import { safeInternalReturnPath, type PostLoginUserLike } from "@/lib/role-redirect";
 import { setActiveTenantId } from "@/lib/tenant-context";
+import { postLoginDestination } from "@/lib/password-change-required";
 import {
   IT_HELP_DESK_URL,
   LOGIN_ATTEMPTS_BEFORE_LOCK,
@@ -115,7 +116,7 @@ export default function LoginPage() {
               (item): item is string => typeof item === "string"
             )
           : [];
-        window.location.replace(resolveAuthorizedDestination(user, nextReturn, permissions));
+        window.location.replace(postLoginDestination(user, resolveAuthorizedDestination(user, nextReturn, permissions)));
       })
       .catch(() => {
         if (!cancelled) setSessionCheck("form");
@@ -167,7 +168,10 @@ export default function LoginPage() {
       const permissions = Array.isArray(payload.user?.permissions)
         ? (payload.user.permissions as unknown[]).filter((item): item is string => typeof item === "string")
         : [];
-      window.location.replace(resolveAuthorizedDestination(payload.user, returnTo, permissions));
+      // A temporary password must be replaced before anything else.
+      window.location.replace(
+        postLoginDestination(payload.user, resolveAuthorizedDestination(payload.user, returnTo, permissions))
+      );
     } catch (e) {
       const emailKey = resolveLoginEmail(values.email).toLowerCase();
       const accountLockSeconds = lockSecondsFromError(e);

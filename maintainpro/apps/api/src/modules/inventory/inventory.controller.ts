@@ -85,7 +85,9 @@ export class InventoryController {
     @Query("mapped") mapped?: string,
     @Query("stock") stock?: string,
     @Query("sortBy") sortBy?: string,
-    @Query("sortDir") sortDir?: string
+    @Query("sortDir") sortDir?: string,
+    @Query("take") takeRaw?: string,
+    @Query("skip") skipRaw?: string
   ) {
     if (pageRaw != null && pageRaw !== "") {
       const data = await this.inventoryService.partsPage(req.user, {
@@ -102,8 +104,8 @@ export class InventoryController {
       });
       return { data, message: "Parts fetched" };
     }
-    const data = await this.inventoryService.parts(req.user);
-    return { data, message: "Parts fetched" };
+    const { items, meta } = await this.inventoryService.parts(req.user, { take: Number(takeRaw), skip: Number(skipRaw) });
+    return { data: items, meta, message: "Parts fetched" };
   }
 
   @Post("parts")
@@ -265,9 +267,12 @@ export class InventoryController {
     "FINANCE"
   )
   @Permissions("purchase_orders.view")
-  async purchaseOrders(@Req() req: AuthedRequest) {
-    const data = await this.inventoryService.purchaseOrders(req.user);
-    return { data, message: "Purchase orders fetched" };
+  async purchaseOrders(@Req() req: AuthedRequest, @Query("take") takeRaw?: string, @Query("skip") skipRaw?: string) {
+    const { items, meta } = await this.inventoryService.purchaseOrders(req.user, {
+      take: Number(takeRaw),
+      skip: Number(skipRaw)
+    });
+    return { data: items, meta, message: "Purchase orders fetched" };
   }
 
   @Get("purchase-orders/:id")

@@ -1,5 +1,7 @@
 "use client";
 
+import { formatEnumLabel } from "@/lib/display-labels";
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -137,8 +139,8 @@ export default function RcaDetailPage() {
           <div><dt className="text-slate-500">Asset</dt><dd className="font-mono text-xs">{rca.assetId || "—"}</dd></div>
           <div><dt className="text-slate-500">Failure code</dt><dd>{rca.failureCode || "—"}</dd></div>
           <div><dt className="text-slate-500">Owner</dt><dd className="font-mono text-xs">{rca.ownerId || "—"}</dd></div>
-          <div><dt className="text-slate-500">Created</dt><dd>{new Date(rca.createdAt).toLocaleString()}</dd></div>
-          <div><dt className="text-slate-500">Due</dt><dd>{rca.dueDate ? new Date(rca.dueDate).toLocaleDateString() : "—"}</dd></div>
+          <div><dt className="text-slate-500">Created</dt><dd>{lkDateTime(rca.createdAt)}</dd></div>
+          <div><dt className="text-slate-500">Due</dt><dd>{lkDate(rca.dueDate)}</dd></div>
         </dl>
       </header>
       <section className="rounded-lg border border-slate-200 bg-white p-4">
@@ -152,7 +154,7 @@ export default function RcaDetailPage() {
         </label>
         <label className="block text-sm">Method
           <select className="mt-1 rounded border px-3 py-2" value={method || rca.method || "FIVE_WHYS"} onChange={(event) => setMethod(event.target.value)}>
-            {METHODS.map((item) => <option key={item} value={item}>{item.replace(/_/g, " ")}</option>)}
+            {METHODS.map((item) => <option key={item} value={item}>{formatEnumLabel(item)}</option>)}
           </select>
         </label>
         <label className="block text-sm">Root cause
@@ -167,8 +169,8 @@ export default function RcaDetailPage() {
           {rca.capaActions.map((action) => (
             <li key={action.id} className="rounded border border-slate-200 p-3 text-sm">
               <p className="font-medium">{action.description}</p>
-              <p className="text-slate-600">{action.kind} · {action.status} · due {action.dueDate ? new Date(action.dueDate).toLocaleDateString() : "—"}</p>
-              <p className="text-slate-600">Owner {action.ownerId || "—"} · verified {action.verifiedAt ? new Date(action.verifiedAt).toLocaleString() : "—"}</p>
+              <p className="text-slate-600">{formatEnumLabel(action.kind)} · {formatEnumLabel(action.status)} · due {lkDate(action.dueDate)}</p>
+              <p className="text-slate-600">Owner {action.ownerId || "—"} · verified {lkDateTime(action.verifiedAt)}</p>
               {action.verificationNote ? <p>Verification: {action.verificationNote}</p> : null}
               <div className="mt-2 flex flex-wrap gap-2">
                 {action.status === "OPEN" ? <button type="button" className="rounded border px-2 py-1" onClick={() => updateCapa.mutate({ capaId: action.id, status: "IN_PROGRESS" })}>Start</button> : null}
@@ -213,7 +215,7 @@ export default function RcaDetailPage() {
         <h2 className="font-semibold">Activity</h2>
         <ul className="mt-2 space-y-1 text-sm text-slate-700">
           {rca.activity.length === 0 ? <li>No audit entries yet.</li> : rca.activity.map((entry) => (
-            <li key={entry.id}>{new Date(entry.createdAt).toLocaleString()} · {entry.action} · {entry.reason || "—"}</li>
+            <li key={entry.id}>{lkDateTime(entry.createdAt)} · {entry.action} · {entry.reason || "—"}</li>
           ))}
         </ul>
       </section>

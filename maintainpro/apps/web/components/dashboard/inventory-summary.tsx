@@ -5,74 +5,63 @@ import type { Route } from "next";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
 
-import {
-  getInventoryParts,
-  getLowStockParts,
-  getPurchaseOrders
-} from "@/components/inventory/api";
-import { calculateSummary, formatCurrency } from "@/components/inventory/helpers";
+import { getInventoryDashboard, getPurchaseOrders } from "@/components/inventory/api";
+import { formatCurrency } from "@/components/inventory/helpers";
 import { ErrorState, InlineLoadingState } from "@/components/ui/page-state";
+import { RefreshErrorBanner } from "@/components/ui/refresh-error-banner";
+import { backgroundPollingOptions } from "@/lib/list-query-state";
 import { formatNumber } from "@/lib/localization";
 
 import { DashboardCard } from "./dashboard-card";
 import { DashboardSection } from "./dashboard-section";
 
-export function InventorySummary() {
-  const partsQuery = useQuery({
-    queryKey: ["dashboard", "inventory", "parts"],
-    queryFn: getInventoryParts,
-    refetchInterval: 60_000
-  });
+const PENDING_PO_STATUSES = new Set(["PENDING", "ORDERED", "PARTIALLY_RECEIVED"]);
+const TITLE = "Inventory overview";
+const DESCRIPTION = "Stock levels and procurement activity from live inventory records.";
 
-  const lowStockQuery = useQuery({
-    queryKey: ["dashboard", "inventory", "low-stock"],
-    queryFn: getLowStockParts,
-    refetchInterval: 60_000
+export function InventorySummary() {
+  // Server-side totals over every active part. Previously this downloaded the part list (bounded
+  // to one page) plus the low-stock list every minute and counted rows in the browser.
+  const kpisQuery = useQuery({
+    queryKey: ["dashboard", "inventory", "kpis"],
+    queryFn: getInventoryDashboard,
+    staleTime: 30_000,
+    ...backgroundPollingOptions(60_000)
   });
 
   const purchaseOrdersQuery = useQuery({
     queryKey: ["dashboard", "inventory", "purchase-orders"],
     queryFn: getPurchaseOrders,
-    refetchInterval: 60_000
+    staleTime: 60_000,
+    select: (orders) => orders.filter((order) => PENDING_PO_STATUSES.has(String(order.status))).length,
+    ...backgroundPollingOptions(5 * 60_000)
   });
 
-  const isLoading = partsQuery.isLoading || lowStockQuery.isLoading || purchaseOrdersQuery.isLoading;
-  const isError = partsQuery.isError || lowStockQuery.isError || purchaseOrdersQuery.isError;
-  const error = partsQuery.error ?? lowStockQuery.error ?? purchaseOrdersQuery.error;
-
-  const refetchAll = () => {
-    void partsQuery.refetch();
-    void lowStockQuery.refetch();
-    void purchaseOrdersQuery.refetch();
-  };
-
-  if (isLoading) {
+  if (kpisQuery.isLoading) {
     return (
-      <DashboardSection
-        title="Inventory overview"
-        description="Stock levels and procurement activity from live inventory records."
-      >
+      <DashboardSection title={TITLE} description={DESCRIPTION}>
         <InlineLoadingState label="Loading inventory summary…" />
       </DashboardSection>
     );
   }
 
-  if (isError) {
+  if (kpisQuery.isError && !kpisQuery.data) {
     return (
-      <DashboardSection
-        title="Inventory overview"
-        description="Stock levels and procurement activity from live inventory records."
-      >
-        <ErrorState
-          title="Could not load inventory"
-          error={error}
-          onRetry={refetchAll}
-        />
+      <DashboardSection title={TITLE} description={DESCRIPTION}>
+        <ErrorState title="Could not load inventory" error={kpisQuery.error} onRetry={() => void kpisQuery.refetch()} />
       </DashboardSection>
     );
   }
 
-  const summary = calculateSummary(partsQuery.data ?? [], purchaseOrdersQuery.data ?? []);
+  const kpis = kpisQuery.data;
+  const summary = {
+    totalItems: kpis?.totalItems ?? 0,
+    onHand: kpis?.onHand ?? 0,
+    available: kpis?.available ?? 0,
+    totalValue: kpis?.inventoryValue ?? null,
+    lowStockCount: kpis?.lowStock ?? 0,
+    outOfStockCount: kpis?.outOfStock ?? 0
+  };
 
   return (
     <DashboardSection
@@ -89,19 +78,25 @@ export function InventorySummary() {
         </div>
       }
     >
+      {kpisQuery.isError ? (
+        <RefreshErrorBanner className="mb-3" onRetry={() => void kpisQuery.refetch()} retrying={kpisQuery.isFetching} />
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <DashboardCard label="Total items" value={formatNumber(summary.totalItems, { fallback: "0" })} />
         <DashboardCard label="On hand" value={formatNumber(summary.onHand, { fallback: "0" })} />
         <DashboardCard label="Available" value={formatNumber(summary.available, { fallback: "0" })} />
         <DashboardCard label="Stock value" value={summary.totalValue == null ? "—" : formatCurrency(summary.totalValue)} tone="info" />
         <DashboardCard label="Low stock" value={formatNumber(summary.lowStockCount, { fallback: "0" })} tone="warning" />
-        <DashboardCard label="Critical stock" value={formatNumber(summary.criticalCount, { fallback: "0" })} tone="danger" />
         <DashboardCard label="Out of stock" value={formatNumber(summary.outOfStockCount, { fallback: "0" })} tone="danger" />
-        <DashboardCard label="Pending POs" value={formatNumber(summary.pendingPurchaseOrders, { fallback: "0" })} tone="neutral" />
+        <DashboardCard
+          label="Pending POs"
+          value={purchaseOrdersQuery.data == null ? "—" : formatNumber(purchaseOrdersQuery.data, { fallback: "0" })}
+          tone="neutral"
+        />
       </div>
-      {(lowStockQuery.data?.length ?? 0) > 0 ? (
+      {summary.lowStockCount > 0 ? (
         <p className="mt-4 text-sm text-slate-600">
-          {formatNumber(lowStockQuery.data?.length ?? 0, { fallback: "0" })} parts are currently flagged as low stock.
+          {formatNumber(summary.lowStockCount, { fallback: "0" })} parts are currently flagged as low stock.
         </p>
       ) : (
         <p className="mt-4 rounded-lg bg-slate-50 px-3 py-4 text-sm text-slate-500">No low-stock alerts returned right now.</p>

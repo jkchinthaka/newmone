@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate as lkDate } from "@/lib/localization";
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -224,7 +225,7 @@ export default function MaintenanceInspectionsPage() {
                       <div>{row.subjectName}</div>
                       <div className="text-xs text-slate-500">{row.subjectCode}</div>
                     </td>
-                    <td className="px-3 py-3">{row.scheduledAt ? new Date(row.scheduledAt).toLocaleDateString() : row.performedAt ? new Date(row.performedAt).toLocaleDateString() : "—"}</td>
+                    <td className="px-3 py-3">{lkDate(row.scheduledAt ?? row.performedAt)}</td>
                     <td className="px-3 py-3">
                       {resultLabel(row.result)}
                       {row.criticalFindings ? <div className="text-xs text-rose-800">{row.criticalFindings} critical/high</div> : null}

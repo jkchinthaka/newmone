@@ -24,7 +24,7 @@ test("inbox URL keeps filters and page size", () => {
   assert.match(inboxSearchParams(state), /pageSize=50/);
 });
 
-test("open context uses the exact work order, gate, and plan routes", () => {
+test("open context uses the exact work order, vehicle, and plan routes", () => {
   assert.equal(
     notificationContextHref({ referenceType: "WorkOrder", referenceId: "wo-1", type: "WORK_ORDER_UPDATED" }),
     "/work-orders?wo=wo-1"
@@ -35,8 +35,11 @@ test("open context uses the exact work order, gate, and plan routes", () => {
   );
   assert.equal(
     notificationContextHref({ title: "Gate blocked", referenceType: "Vehicle", referenceId: "veh-1" }),
-    "/fleet/gate?vehicle=veh-1"
+    "/vehicles/veh-1"
   );
+  // The gate screen is retired: stored deep links open the vehicle or the fleet list.
+  assert.equal(notificationContextHref({ deepLink: "/fleet/gate?vehicle=veh-2" }), "/vehicles/veh-2");
+  assert.equal(notificationContextHref({ deepLink: "/fleet/gate" }), "/fleet");
   assert.equal(notificationContextHref({ deepLink: "/work-orders?highlight=wo-9" }), "/work-orders?wo=wo-9");
   assert.equal(notificationContextIsLinked("/work-orders?wo=wo-1"), true);
   assert.equal(notificationContextIsLinked("/notifications"), false);

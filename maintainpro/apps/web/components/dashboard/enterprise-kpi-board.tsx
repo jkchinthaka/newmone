@@ -62,7 +62,7 @@ export function EnterpriseKpiBoard() {
       description="Live actionable KPIs. Empty or insufficient values are not invented."
     >
       {query.isLoading ? <InlineLoadingState label="Loading operations KPIs…" /> : null}
-      {query.error ? (
+      {query.error && !query.data ? (
         <ErrorState title="Could not load operations KPIs" description={getApiErrorMessage(query.error, "Unable to load KPIs.")} />
       ) : null}
       {query.data ? (

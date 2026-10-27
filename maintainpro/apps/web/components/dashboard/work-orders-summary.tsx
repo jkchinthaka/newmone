@@ -5,16 +5,21 @@ import type { Route } from "next";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
 
-import { fetchWorkOrders } from "@/components/work-orders/api";
-import { formatDate } from "@/components/work-orders/helpers";
+import { formatDate, humanWorkOrderStatusLabel } from "@/components/work-orders/helpers";
 import type { WorkOrder } from "@/components/work-orders/types";
 import { ErrorState, InlineLoadingState } from "@/components/ui/page-state";
-import {
-  computeWorkOrderDashboardStats,
-  selectPriorityWorkOrders,
-  type WorkOrderDashboardStats
-} from "@/lib/dashboard-roles";
+import { RefreshErrorBanner } from "@/components/ui/refresh-error-banner";
+import type { WorkOrderDashboardStats } from "@/lib/dashboard-roles";
+import { workOrderCountsFromListSummary, workOrderCountsFromQueueSummary } from "@/lib/dashboard-work-order-counts";
+import { backgroundPollingOptions, listErrorPresentation } from "@/lib/list-query-state";
 import { formatNumber } from "@/lib/localization";
+import { withTenantScope } from "@/lib/tenant-query";
+import {
+  DEFAULT_QUEUE_FILTERS,
+  fetchWorkOrderQueue,
+  fetchWorkOrderQueueSummary,
+  type WorkOrderQueueFilters
+} from "@/lib/work-order-queues-api";
 
 import { DashboardCard } from "./dashboard-card";
 import { DashboardSection } from "./dashboard-section";
@@ -26,19 +31,65 @@ type WorkOrdersSummaryProps = {
   showPriorityList?: boolean;
 };
 
+const DASHBOARD_POLL_MS = 60_000;
+const PRIORITY_LIMIT = 5;
+
+function priorityListFilters(assignedUserId: string | null): WorkOrderQueueFilters {
+  return {
+    ...DEFAULT_QUEUE_FILTERS,
+    // Technicians cannot open "all"; "my-tasks" plus technicianId scopes rows and the list summary to them.
+    queue: assignedUserId ? "my-tasks" : "open-load",
+    technicianId: assignedUserId ?? undefined,
+    page: 1,
+    pageSize: PRIORITY_LIMIT
+  };
+}
+
+function completedCountFilters(assignedUserId: string): WorkOrderQueueFilters {
+  return { ...DEFAULT_QUEUE_FILTERS, queue: "completed", technicianId: assignedUserId, page: 1, pageSize: 1 };
+}
+
 export function WorkOrdersSummary({
   assignedUserId = null,
   title = "Work orders",
   description = "Live work order counts from the maintenance queue.",
   showPriorityList = true
 }: WorkOrdersSummaryProps) {
-  const query = useQuery({
-    queryKey: ["dashboard", "work-orders"],
-    queryFn: fetchWorkOrders,
-    refetchInterval: 60_000
+  const assigned = assignedUserId != null;
+  const listFilters = priorityListFilters(assignedUserId);
+
+  // Company counts: server queue summary. Same cache entry as the nav badges and the Work Orders page.
+  const summaryQuery = useQuery({
+    queryKey: withTenantScope(["work-orders", "queue-summary", ""]),
+    queryFn: () => fetchWorkOrderQueueSummary(),
+    enabled: !assigned,
+    staleTime: 30_000,
+    ...backgroundPollingOptions(DASHBOARD_POLL_MS)
   });
 
-  if (query.isLoading) {
+  // Priority rows (and, for an assignee, their server-side counts).
+  const listQuery = useQuery({
+    queryKey: withTenantScope(["dashboard", "work-orders", "priority", assignedUserId ?? "all"]),
+    queryFn: () => fetchWorkOrderQueue(listFilters),
+    enabled: assigned || showPriorityList,
+    staleTime: 30_000,
+    ...backgroundPollingOptions(DASHBOARD_POLL_MS)
+  });
+
+  const completedQuery = useQuery({
+    queryKey: withTenantScope(["dashboard", "work-orders", "completed-count", assignedUserId ?? ""]),
+    queryFn: () => fetchWorkOrderQueue(completedCountFilters(assignedUserId as string)),
+    enabled: assigned,
+    staleTime: 60_000,
+    select: (data) => data.total,
+    ...backgroundPollingOptions(DASHBOARD_POLL_MS)
+  });
+
+  const countsQuery = assigned ? listQuery : summaryQuery;
+  const hasCounts = Boolean(countsQuery.data);
+  const errorMode = listErrorPresentation({ isError: countsQuery.isError, hasData: hasCounts });
+
+  if (countsQuery.isLoading) {
     return (
       <DashboardSection title={title} description={description}>
         <InlineLoadingState label="Loading work order summary…" />
@@ -46,19 +97,19 @@ export function WorkOrdersSummary({
     );
   }
 
-  if (query.isError) {
+  if (errorMode === "full") {
     return (
       <DashboardSection title={title} description={description}>
-        <ErrorState title="Could not load work orders" error={query.error} onRetry={() => query.refetch()} />
+        <ErrorState title="Could not load work orders" error={countsQuery.error} onRetry={() => void countsQuery.refetch()} />
       </DashboardSection>
     );
   }
 
-  const orders = query.data ?? [];
-  const stats = computeWorkOrderDashboardStats(orders, { assignedUserId });
-  const scopedOrders =
-    assignedUserId != null ? orders.filter((order) => order.technicianId === assignedUserId) : orders;
-  const priorityOrders = showPriorityList ? selectPriorityWorkOrders(scopedOrders, 5) : [];
+  const stats: WorkOrderDashboardStats = assigned
+    ? workOrderCountsFromListSummary(listQuery.data, completedQuery.data)
+    : workOrderCountsFromQueueSummary(summaryQuery.data!);
+  const priorityOrders = showPriorityList ? (listQuery.data?.data ?? []) : [];
+  const listFailed = showPriorityList && listQuery.isError && !listQuery.data;
 
   return (
     <DashboardSection
@@ -66,19 +117,30 @@ export function WorkOrdersSummary({
       description={description}
       action={
         <Link
-          href={(assignedUserId ? "/work-orders" : "/work-orders") as Route}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800"
+          href={(assigned ? "/work-orders/my" : "/work-orders") as Route}
+          className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800"
         >
           Open work orders <ArrowRight size={14} aria-hidden="true" />
         </Link>
       }
     >
-      <WorkOrderStatsGrid stats={stats} assigned={assignedUserId != null} />
+      {errorMode === "banner" ? (
+        <RefreshErrorBanner className="mb-3" onRetry={() => void countsQuery.refetch()} retrying={countsQuery.isFetching} />
+      ) : null}
+      <WorkOrderStatsGrid stats={stats} assigned={assigned} />
       <p className="mt-2 text-xs text-slate-500">
-        Counts reflect live tenant work orders from the API (refreshed every 60s). Empty modules show zero — not demo placeholders.
+        Counts come from the server for all matching work orders (refreshed every 60s while this tab is open).
       </p>
       {showPriorityList ? (
-        <PriorityWorkOrdersList orders={priorityOrders} emptyLabel={assignedUserId ? "No assigned work orders right now." : "No open work orders need attention."} />
+        listFailed ? (
+          <RefreshErrorBanner className="mt-4" message="Could not load priority work orders." onRetry={() => void listQuery.refetch()} retrying={listQuery.isFetching} />
+        ) : listQuery.isLoading ? (
+          <div className="mt-4">
+            <InlineLoadingState label="Loading priority work orders…" />
+          </div>
+        ) : (
+          <PriorityWorkOrdersList orders={priorityOrders} emptyLabel={assigned ? "No assigned work orders right now." : "No open work orders need attention."} />
+        )
       ) : null}
     </DashboardSection>
   );
@@ -120,7 +182,7 @@ function PriorityWorkOrdersList({
               </p>
             </div>
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold uppercase text-slate-700">
-              {order.status.replace(/_/g, " ")}
+              {humanWorkOrderStatusLabel(order.status)}
             </span>
           </div>
         </li>

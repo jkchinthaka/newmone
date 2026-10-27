@@ -748,6 +748,20 @@ export class EvidenceService {
         qrStatus = QrVerificationStatus.MISMATCH;
         auditEvent = "qr_mismatch";
 
+        // Persist the failed scan so the job shows MISMATCH instead of looking unscanned.
+        await this.prisma.workOrder.update({
+          where: { id: workOrderId },
+          data: {
+            qrVerificationStatus: QrVerificationStatus.MISMATCH,
+            qrVerifiedAt: null,
+            qrVerifiedById: actor.sub,
+            qrVerifiedAssetId: scannedAssetId,
+            qrVerifiedVehicleId: scannedVehicleId,
+            qrOverrideReason: null
+          },
+          select: { id: true }
+        });
+
         await this.recordEvidenceAudit({
           event: auditEvent,
           actor,

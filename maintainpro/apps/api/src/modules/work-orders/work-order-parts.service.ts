@@ -181,11 +181,28 @@ export class WorkOrderPartsService {
     return updated;
   }
 
+  /**
+   * A rejected request never reaches the job: close its line with zero requested/approved/reserved
+   * quantity so it drops out of the cost summary and job readiness.
+   */
   async syncRejectedLine(partRequestId: string, reason: string, actor?: Actor) {
     const line = await this.prisma.workOrderPart.findFirst({ where: { partRequestId } });
     if (!line) {
       return null;
     }
+
+    const issued = line.issuedQuantity ?? 0;
+    const updated = await this.prisma.workOrderPart.update({
+      where: { id: line.id },
+      data: {
+        lineStatus: WorkOrderPartLineStatus.CLOSED,
+        requestedQuantity: issued,
+        approvedQuantity: issued,
+        reservedQuantity: 0,
+        quantity: issued,
+        totalCost: issued * line.unitCost
+      }
+    });
 
     await this.recordAudit({
       entity: "WorkOrderPart",
@@ -193,9 +210,125 @@ export class WorkOrderPartsService {
       action: AuditAction.UPDATE,
       actor,
       reason,
-      metadata: { event: "part_rejected", partRequestId }
+      metadata: { event: "part_rejected", partRequestId },
+      beforeData: {
+        lineStatus: line.lineStatus,
+        requestedQuantity: line.requestedQuantity,
+        approvedQuantity: line.approvedQuantity,
+        reservedQuantity: line.reservedQuantity
+      },
+      afterData: {
+        lineStatus: updated.lineStatus,
+        requestedQuantity: updated.requestedQuantity,
+        approvedQuantity: updated.approvedQuantity,
+        reservedQuantity: updated.reservedQuantity
+      }
     });
 
+    return updated;
+  }
+
+  /** A cancelled or closed job holds no stock: drop every reservation on its part lines. */
+  async releaseWorkOrderReservations(workOrderId: string, tenantId: string, actor?: Actor, reason?: string) {
+    if (typeof this.prisma.workOrderPart?.updateMany !== "function") return 0;
+    const released = await this.prisma.workOrderPart.updateMany({
+      where: { workOrderId, tenantId, reservedQuantity: { gt: 0 } },
+      data: { reservedQuantity: 0 }
+    });
+    const count = released?.count ?? 0;
+    if (count > 0) {
+      await this.recordAudit({
+        entity: "WorkOrder",
+        entityId: workOrderId,
+        action: AuditAction.UPDATE,
+        actor,
+        reason: reason ?? "Part reservations released",
+        metadata: { event: "part_reservations_released", workOrderId, lines: count }
+      });
+    }
+    return count;
+  }
+
+  /**
+   * Stock issued from the inventory screen against a job must reach that job's part cost:
+   * record (or top up) an ISSUED line for the part on the work order.
+   */
+  async recordDirectIssueLine(input: {
+    workOrderId: string;
+    partId: string;
+    quantity: number;
+    unitCost: number;
+    tenantId: string;
+    issuedById: string;
+    note?: string | null;
+    overrideReason?: string | null;
+    actor?: Actor;
+  }, db: Pick<PrismaService, "workOrder" | "workOrderPart"> = this.prisma) {
+    const workOrder = await db.workOrder.findFirst({
+      where: { id: input.workOrderId, tenantId: input.tenantId },
+      select: { id: true, status: true }
+    });
+    if (!workOrder) {
+      throw new NotFoundException("Work order not found");
+    }
+    assertWorkOrderAllowsParts(workOrder.status, input.overrideReason ?? undefined);
+
+    const existing = await db.workOrderPart.findFirst({
+      where: { workOrderId: input.workOrderId, tenantId: input.tenantId, partId: input.partId, partRequestId: null }
+    });
+    const now = new Date();
+    const line = existing
+      ? await db.workOrderPart.update({
+          where: { id: existing.id },
+          data: {
+            requestedQuantity: existing.requestedQuantity + input.quantity,
+            approvedQuantity: (existing.approvedQuantity ?? existing.requestedQuantity) + input.quantity,
+            issuedQuantity: existing.issuedQuantity + input.quantity,
+            quantity: existing.issuedQuantity + input.quantity,
+            totalCost: (existing.issuedQuantity + input.quantity) * existing.unitCost,
+            issuedById: input.issuedById,
+            issuedAt: now,
+            lineStatus: deriveLineStatus({
+              ...existing,
+              requestedQuantity: existing.requestedQuantity + input.quantity,
+              approvedQuantity: (existing.approvedQuantity ?? existing.requestedQuantity) + input.quantity,
+              issuedQuantity: existing.issuedQuantity + input.quantity
+            })
+          }
+        })
+      : await db.workOrderPart.create({
+          data: {
+            tenantId: input.tenantId,
+            workOrderId: input.workOrderId,
+            partId: input.partId,
+            quantity: input.quantity,
+            unitCost: input.unitCost,
+            totalCost: input.quantity * input.unitCost,
+            lineStatus: WorkOrderPartLineStatus.ISSUED,
+            requestedQuantity: input.quantity,
+            approvedQuantity: input.quantity,
+            issuedQuantity: input.quantity,
+            requestedById: input.issuedById,
+            approvedById: input.issuedById,
+            issuedById: input.issuedById,
+            issuedAt: now,
+            issueNote: input.note?.trim() || undefined
+          }
+        });
+
+    await this.recordAudit({
+      entity: "WorkOrderPart",
+      entityId: line.id,
+      action: existing ? AuditAction.UPDATE : AuditAction.CREATE,
+      actor: input.actor,
+      reason: input.note ?? "Stock issued to work order from inventory",
+      metadata: {
+        event: "part_issued_direct",
+        workOrderId: input.workOrderId,
+        partId: input.partId,
+        issuedQuantity: input.quantity
+      }
+    });
     return line;
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -11,7 +11,11 @@ import { ErrorState, LoadingCardSkeleton, LoadingState, toSafeApiErrorMessage } 
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { JobsPagination } from "@/components/operational/jobs-pagination";
 import { JobsViewSwitcher } from "@/components/operational/jobs-view-switcher";
+import { RefreshErrorBanner } from "@/components/ui/refresh-error-banner";
+import { clampPage, listErrorPresentation } from "@/lib/list-query-state";
+import { colomboDateTimeToIso } from "@/lib/colombo-datetime";
 import { OperationalPageHeader } from "@/components/operational/operational-page-header";
 import { workOrderCreatePreset } from "@/lib/asset-list";
 import { parseWorkOrderRecordLink } from "@/lib/operational-deep-link";
@@ -31,7 +35,7 @@ import { approveThenAssign, verifyThenClose } from "@/lib/wo-flow-phase2";
 
 import { CompleteWorkOrderModal } from "./complete-work-order-modal";
 import { approveWorkOrder, assignWorkOrder } from "./api";
-import { getErrorMessage, toTitleCase } from "./helpers";
+import { getErrorMessage, humanWorkOrderStatusLabel, toTitleCase } from "./helpers";
 import { HoldWorkOrderModal } from "./hold-work-order-modal";
 import {
   useAssignWorkOrder,
@@ -54,7 +58,24 @@ import { WorkOrderEditorModal } from "./work-order-editor-modal";
 import { WorkOrderFiltersBar } from "./work-order-filters-bar";
 import { WorkOrderTable } from "./work-order-table";
 import type { WorkOrderDetailTab } from "./work-order-detail-tabs";
-import { WORK_ORDER_STATUSES, type WorkOrder, type WorkOrderSortField, type WorkOrderStatus, type WorkOrderViewMode } from "./types";
+import {
+  WORK_ORDER_STATUSES,
+  type WorkOrder,
+  type WorkOrderFilters,
+  type WorkOrderSortField,
+  type WorkOrderStatus,
+  type WorkOrderViewMode
+} from "./types";
+
+function localInputToColomboIso(value: string): string {
+  const [date, time] = value.split("T");
+  return colomboDateTimeToIso(date ?? "", (time ?? "").slice(0, 5)) || new Date(value).toISOString();
+}
+
+function parseListPage(raw: string | null): number {
+  const page = Number(raw);
+  return Number.isInteger(page) && page > 0 ? page : 1;
+}
 
 const CANCEL_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER"]);
 
@@ -122,15 +143,49 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
   const [approveAssignTech, setApproveAssignTech] = useState("");
   const [approveAssignStart, setApproveAssignStart] = useState("");
   const [approveAssignEnd, setApproveAssignEnd] = useState("");
+  const [approveAssignSubmitting, setApproveAssignSubmitting] = useState(false);
   const createIdempotencyKey = useRef<string | null>(null);
 
-  const { filters, updateFilters, resetFilters } = useWorkOrderFilters();
-  const effectiveFilters = jobDomain ? { ...filters, jobDomain } : filters;
-  const workOrdersQuery = useWorkOrders(effectiveFilters);
-
+  const { filters, updateFilters: patchFilters, resetFilters: resetStoredFilters } = useWorkOrderFilters();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  // List/Board page lives in the URL (?listPage=) so refresh, back and shared links keep it.
+  // A separate key from the queue view's ?page= so the two views do not fight over it.
+  const listPage = parseListPage(searchParams.get("listPage"));
+  const setListPage = useCallback(
+    (page: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (page > 1) params.set("listPage", String(page));
+      else params.delete("listPage");
+      const query = params.toString();
+      router.replace((query ? `${pathname}?${query}` : pathname) as Route, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+  const updateFilters = useCallback(
+    (patch: Partial<WorkOrderFilters>) => {
+      patchFilters(patch);
+      if (listPage !== 1 && Object.keys(patch).some((key) => key !== "page")) setListPage(1);
+    },
+    [listPage, patchFilters, setListPage]
+  );
+  const resetFilters = useCallback(() => {
+    resetStoredFilters();
+    if (listPage !== 1) setListPage(1);
+  }, [listPage, resetStoredFilters, setListPage]);
+  const effectiveFilters = useMemo(
+    () => ({ ...filters, page: listPage, ...(jobDomain ? { jobDomain } : {}) }),
+    [filters, jobDomain, listPage]
+  );
+  // The queue view has its own server queries; do not fetch/poll the List/Board data behind it.
+  const workOrdersQuery = useWorkOrders(effectiveFilters, { enabled: view !== "queues" });
+
+  useEffect(() => {
+    if (!workOrdersQuery.data || workOrdersQuery.isPlaceholderData) return;
+    const clamped = clampPage(listPage, workOrdersQuery.pagination.total, workOrdersQuery.pagination.pageSize);
+    if (clamped !== listPage) setListPage(clamped);
+  }, [listPage, setListPage, workOrdersQuery.data, workOrdersQuery.isPlaceholderData, workOrdersQuery.pagination.pageSize, workOrdersQuery.pagination.total]);
   const recordLink = parseWorkOrderRecordLink({
     wo: searchParams.get("wo"),
     open: searchParams.get("open"),
@@ -141,9 +196,9 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
 
   useEffect(() => {
     if (jobDomain && filters.jobDomain !== jobDomain) {
-      updateFilters({ jobDomain, page: 1 });
+      patchFilters({ jobDomain });
     }
-  }, [jobDomain, filters.jobDomain, updateFilters]);
+  }, [jobDomain, filters.jobDomain, patchFilters]);
 
   const currentUser = useCurrentUser();
   const canLoadTechnicians = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR"].includes(
@@ -296,7 +351,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       toast.success(
         status === "IN_PROGRESS"
           ? `${workOrder.woNumber} moved to In Progress`
-          : `Status updated to ${status.replaceAll("_", " ")}`
+          : `Status updated to ${humanWorkOrderStatusLabel(status)}`
       );
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -491,16 +546,20 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
 
   const submitApproveAssign = async () => {
     if (!approveAssignTarget || !approveAssignTech || !approveAssignStart || !approveAssignEnd) return;
+    if (approveAssignSubmitting) return;
     const target = approveAssignTarget;
+    // Disable the button on click, not after the response, so a slow network cannot double-submit.
+    setApproveAssignSubmitting(true);
     const result = await approveThenAssign({
       approve: () => approveWorkOrder(target.id),
       assign: (approved) =>
         assignWorkOrder(target.id, approveAssignTech, {
           expectedVersion: approved.version,
-          plannedStartAt: new Date(approveAssignStart).toISOString(),
-          plannedEndAt: new Date(approveAssignEnd).toISOString()
+          // datetime-local values are Asia/Colombo wall-clock times, not the device's zone.
+          plannedStartAt: localInputToColomboIso(approveAssignStart),
+          plannedEndAt: localInputToColomboIso(approveAssignEnd)
         })
-    });
+    }).finally(() => setApproveAssignSubmitting(false));
     if (!result.ok) {
       toast.error(
         result.stage === "assign"
@@ -620,7 +679,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       const labels = Object.fromEntries(rows.map((row) => [row.id, row.woNumber || row.id]));
       const summary = summarizeBulkStatusResults(result.results ?? [], labels);
       if (summary.ok > 0) {
-        toast.success(`Updated ${summary.ok} work order(s) to ${status.replaceAll("_", " ")}`);
+        toast.success(`Updated ${summary.ok} work order(s) to ${humanWorkOrderStatusLabel(status)}`);
       }
       if (summary.conflict > 0) {
         toast.error(`${summary.conflict} work order(s) changed elsewhere. The list was refreshed.`);
@@ -671,7 +730,8 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       return <LoadingSkeleton />;
     }
 
-    if (workOrdersQuery.error) {
+    // A failed background refresh keeps the rows; only an error with nothing loaded replaces them.
+    if (listErrorPresentation({ isError: workOrdersQuery.isError, hasData: Boolean(workOrdersQuery.data) }) === "full") {
       return (
         <ErrorState
           error={workOrdersQuery.error}
@@ -687,6 +747,10 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
 
     return (
       <>
+        {workOrdersQuery.isError ? (
+          <RefreshErrorBanner onRetry={() => void workOrdersQuery.refetch()} retrying={workOrdersQuery.isFetching} />
+        ) : null}
+        <div className={workOrdersQuery.isPlaceholderData ? "opacity-60 transition-opacity" : undefined} aria-busy={workOrdersQuery.isPlaceholderData}>
         {view === "kanban" ? (
           <KanbanBoard
             groupedWorkOrders={workOrdersQuery.groupedByStatus}
@@ -746,6 +810,17 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             onPrimary={(workOrder, actionId) => void handlePrimary(workOrder, actionId)}
           />
         )}
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white">
+          <JobsPagination
+            page={workOrdersQuery.pagination.page}
+            totalPages={workOrdersQuery.pagination.totalPages}
+            total={workOrdersQuery.pagination.total}
+            pageSize={filters.pageSize}
+            onPageChange={setListPage}
+            onPageSizeChange={(pageSize) => updateFilters({ pageSize })}
+          />
+        </div>
       </>
     );
   }, [
@@ -872,7 +947,9 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
           {view === "queues" ? (
             <span className="sr-only">Work order queue</span>
           ) : (
-            <p>{totalFiltered} work order(s) shown</p>
+            <p>
+              {totalFiltered} of {workOrdersQuery.pagination.total} work order(s) shown
+            </p>
           )}
           {workOrdersQuery.isFetching ? (
             <p className="inline-flex items-center gap-1 text-brand-700">
@@ -990,7 +1067,9 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             </label>
             <div className="mt-4 flex justify-end gap-2">
               <button type="button" className="min-h-10 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setApproveAssignTarget(null)}>Cancel</button>
-              <button type="submit" className="min-h-10 rounded-md bg-brand-700 px-3 text-sm font-semibold text-white">Approve & assign</button>
+              <button type="submit" disabled={approveAssignSubmitting} aria-busy={approveAssignSubmitting} className="min-h-11 rounded-md bg-brand-700 px-3 text-sm font-semibold text-white disabled:opacity-60">
+                {approveAssignSubmitting ? "Saving…" : "Approve & assign"}
+              </button>
             </div>
           </form>
         </div>

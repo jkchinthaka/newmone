@@ -31,11 +31,21 @@ import { RegisterDto } from "./dto/register.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { AcceptInviteDto } from "./dto/accept-invite.dto";
 import type { AuthTokens, JwtPayload, RefreshTokenPayload } from "./auth.types";
+import { bumpSessionVersion, currentSessionVersion, isSessionVersionCurrent } from "./session-version";
+import {
+  effectiveRoleForTenant as resolveTenantEffectiveRole,
+  loadRolePermissionKeysForTenant
+} from "../tenancy/tenant-effective-role";
 
 export const MAX_FAILED_LOGIN_ATTEMPTS = 5;
 /** 1st lock 30 seconds, 2nd 60 seconds, 3rd and later 90 seconds. */
 export const LOCKOUT_SECONDS = [30, 60, 90] as const;
 const LOCKOUT_MEMORY_MS = 24 * 60 * 60 * 1000;
+/**
+ * Cost-12 bcrypt hash of a throwaway value. Unknown / inactive accounts are compared
+ * against it so their response time matches a real wrong-password attempt.
+ */
+const TIMING_EQUALIZER_HASH = "$2a$12$5TWGdqoF6UV2gakfxgITn.W5UeN.eoY6DJpNIL/T.N2FP2.i3TwOa";
 
 export function lockoutSecondsForRound(previousLockouts: number): number {
   const index = Math.min(Math.max(0, Math.floor(previousLockouts)), LOCKOUT_SECONDS.length - 1);
@@ -156,7 +166,8 @@ export class AuthService {
     // RefreshToken row it corresponds to.
     const refreshPayload: RefreshTokenPayload = {
       sub: payload.sub,
-      tenantId: payload.tenantId ?? null
+      tenantId: payload.tenantId ?? null,
+      sv: payload.sv ?? 0
     };
 
     const accessToken = await this.jwtService.signAsync(payload, {
@@ -314,7 +325,8 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role.name as RoleName,
-      tenantId: user.tenantId ?? null
+      tenantId: user.tenantId ?? null,
+      sv: currentSessionVersion(user)
     });
 
     return {
@@ -349,6 +361,10 @@ export class AuthService {
     }
   }
 
+  private async equalizeLoginTiming(password: string): Promise<void> {
+    await bcrypt.compare(password ?? "", TIMING_EQUALIZER_HASH);
+  }
+
   async login(dto: LoginDto) {
     const now = new Date();
     const user = await this.prisma.user.findUnique({
@@ -372,6 +388,7 @@ export class AuthService {
     });
 
     if (!user || !user.isActive) {
+      await this.equalizeLoginTiming(dto.password);
       recordAuthSecurityEvent(this.prisma, {
         eventType: "LOGIN_FAILURE",
         outcome: "FAILURE",
@@ -385,6 +402,7 @@ export class AuthService {
 
     const linkedEmployee = user.linkedWorkforceEmployees?.[0];
     if (linkedEmployee && !linkedEmployee.active) {
+      await this.equalizeLoginTiming(dto.password);
       recordAuthSecurityEvent(this.prisma, {
         tenantId: user.tenantId,
         actorId: user.id,
@@ -408,10 +426,6 @@ export class AuthService {
         requestId: requestContext.get()?.requestId ?? null
       });
       throw accountLockedError((user.lockedUntil.getTime() - now.getTime()) / 1000);
-    }
-
-    if (user.temporaryPasswordExpiresAt && user.temporaryPasswordExpiresAt <= now && user.mustChangePassword) {
-      throw new UnauthorizedException("Temporary password expired. Contact your administrator.");
     }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
@@ -445,6 +459,11 @@ export class AuthService {
       throw new UnauthorizedException("Invalid email or password");
     }
 
+    // Only after a correct password, so the expiry never reveals which accounts exist.
+    if (user.temporaryPasswordExpiresAt && user.temporaryPasswordExpiresAt <= now && user.mustChangePassword) {
+      throw new UnauthorizedException("Temporary password expired. Contact your administrator.");
+    }
+
     const mustChangePassword = user.mustChangePassword === true;
 
     await this.prisma.user.update({
@@ -458,7 +477,8 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role.name as RoleName,
-      tenantId: user.tenantId ?? null
+      tenantId: user.tenantId ?? null,
+      sv: currentSessionVersion(user)
     });
 
     return {
@@ -544,6 +564,14 @@ export class AuthService {
       throw new UnauthorizedException("Invalid refresh token");
     }
 
+    if (!isSessionVersionCurrent(decoded.sv, user.sessionVersion)) {
+      await this.prisma.refreshToken.updateMany({
+        where: { familyId: storedToken.familyId, revokedAt: null },
+        data: { revokedAt: now, lastUsedAt: now }
+      });
+      throw new UnauthorizedException("Invalid refresh token");
+    }
+
     if (decoded.sub !== storedToken.userId) {
       await this.prisma.refreshToken.updateMany({
         where: { familyId: storedToken.familyId, revokedAt: null },
@@ -592,7 +620,8 @@ export class AuthService {
         sub: user.id,
         email: user.email,
         role: user.role.name as RoleName,
-        tenantId: user.tenantId ?? null
+        tenantId: user.tenantId ?? null,
+        sv: currentSessionVersion(user)
       },
       { familyId: storedToken.familyId, replacedTokenHash: tokenHash }
     );
@@ -601,6 +630,27 @@ export class AuthService {
       data: tokens,
       message: "Token refreshed"
     };
+  }
+
+  /**
+   * Fresh token pair (new refresh family) for the caller after a credential change has
+   * bumped their session version, so only this session survives.
+   */
+  async issueSessionTokens(userId: string, activeTenantId: string | null = null): Promise<AuthTokens> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true }
+    });
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException("Account is inactive or no longer exists");
+    }
+    return this.generateTokens({
+      sub: user.id,
+      email: user.email,
+      role: user.role.name as RoleName,
+      tenantId: activeTenantId ?? user.tenantId ?? null,
+      sv: currentSessionVersion(user)
+    });
   }
 
   async logout(dto: { refreshToken: string }) {
@@ -622,6 +672,11 @@ export class AuthService {
 
   async logoutAll(userId: string) {
     const now = new Date();
+    // Also kills unexpired access tokens on every device.
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: bumpSessionVersion()
+    });
     const result = await this.prisma.refreshToken.updateMany({
       where: {
         userId,
@@ -723,7 +778,13 @@ export class AuthService {
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: passwordResetToken.userId },
-        data: { passwordHash }
+        data: {
+          passwordHash,
+          mustChangePassword: false,
+          temporaryPasswordExpiresAt: null,
+          lastPasswordChangedAt: now,
+          ...bumpSessionVersion()
+        }
       });
 
       await tx.passwordResetToken.update({
@@ -924,13 +985,29 @@ export class AuthService {
       resolvedTenantId = firstMembership?.tenantId ?? null;
     }
 
-    const roleKeys = this.permissionKeysFromRole(user.role);
+    // Outside the home tenant the membership role applies (same rule as the guards).
+    const membership =
+      resolvedTenantId && user.role?.name !== RoleName.SUPER_ADMIN && resolvedTenantId !== (user.tenantId ?? null)
+        ? await this.prisma.tenantMembership.findFirst({
+            where: { userId, tenantId: resolvedTenantId },
+            select: { membershipRole: true }
+          })
+        : null;
+    const tenantRole = resolveTenantEffectiveRole({
+      globalRole: user.role?.name ?? "",
+      homeTenantId: user.tenantId ?? null,
+      activeTenantId: resolvedTenantId,
+      membershipRole: membership?.membershipRole ?? null
+    });
+    const roleKeys = tenantRole.usesGlobalRole
+      ? this.permissionKeysFromRole(user.role)
+      : await loadRolePermissionKeysForTenant(this.prisma, tenantRole.roleName, resolvedTenantId);
     const permissionKeys =
       user.role?.name === "SUPER_ADMIN"
         ? roleKeys
         : await loadEffectivePermissionKeys(
             this.prisma,
-            { id: user.id, tenantId: user.tenantId ?? null },
+            { id: user.id, tenantId: tenantRole.usesGlobalRole ? user.tenantId ?? null : resolvedTenantId },
             roleKeys
           );
 
@@ -946,6 +1023,7 @@ export class AuthService {
     return {
       data: {
         ...this.toPublicUser(user),
+        ...(tenantRole.usesGlobalRole ? {} : { role: { ...user.role, name: tenantRole.roleName } }),
         permissions: permissionKeys,
         tenantId: resolvedTenantId,
         enabledFeatures,

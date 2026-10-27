@@ -11,17 +11,6 @@ import {
   vehicleStatusLabel,
   workOrderStatusLabel
 } from "../display-labels";
-import {
-  GATE_IN_WORKSHOP_TEXT,
-  gateNextLabel,
-  gateNextSteps,
-  gateNoActionText,
-  gateOverrideMode,
-  gateOverrideOutcome,
-  gateReasonHref,
-  gateReasonNextStep,
-  gateReasonText
-} from "../gate-operations";
 import { lowerThanLastWarning, readingTimeNow } from "../meter-readings-display";
 import {
   canAccessNavigationPath,
@@ -41,20 +30,24 @@ const read = (relative: string) => readFileSync(path.resolve(__dirname, "..", ".
 test("mobile bottom nav starts with the role's login home", () => {
   assert.equal(getMobileBottomNavItems("TECHNICIAN", { permissions: TECHNICIAN })[0]?.label, "My Jobs");
   assert.equal(getMobileBottomNavItems("INVENTORY_KEEPER", { permissions: INVENTORY_KEEPER })[0]?.label, "Inventory");
+  // The gate screen is retired: security officers land on Requests to report problems.
   const security = getMobileBottomNavItems("SECURITY_OFFICER", { permissions: SECURITY_OFFICER });
-  assert.equal(security[0]?.href, "/fleet/gate");
-  assert.equal(security[0]?.label, "Gate");
+  assert.equal(security[0]?.href, "/requests");
+  assert.equal(security[0]?.label, "Requests");
+  assert.equal(security.some((item) => item.href.startsWith("/fleet")), false);
   // Managers land on the dashboard; Work Orders stays as the second tab.
   const manager = getMobileBottomNavItems("MANAGER");
   assert.deepEqual(manager.slice(0, 2).map((item) => item.label), ["Dashboard", "Work Orders"]);
   assert.equal(manager[0]?.activeMatch, "exact");
 });
 
-test("security officer favourite is the gate, not the hidden fleet page", () => {
+test("security officer favourites are Requests and Report issue; the gate screen is gone", () => {
   const favourites = getDefaultFavoriteNavIds("SECURITY_OFFICER");
-  const visible = getVisibleNavigationItems("SECURITY_OFFICER", { permissions: SECURITY_OFFICER }).map((item) => item.id);
-  assert.deepEqual(favourites, ["fleet-gate"]);
-  assert.ok(favourites.every((id) => visible.includes(id)));
+  const visible = getVisibleNavigationItems("SECURITY_OFFICER", { permissions: SECURITY_OFFICER });
+  assert.deepEqual(favourites, ["requests", "report-issue"]);
+  assert.ok(favourites.every((id) => visible.some((item) => item.id === id)));
+  assert.equal(NAVIGATION_ITEMS.some((item) => item.id === "fleet-gate" || item.href.startsWith("/fleet/gate")), false);
+  assert.equal(visible.some((item) => item.href.startsWith("/fleet")), false);
 });
 
 test("technicians get My Jobs and Report issue, without the duplicate job lanes", () => {
@@ -102,46 +95,6 @@ test("status codes have one plain name", () => {
   const chips = activeQueueFilterChips({ ...DEFAULT_QUEUE_FILTERS, status: "TECHNICIAN_COMPLETED", jobDomain: "MACHINERY" });
   assert.deepEqual(chips.map((chip) => chip.label), ["Awaiting verification", "Machinery"]);
   for (const chip of chips) assert.doesNotMatch(chip.label, /[A-Z]{2,}_[A-Z]/);
-});
-
-test("gate list never shows raw codes or a repeated Unavailable", () => {
-  assert.equal(gateNextLabel("UNDER_MAINTENANCE"), "Wait for job to close");
-  assert.equal(gateNoActionText("UNDER_MAINTENANCE"), GATE_IN_WORKSHOP_TEXT);
-  assert.match(GATE_IN_WORKSHOP_TEXT, /In workshop — gate in\/out is handled when the job is closed/);
-  assert.equal(gateReasonText("Vehicle status is UNDER MAINTENANCE"), "Vehicle is in the workshop");
-  assert.equal(gateReasonText("Missing required document: INSURANCE"), "Missing required document: Insurance");
-  assert.doesNotMatch(gateReasonText("Critical open work order WO-2026-00012 (ACCIDENT_REPAIR, OPEN)"), /ACCIDENT_REPAIR/);
-  const panel = read("components/fleet/fleet-gate-panel.tsx");
-  assert.doesNotMatch(panel, /replaceAll\("_", " "\)/);
-  assert.doesNotMatch(panel, /This status cannot gate in or gate out/);
-});
-
-test("blocked gate-out says what to do next and who can release it", () => {
-  assert.match(gateReasonNextStep("Vehicle service is overdue"), /fleet manager/);
-  assert.match(gateReasonNextStep("Critical open work order WO-2026-00012 (BREAKDOWN, OPEN)"), /maintenance manager/);
-  assert.match(gateReasonNextStep("Document expired: INSURANCE (2026-01-01)"), /fleet manager/);
-  assert.equal(gateNextSteps(["Vehicle service is overdue", "Vehicle service is overdue"]).length, 1);
-});
-
-test("block reason links only go to pages the viewer can open", () => {
-  const securityCanOpen = (p: string) => canAccessNavigationPath(p, "SECURITY_OFFICER", SECURITY_OFFICER);
-  for (const reason of ["Vehicle service is overdue", "Missing required document: INSURANCE", "Critical open work order WO-2026-00012 (BREAKDOWN, OPEN)"]) {
-    assert.equal(gateReasonHref(reason, "veh-1", "MH-01", securityCanOpen), null, reason);
-  }
-  const fleetCanOpen = (p: string) => canAccessNavigationPath(p, "FLEET_MANAGER", ["fleet.view", "vehicles.view"]);
-  assert.equal(gateReasonHref("Vehicle service is overdue", "veh-1", "MH-01", fleetCanOpen), "/vehicles/veh-1");
-});
-
-test("override action follows the API: gate.out.create to ask, approver roles to release", () => {
-  assert.equal(gateOverrideMode("SECURITY_OFFICER", SECURITY_OFFICER), "request");
-  assert.equal(gateOverrideMode("FLEET_MANAGER", ["gate.out.create"]), "release");
-  assert.equal(gateOverrideMode("VIEWER", ["vehicles.view"]), null);
-  assert.equal(gateOverrideOutcome({ errorCode: "APPROVAL_REQUIRED" }).kind, "pending");
-  assert.equal(gateOverrideOutcome({ errorStatus: 403 }).kind, "error");
-  assert.equal(gateOverrideOutcome({ allowed: true }).kind, "released");
-  const panel = read("components/fleet/fleet-gate-panel.tsx");
-  assert.match(panel, /allowOverride: true/);
-  assert.match(panel, /overrideReason: overrideReason\.trim\(\)/);
 });
 
 test("meter reading warns before submit when the value is lower than the last reading", () => {

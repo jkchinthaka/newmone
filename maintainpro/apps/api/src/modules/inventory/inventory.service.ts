@@ -42,25 +42,51 @@ import { Optional } from "@nestjs/common";
 import { ErpSyncProviderService } from "./erp-sync-provider.service";
 import { InventoryTransactionEngine } from "./inventory-transaction.engine";
 import { shouldPromotePoStatusToOrdered } from "./purchase-order-status.util";
-import {
-  assertVerifiedIssueAllowed,
-  MISSING_ERP_PROVENANCE_MESSAGE,
-  MISSING_ERP_SNAPSHOT_MESSAGE
-} from "./verified-stock-availability";
+import { assertVerifiedIssueAllowed } from "./verified-stock-availability";
+import { WorkOrderPartsService } from "../work-orders/work-order-parts.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
+
+export const INVENTORY_LIST_MAX_TAKE = 200;
+/** Unpaged callers (part pickers, stock counts) still get a hard ceiling instead of an unbounded scan. */
+export const INVENTORY_LIST_UNPAGED_CEILING = 2000;
+
+/** Explicit pages are capped at 200 rows; requests without `take` get the unpaged ceiling. meta.total is always exact. */
+export function boundedPaging(paging: { take?: number; skip?: number }) {
+  const rawTake = Number(paging.take);
+  const rawSkip = Number(paging.skip);
+  const take =
+    Number.isFinite(rawTake) && rawTake > 0 ? Math.min(Math.floor(rawTake), INVENTORY_LIST_MAX_TAKE) : INVENTORY_LIST_UNPAGED_CEILING;
+  const skip = Number.isFinite(rawSkip) && rawSkip > 0 ? Math.floor(rawSkip) : 0;
+  return { take, skip };
+}
+
+export function pagingMeta(total: number, take: number, skip: number) {
+  return {
+    total,
+    take,
+    skip,
+    page: Math.floor(skip / take) + 1,
+    pageSize: take,
+    totalPages: Math.max(1, Math.ceil(total / take))
+  };
+}
 
 @Injectable()
 export class InventoryService {
   private readonly stockEngine: InventoryTransactionEngine;
+  private readonly workOrderParts: WorkOrderPartsService;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly erpSyncProviderService: ErpSyncProviderService,
-    @Optional() stockEngine?: InventoryTransactionEngine
+    @Optional() stockEngine?: InventoryTransactionEngine,
+    // Stateless (Prisma only); built locally because WorkOrdersModule already imports this module.
+    @Optional() workOrderParts?: WorkOrderPartsService
   ) {
     this.stockEngine = stockEngine ?? new InventoryTransactionEngine(prisma);
+    this.workOrderParts = workOrderParts ?? new WorkOrderPartsService(prisma);
   }
 
   private readonly financeApprovalThreshold = Number(process.env.PHASE3_FINANCE_THRESHOLD ?? 5000);
@@ -123,14 +149,16 @@ export class InventoryService {
     });
   }
 
-  async parts(actor?: Actor) {
+  /** Legacy unpaged list, now bounded: `take` (max 200) / `skip`, with the total for paging. */
+  async parts(actor?: Actor, paging: { take?: number; skip?: number } = {}) {
     const tenantId = this.resolveTenantId(actor);
+    const { take, skip } = boundedPaging(paging);
+    const where = { isActive: true, tenantId };
 
-    return this.prisma.sparePart.findMany({
-      where: {
-        isActive: true,
-        tenantId
-      },
+    const [total, items] = await Promise.all([
+      this.prisma.sparePart.count({ where }),
+      this.prisma.sparePart.findMany({
+      where,
       include: {
         supplier: true,
         stockMovements: {
@@ -149,8 +177,12 @@ export class InventoryService {
       },
       orderBy: {
         createdAt: "desc"
-      }
-    });
+      },
+      take,
+      skip
+      })
+    ]);
+    return { items, meta: pagingMeta(total, take, skip) };
   }
 
   async partsPage(actor: Actor | undefined, query: InventoryListQuery & { page?: number; pageSize?: number }) {
@@ -486,14 +518,8 @@ export class InventoryService {
     const unitCost = Number(part.unitCost ?? 0);
     const eventId = `stock-out:${workOrder.id}:${id}:${idempotencyKey}`;
     const outbox = await this.prisma.$transaction(async (tx) => {
-      try {
-        await assertVerifiedIssueAllowed(tx, { tenantId, partId: id, quantity });
-      } catch (error) {
-        const message = error instanceof BadRequestException ? error.message : "";
-        const unverified =
-          message === MISSING_ERP_PROVENANCE_MESSAGE || message === MISSING_ERP_SNAPSHOT_MESSAGE;
-        if (!unverified) throw error;
-      }
+      // Same rule as a part-request issue: no verified ERP stock, no issue.
+      await assertVerifiedIssueAllowed(tx, { tenantId, partId: id, quantity });
       const created = await tx.domainEventOutbox.create({
         data: {
           tenantId,
@@ -562,6 +588,21 @@ export class InventoryService {
             overrideFlag: Boolean(options.overrideReason?.trim()),
             idempotencyKey
           }
+        },
+        tx
+      );
+      // The issue must reach the job's part cost, not only the ERP outbox.
+      await this.workOrderParts.recordDirectIssueLine(
+        {
+          workOrderId: workOrder.id,
+          partId: id,
+          quantity,
+          unitCost,
+          tenantId,
+          issuedById: this.assertActor(actor).sub,
+          note: options.notes,
+          overrideReason: options.overrideReason,
+          actor
         },
         tx
       );
@@ -743,13 +784,15 @@ export class InventoryService {
     });
   }
 
-  async purchaseOrders(actor?: Actor) {
+  async purchaseOrders(actor?: Actor, paging: { take?: number; skip?: number } = {}) {
     const tenantId = this.resolveTenantId(actor);
+    const { take, skip } = boundedPaging(paging);
+    const where = { tenantId };
 
-    return this.prisma.purchaseOrder.findMany({
-      where: {
-        tenantId
-      },
+    const [total, items] = await Promise.all([
+      this.prisma.purchaseOrder.count({ where }),
+      this.prisma.purchaseOrder.findMany({
+      where,
       include: {
         supplier: true,
         approvals: {
@@ -774,8 +817,12 @@ export class InventoryService {
         },
         lines: true
       },
-      orderBy: { createdAt: "desc" }
-    });
+      orderBy: { createdAt: "desc" },
+      take,
+      skip
+      })
+    ]);
+    return { items, meta: pagingMeta(total, take, skip) };
   }
 
   async getPurchaseOrder(id: string, actor?: Actor) {

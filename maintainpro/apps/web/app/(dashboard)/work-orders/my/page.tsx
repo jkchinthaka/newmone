@@ -19,6 +19,7 @@ import { JOB_CHANGED_MESSAGE, classifyJobActionError } from "@/lib/job-action-ou
 import { mutationErrorMessage, showMutationError } from "@/lib/mutation-feedback";
 import { humanWorkOrderStatusLabel } from "@/components/work-orders/helpers";
 import { useFocusTrap } from "@/lib/use-focus-trap";
+import { colomboTodayYmd, formatCalendarDate } from "@/lib/colombo-datetime";
 import {
   MY_JOB_HOLD_CHOICES,
   buildHoldPayload,
@@ -69,15 +70,15 @@ const VIEWS = [
   ["completed", "Completed", "completed"]
 ] as const;
 
+/** Due-day wording uses Asia/Colombo calendar days, not the phone's time zone. */
 function relativeDue(value?: string | null) {
   if (!value) return "No due date";
   const due = new Date(value);
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const dueStart = new Date(due);
-  dueStart.setHours(0, 0, 0, 0);
-  const days = Math.round((dueStart.getTime() - start.getTime()) / 86_400_000);
-  const date = due.toLocaleDateString();
+  if (Number.isNaN(due.getTime())) return "No due date";
+  const dueYmd = colomboTodayYmd(due);
+  const todayYmd = colomboTodayYmd();
+  const days = Math.round((Date.parse(`${dueYmd}T00:00:00Z`) - Date.parse(`${todayYmd}T00:00:00Z`)) / 86_400_000);
+  const date = formatCalendarDate(dueYmd);
   if (days === 0) return `Due today · ${date}`;
   if (days === 1) return `Due tomorrow · ${date}`;
   if (days === -1) return `Due yesterday · ${date}`;

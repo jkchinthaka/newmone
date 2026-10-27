@@ -31,6 +31,7 @@ import {
   UpdateTechnicianProfileDto
 } from "./dto/people.dto";
 import { UserInvitationService } from "./user-invitation.service";
+import { bumpSessionVersion } from "../auth/session-version";
 
 const TEMP_PASSWORD_TTL_MS = 72 * 60 * 60 * 1000;
 
@@ -548,7 +549,7 @@ export class PeopleService {
     if (dto.active === false && existing.linkedUserId) {
       await this.prisma.user.update({
         where: { id: existing.linkedUserId },
-        data: { isActive: false }
+        data: { isActive: false, ...bumpSessionVersion() }
       });
     }
 
@@ -580,7 +581,7 @@ export class PeopleService {
     if (existing.linkedUserId) {
       await this.prisma.user.update({
         where: { id: existing.linkedUserId },
-        data: { isActive: false }
+        data: { isActive: false, ...bumpSessionVersion() }
       });
       await writeAuditTrail(this.prisma, {
         entity: "User",
@@ -793,7 +794,7 @@ export class PeopleService {
 
     await this.prisma.user.update({
       where: { id: employee.linkedUserId },
-      data: { isActive: false }
+      data: { isActive: false, ...bumpSessionVersion() }
     });
 
     await this.prisma.employee.update({
@@ -837,16 +838,24 @@ export class PeopleService {
           passwordHash,
           mustChangePassword: true,
           temporaryPasswordExpiresAt: new Date(Date.now() + TEMP_PASSWORD_TTL_MS),
+          lastPasswordChangedAt: new Date(),
           failedLoginAttempts: 0,
-          lockedUntil: null
+          lockedUntil: null,
+          ...bumpSessionVersion()
         }
+      });
+      // Same as the Admin Console reset: every existing session ends now.
+      const now = new Date();
+      await this.prisma.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now, lastUsedAt: now }
       });
       await writeAuditTrail(this.prisma, {
         entity: "User",
         entityId: userId,
         action: AuditAction.UPDATE,
         module: "people",
-        metadata: { event: "password_reset_issued" }
+        metadata: { event: "password_reset_issued", sessionsRevoked: true }
       });
     } else {
       const actorId = this.actorId();

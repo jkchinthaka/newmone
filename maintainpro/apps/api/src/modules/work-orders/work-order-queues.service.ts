@@ -505,12 +505,13 @@ export class WorkOrderQueuesService {
     return assignedToActorScope(actor.sub);
   }
 
+  /** Same rule as My Jobs (isMyJobOverdue): due before the start of today in Asia/Colombo. */
   private overdueWhere(now = new Date()): Prisma.WorkOrderWhereInput {
     return {
       OR: [
         { status: WorkOrderStatus.OVERDUE },
         {
-          dueDate: { lt: now },
+          dueDate: { lt: businessDayWindow(now).start },
           status: { notIn: TERMINAL_STATUSES }
         }
       ]

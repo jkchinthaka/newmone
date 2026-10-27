@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
@@ -241,7 +242,7 @@ export default function InventoryStockCountsPage() {
                     {row.blindCount ? <span className="ml-2 text-xs text-slate-500">Blind</span> : null}
                   </td>
                   <td className="px-3 py-2">{row._count?.lines ?? 0}</td>
-                  <td className="px-3 py-2">{new Date(row.createdAt).toLocaleString()}</td>
+                  <td className="px-3 py-2">{lkDateTime(row.createdAt)}</td>
                   <td className="px-3 py-2">
                     <button
                       type="button"

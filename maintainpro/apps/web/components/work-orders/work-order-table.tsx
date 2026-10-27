@@ -1,5 +1,6 @@
 "use client";
 
+import { TouchCheckbox } from "@/components/ui/touch-checkbox";
 import { Pencil, Trash2 } from "lucide-react";
 
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
@@ -130,7 +131,7 @@ export function WorkOrderTable({
               }
               onAssign(workOrder, event.target.value);
             }}
-            className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+            className="min-h-11 w-full rounded-md border border-slate-300 px-2 text-sm"
           >
             <option value="">Assign technician...</option>
             {technicians.map((technician) => (
@@ -167,10 +168,9 @@ export function WorkOrderTable({
       emptyTitle="No work orders found"
       getRowId={(row) => row.id}
       leadingHeader={
-        <input
-          type="checkbox"
+        <TouchCheckbox
           checked={allChecked}
-          aria-label="Select all work orders on this page"
+          label="Select all work orders on this page"
           onChange={(event) => onToggleSelectAll(selectableIds, event.target.checked)}
         />
       }
@@ -213,7 +213,7 @@ export function WorkOrderTable({
             </button>
           ) : null}
           <details className="relative">
-            <summary className="cursor-pointer list-none rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700">More</summary>
+            <summary className="inline-flex min-h-11 cursor-pointer list-none items-center rounded-md border border-slate-300 px-2 text-xs text-slate-700">More</summary>
             <div className="mt-1 flex flex-wrap gap-1">
           {more.map((action) => (
             <button
@@ -247,10 +247,9 @@ export function WorkOrderTable({
         );
       }}
       renderLeadingCell={(workOrder) => (
-        <input
-          type="checkbox"
+        <TouchCheckbox
           checked={selectedIds.includes(workOrder.id)}
-          aria-label={`Select work order ${workOrder.woNumber}`}
+          label={`Select work order ${workOrder.woNumber}`}
           onChange={(event) => onToggleSelect(workOrder.id, event.target.checked)}
         />
       )}

@@ -3,6 +3,7 @@ import { Reflector } from "@nestjs/core";
 
 import { PrismaService } from "../../database/prisma.service";
 import { ROLES_KEY } from "../decorators/roles.decorator";
+import { TENANT_EFFECTIVE_ROLE_KEY, type RequestWithTenantRole } from "../../modules/tenancy/tenant-effective-role";
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -25,8 +26,14 @@ export class RolesGuard implements CanActivate {
     const user = request.user as { sub?: string; role?: string | { name?: string } } | undefined;
     const jwtRole = typeof user?.role === "string" ? user.role : user?.role?.name;
 
+    // Outside the home tenant the membership-derived role applies (set by TenantContextGuard).
+    const tenantRole = (request as RequestWithTenantRole)[TENANT_EFFECTIVE_ROLE_KEY];
+    const membershipRole = tenantRole && !tenantRole.usesGlobalRole ? tenantRole.roleName : undefined;
+
     if (this.prisma?.user?.findUnique && user?.sub) {
-      return this.roleFromDatabase(user.sub).then((roleName) => this.assertRole(roleName, requiredRoles));
+      return this.roleFromDatabase(user.sub).then((roleName) =>
+        this.assertRole(membershipRole ?? roleName, requiredRoles)
+      );
     }
 
     return this.assertRole(jwtRole, requiredRoles);

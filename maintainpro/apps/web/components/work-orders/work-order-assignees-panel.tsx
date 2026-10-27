@@ -1,5 +1,6 @@
 "use client";
 
+import { formatEnumLabel } from "@/lib/display-labels";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -485,7 +486,7 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
             <option value="">All designations</option>
             {designationOptions.map((designation) => (
               <option key={designation} value={designation}>
-                {designation.replaceAll("_", " ")}
+                {formatEnumLabel(designation)}
               </option>
             ))}
           </select>

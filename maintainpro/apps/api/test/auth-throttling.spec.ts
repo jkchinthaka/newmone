@@ -207,13 +207,38 @@ describe("MP-002: auth throttling enforcement", () => {
 });
 
 describe("MP-002: resolveTrustedClientIp", () => {
-  it("honors X-Real-IP only when the peer looks like a private proxy hop", () => {
+  it("honors X-Real-IP only when the peer is loopback (co-located BFF/Nginx)", () => {
     expect(
       resolveTrustedClientIp({
         headers: { "x-real-ip": "203.0.113.9" },
-        socket: { remoteAddress: "10.0.0.2" }
+        socket: { remoteAddress: "127.0.0.1" }
       })
     ).toBe("203.0.113.9");
+
+    expect(
+      resolveTrustedClientIp({
+        headers: { "x-real-ip": "203.0.113.9" },
+        socket: { remoteAddress: "::ffff:127.0.0.1" }
+      })
+    ).toBe("203.0.113.9");
+
+    expect(
+      resolveTrustedClientIp({
+        headers: { "x-real-ip": "203.0.113.9" },
+        socket: { remoteAddress: "::1" }
+      })
+    ).toBe("203.0.113.9");
+  });
+
+  it("ignores X-Real-IP from private-range (LAN) peers", () => {
+    for (const peer of ["10.0.0.2", "192.168.1.20", "172.16.4.4", "fd00::1"]) {
+      expect(
+        resolveTrustedClientIp({
+          headers: { "x-real-ip": "203.0.113.9" },
+          socket: { remoteAddress: peer }
+        })
+      ).toBe(peer);
+    }
 
     expect(
       resolveTrustedClientIp({

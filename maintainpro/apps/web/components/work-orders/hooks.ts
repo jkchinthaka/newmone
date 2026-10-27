@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { isDatabaseUnavailableError } from "@/lib/api-client";
+import { backgroundPollingOptions, totalPagesFor } from "@/lib/list-query-state";
 import { withTenantScope } from "@/lib/tenant-query";
 
 import {
@@ -21,8 +22,6 @@ import {
   updateWorkOrderStatus
 } from "./api";
 import {
-  compareWorkOrders,
-  getAssetLabel,
   getTechnicianName,
   groupWorkOrdersByBoardTab,
   groupWorkOrdersByStatus
@@ -59,7 +58,8 @@ function readStoredFilters(): WorkOrderFilters {
     const parsed = JSON.parse(raw) as Partial<WorkOrderFilters>;
     return {
       ...DEFAULT_WORK_ORDER_FILTERS,
-      ...parsed
+      ...parsed,
+      page: 1
     };
   } catch {
     return DEFAULT_WORK_ORDER_FILTERS;
@@ -78,19 +78,24 @@ export function useWorkOrderFilters() {
       return;
     }
 
-    window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
+    try {
+      // Page lives in the URL (?listPage=), not in saved filters.
+      window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({ ...filters, page: 1 }));
+    } catch {
+      // Storage can be unavailable (private mode); filters still work for this visit.
+    }
   }, [filters]);
 
-  const updateFilters = (patch: Partial<WorkOrderFilters>) => {
+  const updateFilters = useCallback((patch: Partial<WorkOrderFilters>) => {
     setFilters((current) => ({
       ...current,
       ...patch
     }));
-  };
+  }, []);
 
-  const resetFilters = () => {
+  const resetFilters = useCallback(() => {
     setFilters(DEFAULT_WORK_ORDER_FILTERS);
-  };
+  }, []);
 
   return {
     filters,
@@ -100,103 +105,83 @@ export function useWorkOrderFilters() {
   };
 }
 
-function applyWorkOrderFilters(rows: WorkOrder[], filters: WorkOrderFilters): WorkOrder[] {
-  const query = filters.query.trim().toLowerCase();
-  const from = filters.dueDateFrom ? new Date(`${filters.dueDateFrom}T00:00:00`) : null;
-  const to = filters.dueDateTo ? new Date(`${filters.dueDateTo}T23:59:59`) : null;
-
-  return rows
-    .filter((order) => {
-      const textMatch =
-        query.length === 0 ||
-        [order.title, order.woNumber, getAssetLabel(order)]
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
-
-      const statusMatch = filters.status === "ALL" || order.status === filters.status;
-      const priorityMatch = filters.priority === "ALL" || order.priority === filters.priority;
-
-      const technicianMatch =
-        filters.technicianId === "ALL"
-          ? true
-          : filters.technicianId === "UNASSIGNED"
-            ? !order.technicianId
-            : order.technicianId === filters.technicianId;
-
-      let dateMatch = true;
-      if (from || to) {
-        if (!order.dueDate) {
-          dateMatch = false;
-        } else {
-          const dueDate = new Date(order.dueDate);
-          if (Number.isNaN(dueDate.getTime())) {
-            dateMatch = false;
-          } else {
-            if (from && dueDate < from) {
-              dateMatch = false;
-            }
-            if (to && dueDate > to) {
-              dateMatch = false;
-            }
-          }
-        }
-      }
-
-      return textMatch && statusMatch && priorityMatch && technicianMatch && dateMatch;
-    })
-    .sort((a, b) => compareWorkOrders(a, b, filters.sortBy, filters.sortDirection));
+/** Server request for the List/Board views. Technician and every other filter are applied by the API. */
+export function workOrderListRequest(filters: WorkOrderFilters) {
+  return {
+    page: filters.page,
+    pageSize: filters.pageSize,
+    queue: filters.queue,
+    search: filters.query,
+    status: filters.status,
+    priority: filters.priority,
+    sortBy: filters.sortBy,
+    sortDirection: filters.sortDirection,
+    dueDateFrom: filters.dueDateFrom,
+    dueDateTo: filters.dueDateTo,
+    jobDomain: filters.jobDomain,
+    technicianId: filters.technicianId
+  };
 }
+
+/**
+ * "Completed" card: server total for the same filters with status COMPLETED.
+ * Returns a number without a request when the status filter already decides it.
+ */
+export function completedCountSource(
+  filters: Pick<WorkOrderFilters, "status">,
+  total: number | undefined
+): { kind: "known"; value: number } | { kind: "fetch" } {
+  if (filters.status === "COMPLETED") return { kind: "known", value: total ?? 0 };
+  if (filters.status !== "ALL") return { kind: "known", value: 0 };
+  return { kind: "fetch" };
+}
+
+const LIST_POLL_MS = 60_000;
 
 function groupByStatus(rows: WorkOrder[]): StatusGroups {
   return groupWorkOrdersByStatus(rows);
 }
 
-export function useWorkOrders(filters: WorkOrderFilters) {
+export function useWorkOrders(filters: WorkOrderFilters, options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true;
+  const request = useMemo(() => workOrderListRequest(filters), [filters]);
   const query = useQuery({
-    queryKey: withTenantScope([...WORK_ORDERS_QUERY_KEY, "paginated", filters]),
-    queryFn: () =>
-      fetchWorkOrdersPaginated({
-        page: filters.page,
-        pageSize: filters.pageSize,
-        queue: filters.queue,
-        search: filters.query,
-        status: filters.status,
-        priority: filters.priority,
-        sortBy: filters.sortBy,
-        sortDirection: filters.sortDirection,
-        dueDateFrom: filters.dueDateFrom,
-        dueDateTo: filters.dueDateTo,
-        jobDomain: filters.jobDomain
-      }),
+    queryKey: withTenantScope([...WORK_ORDERS_QUERY_KEY, "paginated", request]),
+    queryFn: () => fetchWorkOrdersPaginated(request),
+    enabled,
     retry: (failureCount, error) => {
       if (isDatabaseUnavailableError(error)) {
         return false;
       }
       return failureCount < 1;
     },
-    placeholderData: (previous) => previous,
+    // Keep the previous page on screen while the next page/filter loads.
+    placeholderData: keepPreviousData,
     refetchOnWindowFocus: true,
-    refetchInterval: (q) => (q.state.error ? false : 60_000)
+    ...backgroundPollingOptions(LIST_POLL_MS)
   });
 
-  const sourceRows = useMemo(() => query.data?.data ?? [], [query.data?.data]);
-  const workOrders = useMemo(() => {
-    if (filters.technicianId === "ALL") {
-      return sourceRows;
-    }
+  const completedSource = completedCountSource(filters, query.data?.total);
+  const completedRequest = useMemo(
+    () => ({ ...request, status: "COMPLETED", page: 1, pageSize: 1 }),
+    [request]
+  );
+  const completedQuery = useQuery({
+    queryKey: withTenantScope([...WORK_ORDERS_QUERY_KEY, "completed-count", completedRequest]),
+    queryFn: () => fetchWorkOrdersPaginated(completedRequest),
+    enabled: enabled && completedSource.kind === "fetch",
+    select: (data) => data.total,
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    retry: false
+  });
 
-    return sourceRows.filter((order) => {
-      if (filters.technicianId === "UNASSIGNED") {
-        return !order.technicianId;
-      }
-      return order.technicianId === filters.technicianId;
-    });
-  }, [filters.technicianId, sourceRows]);
+  const workOrders = useMemo(() => query.data?.data ?? [], [query.data?.data]);
 
   const groupedByStatus = useMemo(() => groupByStatus(workOrders), [workOrders]);
   const groupedByBoardTab = useMemo(() => groupWorkOrdersByBoardTab(workOrders), [workOrders]);
 
+  const completedValue = completedSource.kind === "known" ? completedSource.value : completedQuery.data;
   const stats = useMemo(() => {
     const summary = query.data?.summary;
     return {
@@ -204,23 +189,30 @@ export function useWorkOrders(filters: WorkOrderFilters) {
       open: summary?.open ?? 0,
       inProgress: summary?.inProgress ?? 0,
       overdue: summary?.overdue ?? 0,
-      completed: workOrders.filter((row) => row.status === "COMPLETED").length
+      completed: completedValue ?? 0
     };
-  }, [query.data?.summary, query.data?.total, workOrders]);
+  }, [query.data?.summary, query.data?.total, completedValue]);
+
+  const total = query.data?.total ?? 0;
+  const pageSize = query.data?.pageSize || filters.pageSize;
+  const pagination = useMemo(
+    () => ({
+      page: filters.page,
+      pageSize,
+      total,
+      totalPages: totalPagesFor(total, pageSize)
+    }),
+    [filters.page, pageSize, total]
+  );
 
   return {
     ...query,
-    sourceRows,
+    sourceRows: workOrders,
     workOrders,
     groupedByStatus,
     groupedByBoardTab,
     stats,
-    pagination: {
-      page: query.data?.page ?? filters.page,
-      pageSize: query.data?.pageSize ?? filters.pageSize,
-      total: query.data?.total ?? 0,
-      totalPages: query.data?.totalPages ?? 0
-    }
+    pagination
   };
 }
 

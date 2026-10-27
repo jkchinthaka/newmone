@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   FLEET_EMPTY,
+  FLEET_VIEWS,
   fleetKpiTarget,
   fleetNextAction,
   fleetSearch,
@@ -12,19 +13,24 @@ import {
 } from "../fleet-workspace";
 
 test("fleet tabs and filters survive a refresh", () => {
-  const state = fleetStateFromSearch(new URLSearchParams("view=gate&state=blocked&q=WP&page=2&pageSize=50"));
-  assert.equal(state.view, "gate");
-  assert.equal(state.gate, "blocked");
+  const state = fleetStateFromSearch(new URLSearchParams("view=compliance&expiry=30d&q=WP&page=2&pageSize=50"));
+  assert.equal(state.view, "compliance");
   assert.equal(state.page, 2);
   assert.equal(state.pageSize, 50);
-  assert.equal(fleetSearch(state), "view=gate&q=WP&state=blocked&page=2&pageSize=50");
+  assert.equal(fleetSearch(state), "view=compliance&q=WP&expiry=30d&page=2&pageSize=50");
+});
+
+test("the retired gate view falls back to Vehicles and drops its filter", () => {
+  assert.equal(FLEET_VIEWS.includes("gate" as never), false);
+  const state = fleetStateFromSearch(new URLSearchParams("view=gate&state=blocked&q=WP"));
+  assert.equal(state.view, "vehicles");
+  assert.equal(fleetSearch(state), "q=WP");
 });
 
 test("KPI clicks open the matching filtered view", () => {
   assert.equal(fleetSearch(fleetKpiTarget("overdue")), "service=overdue");
   assert.equal(fleetSearch(fleetKpiTarget("due")), "service=due-soon");
   assert.equal(fleetSearch(fleetKpiTarget("docs")), "view=compliance&expiry=30d");
-  assert.equal(fleetSearch(fleetKpiTarget("gate")), "view=gate&state=blocked");
   assert.equal(fleetSearch(fleetKpiTarget("repairs")), "view=accidents&repair=open");
   assert.equal(fleetSearch(fleetKpiTarget("out")), "status=OUT_OF_SERVICE");
 });

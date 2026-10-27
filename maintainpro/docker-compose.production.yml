@@ -26,6 +26,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      HOST: 0.0.0.0
+      TRUST_PRIVATE_PROXY_PEERS: "true"
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
       DATABASE_PROVIDER: mongodb

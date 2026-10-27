@@ -33,6 +33,19 @@ export function lastOpenReleaseDecision(otherOpenCount: number, currentStatus: s
   return "unchanged" as const;
 }
 
+/** Any of these on the same target keeps it under maintenance (close release and return-to-service). */
+const STILL_OPEN_STATUSES: WorkOrderStatus[] = [
+  WorkOrderStatus.OPEN,
+  WorkOrderStatus.PLANNED,
+  WorkOrderStatus.ASSIGNED,
+  WorkOrderStatus.IN_PROGRESS,
+  WorkOrderStatus.ON_HOLD,
+  WorkOrderStatus.TECHNICIAN_COMPLETED,
+  WorkOrderStatus.REWORK_REQUIRED,
+  WorkOrderStatus.OVERDUE,
+  WorkOrderStatus.VERIFIED
+];
+
 const OPEN_CRITICAL_STATUSES: WorkOrderStatus[] = [
   WorkOrderStatus.OPEN,
   WorkOrderStatus.PLANNED,
@@ -265,17 +278,7 @@ export class WorkOrderDomainService {
     });
     if (!wo) return;
 
-    const stillOpen: WorkOrderStatus[] = [
-      WorkOrderStatus.OPEN,
-      WorkOrderStatus.PLANNED,
-      WorkOrderStatus.ASSIGNED,
-      WorkOrderStatus.IN_PROGRESS,
-      WorkOrderStatus.ON_HOLD,
-      WorkOrderStatus.TECHNICIAN_COMPLETED,
-      WorkOrderStatus.REWORK_REQUIRED,
-      WorkOrderStatus.OVERDUE,
-      WorkOrderStatus.VERIFIED
-    ];
+    const stillOpen = STILL_OPEN_STATUSES;
 
     if (wo.assetId && wo.asset) {
       const others = await this.prisma.workOrder.count({
@@ -423,7 +426,30 @@ export class WorkOrderDomainService {
       }
     });
 
-    if (wo.assetId && wo.asset) {
+    // Same last-open rule as close: another open job (critical or not) keeps the target in maintenance.
+    const otherOpenOnAsset = wo.assetId
+      ? await this.prisma.workOrder.count({
+          where: { tenantId, assetId: wo.assetId, id: { not: wo.id }, status: { in: STILL_OPEN_STATUSES } }
+        })
+      : 0;
+    const otherOpenOnVehicle = wo.vehicleId
+      ? await this.prisma.workOrder.count({
+          where: { tenantId, vehicleId: wo.vehicleId, id: { not: wo.id }, status: { in: STILL_OPEN_STATUSES } }
+        })
+      : 0;
+
+    if (wo.assetId && wo.asset && otherOpenOnAsset > 0) {
+      await this.auditTargetStatusChange({
+        tenantId,
+        workOrderId: wo.id,
+        entity: "Asset",
+        entityId: wo.assetId,
+        before: wo.asset.status,
+        after: wo.asset.status,
+        actor,
+        reason: `Stays under maintenance. ${otherOpenOnAsset} other open work order(s) remain.`
+      });
+    } else if (wo.assetId && wo.asset) {
       if (
         wo.asset.status === AssetStatus.UNDER_MAINTENANCE ||
         wo.asset.status === AssetStatus.OUT_OF_SERVICE
@@ -448,7 +474,18 @@ export class WorkOrderDomainService {
       }
     }
 
-    if (wo.vehicleId && wo.vehicle) {
+    if (wo.vehicleId && wo.vehicle && otherOpenOnVehicle > 0 && !(wo.temporaryRepair || woExt.operatingRestriction?.trim())) {
+      await this.auditTargetStatusChange({
+        tenantId,
+        workOrderId: wo.id,
+        entity: "Vehicle",
+        entityId: wo.vehicleId,
+        before: wo.vehicle.status,
+        after: wo.vehicle.status,
+        actor,
+        reason: `Stays under maintenance. ${otherOpenOnVehicle} other open work order(s) remain.`
+      });
+    } else if (wo.vehicleId && wo.vehicle) {
       if (wo.temporaryRepair || woExt.operatingRestriction?.trim()) {
         // VehicleStatus has no RESTRICTED value — use OUT_OF_SERVICE + restriction text.
         await this.prisma.vehicle.update({

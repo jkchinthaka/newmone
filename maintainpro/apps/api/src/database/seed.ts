@@ -191,6 +191,7 @@ const rolePermissions: Record<RoleName, string[]> = {
     "dashboard.view",
     "dashboard_analytics.view",
     "modules.view_all",
+    "assets.view",
     "assets.manage",
     "work_orders.manage",
     "work_orders.update_status",
@@ -303,6 +304,7 @@ const rolePermissions: Record<RoleName, string[]> = {
   ASSET_MANAGER: [
     "dashboard.view",
     "dashboard_analytics.view",
+    "assets.view",
     "assets.manage",
     "work_orders.manage",
     "work_orders.update_status",
@@ -428,6 +430,7 @@ const rolePermissions: Record<RoleName, string[]> = {
   FARM_MANAGER: [
     "dashboard.view",
     "modules.view_all",
+    "assets.view",
     "assets.manage",
     "work_orders.manage",
     "reports.view",

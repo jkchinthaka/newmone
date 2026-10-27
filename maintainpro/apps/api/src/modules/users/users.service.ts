@@ -11,6 +11,7 @@ import { CreateAdminUserDto, SetAdminUserPasswordDto, UpdateAdminUserDto } from 
 import { evaluateUserDeactivation } from "../admin-governance/admin-safety";
 import { CreateUserDto, InviteUserDto, UpdateUserDto } from "./dto/users.dto";
 import { assertRoleAssignmentAllowed } from "./role-assignment";
+import { bumpSessionVersion } from "../auth/session-version";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
@@ -316,7 +317,8 @@ export class UsersService {
 
     const updated = await this.prisma.user.update({
       where: { id: userId },
-      data: { isActive },
+      // Deactivation revokes every issued token, so a later reactivation does not revive them.
+      data: { isActive, ...(isActive ? {} : bumpSessionVersion()) },
       include: {
         role: { select: this.userRoleSelect },
         tenant: { select: { id: true, name: true } },
@@ -610,7 +612,8 @@ export class UsersService {
         firstName: data.firstName?.trim(),
         lastName: data.lastName?.trim(),
         phone: data.phone?.trim() || undefined,
-        roleId: data.roleId
+        roleId: data.roleId,
+        ...(data.roleId && current.roleId !== data.roleId ? bumpSessionVersion() : {})
       },
       include: { role: { select: this.userRoleSelect } }
     });
@@ -771,7 +774,13 @@ export class UsersService {
         roleId: dto.roleId,
         tenantId: nextTenantId,
         departmentId: dto.departmentId,
-        designation: dto.designation?.trim() || undefined
+        designation: dto.designation?.trim() || undefined,
+        // Role, home tenant or sign-in email changes revoke existing sessions.
+        ...(nextRole ||
+        (nextTenantId !== undefined && nextTenantId !== target.tenantId) ||
+        (normalizedEmail && normalizedEmail !== target.email)
+          ? bumpSessionVersion()
+          : {})
       },
       include: { role: { select: this.userRoleSelect } }
     });
@@ -837,7 +846,8 @@ export class UsersService {
           lastPasswordChangedAt: now,
           temporaryPasswordExpiresAt: mustChangePassword ? new Date(now.getTime() + 72 * 60 * 60 * 1000) : null,
           failedLoginAttempts: 0,
-          lockedUntil: null
+          lockedUntil: null,
+          ...bumpSessionVersion()
         }
       });
 

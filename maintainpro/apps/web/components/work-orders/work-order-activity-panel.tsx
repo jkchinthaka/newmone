@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatEnumLabel } from "@/lib/display-labels";
 import type { Route } from "next";
 import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
 
@@ -84,8 +85,8 @@ export function WorkOrderActivityPanel({
               {locationLabel ? <p className="mt-1 text-xs text-sky-800">{locationLabel}</p> : null}
               <p className="mt-2 text-sm text-sky-900">{linkedIssue.descriptionPreview}</p>
               <p className="mt-2 text-xs text-sky-800">
-                {linkedIssue.category?.replaceAll("_", " ") ?? "Uncategorized"} · {linkedIssue.severity} ·{" "}
-                {linkedIssue.status.replaceAll("_", " ")}
+                {formatEnumLabel(linkedIssue.category, "Uncategorized")} · {formatEnumLabel(linkedIssue.severity)} ·{" "}
+                {formatEnumLabel(linkedIssue.status)}
               </p>
             </div>
             {issueHref ? (

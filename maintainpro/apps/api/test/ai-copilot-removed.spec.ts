@@ -15,7 +15,7 @@ describe("AI Copilot is removed", () => {
   it("the controller no longer declares the copilot, conversation, log or action routes", () => {
     const routes = Object.getOwnPropertyNames(PredictiveAiController.prototype)
       .filter((name) => name !== "constructor")
-      .map((name) => Reflect.getMetadata(PATH_METADATA, (PredictiveAiController.prototype as Record<string, unknown>)[name] as object))
+      .map((name) => Reflect.getMetadata(PATH_METADATA, (PredictiveAiController.prototype as unknown as Record<string, unknown>)[name] as object))
       .filter(Boolean);
     expect(routes).toEqual(["field-insights"]);
   });

@@ -3,6 +3,11 @@ import { apiBaseUrl } from "@/lib/api-url";
 import { clearAuthSession } from "@/lib/auth-storage";
 import { safeInternalReturnPath } from "@/lib/role-redirect";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
+import {
+  PASSWORD_CHANGE_PATH,
+  isOnPasswordChangeScreen,
+  isPasswordChangeRequiredError
+} from "@/lib/password-change-required";
 import { shareAccessTokenRefresh } from "@/lib/access-token-refresh";
 import { isUpstreamUnavailableError, markUpstreamDegraded, markUpstreamHealthy } from "@/lib/upstream-status";
 
@@ -289,6 +294,13 @@ apiClient.interceptors.response.use(
         code === "MEMBERSHIP_DISABLED")
     ) {
       setActiveTenantId(null);
+    }
+
+    if (typeof window !== "undefined" && isPasswordChangeRequiredError(error)) {
+      if (!isOnPasswordChangeScreen(window.location.pathname, window.location.search)) {
+        window.location.href = PASSWORD_CHANGE_PATH;
+      }
+      return Promise.reject(error);
     }
 
     if (

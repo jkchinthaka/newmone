@@ -1,5 +1,7 @@
 "use client";
 
+import { RefreshErrorBanner } from "@/components/ui/refresh-error-banner";
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ClipboardCheck, Package, UserX, type LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -135,7 +137,7 @@ async function fetchMyJobCounts(): Promise<MyJobCounts> {
 
 function formatDue(value: string | null) {
   if (!value) return "No due date";
-  return new Date(value).toLocaleDateString();
+  return lkDate(value);
 }
 
 const priorityColumns: Array<DataTableColumn<PriorityWorkOrder>> = [
@@ -214,7 +216,8 @@ export function MaintenanceDashboardPage() {
     );
   }
 
-  if (query.isError || !query.data) {
+  // A failed background refresh keeps the dashboard on screen (banner below); full error only with no data.
+  if (!query.data) {
     const description = getApiErrorMessage(query.error, "Unable to load maintenance dashboard");
     const message = description.includes("Unable to load maintenance dashboard")
       ? description
@@ -229,8 +232,15 @@ export function MaintenanceDashboardPage() {
         subtitle={technicianView ? "Your jobs that need attention now." : "What needs attention now."}
         title="Maintenance Dashboard"
       >
+        {query.isError ? (
+          <RefreshErrorBanner
+            message="Could not refresh the dashboard. Showing the last loaded numbers."
+            onRetry={() => void query.refetch()}
+            retrying={query.isFetching}
+          />
+        ) : null}
         {!technicianView && dashboardQuery.data ? (
-          <p className="text-xs text-slate-500">Updated {new Date(dashboardQuery.data.generatedAt).toLocaleString()}</p>
+          <p className="text-xs text-slate-500">Updated {lkDateTime(dashboardQuery.data.generatedAt)}</p>
         ) : null}
         {technicianView && myJobsQuery.data ? <TechnicianDashboard counts={myJobsQuery.data} /> : null}
         {!technicianView && dashboardQuery.data ? (

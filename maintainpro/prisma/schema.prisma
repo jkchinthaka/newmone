@@ -361,6 +361,8 @@ model User {
   lastLogin                  DateTime?
   failedLoginAttempts        Int         @default(0)
   lockedUntil                DateTime?
+  /// Bumped to invalidate every issued access/refresh token (logout-all, password change, role change, deactivation)
+  sessionVersion             Int         @default(0)
   createdAt                  DateTime    @default(now())
   updatedAt                  DateTime    @updatedAt
 

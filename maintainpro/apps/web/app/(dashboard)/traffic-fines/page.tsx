@@ -1,17 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Suspense, useMemo, useState, type FormEvent } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { DateField } from "@/components/forms/date-fields";
 import { toast } from "sonner";
-import { Loader2, Plus, RefreshCw, Wrench } from "lucide-react";
+import { Plus, RefreshCw, Wrench } from "lucide-react";
 
+import { RegisterList, useRecordParam, useRegisterPage, useRegisterRecord } from "@/components/fleet/fleet-register";
+import type { DataTableColumn } from "@/components/ui/data-table";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import { ButtonSpinner, LoadingState } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/page-state";
+import { formatEnumLabel } from "@/lib/display-labels";
+import { formatDate } from "@/lib/localization";
 import {
   FINE_PAYMENT_STATUS,
   FINE_RESPONSIBILITY,
   formatCurrency,
-  formatDate,
-  p4Get,
   p4Post,
   type FinePaymentStatus,
   type FineResponsibility
@@ -54,38 +60,63 @@ const RESPONSIBILITY_BADGE: Record<string, string> = {
   UNDETERMINED: "bg-slate-100 text-slate-700"
 };
 
+const FINE_REGISTER = "/traffic-fines";
+
 export default function TrafficFinesPage() {
-  const [rows, setRows] = useState<FineRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  return (
+    <Suspense fallback={<LoadingState title="Loading traffic fines" description="Fetching fines." />}>
+      <TrafficFinesRegister />
+    </Suspense>
+  );
+}
+
+function TrafficFinesRegister() {
+  const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
-  const [active, setActive] = useState<FineRow | null>(null);
-  const [filter, setFilter] = useState<{
-    vehicleId?: string;
-    driverId?: string;
-    paymentStatus?: string;
-    responsibility?: string;
-  }>({});
+  const [activeId, setActiveId] = useRecordParam();
+  const [paymentStatus, setPaymentStatus] = useState("");
+  const [responsibility, setResponsibility] = useState("");
 
   const permissions = useMemo(() => new Set(getStoredPermissions()), []);
   const canReport = permissions.has("traffic_fines.report");
   const canManage = permissions.has("traffic_fines.manage");
   const canPayment = permissions.has("traffic_fines.payment");
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await p4Get<FineRow[]>("/traffic-fines", filter);
-      setRows(data);
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to load traffic fines"));
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
+  const filters = useMemo(() => ({ paymentStatus, responsibility }), [paymentStatus, responsibility]);
+  const register = useRegisterPage<FineRow>(FINE_REGISTER, filters);
+  const { record: active, query: activeQuery } = useRegisterRecord<FineRow>(FINE_REGISTER, activeId, register.query.data?.rows);
+  const refreshing = register.query.isFetching;
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["fleet-register", FINE_REGISTER] });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const columns: DataTableColumn<FineRow>[] = [
+    { id: "fine", header: "Fine", cell: (row) => <span className="font-medium text-slate-900">{row.fineNumber}</span> },
+    { id: "vehicle", header: "Vehicle", cell: (row) => row.vehicle?.registrationNo ?? "—" },
+    { id: "date", header: "Date", cell: (row) => formatDate(row.fineDate) },
+    { id: "offense", header: "Offense", cell: (row) => row.description || "—", hideOnMobile: true },
+    {
+      id: "responsibility",
+      header: "Responsibility",
+      cell: (row) =>
+        row.responsibility ? (
+          <span className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${RESPONSIBILITY_BADGE[row.responsibility] ?? "bg-slate-100 text-slate-700"}`}>
+            {formatEnumLabel(row.responsibility)}
+          </span>
+        ) : (
+          "—"
+        )
+    },
+    {
+      id: "payment",
+      header: "Payment",
+      cell: (row) => (
+        <span className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[row.paymentStatus] ?? "bg-slate-100 text-slate-700"}`}>
+          {formatEnumLabel(row.paymentStatus)}
+        </span>
+      )
+    },
+    { id: "wo", header: "Work order", cell: (row) => row.workOrder?.workOrderNumber ?? "—", hideOnMobile: true },
+    { id: "amount", header: "Amount", cell: (row) => formatCurrency(row.fineAmount), className: "text-right", headerClassName: "text-right" }
+  ];
 
   return (
     <div className="space-y-6">
@@ -96,143 +127,89 @@ export default function TrafficFinesPage() {
             Record traffic violations and classify responsibility based on vehicle document validity.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select
-            value={filter.paymentStatus ?? ""}
-            onChange={(e) =>
-              setFilter((prev) => ({ ...prev, paymentStatus: e.target.value || undefined }))
-            }
-            className="rounded border border-slate-200 px-2 py-1 text-sm"
+            aria-label="Payment status"
+            value={paymentStatus}
+            onChange={(e) => setPaymentStatus(e.target.value)}
+            className="min-h-11 rounded-lg border border-slate-200 px-2 text-sm"
           >
             <option value="">All payment statuses</option>
             {FINE_PAYMENT_STATUS.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {formatEnumLabel(s)}
               </option>
             ))}
           </select>
           <select
-            value={filter.responsibility ?? ""}
-            onChange={(e) =>
-              setFilter((prev) => ({ ...prev, responsibility: e.target.value || undefined }))
-            }
-            className="rounded border border-slate-200 px-2 py-1 text-sm"
+            aria-label="Responsibility"
+            value={responsibility}
+            onChange={(e) => setResponsibility(e.target.value)}
+            className="min-h-11 rounded-lg border border-slate-200 px-2 text-sm"
           >
             <option value="">All responsibility</option>
             {FINE_RESPONSIBILITY.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {formatEnumLabel(s)}
               </option>
             ))}
           </select>
           <button
-            onClick={refresh}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            type="button"
+            onClick={() => void register.query.refetch()}
+            disabled={refreshing}
+            aria-busy={refreshing}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
+            {refreshing ? <ButtonSpinner /> : <RefreshCw aria-hidden size={14} />} Refresh
           </button>
           {canReport ? (
             <button
+              type="button"
               onClick={() => setShowCreate(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-3 text-sm font-medium text-white hover:bg-brand-700"
             >
-              <Plus size={14} /> Report Fine
+              <Plus aria-hidden size={14} /> Report Fine
             </button>
           ) : null}
         </div>
       </header>
 
-      <section className="rounded-xl border border-slate-200 bg-white">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-2 text-left">Fine</th>
-                <th className="px-4 py-2 text-left">Vehicle</th>
-                <th className="px-4 py-2 text-left">Date</th>
-                <th className="px-4 py-2 text-left">Offense</th>
-                <th className="px-4 py-2 text-left">Responsibility</th>
-                <th className="px-4 py-2 text-left">Payment</th>
-                <th className="px-4 py-2 text-left">WO</th>
-                <th className="px-4 py-2 text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-6 text-center text-sm text-slate-500">
-                    {loading ? "Loading..." : "No fines recorded."}
-                  </td>
-                </tr>
-              ) : (
-                rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="cursor-pointer hover:bg-slate-50"
-                    onClick={() => setActive(row)}
-                  >
-                    <td className="px-4 py-2 font-medium text-slate-900">{row.fineNumber}</td>
-                    <td className="px-4 py-2 text-slate-700">
-                      {row.vehicle?.registrationNo ?? row.vehicleId}
-                    </td>
-                    <td className="px-4 py-2 text-slate-700">{formatDate(row.fineDate)}</td>
-                    <td className="px-4 py-2 text-slate-700">{row.description}</td>
-                    <td className="px-4 py-2">
-                      {row.responsibility ? (
-                        <span
-                          className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${
-                            RESPONSIBILITY_BADGE[row.responsibility] ?? "bg-slate-100 text-slate-700"
-                          }`}
-                        >
-                          {row.responsibility}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${
-                          STATUS_BADGE[row.paymentStatus] ?? "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {row.paymentStatus}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-slate-700">
-                      {row.workOrder ? row.workOrder.workOrderNumber : "—"}
-                    </td>
-                    <td className="px-4 py-2 text-right text-slate-700">
-                      {formatCurrency(row.fineAmount)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {activeId && !active && activeQuery.isError ? (
+        <ErrorState title="Couldn't open this fine" error={activeQuery.error} onRetry={() => void activeQuery.refetch()} />
+      ) : null}
+
+      <RegisterList
+        register={register}
+        columns={columns}
+        getRowId={(row) => row.id}
+        getRowLabel={(row) => `Open fine ${row.fineNumber}`}
+        onRowClick={(row) => setActiveId(row.id)}
+        ariaLabel="Traffic fines"
+        emptyTitle={paymentStatus || responsibility ? "No fines match these filters." : "No fines recorded."}
+        errorTitle="Couldn't load traffic fines"
+      />
 
       {showCreate ? (
         <CreateFineDialog
           onClose={() => setShowCreate(false)}
           onSaved={() => {
             setShowCreate(false);
-            refresh();
+            void invalidate();
           }}
         />
       ) : null}
 
       {active ? (
         <FineDetailDialog
+          key={active.id}
           fine={active}
           canManage={canManage}
           canPayment={canPayment}
-          onClose={() => setActive(null)}
+          onClose={() => setActiveId(null)}
           onSaved={() => {
-            setActive(null);
-            refresh();
+            setActiveId(null);
+            void invalidate();
           }}
         />
       ) : null}
@@ -267,6 +244,10 @@ function CreateFineDialog({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!form.vehicleId) {
+      toast.error("Choose the vehicle that was fined.");
+      return;
+    }
     setSaving(true);
     try {
       await p4Post("/traffic-fines", {
@@ -303,12 +284,15 @@ function CreateFineDialog({
     <Modal title="Report Traffic Fine" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Vehicle ID *">
-            <input
+          <Field label="Vehicle *">
+            <EntityPicker<{ id: string; registrationNo: string; vehicleModel?: string }>
+              endpoint="/vehicles"
+              value={form.vehicleId || null}
+              displayField="registrationNo"
+              secondaryField="vehicleModel"
+              placeholder="Search registration..."
               required
-              value={form.vehicleId}
-              onChange={(e) => setForm({ ...form, vehicleId: e.target.value })}
-              className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
+              onChange={(id) => setForm((current) => ({ ...current, vehicleId: id ?? "" }))}
             />
           </Field>
           <Field label="Driver ID">
@@ -374,7 +358,7 @@ function CreateFineDialog({
               <option value="">Auto-classify</option>
               {FINE_RESPONSIBILITY.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {formatEnumLabel(r)}
                 </option>
               ))}
             </select>
@@ -492,14 +476,14 @@ function FineDetailDialog({
   return (
     <Modal title={`Fine ${fine.fineNumber}`} onClose={onClose} wide>
       <div className="grid grid-cols-2 gap-3 text-sm">
-        <Info label="Vehicle">{fine.vehicle?.registrationNo ?? fine.vehicleId}</Info>
+        <Info label="Vehicle">{fine.vehicle?.registrationNo ?? "—"}</Info>
         <Info label="Fine date">{formatDate(fine.fineDate)}</Info>
         <Info label="Due date">{formatDate(fine.dueDate)}</Info>
         <Info label="Amount">{formatCurrency(fine.fineAmount)}</Info>
         <Info label="Offense">{fine.description}</Info>
         <Info label="Violation code">{fine.violationCode ?? "—"}</Info>
-        <Info label="Responsibility">{fine.responsibility ?? "—"}</Info>
-        <Info label="Payment status">{fine.paymentStatus}</Info>
+        <Info label="Responsibility">{formatEnumLabel(fine.responsibility)}</Info>
+        <Info label="Payment status">{formatEnumLabel(fine.paymentStatus)}</Info>
       </div>
 
       {canManage ? (
@@ -513,7 +497,7 @@ function FineDetailDialog({
             >
               {FINE_RESPONSIBILITY.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {formatEnumLabel(r)}
                 </option>
               ))}
             </select>
@@ -546,7 +530,7 @@ function FineDetailDialog({
             >
               {FINE_PAYMENT_STATUS.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {formatEnumLabel(s)}
                 </option>
               ))}
             </select>
@@ -663,7 +647,7 @@ function FormActions({ saving, onClose, label }: { saving: boolean; onClose: () 
         disabled={saving}
         className="inline-flex items-center gap-2 rounded bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
       >
-        {saving ? <Loader2 size={12} className="animate-spin" /> : null} {label}
+        {saving ? <ButtonSpinner className="h-3 w-3" /> : null} {label}
       </button>
     </div>
   );

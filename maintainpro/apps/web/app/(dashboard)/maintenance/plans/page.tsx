@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -363,7 +364,7 @@ export default function PreventiveMaintenancePage() {
                   {dueNext.length === 0 ? <li className="text-sm text-slate-600">No dated plans in this list.</li> : dueNext.map((plan) => (
                     <li key={plan.id} className="border-b border-slate-100 pb-2 text-sm last:border-0">
                       <p className="font-medium text-slate-900">{plan.name}</p>
-                      <p className="text-xs text-slate-500">{scopeLabel(plan)} · {plan.nextDueAt ? new Date(plan.nextDueAt).toLocaleDateString() : ""}</p>
+                      <p className="text-xs text-slate-500">{scopeLabel(plan)} · {plan.nextDueAt ? lkDate(plan.nextDueAt) : ""}</p>
                     </li>
                   ))}
                 </ul>

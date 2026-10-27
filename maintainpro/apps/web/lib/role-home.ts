@@ -72,7 +72,7 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       { id: "fleet-overview", title: "Fleet", href: "/fleet", description: "Fleet status" },
       { id: "service-due", title: "Service Due", href: "/vehicles", description: "Vehicles needing service" },
       { id: "doc-expiry", title: "Document Expiry", href: "/compliance", description: "Insurance/licence expiry" },
-      { id: "blocks", title: "Vehicle Blocks", href: "/fleet/gate", description: "Gate blocks / overrides" },
+      { id: "service-overdue", title: "Service Overdue", href: "/fleet?service=overdue", description: "Vehicles past their service date" },
       { id: "claims-fines", title: "Claims / Fines", href: "/insurance-claims", description: "Claims and fines" },
       { id: "accidents", title: "Accidents", href: "/accidents", description: "Reported accidents" }
     ]

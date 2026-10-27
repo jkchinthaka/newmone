@@ -4,6 +4,8 @@ import { Prisma } from "@prisma/client";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { toJsonText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
+import { colomboMonthKey } from "../reports/report-timezone.util";
+import { businessDayWindow } from "../work-orders/my-jobs.rules";
 import { comparableConsumptions, evaluateMeterReading, meterFractionDigits, parseStrictReadingValue } from "./meter-reading-rules";
 
 @Injectable()
@@ -76,15 +78,27 @@ export class UtilitiesService {
             return { ...replay, warning: null, replayed: true };
           }
         }
+        const sameTime = await tx.meterReading.findFirst({ where: { meterId: id, readingDate: readingAt } });
+        if (sameTime) {
+          throw new ConflictException("A reading already exists for this meter at that time.");
+        }
+        // A backdated reading is checked against its neighbours in time, not the newest reading.
         const history = await tx.meterReading.findMany({
-          where: { meterId: id },
+          where: { meterId: id, readingDate: { lt: readingAt } },
           orderBy: { readingDate: "desc" },
           take: 8
         });
-        if (history.some((row) => row.readingDate.getTime() === readingAt.getTime())) {
-          throw new ConflictException("A reading already exists for this meter at that time.");
-        }
         const previous = history[0];
+        const following = await tx.meterReading.findFirst({
+          where: { meterId: id, readingDate: { gt: readingAt } },
+          orderBy: { readingDate: "asc" }
+        });
+        const followingIsReset = Boolean(following && String(following.notes ?? "").includes("[reset:"));
+        if (following && !followingIsReset && parsed.value > Number(following.readingValue)) {
+          throw new BadRequestException(
+            `Reading is higher than the next recorded reading (${Number(following.readingValue)} on ${businessDayWindow(following.readingDate).dateOnly}).`
+          );
+        }
         const decision = evaluateMeterReading({
           value: parsed.value,
           readingAt,
@@ -110,6 +124,13 @@ export class UtilitiesService {
             notes: noteParts.join(" ") || null
           }
         });
+        if (following && !followingIsReset) {
+          // The next reading's consumption is now measured from this one.
+          await tx.meterReading.update({
+            where: { id: following.id },
+            data: { consumption: Number(following.readingValue) - parsed.value }
+          });
+        }
         return { ...created, warning: decision.warning, replayed: false };
       });
     } catch (error) {
@@ -200,7 +221,7 @@ export class UtilitiesService {
     });
 
     return readings.map((item) => ({
-      month: item.readingDate.toISOString().slice(0, 7),
+      month: colomboMonthKey(item.readingDate),
       consumption: Number(item.consumption ?? 0)
     }));
   }
@@ -294,13 +315,14 @@ export class UtilitiesService {
 
   async overdue(tenantId: string | null) {
     const scopedTenantId = requireTenantId(tenantId);
-    const now = new Date();
+    // A bill is payable through the whole Colombo due date; it is overdue from the next day.
+    const todayStart = businessDayWindow(new Date()).start;
 
     await this.prisma.utilityBill.updateMany({
       where: {
         status: "UNPAID",
         dueDate: {
-          lt: now
+          lt: todayStart
         },
         tenantId: scopedTenantId
       },

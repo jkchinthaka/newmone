@@ -1,5 +1,6 @@
 "use client";
 
+import { formatEnumLabel } from "@/lib/display-labels";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Activity, BarChart3, BellRing, CarFront, Factory, LayoutDashboard, List, ShieldCheck, UserCircle2, Wrench } from "lucide-react";
@@ -37,7 +38,7 @@ export function MaintenanceJobShell({ children }: { children: ReactNode }) {
             <LayoutDashboard size={14} />
             MaintainPro Dashboard
           </Link>
-          <span className="btn-quiet">Role: {role.replaceAll("_", " ")}</span>
+          <span className="btn-quiet">Role: {formatEnumLabel(role)}</span>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {quickNav.map((item) => {

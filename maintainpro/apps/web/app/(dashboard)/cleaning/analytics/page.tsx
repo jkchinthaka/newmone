@@ -1,5 +1,6 @@
 "use client";
 
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
 import { type ReactNode, useMemo, useState } from "react";
 
 import { DateField } from "@/components/forms/date-fields";
@@ -59,8 +60,8 @@ function defaultDateRange() {
   start.setDate(now.getDate() - 29);
 
   return {
-    from: start.toISOString().slice(0, 10),
-    to: now.toISOString().slice(0, 10)
+    from: colomboTodayYmd(start),
+    to: colomboTodayYmd(now)
   };
 }
 

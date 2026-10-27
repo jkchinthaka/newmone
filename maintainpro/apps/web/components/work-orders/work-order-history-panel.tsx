@@ -1,11 +1,13 @@
 "use client";
 
+import { formatEnumLabel } from "@/lib/display-labels";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, History } from "lucide-react";
 
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard";
 import { apiClient, getApiErrorMessageForRoute } from "@/lib/api-client";
 import { formatCalendarDate } from "@/lib/colombo-datetime";
+import { formatCurrency } from "@/lib/localization";
 import { formatDrawerDateTime } from "@/lib/work-order-drawer-display";
 
 export type WorkOrderHistoryContext = {
@@ -42,8 +44,9 @@ function formatDate(value: unknown) {
 }
 
 function formatMoney(value: unknown) {
-  if (typeof value !== "number") return "—";
-  return value.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  // Business currency is LKR. Decimal costs can arrive as numeric strings.
+  if (typeof value !== "number" && typeof value !== "string") return "—";
+  return formatCurrency(value, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
 export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
@@ -160,7 +163,7 @@ export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
         rows={data.previousMaintenance.map((row) => ({
           key: String(row.id),
           primary: String(row.woNumber ?? row.title),
-          secondary: `${String(row.type ?? "").replaceAll("_", " ")} · ${formatDate(row.completedDate)}`,
+          secondary: `${formatEnumLabel(String(row.type ?? ""), "")} · ${formatDate(row.completedDate)}`,
           meta: row.technicianName ? String(row.technicianName) : undefined
         }))}
       />
@@ -171,7 +174,7 @@ export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
         rows={data.previousBreakdowns.map((row) => ({
           key: String(row.id),
           primary: String(row.title),
-          secondary: `${String(row.type ?? "").replaceAll("_", " ")} · ${formatDate(row.completedDate)}`,
+          secondary: `${formatEnumLabel(String(row.type ?? ""), "")} · ${formatDate(row.completedDate)}`,
           meta: typeof row.actualCost === "number" ? formatMoney(row.actualCost) : undefined
         }))}
       />

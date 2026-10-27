@@ -291,13 +291,6 @@ export const NAV_ITEM_API_GATES: Readonly<Record<string, NavApiGate>> = {
       "fleet.view"
     ]
   },
-  "fleet-gate": {
-    route: "GET /vehicles/gate-queue",
-    roles: [],
-    permissions: [
-      "vehicles.view"
-    ]
-  },
   "spare-parts": {
     route: "GET /inventory/parts",
     roles: [

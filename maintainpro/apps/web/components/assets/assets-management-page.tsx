@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
@@ -45,6 +45,7 @@ import { ActiveFilterChips } from "@/components/operational/active-filter-chips"
 import { OperationalPageHeader } from "@/components/operational/operational-page-header";
 import {
   ASSET_EMPTY,
+  ASSET_STATUSES,
   assetCreateWorkOrderHref,
   assetFiltersFromSearch,
   assetSearchFromFilters
@@ -53,9 +54,11 @@ import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui
 import { useCurrentUser } from "@/lib/use-current-user";
 import { canCreateWorkOrder as userCanCreateWorkOrder } from "@/lib/user-role";
 import { withTenantScope } from "@/lib/tenant-query";
+import { RefreshErrorBanner } from "@/components/ui/refresh-error-banner";
 import { AssetsTable } from "./assets-table";
 import {
   useAssetPageStore,
+  visibleSelection,
   type AssetCategoryFilter,
   type AssetColumnKey,
   type AssetSortField,
@@ -63,7 +66,8 @@ import {
 } from "./use-asset-page-store";
 
 type AssetCategory = "MACHINE" | "TOOL" | "INFRASTRUCTURE" | "EQUIPMENT" | "VEHICLE" | "OTHER";
-type AssetStatus = "ACTIVE" | "INACTIVE" | "UNDER_MAINTENANCE" | "DISPOSED" | "RETIRED";
+/** Every AssetStatus the API stores. DRAFT/OUT_OF_SERVICE used to fail form validation and CSV import. */
+type AssetStatus = (typeof ASSET_STATUSES)[number];
 type AssetCondition = "EXCELLENT" | "GOOD" | "FAIR" | "POOR" | "CRITICAL";
 
 type RoleTier = "viewer" | "operator" | "manager" | "admin";
@@ -201,6 +205,8 @@ const STATUS_FILTER_OPTIONS: Array<{ label: string; value: AssetStatusFilter }> 
   { label: "Active", value: "ACTIVE" },
   { label: "Inactive", value: "INACTIVE" },
   { label: "Under Maintenance", value: "UNDER_MAINTENANCE" },
+  { label: "Out of Service", value: "OUT_OF_SERVICE" },
+  { label: "Draft", value: "DRAFT" },
   { label: "Retired", value: "RETIRED" },
   { label: "Disposed", value: "DISPOSED" }
 ];
@@ -224,9 +230,11 @@ const CATEGORY_FORM_OPTIONS: Array<{ label: string; value: AssetCategory }> = [
 ];
 
 const STATUS_FORM_OPTIONS: Array<{ label: string; value: AssetStatus }> = [
+  { label: "Draft", value: "DRAFT" },
   { label: "Active", value: "ACTIVE" },
   { label: "Inactive", value: "INACTIVE" },
   { label: "Under Maintenance", value: "UNDER_MAINTENANCE" },
+  { label: "Out of Service", value: "OUT_OF_SERVICE" },
   { label: "Retired", value: "RETIRED" },
   { label: "Disposed", value: "DISPOSED" }
 ];
@@ -252,9 +260,11 @@ const SORT_OPTIONS: Array<{ label: string; value: AssetSortField }> = [
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 const STATUS_STYLES: Record<AssetStatus, string> = {
+  DRAFT: "bg-sky-100 text-sky-800",
   ACTIVE: "bg-emerald-100 text-emerald-700",
   INACTIVE: "bg-slate-200 text-slate-700",
   UNDER_MAINTENANCE: "bg-amber-100 text-amber-800",
+  OUT_OF_SERVICE: "bg-orange-100 text-orange-800",
   RETIRED: "bg-slate-300 text-slate-700",
   DISPOSED: "bg-rose-100 text-rose-700"
 };
@@ -287,7 +297,7 @@ const formSchema = z
       .regex(/^AST-[A-Z0-9]{4,}$/i, "Asset tag must match AST-XXXX format"),
     name: z.string().trim().min(2, "Name is required"),
     category: z.enum(["MACHINE", "TOOL", "INFRASTRUCTURE", "EQUIPMENT", "VEHICLE", "OTHER"]),
-    status: z.enum(["ACTIVE", "INACTIVE", "UNDER_MAINTENANCE", "DISPOSED", "RETIRED"]),
+    status: z.enum(ASSET_STATUSES),
     location: z.string().trim().min(1, "Location is required"),
     description: z.string().max(1000).optional().default(""),
     condition: z.enum(["EXCELLENT", "GOOD", "FAIR", "POOR", "CRITICAL"]),
@@ -581,7 +591,7 @@ function normalizeHeader(header: string) {
 
 function normalizeStatusToken(value: string): AssetStatus | null {
   const token = value.trim().replace(/[\s-]+/g, "_").toUpperCase();
-  if (["ACTIVE", "INACTIVE", "UNDER_MAINTENANCE", "RETIRED", "DISPOSED"].includes(token)) {
+  if ((ASSET_STATUSES as readonly string[]).includes(token)) {
     return token as AssetStatus;
   }
   return null;
@@ -971,8 +981,9 @@ export default function AssetsManagementPage() {
         }
       };
     },
-    placeholderData: (previous) => previous,
-    refetchOnWindowFocus: true
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false
   });
 
   const summaryQuery = useQuery({
@@ -1234,7 +1245,11 @@ export default function AssetsManagementPage() {
     return source.filter((asset) => !hiddenRowIds.has(asset.id));
   }, [listQuery.data?.items, hiddenRowIds]);
 
-  const selectedCount = selectedIds.length;
+  // Rows can disappear (hidden after delete, refetch) while still selected; act only on visible picks.
+  const visibleRowIds = useMemo(() => rows.map((asset) => asset.id), [rows]);
+  const visibleSelectedIds = useMemo(() => visibleSelection(selectedIds, visibleRowIds), [selectedIds, visibleRowIds]);
+  const selectedCount = visibleSelectedIds.length;
+  const bulkPending = bulkActionMutation.isPending;
 
   const summaryCounts = {
     total: summaryQuery.data?.totalAssets ?? 0,
@@ -1562,7 +1577,7 @@ export default function AssetsManagementPage() {
           ) : null}
           <ActiveFilterChips
             chips={[
-              filters.status ? { key: "status", label: filters.status.replace(/_/g, " ") } : null,
+              filters.status ? { key: "status", label: formatEnumLabel(filters.status) } : null,
               filters.category ? { key: "category", label: filters.category } : null,
               filters.location ? { key: "location", label: filters.location } : null,
               filters.departmentId ? { key: "departmentId", label: "Department" } : null,
@@ -1587,7 +1602,7 @@ export default function AssetsManagementPage() {
         {selectedCount > 0 && (
           <section className="rounded-[24px] border border-brand-200 bg-brand-50 p-4 shadow-sm">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <p className="text-sm font-semibold text-slate-900">{selectedCount} assets selected</p>
+              <p className="text-sm font-semibold text-slate-900">{selectedCount} selected on this page</p>
               <div className="flex flex-wrap items-center gap-2">
                 {canBulkEdit && (
                   <>
@@ -1605,12 +1620,13 @@ export default function AssetsManagementPage() {
                     <button
                       onClick={() =>
                         bulkActionMutation.mutate({
-                          ids: selectedIds,
+                          ids: visibleSelectedIds,
                           action: "UPDATE_STATUS",
                           status: bulkStatus
                         })
                       }
-                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                      disabled={bulkPending}
+                      className="min-h-11 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
                     >
                       Bulk status
                     </button>
@@ -1630,12 +1646,13 @@ export default function AssetsManagementPage() {
                     <button
                       onClick={() =>
                         bulkActionMutation.mutate({
-                          ids: selectedIds,
+                          ids: visibleSelectedIds,
                           action: "ASSIGN_LOCATION",
                           location: bulkLocation
                         })
                       }
-                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                      disabled={bulkPending}
+                      className="min-h-11 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
                     >
                       Bulk location
                     </button>
@@ -1654,12 +1671,13 @@ export default function AssetsManagementPage() {
                     <button
                       onClick={() =>
                         bulkActionMutation.mutate({
-                          ids: selectedIds,
+                          ids: visibleSelectedIds,
                           action: "ASSIGN_CATEGORY",
                           category: bulkCategory
                         })
                       }
-                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
+                      disabled={bulkPending}
+                      className="min-h-11 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
                     >
                       Bulk category
                     </button>
@@ -1669,7 +1687,7 @@ export default function AssetsManagementPage() {
                 <button
                   onClick={async () => {
                     try {
-                      await handleExport("csv", selectedIds);
+                      await handleExport("csv", visibleSelectedIds);
                       toast.success("Export downloaded");
                     } catch (error) {
                       toast.error(getErrorMessage(error));
@@ -1731,7 +1749,7 @@ export default function AssetsManagementPage() {
                   title="Loading assets"
                 />
               </div>
-            ) : listQuery.isError ? (
+            ) : listQuery.isError && !listQuery.data ? (
               <div className="px-4 py-6">
                 <ErrorState
                   error={listQuery.error}
@@ -1741,6 +1759,17 @@ export default function AssetsManagementPage() {
                 />
               </div>
             ) : (
+              <>
+              {listQuery.isError ? (
+                <div className="px-4 pt-3">
+                  <RefreshErrorBanner
+                    message="Could not refresh assets. Showing the last loaded list."
+                    onRetry={() => void listQuery.refetch()}
+                    retrying={listQuery.isFetching}
+                  />
+                </div>
+              ) : null}
+              <div className={listQuery.isPlaceholderData ? "opacity-60 transition-opacity" : undefined} aria-busy={listQuery.isPlaceholderData}>
               <AssetsTable<AssetListItem>
                 rows={rows}
                 visibleColumns={visibleColumns}
@@ -1805,6 +1834,8 @@ export default function AssetsManagementPage() {
                   setOpenRowMenuId(null);
                 }}
               />
+              </div>
+              </>
             )}
           </div>
 

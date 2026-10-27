@@ -533,10 +533,10 @@ function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSec
 
   if (snapshot.roleName === "SECURITY_OFFICER") {
     items.push({
-      id: "gate-dashboard",
-      title: "Gate dashboard",
-      description: "Vehicle gate-out checks and restrictions.",
-      href: "/fleet/gate",
+      id: "security-requests",
+      title: "Report an issue",
+      description: "Report a vehicle or site problem and follow your requests.",
+      href: "/requests",
       tone: "info"
     });
   }

@@ -20,6 +20,7 @@ import { Public } from "../../common/decorators/public.decorator";
 import { SelfService } from "../../common/decorators/self-service.decorator";
 import { SkipTenantContext } from "../../common/decorators/skip-tenant-context.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { AllowPendingPasswordChange } from "../../common/guards/password-change-required.guard";
 import { AUTH_LOGIN_SUCCESS_HTTP_STATUS } from "./auth-login-status.contract";
 import { AUTH_LOGOUT_SUCCESS_HTTP_STATUS } from "./auth-logout-status.contract";
 import { AuthService } from "./auth.service";
@@ -67,7 +68,8 @@ export class AuthController {
 
   @Public()
   @Post("refresh")
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  // Per client IP: every open tab rotates on expiry, so 5/min locked out shared offices.
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   async refresh(@Body() dto: RefreshTokenDto, @Req() req: Request) {
     const refreshTokenFromCookie = this.getCookie(req, AuthController.REFRESH_COOKIE);
     const refreshToken = dto.refreshToken ?? refreshTokenFromCookie;
@@ -82,6 +84,7 @@ export class AuthController {
   }
 
   @Public()
+  @AllowPendingPasswordChange()
   @Post("logout")
   @HttpCode(AUTH_LOGOUT_SUCCESS_HTTP_STATUS)
   @ApiOkResponse({
@@ -149,6 +152,7 @@ export class AuthController {
   @ApiBearerAuth()
   @SelfService()
   @SkipTenantContext()
+  @AllowPendingPasswordChange()
   @UseGuards(JwtAuthGuard)
   @Get("me")
   me(@Req() req: { user: { sub: string; tenantId?: string | null } }) {

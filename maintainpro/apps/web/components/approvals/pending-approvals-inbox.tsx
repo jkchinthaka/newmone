@@ -1,11 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { DateRangeField } from "@/components/forms/date-fields";
+import { DebouncedField } from "@/components/forms/debounced-field";
+import { JobsPagination } from "@/components/operational/jobs-pagination";
+import { ErrorState } from "@/components/ui/page-state";
+import { TouchCheckbox } from "@/components/ui/touch-checkbox";
 import { QueueChip } from "@/components/ui/dashboard";
 import { approvalAmountTone, sortOldestFirst } from "@/lib/batch-3-presentation";
 import { STATUS_TONE_CLASS } from "@/lib/dashboard-status";
+import { formatEnumLabel, priorityLabel } from "@/lib/display-labels";
 import {
   formatLkr,
   INBOX_TAB_LABELS,
@@ -38,11 +43,32 @@ export function PendingApprovalsInbox({
   onFrom,
   onTo,
   onDecide,
-  onBulkApprove
+  onBulkApprove,
+  error = null,
+  onRetry,
+  page = 1,
+  pageSize = 25,
+  total,
+  onPage,
+  onPageSize,
+  busyIds = [],
+  bulkBusy = false
 }: {
   items: InboxViewItem[];
   counts?: Partial<Record<InboxTabId, number>>;
   loading: boolean;
+  /** Load error. Shown instead of the list (never together with "All caught up"). */
+  error?: string | null;
+  onRetry?: () => void;
+  page?: number;
+  pageSize?: number;
+  /** Server total for the current tab/filters (meta.total). */
+  total?: number;
+  onPage?: (page: number) => void;
+  onPageSize?: (pageSize: number) => void;
+  /** Items with a decision in flight; their buttons are disabled immediately. */
+  busyIds?: string[];
+  bulkBusy?: boolean;
   tab: InboxTabId;
   onTab: (tab: InboxTabId) => void;
   search: string;
@@ -67,6 +93,16 @@ export function PendingApprovalsInbox({
     return sortOldestFirst(filtered);
   }, [items, tab]);
   const bulk = sameKindSelection(visible, selected);
+  const visibleKey = visible.map((item) => item.id).join("|");
+
+  // Selection only covers rows on screen; a new page, tab or filter clears hidden picks.
+  useEffect(() => {
+    const ids = new Set(visibleKey ? visibleKey.split("|") : []);
+    setSelected((current) => {
+      const next = current.filter((id) => ids.has(id));
+      return next.length === current.length ? current : next;
+    });
+  }, [visibleKey]);
   const explicit = visible.find((item) => item.id === openId) ?? null;
   const desktopItem = explicit ?? visible[0] ?? null;
 
@@ -101,20 +137,21 @@ export function PendingApprovalsInbox({
         ))}
       </div>
       <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_11rem_11rem]">
-        <input
-          className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm"
+        <DebouncedField
+          type="search"
+          className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm"
           placeholder="Search reference, title, or requester"
           value={search}
-          onChange={(event) => onSearch(event.target.value)}
-          aria-label="Search approvals"
+          onCommit={onSearch}
+          label="Search approvals"
         />
-        <select className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm" aria-label="Priority" value={priority} onChange={(event) => onPriority(event.target.value)}>
+        <select className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm" aria-label="Priority" value={priority} onChange={(event) => onPriority(event.target.value)}>
           <option value="">All priorities</option>
           {["CRITICAL", "HIGH", "MEDIUM", "LOW"].map((value) => (
-            <option key={value} value={value}>{value}</option>
+            <option key={value} value={value}>{priorityLabel(value)}</option>
           ))}
         </select>
-        <input className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm" aria-label="Site" placeholder="Site" value={site} onChange={(event) => onSite(event.target.value)} />
+        <DebouncedField className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm" label="Site" placeholder="Site" value={site} onCommit={onSite} />
       </div>
       <div className="mt-3 max-w-xl">
         <DateRangeField from={from} to={to} onFromChange={onFrom} onToChange={onTo} />
@@ -122,16 +159,21 @@ export function PendingApprovalsInbox({
       <div className="mt-3 flex items-center gap-2">
         <button
           type="button"
-          className="min-h-10 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white disabled:opacity-40"
-          disabled={!bulk.sameKind || bulk.selected.length === 0 || bulk.selected.some((item) => !item.canDecide)}
+          className="min-h-11 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white disabled:opacity-40"
+          disabled={bulkBusy || !bulk.sameKind || bulk.selected.length === 0 || bulk.selected.some((item) => !item.canDecide)}
+          aria-busy={bulkBusy}
           onClick={() => onBulkApprove(bulk.selected)}
         >
-          Approve selected
+          {bulkBusy ? "Approving…" : bulk.selected.length > 0 ? `Approve selected (${bulk.selected.length})` : "Approve selected"}
         </button>
         {!bulk.sameKind ? <span className="text-sm text-amber-700">Select one type</span> : null}
       </div>
 
-      {loading ? (
+      {error ? (
+        <div className="mt-4">
+          <ErrorState title="Could not load approvals" description={error} onRetry={onRetry} />
+        </div>
+      ) : loading && items.length === 0 ? (
         <div className="mt-4 space-y-2" data-testid="approval-skeleton">
           <div className="h-16 animate-pulse rounded-lg bg-slate-100" />
           <div className="h-16 animate-pulse rounded-lg bg-slate-100" />
@@ -140,16 +182,19 @@ export function PendingApprovalsInbox({
       ) : visible.length === 0 ? (
         <p className="mt-6 rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-600">All caught up</p>
       ) : (
-        <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.9fr)]">
+        <div
+          className={`mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.9fr)] ${loading ? "opacity-60 transition-opacity" : ""}`}
+          aria-busy={loading}
+        >
           <section className="min-w-0 rounded-card border border-slate-200 bg-white shadow-card">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">Pending ({visible.length})</h2>
+                <h2 className="text-sm font-semibold text-slate-900">Pending ({total ?? visible.length})</h2>
                 <p className="text-xs text-slate-500">Oldest first</p>
               </div>
               <label className="text-sm text-slate-600">
                 <span className="sr-only">Type</span>
-                <select aria-label="Type" className="h-9 rounded-md border border-slate-300 bg-white px-2 text-sm" value={tab} onChange={(event) => onTab(event.target.value as InboxTabId)}>
+                <select aria-label="Type" className="min-h-11 rounded-md border border-slate-300 bg-white px-2 text-sm" value={tab} onChange={(event) => onTab(event.target.value as InboxTabId)}>
                   {INBOX_TAB_LABELS.map((entry) => (
                     <option key={entry.id} value={entry.id}>{entry.label}</option>
                   ))}
@@ -163,7 +208,7 @@ export function PendingApprovalsInbox({
                 return (
                   <li key={item.id}>
                     <div className={`flex gap-3 px-4 py-3 ${active ? "bg-emerald-50/60" : ""}`}>
-                      <input className="mt-1" type="checkbox" aria-label={`Select ${item.reference}`} checked={selected.includes(item.id)} onChange={() => toggle(item.id)} />
+                      <TouchCheckbox className="mt-0" label={`Select ${item.reference}`} checked={selected.includes(item.id)} onChange={() => toggle(item.id)} />
                       <button type="button" className="min-w-0 flex-1 text-left" data-testid="approval-card" onClick={() => setOpenId(item.id)}>
                         <span className="flex items-start justify-between gap-3">
                           <span className="min-w-0">
@@ -186,8 +231,18 @@ export function PendingApprovalsInbox({
                 );
               })}
             </ul>
+            {onPage && (total ?? 0) > 0 ? (
+              <JobsPagination
+                page={page}
+                totalPages={Math.max(1, Math.ceil((total ?? 0) / Math.max(1, pageSize)))}
+                total={total ?? 0}
+                pageSize={pageSize}
+                onPageChange={onPage}
+                onPageSizeChange={(size) => onPageSize?.(size)}
+              />
+            ) : null}
           </section>
-          {desktopItem ? <DetailPanel className="hidden lg:block" item={desktopItem} reason={reason} onReason={setReason} onDecide={decide} /> : null}
+          {desktopItem ? <DetailPanel className="hidden lg:block" item={desktopItem} busy={busyIds.includes(desktopItem.id)} reason={reason} onReason={setReason} onDecide={decide} /> : null}
         </div>
       )}
 
@@ -197,7 +252,7 @@ export function PendingApprovalsInbox({
             <div className="mb-3 flex justify-end">
               <button type="button" className="min-h-10 px-2 text-sm" onClick={() => setOpenId(null)}>Close</button>
             </div>
-            <DetailPanel item={explicit} reason={reason} onReason={setReason} onDecide={decide} />
+            <DetailPanel item={explicit} busy={busyIds.includes(explicit.id)} reason={reason} onReason={setReason} onDecide={decide} />
           </div>
         </div>
       ) : null}
@@ -210,9 +265,11 @@ function DetailPanel({
   reason,
   onReason,
   onDecide,
-  className
+  className,
+  busy = false
 }: {
   item: InboxViewItem;
+  busy?: boolean;
   reason: string;
   onReason: (value: string) => void;
   onDecide: (item: InboxViewItem, decision: "APPROVED" | "REJECTED" | "RETURNED") => void;
@@ -221,7 +278,7 @@ function DetailPanel({
   const priorReason = [...item.history].reverse().find((entry) => entry.reason?.trim())?.reason?.trim();
   return (
     <aside className={`rounded-card border border-slate-200 bg-white p-4 shadow-card ${className ?? ""}`}>
-      <p className="text-xs uppercase tracking-wide text-slate-500">{item.tab.replaceAll("_", " ")}</p>
+      <p className="text-xs uppercase tracking-wide text-slate-500">{INBOX_TAB_LABELS.find((entry) => entry.id === item.tab)?.label ?? formatEnumLabel(item.tab)}</p>
       <h2 className="mt-1 text-lg font-semibold text-slate-900">{item.title}</h2>
       <p className="text-sm text-slate-600">{item.reference}</p>
       <dl className="mt-4 space-y-2 text-sm">
@@ -250,7 +307,7 @@ function DetailPanel({
         {item.priority ? (
           <div className="flex justify-between gap-3">
             <dt className="text-slate-500">Priority</dt>
-            <dd className="text-right text-slate-900">{item.priority}</dd>
+            <dd className="text-right text-slate-900">{priorityLabel(item.priority)}</dd>
           </div>
         ) : null}
         {priorReason ? (
@@ -273,12 +330,12 @@ function DetailPanel({
       <div className="mt-3 flex flex-wrap justify-end gap-2">
         {item.canDecide ? (
           <>
-            <button type="button" className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-800" onClick={() => onDecide(item, "REJECTED")}>Reject</button>
-            <button type="button" className="min-h-10 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white" onClick={() => onDecide(item, "APPROVED")}>Approve</button>
+            <button type="button" disabled={busy} className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-800 disabled:opacity-50" onClick={() => onDecide(item, "REJECTED")}>Reject</button>
+            <button type="button" disabled={busy} aria-busy={busy} className="min-h-11 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white disabled:opacity-50" onClick={() => onDecide(item, "APPROVED")}>{busy ? "Saving…" : "Approve"}</button>
           </>
         ) : null}
         {item.canReturn ? (
-          <button type="button" className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => onDecide(item, "RETURNED")}>Return for info</button>
+          <button type="button" disabled={busy} className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm disabled:opacity-50" onClick={() => onDecide(item, "RETURNED")}>Return for info</button>
         ) : null}
       </div>
     </aside>

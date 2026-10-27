@@ -6,6 +6,7 @@ import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { DateField } from "@/components/forms/date-fields";
+import { DebouncedField } from "@/components/forms/debounced-field";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ActiveFilterChips } from "@/components/operational/active-filter-chips";
 import { JobsPagination } from "@/components/operational/jobs-pagination";
@@ -13,6 +14,8 @@ import { OperationalEmptyState, TableLoadingRows } from "@/components/operationa
 import { OperationalPageHeader } from "@/components/operational/operational-page-header";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { formatEnumLabel, priorityLabel } from "@/lib/display-labels";
+import { formatDate, formatNumber } from "@/lib/localization";
 import { listMaintenanceHistory, type MaintenanceHistoryRow } from "@/lib/maintenance-history-api";
 import {
   MAINTENANCE_HISTORY_EMPTY,
@@ -42,55 +45,16 @@ function statusLabel(status: string) {
   if (status === "COMPLETED") return "Completed";
   if (status === "CLOSED") return "Closed";
   if (status === "CANCELLED") return "Cancelled";
-  return status;
+  return formatEnumLabel(status);
 }
 
 function formatWhen(value: string | null) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  // Business dates are shown in Asia/Colombo, not the device time zone.
+  return formatDate(value, { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function formatCost(value: number | null) {
-  if (value == null) return "—";
-  return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function DebouncedField({
-  label,
-  value,
-  placeholder,
-  onCommit,
-  inputMode
-}: {
-  label: string;
-  value: string;
-  placeholder: string;
-  onCommit: (value: string) => void;
-  inputMode?: "decimal" | "text";
-}) {
-  const [local, setLocal] = useState(value);
-  useEffect(() => {
-    setLocal(value);
-  }, [value]);
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      if (local.trim() === value) return;
-      onCommit(local.trim());
-    }, 400);
-    return () => window.clearTimeout(handle);
-  }, [local]);
-  return (
-    <input
-      aria-label={label}
-      placeholder={placeholder}
-      inputMode={inputMode}
-      className="h-10 rounded-md border border-slate-300 px-2 text-sm"
-      value={local}
-      onChange={(event) => setLocal(event.target.value)}
-    />
-  );
+  return formatNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export default function MaintenanceHistoryPage() {
@@ -163,9 +127,9 @@ export default function MaintenanceHistoryPage() {
     state.category ? { key: "category", label: state.category } : null,
     state.technician ? { key: "technician", label: state.technician } : null,
     state.vendor ? { key: "vendor", label: state.vendor } : null,
-    state.priority ? { key: "priority", label: state.priority } : null,
+    state.priority ? { key: "priority", label: priorityLabel(state.priority) } : null,
     state.costMin || state.costMax ? { key: "costMin", label: `Cost ${state.costMin || "0"}–${state.costMax || "…"}` } : null,
-    state.type ? { key: "type", label: state.type } : null,
+    state.type ? { key: "type", label: formatEnumLabel(state.type) } : null,
     state.location ? { key: "location", label: state.location } : null
   ].filter((chip): chip is { key: string; label: string } => Boolean(chip));
 

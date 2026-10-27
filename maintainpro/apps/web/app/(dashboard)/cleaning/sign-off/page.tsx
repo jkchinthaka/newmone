@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/localization";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, MessageSquareText, Star, XCircle } from "lucide-react";
 
@@ -169,7 +170,7 @@ export default function SignOffPage() {
                   <div>
                     <div className="font-semibold text-slate-900">{visit.location.name}</div>
                     <div className="text-xs text-slate-500">
-                      {visit.location.area} · {new Date(visit.scannedAt).toLocaleString()}
+                      {visit.location.area} · {formatDateTime(visit.scannedAt)}
                     </div>
                     <div className="mt-1 text-xs text-slate-600">
                       Cleaner: {visit.cleaner.firstName} {visit.cleaner.lastName}

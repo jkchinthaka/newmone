@@ -161,9 +161,14 @@ export async function updateUtilityMeter(
   return sanitizeMeter(unwrapData(response.data));
 }
 
+/** Readings are bounded to the last year; the dashboards and trends never look further back. */
+export const UTILITY_READINGS_WINDOW_DAYS = 366;
+
 export async function fetchUtilityReadings(): Promise<MeterReading[]> {
   try {
-    const response = await apiClient.get<ApiEnvelope<unknown[]>>("/utilities/readings");
+    const response = await apiClient.get<ApiEnvelope<unknown[]>>("/utilities/readings", {
+      params: { days: UTILITY_READINGS_WINDOW_DAYS }
+    });
     const rows = unwrapData<unknown[]>(response.data);
 
     if (!Array.isArray(rows)) {

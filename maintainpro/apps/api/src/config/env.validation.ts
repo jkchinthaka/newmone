@@ -3,6 +3,8 @@ import { isPrivateAbsoluteStorageRoot } from "./local-storage-root";
 
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid("development", "test", "production").default("development"),
+  HOST: Joi.string().allow("").optional(), // production defaults to 127.0.0.1 (see config/listen-host.ts); containers set 0.0.0.0
+  TRUST_PRIVATE_PROXY_PEERS: Joi.string().valid("true", "false", "").optional(),
   PORT: Joi.number().default(3000), // Docker images and e2e stacks listen on 3000; the local launcher and the go-live service set 3040.
   HTTP_KEEP_ALIVE_TIMEOUT_MS: Joi.number().integer().min(1000).default(65000),
   HTTP_HEADERS_TIMEOUT_MS: Joi.number().integer().min(1000).default(66000),

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -420,7 +421,7 @@ export default function RequestDetailPage() {
                       ) : null}
                     </div>
                     <div className="text-xs text-slate-500">
-                      {new Date(h.createdAt).toLocaleString()}
+                      {lkDateTime(h.createdAt)}
                       {h.actorName ? ` · ${h.actorName}` : ""}
                       {h.toStatus ? ` · now ${requestStatusLabel(h.toStatus)}` : ""}
                     </div>
@@ -436,7 +437,7 @@ export default function RequestDetailPage() {
           <section className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
             <h2 className="mb-2 font-semibold">Reported by</h2>
             <p>{detail.reportedBy?.name || "—"}</p>
-            <p className="text-slate-500">{detail.reportedAt ? new Date(detail.reportedAt).toLocaleString() : "—"}</p>
+            <p className="text-slate-500">{detail.reportedAt ? lkDateTime(detail.reportedAt) : "—"}</p>
             {detail.workOrder && (!isOwner || governancePanel) ? (
               <Link href={`/work-orders?wo=${detail.workOrder.id}` as Route} className="mt-3 inline-flex min-h-11 items-center font-medium text-brand-700">
                 Open work order {detail.workOrder.woNumber}

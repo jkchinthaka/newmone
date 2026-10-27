@@ -1,10 +1,13 @@
 "use client";
 
+import { formatEnumLabel } from "@/lib/display-labels";
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, CalendarClock, CheckCircle2, ChevronRight, Clock3, Cog, Factory, PackagePlus, PlusCircle, Settings2, UserRound, Wrench } from "lucide-react";
 
 import { DepartmentSelect, type DepartmentOption } from "@/components/departments/department-select";
 import { DateField, TimeField } from "@/components/forms/date-fields";
+import { colomboNowTime, colomboTodayYmd, formatCalendarDate, isCalendarDate } from "@/lib/colombo-datetime";
+import { formatDate as formatLocalizedDate } from "@/lib/localization";
 import { useMaintenanceJobApp } from "./provider";
 import type { Employee, MaintenanceJob, ModuleKey, RequestedItem } from "./types";
 
@@ -37,16 +40,18 @@ const editorSteps: Array<{ value: EditorStep; label: string }> = [
 ];
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  // Calendar "today" for the business is Asia/Colombo, not UTC.
+  return colomboTodayYmd();
 }
 
 function nowTime() {
-  return new Date().toTimeString().slice(0, 5);
+  return colomboNowTime();
 }
 
 function formatDate(value: string) {
   if (!value) return "Not set";
-  return new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  if (isCalendarDate(value)) return formatCalendarDate(value);
+  return formatLocalizedDate(value, { day: "2-digit", month: "short", year: "numeric", fallback: "Not set" });
 }
 
 function formatCurrency(value: number) {
@@ -111,7 +116,7 @@ function StatusBadge({ status }: { status: MaintenanceJob["status"] }) {
     COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200"
   };
 
-  return <span className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${styles[status]}`}>{status.replaceAll("_", " ")}</span>;
+  return <span className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${styles[status]}`}>{formatEnumLabel(status)}</span>;
 }
 
 function JobCard({ job, onOpen }: { job: MaintenanceJob; onOpen: () => void }) {

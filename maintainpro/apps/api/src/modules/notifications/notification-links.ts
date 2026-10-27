@@ -142,7 +142,6 @@ export function notificationContextHref(input: {
   }
 
   if (input.referenceType === "Vehicle" && id) {
-    if (/gate/i.test(title) || /gate/i.test(type)) return `/fleet/gate?vehicle=${id}`;
     return `/vehicles/${id}`;
   }
 
@@ -175,7 +174,7 @@ export function notificationNextAction(input: {
 }): string {
   const type = input.type ?? "";
   const title = input.title ?? "";
-  if (/gate/i.test(title) || /gate/i.test(type)) return "Open vehicle gate";
+  if (/gate/i.test(title) || /gate/i.test(type)) return "Open vehicle";
   if (/verif/i.test(title) || /verif/i.test(type)) return "Open work order verification";
   if (type === "LOW_STOCK") return "Open parts";
   if (type === "MAINTENANCE_DUE" || input.referenceType === "MaintenancePlan") return "Open PM plan";

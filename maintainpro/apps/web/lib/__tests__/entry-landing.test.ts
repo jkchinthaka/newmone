@@ -26,9 +26,9 @@ describe("authorized landing", () => {
     assert.equal(getPostLoginRedirect("MANAGER"), "/maintenance");
   });
 
-  it("sends fleet and gate roles to their fleet workspace", () => {
+  it("sends fleet managers to fleet and security officers to Requests", () => {
     assert.equal(getPostLoginRedirect("FLEET_MANAGER"), "/fleet");
-    assert.equal(getPostLoginRedirect("SECURITY_OFFICER"), "/fleet/gate");
+    assert.equal(getPostLoginRedirect("SECURITY_OFFICER"), "/requests");
   });
 
   it("keeps an authorized return path", () => {

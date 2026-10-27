@@ -100,6 +100,13 @@ const DEFAULT_SERVICE_ALERT_DAYS = 14;
 const DEFAULT_SERVICE_ALERT_MILEAGE = 500;
 const MAX_METER_LOG_LIMIT = 500;
 
+/** Statuses an approved gate override may release from. */
+const GATE_OVERRIDE_CLAIMABLE_STATUSES: VehicleStatus[] = [
+  VehicleStatus.AVAILABLE,
+  VehicleStatus.UNDER_MAINTENANCE,
+  VehicleStatus.OUT_OF_SERVICE
+];
+
 @Injectable()
 export class VehiclesService {
   constructor(
@@ -762,7 +769,8 @@ export class VehiclesService {
       blockReasons.push("Vehicle is on a manual gate hold");
     }
 
-    const serviceEvaluation = this.evaluateServiceWindow(vehicle);
+    // Judge service due against the odometer reading presented at the gate, not the stored one.
+    const serviceEvaluation = this.evaluateServiceWindow({ ...vehicle, currentMileage: data.meterReading });
     if (serviceEvaluation.overdue) {
       blockReasons.push("Vehicle service is overdue");
     }
@@ -915,9 +923,16 @@ export class VehiclesService {
       serviceStatus: vehicle.serviceStatus
     });
 
+    // An approved override may release a vehicle held in maintenance/out of service, so claim the
+    // status it was evaluated in. IN_USE and DISPOSED are never claimable (active movement / retired).
+    const claimStatus =
+      movementStatus === GateMovementStatus.OVERRIDE_APPROVED && GATE_OVERRIDE_CLAIMABLE_STATUSES.includes(vehicle.status)
+        ? vehicle.status
+        : VehicleStatus.AVAILABLE;
+
     const result = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.vehicle.updateMany({
-        where: { id, tenantId, status: VehicleStatus.AVAILABLE },
+        where: { id, tenantId, status: claimStatus },
         data: {
           status: VehicleStatus.IN_USE,
           currentMileage: data.meterReading,

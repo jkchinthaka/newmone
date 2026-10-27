@@ -11,13 +11,18 @@ import { calculateWorkOrderRiskScore } from "../src/common/utils/maintenance-ris
 
 describe("work order evidence governance", () => {
   const originalStorageFlag = process.env.STORAGE_UPLOADS_ENABLED;
+  const originalRoot = process.env.STORAGE_LOCAL_ROOT;
 
   beforeAll(() => {
+    // Uploads count as enabled only when the storage provider is ready (local root configured).
     process.env.STORAGE_UPLOADS_ENABLED = "true";
+    process.env.STORAGE_LOCAL_ROOT = "/srv/maintainpro-evidence-test";
   });
 
   afterAll(() => {
     process.env.STORAGE_UPLOADS_ENABLED = originalStorageFlag;
+    if (originalRoot === undefined) delete process.env.STORAGE_LOCAL_ROOT;
+    else process.env.STORAGE_LOCAL_ROOT = originalRoot;
   });
   const beforePhoto = {
     evidenceType: EvidenceType.BEFORE_PHOTO,
@@ -53,7 +58,7 @@ describe("work order evidence governance", () => {
   });
 
   it("does not mark complete when evidence is not required", () => {
-    const checklist = evaluateEvidenceRequirements(WorkOrderType.BREAKDOWN, [], {
+    const checklist = evaluateEvidenceRequirements(WorkOrderType.IMPROVEMENT, [], {
       storageEnabled: true
     });
 

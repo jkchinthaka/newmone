@@ -21,6 +21,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const HISTORY_ACTION_LABELS: Record<string, string> = {
+  WORK_ORDER_REJECTED: "Work order rejected — back for review",
+  WORK_ORDER_CANCELLED: "Work order cancelled — back for review",
   CREATED: "Request reported",
   START_REVIEW: "Review started",
   TRIAGE_UPDATE: "Triage updated",

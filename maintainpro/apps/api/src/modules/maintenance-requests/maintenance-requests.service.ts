@@ -61,6 +61,14 @@ import {
   type RequestStage
 } from "./request-lifecycle";
 
+/** Permissions (or their legacy alias) that let a user approve or convert a request. */
+const TRIAGE_NOTIFY_PERMISSIONS = [
+  "maintenance_requests.approve",
+  "maintenance_requests.convert",
+  "facility_issues.manage"
+] as const;
+const TRIAGE_NOTIFY_MAX = 50;
+
 type Actor = {
   sub: string;
   email?: string;
@@ -620,6 +628,9 @@ export class MaintenanceRequestsService {
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
     this.assertNotSelfGoverned(actor, current, "start review");
+    if (current.status !== MaintenanceRequestStatus.NEW) {
+      throw new BadRequestException("Only new requests can start review");
+    }
     assertValidTransition(current.status, MaintenanceRequestStatus.UNDER_REVIEW);
 
     const updated = await this.guardedUpdate(tid, current, {
@@ -778,13 +789,17 @@ export class MaintenanceRequestsService {
     return this.findOne(tid, id, actor, { forceAll: true });
   }
 
-  async approve(tenantId: string | null, id: string, actor: Actor) {
+  /**
+   * `reviewFirst` (approval inbox): a NEW request is moved NEW → UNDER_REVIEW → APPROVED in one
+   * transaction, recording both steps, instead of being rejected as an illegal jump.
+   */
+  async approve(tenantId: string | null, id: string, actor: Actor, options: { reviewFirst?: boolean } = {}) {
     actor = await this.withCurrentPermissions(actor);
     this.assertApprove(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
     this.assertNotSelfGoverned(actor, current, "accept");
-    assertValidTransition(current.status, MaintenanceRequestStatus.APPROVED);
+    const reviewing = this.assertReviewThenTransition(current.status, MaintenanceRequestStatus.APPROVED, options);
     this.assertCanonicalTargetResolved(current);
 
     let assetDomainCode: string | null | undefined;
@@ -802,27 +817,41 @@ export class MaintenanceRequestsService {
       assetDomainCode
     });
 
-    const updated = await this.guardedUpdate(tid, current, {
-      status: MaintenanceRequestStatus.APPROVED,
-      approvedAt: new Date(),
-      triageOwnerId: actor.sub,
-      jobDomain,
-      targetUnresolved: false
-    });
-
-    await this.appendHistory(tid, id, {
-      fromStatus: current.status,
-      toStatus: MaintenanceRequestStatus.APPROVED,
-      action: "APPROVED",
-      actorId: actor.sub,
-      metadata: {
-        jobDomain,
-        assetId: current.assetId,
-        vehicleId: current.vehicleId,
-        functionalLocationId: current.functionalLocationId,
-        priority: current.priority
-      },
-      isInternal: false
+    const updated = await this.withReviewTransaction(reviewing, async (db) => {
+      const row = await this.guardedUpdate(
+        tid,
+        current,
+        {
+          status: MaintenanceRequestStatus.APPROVED,
+          approvedAt: new Date(),
+          triageOwnerId: actor.sub,
+          jobDomain,
+          targetUnresolved: false,
+          ...(reviewing ? { reviewedAt: current.reviewedAt ?? new Date() } : {})
+        },
+        db
+      );
+      if (reviewing) await this.appendReviewStarted(tid, id, actor.sub, db);
+      await this.appendHistory(
+        tid,
+        id,
+        {
+          fromStatus: reviewing ? MaintenanceRequestStatus.UNDER_REVIEW : current.status,
+          toStatus: MaintenanceRequestStatus.APPROVED,
+          action: "APPROVED",
+          actorId: actor.sub,
+          metadata: {
+            jobDomain,
+            assetId: current.assetId,
+            vehicleId: current.vehicleId,
+            functionalLocationId: current.functionalLocationId,
+            priority: current.priority
+          },
+          isInternal: false
+        },
+        db
+      );
+      return row;
     });
     await writeAuditTrail(this.prisma, {
       entity: "MaintenanceRequest",
@@ -846,35 +875,54 @@ export class MaintenanceRequestsService {
     tenantId: string | null,
     id: string,
     actor: Actor,
-    dto: { question: string; publicNote?: string }
+    dto: { question: string; publicNote?: string },
+    options: { reviewFirst?: boolean } = {}
   ) {
     actor = await this.withCurrentPermissions(actor);
     this.assertTriage(actor);
     const tid = requireTenantId(tenantId);
     const current = await this.requireRequest(tid, id);
     this.assertNotSelfGoverned(actor, current, "request information on");
-    assertValidTransition(current.status, MaintenanceRequestStatus.NEEDS_INFORMATION);
+    const reviewing = this.assertReviewThenTransition(
+      current.status,
+      MaintenanceRequestStatus.NEEDS_INFORMATION,
+      options
+    );
     const question = dto.question?.trim();
     if (!question || question.length < 3) {
       throw new BadRequestException("A clear question for the requester is required (min 3 characters).");
     }
 
-    const updated = await this.guardedUpdate(tid, current, {
-      status: MaintenanceRequestStatus.NEEDS_INFORMATION,
-      publicUpdateNote: dto.publicNote?.trim() || question,
-      triageNotes: current.triageNotes
-        ? `${current.triageNotes}\n[Needs info] ${question}`
-        : `[Needs info] ${question}`,
-      triageOwnerId: actor.sub
-    });
-
-    await this.appendHistory(tid, id, {
-      fromStatus: current.status,
-      toStatus: MaintenanceRequestStatus.NEEDS_INFORMATION,
-      action: "NEEDS_INFORMATION",
-      actorId: actor.sub,
-      reason: question,
-      isInternal: false
+    const updated = await this.withReviewTransaction(reviewing, async (db) => {
+      const row = await this.guardedUpdate(
+        tid,
+        current,
+        {
+          status: MaintenanceRequestStatus.NEEDS_INFORMATION,
+          publicUpdateNote: dto.publicNote?.trim() || question,
+          triageNotes: current.triageNotes
+            ? `${current.triageNotes}\n[Needs info] ${question}`
+            : `[Needs info] ${question}`,
+          triageOwnerId: actor.sub,
+          ...(reviewing ? { reviewedAt: current.reviewedAt ?? new Date() } : {})
+        },
+        db
+      );
+      if (reviewing) await this.appendReviewStarted(tid, id, actor.sub, db);
+      await this.appendHistory(
+        tid,
+        id,
+        {
+          fromStatus: reviewing ? MaintenanceRequestStatus.UNDER_REVIEW : current.status,
+          toStatus: MaintenanceRequestStatus.NEEDS_INFORMATION,
+          action: "NEEDS_INFORMATION",
+          actorId: actor.sub,
+          reason: question,
+          isInternal: false
+        },
+        db
+      );
+      return row;
     });
     await writeAuditTrail(this.prisma, {
       entity: "MaintenanceRequest",
@@ -1747,9 +1795,10 @@ export class MaintenanceRequestsService {
       reason?: string;
       metadata?: Record<string, unknown>;
       isInternal?: boolean;
-    }
+    },
+    db: Pick<PrismaService, "maintenanceRequestHistory"> = this.prisma
   ) {
-    await this.prisma.maintenanceRequestHistory.create({
+    await db.maintenanceRequestHistory.create({
       data: {
         tenantId,
         requestId,
@@ -1804,26 +1853,64 @@ export class MaintenanceRequestsService {
   }
 
   private async notifyNewRequest(
-    _tenantId: string,
+    tenantId: string,
     request: { id: string; requestNumber: string; priority: Priority; isEmergency: boolean },
     reporterId: string
   ) {
+    const urgent = request.priority === Priority.CRITICAL || request.isEmergency;
     try {
       await this.notifications.createNotification({
         userId: reporterId,
         type: "SYSTEM_ALERT" as never,
         title: `Request ${request.requestNumber} submitted`,
         message: "Your maintenance request was received and is awaiting review.",
-        priority:
-          request.priority === Priority.CRITICAL || request.isEmergency
-            ? ("CRITICAL" as never)
-            : ("INFO" as never),
+        priority: urgent ? ("CRITICAL" as never) : ("INFO" as never),
         referenceId: request.id,
         referenceType: "MaintenanceRequest",
         dedupeKey: `mr-created:${request.id}`
       });
     } catch {
       // Notification failures must not block request creation
+    }
+
+    // People who can act on it must hear about it too, not only the reporter.
+    let triagers: Array<{ id: string }> = [];
+    try {
+      triagers = await this.prisma.user.findMany({
+        where: {
+          tenantId,
+          isActive: true,
+          id: { not: reporterId },
+          OR: [
+            { role: { name: { in: ["ADMIN", "SUPER_ADMIN"] } } },
+            { role: { permissionLinks: { some: { permission: { key: { in: [...TRIAGE_NOTIFY_PERMISSIONS] } } } } } }
+          ]
+        },
+        select: { id: true },
+        take: TRIAGE_NOTIFY_MAX
+      });
+    } catch {
+      triagers = [];
+    }
+    for (const triager of triagers ?? []) {
+      try {
+        await this.notifications.createNotification({
+          userId: triager.id,
+          type: "SYSTEM_ALERT" as never,
+          title: urgent
+            ? `Urgent request ${request.requestNumber} needs triage`
+            : `New request ${request.requestNumber} awaiting review`,
+          message: urgent
+            ? "A critical or emergency maintenance request was reported and needs immediate review."
+            : "A new maintenance request was reported and is waiting for review.",
+          priority: urgent ? ("CRITICAL" as never) : ("WARNING" as never),
+          referenceId: request.id,
+          referenceType: "MaintenanceRequest",
+          dedupeKey: `mr-created-triage:${request.id}:${triager.id}`
+        });
+      } catch {
+        // One failed notice must not stop the rest
+      }
     }
   }
 
@@ -2112,9 +2199,10 @@ export class MaintenanceRequestsService {
   private async guardedUpdate(
     tenantId: string,
     current: { id: string; status: MaintenanceRequestStatus; version?: number | null },
-    data: Prisma.MaintenanceRequestUncheckedUpdateManyInput
+    data: Prisma.MaintenanceRequestUncheckedUpdateManyInput,
+    db: Pick<PrismaService, "maintenanceRequest"> = this.prisma
   ) {
-    const claimed = await this.prisma.maintenanceRequest.updateMany({
+    const claimed = await db.maintenanceRequest.updateMany({
       where: {
         id: current.id,
         tenantId,
@@ -2128,11 +2216,54 @@ export class MaintenanceRequestsService {
         "This request was updated by someone else. Refresh to see the latest status and try again."
       );
     }
-    const row = await this.prisma.maintenanceRequest.findFirst({
+    const row = await db.maintenanceRequest.findFirst({
       where: { id: current.id, tenantId }
     });
     if (!row) throw new NotFoundException("Maintenance request not found");
     return row;
+  }
+
+  /** Validates `from → target`, or `NEW → UNDER_REVIEW → target` when the caller asks to review first. */
+  private assertReviewThenTransition(
+    from: MaintenanceRequestStatus,
+    target: MaintenanceRequestStatus,
+    options: { reviewFirst?: boolean }
+  ): boolean {
+    if (options.reviewFirst && from === MaintenanceRequestStatus.NEW) {
+      assertValidTransition(from, MaintenanceRequestStatus.UNDER_REVIEW);
+      assertValidTransition(MaintenanceRequestStatus.UNDER_REVIEW, target);
+      return true;
+    }
+    assertValidTransition(from, target);
+    return false;
+  }
+
+  private async withReviewTransaction<T>(
+    transactional: boolean,
+    run: (db: Prisma.TransactionClient | PrismaService) => Promise<T>
+  ): Promise<T> {
+    if (!transactional) return run(this.prisma);
+    return this.prisma.$transaction((tx) => run(tx));
+  }
+
+  private appendReviewStarted(
+    tenantId: string,
+    requestId: string,
+    actorId: string,
+    db: Pick<PrismaService, "maintenanceRequestHistory">
+  ) {
+    return this.appendHistory(
+      tenantId,
+      requestId,
+      {
+        fromStatus: MaintenanceRequestStatus.NEW,
+        toStatus: MaintenanceRequestStatus.UNDER_REVIEW,
+        action: "START_REVIEW",
+        actorId,
+        isInternal: true
+      },
+      db
+    );
   }
 
   private assertTriage(actor: Actor) {

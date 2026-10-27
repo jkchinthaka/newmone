@@ -1,5 +1,6 @@
 "use client";
 
+import { ButtonSpinner, TableLoadingRows } from "@/components/ui/loading";
 import Link from "next/link";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
@@ -7,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Database, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-import { EmptyState, ErrorState, KpiCard, SkeletonCard } from "@/components/ui/dashboard";
+import { EmptyState, ErrorState, KpiCard } from "@/components/ui/dashboard";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { PermissionState } from "@/components/ui/page-state";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
@@ -34,7 +35,6 @@ export function AdminRolesPage() {
     queryKey: ["admin", "roles-permissions"],
     queryFn: fetchAdminRolesPermissionsMatrix,
     enabled: isAdmin,
-    refetchInterval: 60_000
   });
 
   const syncMutation = useMutation({
@@ -111,16 +111,18 @@ export function AdminRolesPage() {
               className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               title="Add any permission keys defined in source code but missing from this database"
             >
-              <Database size={15} className={syncMutation.isPending ? "animate-pulse" : ""} aria-hidden="true" />
+              {syncMutation.isPending ? <ButtonSpinner className="h-[15px] w-[15px]" /> : <Database size={15} aria-hidden="true" />}
               {syncMutation.isPending ? "Syncing…" : "Sync Permission Catalog"}
             </button>
           ) : null}
           <button
             type="button"
             onClick={() => query.refetch()}
+            disabled={query.isFetching}
+            aria-busy={query.isFetching}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >
-            <RefreshCw size={15} className={query.isFetching ? "animate-spin" : ""} aria-hidden="true" /> Refresh
+            {query.isFetching ? <ButtonSpinner className="h-[15px] w-[15px]" /> : <RefreshCw size={15} aria-hidden="true" />} Refresh
           </button>
         </div>
       </div>
@@ -175,7 +177,7 @@ export function AdminRolesPage() {
       ) : null}
 
       {query.isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2" aria-busy="true"><SkeletonCard /><SkeletonCard /></div>
+        <div className="rounded-xl border border-slate-200 bg-white"><TableLoadingRows label="Loading roles" /></div>
       ) : query.isError ? (
         <ErrorState message={`Could not load roles matrix. ${query.error instanceof Error ? query.error.message : ""}`} onRetry={() => query.refetch()} />
       ) : filteredMatrix && filteredMatrix.roles.length === 0 ? (

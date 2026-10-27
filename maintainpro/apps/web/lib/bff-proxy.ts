@@ -91,6 +91,15 @@ function isSessionCookieUpdatePath(pathSegments: string[]): boolean {
   );
 }
 
+/**
+ * Self-service credential changes revoke every other session and return a fresh token
+ * pair for this one; it must replace the (now revoked) cookies.
+ */
+export function isCredentialChangePath(method: string, pathSegments: string[]): boolean {
+  const path = pathSegments.join("/");
+  return method.toUpperCase() === "PATCH" && (path === "settings/password" || path === "settings/profile");
+}
+
 function safeEqual(a: string, b: string): boolean {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
@@ -149,15 +158,19 @@ function applySessionCookies(
 async function requestUpstreamTokenRefresh(
   upstreamBase: string,
   refreshToken: string,
-  requestId: string
+  requestId: string,
+  incomingXRealIp: string | null
 ): Promise<AuthTokenPayload | null> {
   try {
+    const headers = new Headers({
+      "content-type": "application/json",
+      "X-Request-Id": requestId
+    });
+    // Throttle the refresh against the browser client, not the BFF host.
+    applyCanonicalClientIpHeader(headers, incomingXRealIp);
     const refreshResponse = await fetch(useIpv4Loopback(joinUpstreamPath(upstreamBase, ["auth", "refresh"])), {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "X-Request-Id": requestId
-      },
+      headers,
       body: JSON.stringify({ refreshToken }),
       redirect: "manual",
       signal: AbortSignal.timeout(15_000)
@@ -342,11 +355,12 @@ export async function proxyBffRequest(
   let upstream: Response = attempt.response;
 
   // Rotate the session once, server side, instead of surfacing an expired-access 401.
-  // Concurrent 401 GETs share one upstream refresh via runExclusiveSilentRefresh.
+  // Concurrent 401 GETs of the same session share one upstream refresh (keyed by refresh token).
   let refreshedTokens: AuthTokenPayload | null = null;
   if (upstream.status === 401 && canSilentlyRefreshSession(method, pathSegments, session)) {
-    refreshedTokens = await runExclusiveSilentRefresh(() =>
-      requestUpstreamTokenRefresh(upstreamBase, String(session.refreshToken), requestId)
+    const refreshToken = String(session.refreshToken);
+    refreshedTokens = await runExclusiveSilentRefresh(refreshToken, () =>
+      requestUpstreamTokenRefresh(upstreamBase, refreshToken, requestId, request.headers.get("x-real-ip"))
     );
 
     if (refreshedTokens) {
@@ -408,7 +422,11 @@ export async function proxyBffRequest(
   }
 
   const tokens = extractAuthTokens(parsedBody);
-  const shouldSetSession = isSessionCookieUpdatePath(pathSegments) && upstream.ok;
+  const credentialChange =
+    isCredentialChangePath(method, pathSegments) &&
+    typeof tokens.accessToken === "string" &&
+    tokens.accessToken.trim().length > 0;
+  const shouldSetSession = (isSessionCookieUpdatePath(pathSegments) || credentialChange) && upstream.ok;
   const shouldClearSession =
     (path === "auth/logout" || path === "auth/logout-all") && upstream.ok;
 
@@ -447,7 +465,7 @@ export async function proxyBffRequest(
   if (shouldClearSession) {
     applySessionCookies(response, {}, { clear: true });
   } else if (shouldSetSession) {
-    const rotateCsrf = !(pathSegments[0] === "tenants" && pathSegments[2] === "switch");
+    const rotateCsrf = !credentialChange && !(pathSegments[0] === "tenants" && pathSegments[2] === "switch");
     applySessionCookies(response, tokens, { rotateCsrf, persistent: rememberSignIn(request, pathSegments) });
   } else if (refreshedTokens) {
     // Persist the silently rotated session. The CSRF token is deliberately left alone:
