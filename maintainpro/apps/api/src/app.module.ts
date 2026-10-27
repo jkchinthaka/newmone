@@ -57,7 +57,6 @@ import { JobCodesModule } from "./modules/job-codes/job-codes.module";
 import { MaintenanceModule } from "./modules/maintenance/maintenance.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { OperationsModule } from "./modules/operations/operations.module";
-import { PredictiveAiModule } from "./modules/predictive-ai/predictive-ai.module";
 import { QueuesModule } from "./modules/queues/queues.module";
 import { ReportsModule } from "./modules/reports/reports.module";
 import { FraudControlModule } from "./modules/fraud-control/fraud-control.module";
@@ -196,7 +195,8 @@ normalizeDatabaseEnvironment();
     FraudControlModule,
     ManagementIntelligenceModule,
     UtilitiesModule,
-    PredictiveAiModule,
+    // PredictiveAiModule (AI Copilot) is not registered: its routes read and changed data
+    // without tenant or permission checks. Its files stay for reference only.
     CleaningModule,
     FacilitiesModule,
     OrganizationModule,
