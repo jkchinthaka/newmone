@@ -18,7 +18,8 @@ import {
   LOGIN_LOCKOUT_SECONDS,
   formatCountdown,
   formatLockLength,
-  lockSecondsFromError
+  lockSecondsFromError,
+  throttleSecondsFromError
 } from "@/lib/support-links";
 
 type LoginForm = {
@@ -67,6 +68,7 @@ export default function LoginPage() {
   // Wrong passwords counted in this browser per email, to warn before the lock.
   const [failedByEmail, setFailedByEmail] = useState<Record<string, number>>({});
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [lockReason, setLockReason] = useState<"account" | "device">("account");
   const [now, setNow] = useState(() => Date.now());
   const lockSecondsLeft = lockedUntil ? Math.max(0, Math.ceil((lockedUntil - now) / 1000)) : 0;
   const locked = lockSecondsLeft > 0;
@@ -168,8 +170,11 @@ export default function LoginPage() {
       window.location.replace(resolveAuthorizedDestination(payload.user, returnTo, permissions));
     } catch (e) {
       const emailKey = resolveLoginEmail(values.email).toLowerCase();
-      const lockSeconds = lockSecondsFromError(e);
+      const accountLockSeconds = lockSecondsFromError(e);
+      const deviceWaitSeconds = accountLockSeconds ? null : throttleSecondsFromError(e);
+      const lockSeconds = accountLockSeconds ?? deviceWaitSeconds;
       if (lockSeconds) {
+        setLockReason(accountLockSeconds ? "account" : "device");
         setFailedByEmail((current) => ({ ...current, [emailKey]: 0 }));
         setNow(Date.now());
         setLockedUntil(Date.now() + lockSeconds * 1000);
@@ -349,7 +354,7 @@ export default function LoginPage() {
                   <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950" role="status" aria-live="polite">
                     <p className="flex items-center gap-2 text-sm font-semibold">
                       <Lock aria-hidden size={15} />
-                      Too many wrong passwords
+                      {lockReason === "account" ? "Too many wrong passwords" : "Too many sign-in tries from this device"}
                     </p>
                     <p className="mt-1 text-sm">
                       Try again in <span className="font-mono text-base font-semibold tabular-nums">{formatCountdown(lockSecondsLeft)}</span>

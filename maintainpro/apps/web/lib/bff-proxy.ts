@@ -367,6 +367,11 @@ export async function proxyBffRequest(
 
   const responseHeaders = new Headers();
   responseHeaders.set("X-Request-Id", sanitizeRequestId(upstream.headers.get("x-request-id")) || requestId);
+  // Rate-limit replies tell the browser how long to wait (the sign-in page counts this down).
+  const retryAfter = upstream.headers.get("retry-after");
+  if (retryAfter && /^\d{1,5}$/.test(retryAfter.trim())) {
+    responseHeaders.set("Retry-After", retryAfter.trim());
+  }
   const contentType = upstream.headers.get("content-type");
   if (contentType) {
     responseHeaders.set("content-type", contentType);

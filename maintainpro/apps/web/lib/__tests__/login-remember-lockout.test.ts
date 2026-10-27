@@ -10,7 +10,8 @@ import {
   LOGIN_LOCKOUT_SECONDS,
   formatCountdown,
   formatLockLength,
-  lockSecondsFromError
+  lockSecondsFromError,
+  throttleSecondsFromError
 } from "../support-links";
 
 function fakeRequest(header?: string, cookie?: string) {
@@ -58,4 +59,14 @@ test("a locked account counts down instead of saying the password is wrong", () 
   assert.match(page, /disabled=\{busy \|\| locked\}/);
   assert.match(page, /Try again in \{formatCountdown\(lockSecondsLeft\)\}/);
   assert.match(page, /rememberMe: false/);
+});
+
+test("too many tries from one device also counts down, using Retry-After", () => {
+  assert.equal(throttleSecondsFromError({ response: { status: 429, headers: { "retry-after": "42" } } }), 42);
+  assert.equal(throttleSecondsFromError({ response: { status: 429, headers: {} } }), 60);
+  assert.equal(throttleSecondsFromError({ response: { status: 401 } }), null);
+  const proxy = readFileSync(path.resolve(__dirname, "../bff-proxy.ts"), "utf8");
+  assert.match(proxy, /responseHeaders\.set\("Retry-After", retryAfter\.trim\(\)\)/);
+  const api = readFileSync(path.resolve(__dirname, "../../../api/src/modules/auth/auth.controller.ts"), "utf8");
+  assert.match(api, /@Throttle\(\{ default: \{ limit: 20, ttl: 60000 \} \}\)\s*async login\(/);
 });

@@ -22,6 +22,18 @@ export function formatCountdown(secondsLeft: number): string {
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, "0")}`;
 }
 
+/**
+ * Seconds to wait after a 429 that is not an account lock (too many tries from this device).
+ * Uses the Retry-After header when present, otherwise one minute.
+ */
+export function throttleSecondsFromError(error: unknown): number | null {
+  const response = (error as { response?: { status?: number; headers?: Record<string, unknown> } })?.response;
+  if (response?.status !== 429) return null;
+  const raw = response.headers?.["retry-after"];
+  const seconds = Number(Array.isArray(raw) ? raw[0] : raw);
+  return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : 60;
+}
+
 /** Seconds to wait when the API says the account is locked; null for any other error. */
 export function lockSecondsFromError(error: unknown): number | null {
   const response = (error as { response?: { status?: number; data?: unknown } })?.response;

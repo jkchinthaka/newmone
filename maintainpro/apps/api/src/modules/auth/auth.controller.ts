@@ -57,7 +57,9 @@ export class AuthController {
     description:
       "Successful login returns HTTP 200 OK with user + token JSON for trusted BFF/mobile clients. Browser session cookies are owned by the Next.js BFF only."
   })
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  // Per client IP. Higher than the per-account lock (5 wrong passwords) so users see the
+  // account countdown, while one device still cannot hammer many accounts.
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   async login(@Body() dto: LoginDto) {
     // Explicit status via AUTH_LOGIN_SUCCESS_HTTP_STATUS — not NestJS POST default 201.
     return this.authService.login(dto);
