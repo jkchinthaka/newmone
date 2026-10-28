@@ -104,6 +104,20 @@ function unwrap<T>(payload: unknown): T {
   return payload as T;
 }
 
+/** Site / location pickers for the request form; reporters do not need organization access. */
+export type RequestSiteOption = { id: string; code: string; name: string };
+export type RequestLocationOption = { id: string; code: string; name: string; type?: string | null; parentId?: string | null };
+
+export async function listRequestSites(): Promise<RequestSiteOption[]> {
+  const res = await apiClient.get("/maintenance-requests/site-lookup");
+  return unwrap<RequestSiteOption[]>(res.data) ?? [];
+}
+
+export async function listRequestLocations(siteId: string): Promise<RequestLocationOption[]> {
+  const res = await apiClient.get("/maintenance-requests/location-lookup", { params: { siteId } });
+  return unwrap<RequestLocationOption[]>(res.data) ?? [];
+}
+
 export async function listProblemCategories() {
   const res = await apiClient.get("/maintenance-requests/problem-categories");
   return unwrap<{ items: ProblemCategory[] }>(res.data);

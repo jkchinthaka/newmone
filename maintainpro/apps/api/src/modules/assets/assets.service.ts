@@ -1401,6 +1401,32 @@ export class AssetsService {
     return normalized;
   }
 
+  /**
+   * Next free tag for the register wizard, e.g. AST-MCH0007 (AST- + type code + 4-digit number).
+   * Only a suggestion: create() still checks the format and uniqueness.
+   */
+  async suggestNextAssetTag(tenantId: string | null | undefined, category?: string | null) {
+    const tid = requireTenantId(tenantId);
+    const prefix = `AST-${assetTagTypeCode(category)}`;
+    const rows = await this.prisma.asset.findMany({
+      where: { tenantId: tid, assetTag: { startsWith: prefix } },
+      select: { assetTag: true },
+      take: 5000
+    });
+    let next =
+      rows.reduce((max, row) => {
+        const match = row.assetTag.slice(prefix.length).match(/^(\d+)$/);
+        return match ? Math.max(max, Number(match[1])) : max;
+      }, 0) + 1;
+    const taken = new Set(rows.map((row) => row.assetTag));
+    let assetTag = `${prefix}${String(next).padStart(4, "0")}`;
+    while (taken.has(assetTag)) {
+      next += 1;
+      assetTag = `${prefix}${String(next).padStart(4, "0")}`;
+    }
+    return { assetTag };
+  }
+
   /** MP-003: assetTag is tenant-scoped — see @@unique([tenantId, assetTag]). */
   private async ensureUniqueAssetTag(tenantId: string, assetTag: string, excludeId?: string) {
     const existing = await this.prisma.asset.findUnique({
@@ -1890,4 +1916,20 @@ export class AssetsService {
   private timestampSlug() {
     return new Date().toISOString().replace(/[:.]/g, "-");
   }
+}
+
+/** Short type code used inside suggested asset tags (AST-MCH0001, AST-EQP0001, ...). */
+export function assetTagTypeCode(category?: string | null): string {
+  const codes: Record<string, string> = {
+    MACHINE: "MCH",
+    EQUIPMENT: "EQP",
+    TOOL: "TOL",
+    INFRASTRUCTURE: "BLD",
+    VEHICLE: "VEH",
+    OTHER: "OTH"
+  };
+  const key = String(category ?? "").trim().toUpperCase();
+  if (codes[key]) return codes[key];
+  const letters = key.replace(/[^A-Z]/g, "").slice(0, 3);
+  return letters.length === 3 ? letters : "AST";
 }

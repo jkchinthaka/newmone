@@ -1,5 +1,6 @@
 "use client";
 
+import { StartJobDialog } from "./start-job-dialog";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -137,6 +138,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
   });
   const [completionTarget, setCompletionTarget] = useState<WorkOrder | null>(null);
   const [holdTarget, setHoldTarget] = useState<WorkOrder | null>(null);
+  const [startTarget, setStartTarget] = useState<WorkOrder | null>(null);
   const [rejectTarget, setRejectTarget] = useState<WorkOrder | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [approveAssignTarget, setApproveAssignTarget] = useState<WorkOrder | null>(null);
@@ -340,6 +342,12 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
 
     if (status === "ON_HOLD") {
       setHoldTarget(workOrder);
+      return;
+    }
+
+    // First start goes through the camera (live before photo); resume after hold does not.
+    if (status === "IN_PROGRESS" && workOrder.status !== "ON_HOLD" && !workOrder.startDate) {
+      setStartTarget(workOrder);
       return;
     }
 
@@ -1124,6 +1132,16 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
         }}
       />
 
+      {startTarget ? (
+        <StartJobDialog
+          job={startTarget}
+          onClose={() => setStartTarget(null)}
+          onStarted={async () => {
+            setStartTarget(null);
+            await workOrdersQuery.refetch();
+          }}
+        />
+      ) : null}
       <HoldWorkOrderModal
         open={Boolean(holdTarget)}
         workOrder={holdTarget}

@@ -1,10 +1,15 @@
 import { formatColomboDateTime } from "./colombo-datetime";
 
+/**
+ * The job flow every user sees (display only): a technician starts with a live before photo,
+ * finishes with an after photo, then a supervisor checks it before it is closed.
+ */
 export const WORK_ORDER_DRAWER_STEPS = [
-  "Requested",
+  "New",
   "Assigned",
-  "In progress",
-  "Completed",
+  "Working",
+  "Done",
+  "Supervisor check",
   "Closed"
 ] as const;
 
@@ -17,15 +22,27 @@ export type WorkOrderDrawerStepper =
 const STEP_INDEX: Record<string, number> = {
   OPEN: 0,
   PLANNED: 0,
+  APPROVED: 0,
   ASSIGNED: 1,
   IN_PROGRESS: 2,
   ON_HOLD: 2,
+  WAITING_PARTS: 2,
   REWORK_REQUIRED: 2,
   OVERDUE: 2,
   TECHNICIAN_COMPLETED: 3,
-  VERIFIED: 3,
-  COMPLETED: 3,
-  CLOSED: 4
+  VERIFIED: 4,
+  COMPLETED: 5,
+  CLOSED: 5
+};
+
+/** What the person on the job does next, in one short line. */
+export const WORK_ORDER_STEP_HELP: Record<WorkOrderDrawerStep, string> = {
+  New: "Waiting to be approved and assigned.",
+  Assigned: "Technician: press Start and take a before photo with the camera.",
+  Working: "Do the work. When finished, take an after photo and complete the job.",
+  Done: "Supervisor: check the photos and the work.",
+  "Supervisor check": "Checked. An authorised person closes the job.",
+  Closed: "Finished."
 };
 
 /** Display-only progress. Does not change the stored status. */

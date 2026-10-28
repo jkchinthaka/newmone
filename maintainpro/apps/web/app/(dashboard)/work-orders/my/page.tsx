@@ -1,5 +1,6 @@
 "use client";
 
+import { StartJobDialog } from "@/components/work-orders/start-job-dialog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -15,8 +16,7 @@ import { resolveMyJobFilter, myJobPurpose } from "@/lib/my-job-filters";
 import { getVisibleNavigationItems } from "@/lib/navigation";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
-import { JOB_CHANGED_MESSAGE, classifyJobActionError } from "@/lib/job-action-outcome";
-import { mutationErrorMessage, showMutationError } from "@/lib/mutation-feedback";
+import { mutationErrorMessage } from "@/lib/mutation-feedback";
 import { humanWorkOrderStatusLabel } from "@/components/work-orders/helpers";
 import { useFocusTrap } from "@/lib/use-focus-trap";
 import { colomboTodayYmd, formatCalendarDate } from "@/lib/colombo-datetime";
@@ -113,6 +113,7 @@ export default function MyJobsPage() {
   const [forbidden, setForbidden] = useState(false);
   const [offline, setOffline] = useState(false);
   const [startingId, setStartingId] = useState<string | null>(null);
+  const [startTarget, setStartTarget] = useState<MyJob | null>(null);
   const [blocker, setBlocker] = useState<string | null>(null);
   const [capped, setCapped] = useState(false);
   const [moreViewsOpen, setMoreViewsOpen] = useState(false);
@@ -213,36 +214,15 @@ export default function MyJobsPage() {
     onHold: items.filter((job) => job.status === "ON_HOLD").length
   };
 
-  async function startJob(job: MyJob) {
+  // Start opens the camera first: the job only starts after a live before photo (see StartJobDialog).
+  function startJob(job: MyJob) {
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       setOffline(true);
       setBlocker("You are offline. Start was not sent.");
       return;
     }
-    setStartingId(job.id);
     setBlocker(null);
-    try {
-      await apiClient.post(`/work-orders/${job.id}/start`, { expectedVersion: job.version });
-      toast.success(`${job.woNumber} started.`);
-      await refresh();
-    } catch (err) {
-      const outcome = classifyJobActionError(err);
-      if (outcome === "conflict") {
-        // Someone else changed the job: show the fresh row and keep the user here.
-        toast.message(JOB_CHANGED_MESSAGE);
-        await refresh();
-      } else if (outcome === "unavailable") {
-        setBlocker(mutationErrorMessage(err, "This job could not be started."));
-        showMutationError(err, "This job could not be started.", () => void startJob(job));
-      } else {
-        const message = mutationErrorMessage(err, "This job could not be started.");
-        setBlocker(message);
-        toast.error(message);
-        await refresh();
-      }
-    } finally {
-      setStartingId(null);
-    }
+    setStartTarget(job);
   }
 
   function holdJob(job: MyJob) {
@@ -386,6 +366,16 @@ export default function MyJobsPage() {
 
       {capped ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">Showing the first 500 assigned jobs. Narrow the list with search if you cannot find a job.</p> : null}
       {blocker ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="alert">{blocker}</p> : null}
+      {startTarget ? (
+        <StartJobDialog
+          job={startTarget}
+          onClose={() => setStartTarget(null)}
+          onStarted={async () => {
+            setStartTarget(null);
+            await refresh();
+          }}
+        />
+      ) : null}
       {holdTarget ? (
         <HoldJobDialog
           job={holdTarget}
@@ -427,7 +417,7 @@ export default function MyJobsPage() {
               <JobBody
                 job={job}
                 starting={startingId === job.id}
-                onStart={() => void startJob(job)}
+                onStart={() => startJob(job)}
                 onHold={() => holdJob(job)}
                 onResume={() => void resumeJob(job)}
                 onComplete={() => void completeJob(job)}

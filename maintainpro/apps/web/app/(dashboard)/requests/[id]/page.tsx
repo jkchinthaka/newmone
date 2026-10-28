@@ -521,7 +521,9 @@ export default function RequestDetailPage() {
                     ) : (
                       <EntityPicker
                         key="location"
-                        endpoint="/organization/locations"
+                        // Request-scoped lookup: reviewers need not hold organization.view.
+                        endpoint="/maintenance-requests/location-lookup"
+                        searchParam="q"
                         value={targetId}
                         onChange={(value) => setTargetId(value)}
                         displayField="name"

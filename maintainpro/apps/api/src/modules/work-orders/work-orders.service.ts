@@ -1,5 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
+import { assertJobDetailsEditableBy } from "./work-order-edit-rights";
 import {
+  EvidenceType,
   ApprovalDecisionStatus,
   ApprovalProcessType,
   ApprovalDecisionOutcome,
@@ -68,6 +70,8 @@ import {
 import {
   assertEvidenceForSupervisorVerification,
   assertEvidenceForTechnicianCompletion,
+  assertStartPhotoPresent,
+  isStorageUploadsEnabled,
   evaluateEvidenceRequirements,
   requiresQrVerification
 } from "../../common/utils/work-order-evidence-governance";
@@ -1257,6 +1261,7 @@ export class WorkOrdersService {
     actor?: Actor
   ) {
     const existing = await this.findOne(id, actor);
+    assertJobDetailsEditableBy(actor?.role, existing, data);
     assertClosedRecordContentEditable(existing.status, {
       overrideReason: data.overrideReason,
       actorRole: actor?.role as RoleName | undefined
@@ -2290,6 +2295,30 @@ export class WorkOrdersService {
       }
       if (data.expectedVersion == null || !Number.isFinite(Number(data.expectedVersion))) {
         throw new BadRequestException("expectedVersion is required");
+      }
+      // First start only (not resume after hold): a live before photo proves the technician is at
+      // the machine/place. Admins may start without it, with a recorded reason.
+      if (current.status !== WorkOrderStatus.ON_HOLD && !current.startDate && isStorageUploadsEnabled()) {
+        const startItems = await this.prisma.evidenceAttachment.findMany({
+          where: { workOrderId: id, deletedAt: null, evidenceType: EvidenceType.BEFORE_PHOTO },
+          select: { evidenceType: true, status: true, verificationStatus: true }
+        });
+        const startOverride =
+          Boolean(data.overrideReason?.trim()) &&
+          (actor?.role === RoleName.ADMIN || actor?.role === RoleName.SUPER_ADMIN)
+            ? data.overrideReason
+            : undefined;
+        assertStartPhotoPresent({ items: startItems, overrideReason: startOverride });
+        if (startOverride) {
+          await this.recordAudit({
+            entity: "WorkOrder",
+            entityId: id,
+            action: AuditAction.UPDATE,
+            actor,
+            reason: startOverride,
+            metadata: { event: "start_photo_overridden" }
+          });
+        }
       }
       await this.startLabourSession(id, labourActorId, tenantId);
     }

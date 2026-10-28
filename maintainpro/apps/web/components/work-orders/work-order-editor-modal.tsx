@@ -13,6 +13,7 @@ import { visibleWorkOrderTab, workOrderTabLoads } from "@/lib/operational-deep-l
 import { dialogTabTrapDecision, workOrderDrawerEscapeDecision } from "@/lib/overlay-dismiss";
 import { disableSubmitControl } from "@/lib/submit-lock";
 import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
+import { canEditJobDetails } from "@/lib/work-order-edit-rights";
 import { canVerifyWorkOrder, isWorkOrderStarted } from "@/lib/work-order-governance";
 import { queueNextControl } from "@/lib/batch-3-presentation";
 import { isWorkOrderDrawerReadOnly } from "@/lib/work-order-drawer-display";
@@ -337,6 +338,9 @@ export function WorkOrderEditorModal({
 
   const assetRequired = isCreateMode && requiresAssetOrVehicle(formState.type);
   const overviewEditable = isCreateMode || editingOverview;
+  // Job details (title, description, cost, hours) are Admin/Super Admin only after creation (API: JOB_DETAILS_ADMIN_ONLY);
+  // managers still edit the dates and technician.
+  const detailsEditable = overviewEditable && (isCreateMode || canEditJobDetails(currentUser.role));
   const scheduleLocked = !isCreateMode && Boolean(workOrder && isWorkOrderStarted(workOrder.status));
   const overviewBaseline: OverviewDraft = {
     title: initialState.title,
@@ -591,8 +595,10 @@ export function WorkOrderEditorModal({
 
                 setFormError(null);
                 onEdit({
-                  title: formState.title.trim(),
-                  description: formState.description.trim(),
+                  // Non-admins never send detail fields, so a planning save cannot trip JOB_DETAILS_ADMIN_ONLY.
+                  ...(detailsEditable
+                    ? { title: formState.title.trim(), description: formState.description.trim() }
+                    : {}),
                   dueDate:
                     scheduleLocked || !formState.dueDate
                       ? undefined
@@ -602,11 +608,11 @@ export function WorkOrderEditorModal({
                       ? undefined
                       : new Date(`${formState.expectedCompletionDate}T00:00:00.000Z`).toISOString(),
                   estimatedCost:
-                    formState.estimatedCost.trim() === ""
+                    !detailsEditable || formState.estimatedCost.trim() === ""
                       ? undefined
                       : Number(formState.estimatedCost),
                   estimatedHours:
-                    formState.estimatedHours.trim() === ""
+                    !detailsEditable || formState.estimatedHours.trim() === ""
                       ? undefined
                       : Number(formState.estimatedHours)
                 });
@@ -637,12 +643,17 @@ export function WorkOrderEditorModal({
                   </button>
                 ) : null}
                 </div>
+              {overviewEditable && !detailsEditable ? (
+                <p className="mb-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+                  Only an Admin can change the title, description, cost and hours after the job is created. You can change the dates and technician.
+                </p>
+              ) : null}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
                   <span className="font-medium">Title</span>
                   <input
                     required
-                    readOnly={!overviewEditable}
+                    readOnly={!detailsEditable}
                     value={formState.title}
                     onChange={(event) => setFormState((current) => ({ ...current, title: event.target.value }))}
                     className="field w-full"
@@ -653,7 +664,7 @@ export function WorkOrderEditorModal({
                   <span className="font-medium">Description</span>
                   <textarea
                     required
-                    readOnly={!overviewEditable}
+                    readOnly={!detailsEditable}
                     value={formState.description}
                     onChange={(event) => setFormState((current) => ({ ...current, description: event.target.value }))}
                     rows={3}
@@ -712,7 +723,7 @@ export function WorkOrderEditorModal({
                         min="0"
                         step="0.01"
                         value={formState.estimatedCost}
-                        readOnly={!overviewEditable}
+                        readOnly={!detailsEditable}
                         onChange={(event) =>
                           setFormState((current) => ({ ...current, estimatedCost: event.target.value }))
                         }
@@ -727,7 +738,7 @@ export function WorkOrderEditorModal({
                         min="0"
                         step="0.1"
                         value={formState.estimatedHours}
-                        readOnly={!overviewEditable}
+                        readOnly={!detailsEditable}
                         onChange={(event) =>
                           setFormState((current) => ({ ...current, estimatedHours: event.target.value }))
                         }

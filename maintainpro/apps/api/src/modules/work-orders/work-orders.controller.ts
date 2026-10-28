@@ -499,6 +499,9 @@ export class WorkOrdersController {
       capturedAt?: string;
       source?: string;
       clientGeneratedId?: string;
+      latitude?: number;
+      longitude?: number;
+      accuracyMeters?: number;
     }
   ) {
     const data = await this.evidenceService.createWorkOrderUploadRequest(id, body as never, req.user);
@@ -848,11 +851,17 @@ export class WorkOrdersController {
   async startWorkOrder(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { expectedVersion?: number; idempotencyKey?: string }
+    // overrideReason: Admin/Super Admin only, to start without the before photo (audited).
+    @Body() body: { expectedVersion?: number; idempotencyKey?: string; overrideReason?: string }
   ) {
     const data = await this.workOrdersService.updateStatus(
       id,
-      { status: WorkOrderStatus.IN_PROGRESS, expectedVersion: body.expectedVersion, idempotencyKey: body.idempotencyKey },
+      {
+        status: WorkOrderStatus.IN_PROGRESS,
+        expectedVersion: body.expectedVersion,
+        idempotencyKey: body.idempotencyKey,
+        overrideReason: typeof body.overrideReason === "string" ? body.overrideReason.slice(0, 500) : undefined
+      },
       req.user
     );
     return { data, message: "Work order started" };

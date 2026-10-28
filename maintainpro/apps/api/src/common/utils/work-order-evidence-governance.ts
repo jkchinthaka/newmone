@@ -5,25 +5,17 @@ import { EvidenceType, EvidenceVerificationStatus, QrVerificationStatus, WorkOrd
 import { EvidenceStorageProviderService } from "../../modules/evidence/evidence-storage-provider.service";
 
 /**
- * Single list of work order types requiring before/after photos. Used at technician completion,
- * supervisor verification, emergency close and close (work-order-governance re-exports it).
+ * Every job type needs a live before photo (to start) and an after photo (to complete).
+ * Business decision 2026-10: photos replace the QR tag scan as proof the technician was at the
+ * machine/place, so the rule no longer depends on the job type.
  */
-export const EVIDENCE_REQUIRED_WORK_ORDER_TYPES = new Set<WorkOrderType>([
-  WorkOrderType.CORRECTIVE,
-  WorkOrderType.EMERGENCY,
-  WorkOrderType.ACCIDENT_REPAIR,
-  WorkOrderType.PREVENTIVE,
-  WorkOrderType.INSPECTION,
-  WorkOrderType.INSTALLATION,
-  WorkOrderType.BREAKDOWN,
-  WorkOrderType.INSPECTION_CORRECTIVE
-]);
+export const EVIDENCE_REQUIRED_WORK_ORDER_TYPES = new Set<WorkOrderType>(Object.values(WorkOrderType) as WorkOrderType[]);
 
-export const QR_VERIFICATION_REQUIRED_TYPES = new Set<WorkOrderType>([
-  WorkOrderType.CORRECTIVE,
-  WorkOrderType.EMERGENCY,
-  WorkOrderType.ACCIDENT_REPAIR
-]);
+/**
+ * QR tag scanning is no longer required for any job type (replaced by live photos). The set is
+ * kept empty, not deleted, so existing QR records and the optional scan endpoint keep working.
+ */
+export const QR_VERIFICATION_REQUIRED_TYPES = new Set<WorkOrderType>();
 
 export type EvidenceLineSnapshot = {
   evidenceType: EvidenceType;
@@ -180,6 +172,31 @@ export function assertEvidenceForTechnicianCompletion(input: {
 
   if (checklist.rejectedCount > 0 && !input.overrideReason?.trim()) {
     throw new BadRequestException("Evidence was rejected. Rework or supervisor review is required before completion.");
+  }
+}
+
+/**
+ * First start of a job needs at least one uploaded, not-rejected BEFORE photo. Skipped when photo
+ * storage is not set up (nowhere to keep it); an admin may start without it by giving a reason.
+ */
+export function assertStartPhotoPresent(input: {
+  items: EvidenceLineSnapshot[];
+  storageEnabled?: boolean;
+  overrideReason?: string | null;
+}) {
+  const storageEnabled = input.storageEnabled ?? isStorageUploadsEnabled();
+  if (!storageEnabled || input.overrideReason?.trim()) return;
+  const hasBefore = input.items.some(
+    (item) =>
+      item.evidenceType === EvidenceType.BEFORE_PHOTO &&
+      item.status === "UPLOADED" &&
+      item.verificationStatus !== EvidenceVerificationStatus.REJECTED
+  );
+  if (!hasBefore) {
+    throw new BadRequestException({
+      message: "Take a before photo of the machine or place with the camera before starting the job.",
+      code: "START_PHOTO_REQUIRED"
+    });
   }
 }
 

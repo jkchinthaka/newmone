@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import {
   AuditAction,
@@ -52,7 +53,26 @@ type UploadRequestBody = {
   capturedAt?: string;
   source?: EvidenceSource;
   clientGeneratedId?: string;
+  /** Optional phone location at capture time (only sent when the user allowed it). */
+  latitude?: number;
+  longitude?: number;
+  accuracyMeters?: number;
 };
+
+/** Accepts a location only when it is a real coordinate; anything else is dropped, not rejected. */
+export function captureLocation(body: Pick<UploadRequestBody, "latitude" | "longitude" | "accuracyMeters">) {
+  const lat = Number(body.latitude);
+  const lng = Number(body.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180 || (lat === 0 && lng === 0)) {
+    return { captureLatitude: null, captureLongitude: null, captureAccuracyMeters: null };
+  }
+  const accuracy = Number(body.accuracyMeters);
+  return {
+    captureLatitude: lat,
+    captureLongitude: lng,
+    captureAccuracyMeters: Number.isFinite(accuracy) && accuracy >= 0 ? Math.round(accuracy) : null
+  };
+}
 
 type CreateEvidenceBody = {
   evidenceType: EvidenceType;
@@ -336,6 +356,7 @@ export class EvidenceService {
         capturedAt: body.capturedAt ? new Date(body.capturedAt) : null,
         source: body.source ?? EvidenceSource.WEB,
         clientGeneratedId: body.clientGeneratedId?.trim() || null,
+        ...captureLocation(body),
         uploadedById: actor.sub
       }
     });
@@ -511,12 +532,46 @@ export class EvidenceService {
       throw new BadRequestException("File contents do not match the declared type.");
     }
 
+    // The same photo file cannot prove two jobs (or the same job twice).
+    const contentSha256 = createHash("sha256").update(bytes).digest("hex");
+    const reused = await this.prisma.evidenceAttachment.findFirst({
+      where: {
+        tenantId: workOrder.tenantId ?? actor.tenantId ?? null,
+        contentSha256,
+        deletedAt: null,
+        id: { not: attachment.id },
+        status: { not: EvidenceAttachmentStatus.FAILED }
+      },
+      select: { id: true, workOrder: { select: { woNumber: true } } }
+    });
+    if (reused) {
+      await this.prisma.evidenceAttachment.update({
+        where: { id: attachment.id },
+        data: { status: EvidenceAttachmentStatus.FAILED, syncError: "Duplicate photo" }
+      });
+      await this.recordEvidenceAudit({
+        event: "duplicate_evidence_rejected",
+        actor,
+        workOrderId: workOrder.id,
+        evidenceId: attachment.id,
+        evidenceType: attachment.evidenceType,
+        source: attachment.source
+      });
+      throw new BadRequestException({
+        message: reused.workOrder?.woNumber
+          ? `This photo was already used on job ${reused.workOrder.woNumber}. Take a new photo with the camera.`
+          : "This photo was already used. Take a new photo with the camera.",
+        code: "DUPLICATE_EVIDENCE"
+      });
+    }
+
     try {
       await this.evidenceStorageProvider.putObject(attachment.storageKey, bytes);
       const stored = await this.evidenceStorageProvider.readObject(attachment.storageKey);
       if (!stored.equals(bytes)) {
         throw new Error("stored bytes diverged");
       }
+      await this.prisma.evidenceAttachment.update({ where: { id: attachment.id }, data: { contentSha256 } });
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;

@@ -5,7 +5,7 @@ import path from "node:path";
 import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { EvidenceAttachmentStatus, RoleName } from "@prisma/client";
 
-import { EvidenceService } from "../src/modules/evidence/evidence.service";
+import { captureLocation, EvidenceService } from "../src/modules/evidence/evidence.service";
 import { EvidenceStorageProviderService } from "../src/modules/evidence/evidence-storage-provider.service";
 
 const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x11, 0x22]);
@@ -51,12 +51,15 @@ function memoryPrisma() {
         Object.assign(row, data);
         return row;
       }),
-      findFirst: jest.fn(async ({ where }: { where: { id?: string; clientGeneratedId?: string; tenantId?: string; workOrderId?: string } }) => {
+      findFirst: jest.fn(async ({ where }: { where: { id?: string | { not: string }; clientGeneratedId?: string; tenantId?: string; workOrderId?: string; contentSha256?: string } }) => {
         const matches = [...rows.values()].filter((row) => {
-          if (where.id && row.id !== where.id) return false;
+          if (typeof where.id === "object" && row.id === where.id.not) return false;
+          if (typeof where.id === "string" && row.id !== where.id) return false;
+          if (where.contentSha256 && row.contentSha256 !== where.contentSha256) return false;
           if (where.clientGeneratedId && row.clientGeneratedId !== where.clientGeneratedId) return false;
           if (where.tenantId && row.tenantId !== where.tenantId) return false;
           if (where.workOrderId && row.workOrderId !== where.workOrderId) return false;
+          if (where.contentSha256 && row.status === "FAILED") return false;
           return true;
         });
         return matches[0] ?? null;
@@ -237,5 +240,31 @@ describe("local evidence bytes", () => {
       BadRequestException
     );
     expect(prisma.rows.get(first.attachmentId!)?.status).toBe(EvidenceAttachmentStatus.FAILED);
+  });
+
+  it("refuses the same photo bytes a second time and keeps the first upload", async () => {
+    const { service, prisma } = await localService();
+    const first = await upload(service, "before.jpg", "image/jpeg", jpeg);
+    expect(first.confirmed.ok).toBe(true);
+    const again = await service.createWorkOrderUploadRequest(
+      "wo-1",
+      { fileName: "copy.jpg", mimeType: "image/jpeg", sizeBytes: jpeg.length, clientGeneratedId: "copy-1" },
+      actor
+    );
+    await expect(service.storeWorkOrderEvidenceBytes("wo-1", again.attachmentId!, jpeg, actor)).rejects.toThrow(/already used/);
+    expect(prisma.rows.get(again.attachmentId!)?.status).toBe(EvidenceAttachmentStatus.FAILED);
+    expect(prisma.rows.get(first.requested.attachmentId!)?.status).toBe(EvidenceAttachmentStatus.UPLOADED);
+  });
+
+  it("stores the phone location only when it is a real coordinate", async () => {
+    const { service, prisma } = await localService();
+    const requested = await service.createWorkOrderUploadRequest(
+      "wo-1",
+      { fileName: "gps.jpg", mimeType: "image/jpeg", sizeBytes: jpeg.length, latitude: 6.84, longitude: 80.0, accuracyMeters: 12.4 } as never,
+      actor
+    );
+    expect(prisma.rows.get(requested.attachmentId!)).toMatchObject({ captureLatitude: 6.84, captureLongitude: 80, captureAccuracyMeters: 12 });
+    expect(captureLocation({ latitude: 200, longitude: 80 })).toEqual({ captureLatitude: null, captureLongitude: null, captureAccuracyMeters: null });
+    expect(captureLocation({})).toEqual({ captureLatitude: null, captureLongitude: null, captureAccuracyMeters: null });
   });
 });

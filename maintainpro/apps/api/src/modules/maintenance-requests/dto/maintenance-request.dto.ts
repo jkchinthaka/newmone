@@ -441,6 +441,20 @@ export class RequesterRespondDto {
   evidenceIds?: string[];
 }
 
+export class LocationLookupQueryDto {
+  @ApiPropertyOptional({ description: "Site whose functional locations are listed" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(36)
+  siteId?: string;
+
+  @ApiPropertyOptional({ description: "Location code or name (reviewer target picker)" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  q?: string;
+}
+
 export class AssetLookupQueryDto {
   @ApiPropertyOptional({ description: "Machine code, name, or serial number" })
   @IsOptional()

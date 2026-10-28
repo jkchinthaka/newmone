@@ -5,7 +5,10 @@ import {
   assertEvidenceForSupervisorVerification,
   assertEvidenceForTechnicianCompletion,
   evaluateEvidenceRequirements,
-  isStorageUploadsEnabled
+  isStorageUploadsEnabled,
+  assertStartPhotoPresent,
+  requiresQrVerification,
+  requiresTypedEvidence
 } from "../src/common/utils/work-order-evidence-governance";
 import { calculateWorkOrderRiskScore } from "../src/common/utils/maintenance-risk-score";
 
@@ -57,13 +60,30 @@ describe("work order evidence governance", () => {
     expect(complete.complete).toBe(true);
   });
 
-  it("does not mark complete when evidence is not required", () => {
+  it("every job type now needs before and after photos (QR scan no longer required)", () => {
     const checklist = evaluateEvidenceRequirements(WorkOrderType.IMPROVEMENT, [], {
       storageEnabled: true
     });
 
-    expect(checklist.required).toBe(false);
+    expect(checklist.required).toBe(true);
+    expect(checklist.missingBefore).toBe(true);
     expect(checklist.complete).toBe(false);
+    for (const type of Object.values(WorkOrderType)) expect(requiresTypedEvidence(type)).toBe(true);
+    expect(requiresQrVerification(WorkOrderType.CORRECTIVE, "asset-1", null)).toBe(false);
+  });
+
+  it("first start needs an uploaded, not-rejected before photo unless storage is off or an admin reason is given", () => {
+    const before = { evidenceType: EvidenceType.BEFORE_PHOTO, status: "UPLOADED" };
+    expect(() => assertStartPhotoPresent({ items: [], storageEnabled: true })).toThrow(/before photo/);
+    expect(() =>
+      assertStartPhotoPresent({
+        items: [{ ...before, verificationStatus: EvidenceVerificationStatus.REJECTED }],
+        storageEnabled: true
+      })
+    ).toThrow(/before photo/);
+    expect(() => assertStartPhotoPresent({ items: [before], storageEnabled: true })).not.toThrow();
+    expect(() => assertStartPhotoPresent({ items: [], storageEnabled: false })).not.toThrow();
+    expect(() => assertStartPhotoPresent({ items: [], storageEnabled: true, overrideReason: "Camera broken, admin started" })).not.toThrow();
   });
 
   it("blocks technician completion when before photo missing", () => {

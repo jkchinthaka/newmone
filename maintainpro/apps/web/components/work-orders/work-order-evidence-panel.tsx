@@ -9,6 +9,8 @@ import { apiBaseUrl } from "@/lib/api-url";
 import { formatDrawerDateTime } from "@/lib/work-order-drawer-display";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { EvidencePicker, type EvidencePickerFile } from "@/components/evidence/evidence-picker";
+import { LiveCameraCapture, type LiveCapture } from "@/components/evidence/live-camera-capture";
+import { isLivePhotoEvidenceType, readCaptureLocation, uploadWorkOrderFile } from "@/lib/work-order-photo-upload";
 import { QrScanner } from "@/components/qr/qr-scanner";
 import {
   enqueueOfflineEvidenceDraft,
@@ -239,6 +241,39 @@ export function WorkOrderEvidencePanel({
     },
     [canUpload, evidenceType, onRefresh, readiness?.maxFileSizeMb, storageConfigured, submitting, uploadNote, workOrderId]
   );
+
+  /** Live camera photo: uploaded at once with the optional phone location. Keeps the preview on failure. */
+  async function handleLivePhoto(capture: LiveCapture): Promise<boolean> {
+    if (!canUpload || submitting) return false;
+    setSubmitting(true);
+    setUploadPhase("uploading");
+    try {
+      const location = await readCaptureLocation(5000);
+      const result = await uploadWorkOrderFile({
+        workOrderId,
+        file: capture.blob,
+        fileName: capture.fileName,
+        mimeType: capture.mimeType,
+        evidenceType,
+        note: uploadNote,
+        source: "LIVE_CAMERA",
+        location
+      });
+      if (!result.ok) {
+        setUploadPhase("failed");
+        toast.error(result.message);
+        return false;
+      }
+      setUploadPhase("idle");
+      toast.success(`${evidenceTypeLabel(evidenceType)} uploaded.`);
+      setEvidenceType(evidenceTypeAfterUpload(evidenceType));
+      setUploadNote("");
+      await onRefresh?.();
+      return true;
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   function retryOfflineDraft(draft: OfflineEvidenceDraft) {
     const blocked = offlineEvidenceRetryBlock();
@@ -550,6 +585,17 @@ export function WorkOrderEvidencePanel({
           </label>
         </div>
         <div className="mt-3 space-y-3">
+          {isLivePhotoEvidenceType(evidenceType) ? (
+            <LiveCameraCapture
+              key={evidenceType}
+              captureLabel={`Take ${evidenceTypeLabel(evidenceType).toLowerCase()}`}
+              useLabel={`Upload ${evidenceTypeLabel(evidenceType).toLowerCase()}`}
+              disabled={!canUpload || !isBrowserOnline()}
+              busy={submitting}
+              onUse={(capture) => handleLivePhoto(capture)}
+            />
+          ) : (
+          <>
           <EvidencePicker
             disabled={submitting || (!canUpload && isBrowserOnline())}
             accept={(readiness?.allowedMimeTypes ?? []).join(",") || undefined}
@@ -575,6 +621,11 @@ export function WorkOrderEvidencePanel({
             {submitting ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
             {isBrowserOnline() ? `Upload ${evidenceTypeLabel(evidenceType).toLowerCase()}` : "Save to send later"}
           </button>
+          </>
+          )}
+          {isLivePhotoEvidenceType(evidenceType) && !isBrowserOnline() ? (
+            <p className="text-xs text-amber-800">You are offline. Photos are sent straight away, so connect to the internet first.</p>
+          ) : null}
         </div>
       </div>
       )}

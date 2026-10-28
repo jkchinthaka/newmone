@@ -153,6 +153,47 @@ export class MaintenanceRequestsService {
     }));
   }
 
+  /** Active sites for the request form (id, code, name only). */
+  async lookupSelectableSites(tenantId: string | null) {
+    const tid = requireTenantId(tenantId);
+    return this.prisma.site.findMany({
+      where: { tenantId: tid, isActive: true },
+      orderBy: [{ name: "asc" }],
+      take: 200,
+      select: { id: true, code: true, name: true }
+    });
+  }
+
+  /**
+   * Active functional locations: every location of one site (request form), or a code/name
+   * search across the tenant (reviewer target picker).
+   */
+  async lookupSelectableLocations(tenantId: string | null, siteId?: string, rawQuery?: string) {
+    const tid = requireTenantId(tenantId);
+    const select = { id: true, code: true, name: true, type: true, parentId: true, siteId: true };
+    if (siteId) {
+      const site = await this.prisma.site.findFirst({ where: { id: siteId, tenantId: tid, isActive: true }, select: { id: true } });
+      if (!site) throw new BadRequestException("Site not found for this organization");
+      return this.prisma.functionalLocation.findMany({
+        where: { tenantId: tid, siteId, isActive: true },
+        orderBy: [{ code: "asc" }],
+        take: 500,
+        select
+      });
+    }
+    const q = rawQuery?.trim();
+    return this.prisma.functionalLocation.findMany({
+      where: {
+        tenantId: tid,
+        isActive: true,
+        ...(q ? { OR: [{ code: { contains: q } }, { name: { contains: q } }] } : {})
+      },
+      orderBy: [{ code: "asc" }],
+      take: 50,
+      select
+    });
+  }
+
   async lookupSelectableVehicles(tenantId: string | null, rawQuery: string, requestedLimit?: number) {
     const q = rawQuery.trim();
     if (!q) {
@@ -1574,7 +1615,9 @@ export class MaintenanceRequestsService {
 
     if (!assetId && !functionalLocationId && !vehicleId) {
       if (targetUnresolved || input.allowKeepUnresolved) {
-        if (!siteId) {
+        // A site is required once the organization has sites; before any are set up the
+        // approximate area is enough, so "Not sure" is never a dead end.
+        if (!siteId && (await this.prisma.site.count({ where: { tenantId, isActive: true } })) > 0) {
           throw new BadRequestException(
             "Site is required when the maintenance target is not yet known"
           );
@@ -1609,6 +1652,9 @@ export class MaintenanceRequestsService {
         }
       });
       if (!asset) throw new BadRequestException("Asset not found for this organization");
+      if (asset.status === "DRAFT") {
+        throw new BadRequestException("This asset is still a draft. A manager must approve it before work can be reported on it.");
+      }
       if (
         !asset.isActive ||
         asset.status === "RETIRED" ||

@@ -235,6 +235,17 @@ function AssetRowActions<T extends AssetTableRow>({
             </button>
           ) : null}
 
+          {canChangeStatus && asset.status === "DRAFT" ? (
+            // Register flow: a new asset is saved as Draft; a manager approves it here before jobs can use it.
+            <button
+              type="button"
+              onClick={() => onConfirmStatus({ assetId: asset.id, status: "ACTIVE" as AssetTableStatus })}
+              className="block min-h-11 w-full rounded-xl bg-emerald-50 px-3 py-2.5 text-left text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
+            >
+              Approve — make Active
+            </button>
+          ) : null}
+
           {canChangeStatus ? (
             <div className="rounded-xl px-2 py-2">
               <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">

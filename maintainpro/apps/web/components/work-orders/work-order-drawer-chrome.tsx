@@ -5,6 +5,7 @@ import {
   displayWorkOrderTitle,
   isWorkOrderDrawerReadOnly,
   VENDOR_REPAIR_STEPS,
+  WORK_ORDER_STEP_HELP,
   vendorRepairStepper,
   workOrderDrawerStepper,
   workOrderNextStepHint,
@@ -43,7 +44,7 @@ export function WorkOrderProgress({ status }: { status: string }) {
       <p className="mt-3 text-sm font-medium text-slate-800 sm:hidden">
         Step {step.index + 1} of {step.steps.length} · {step.steps[step.index]}
       </p>
-      <ol className="mt-3 hidden min-w-0 items-center gap-1 overflow-x-auto text-xs sm:flex" aria-label="Job progress">
+      <ol className="mt-2 flex min-w-0 items-center gap-1 overflow-x-auto pb-1 text-xs sm:mt-3" aria-label="Job progress">
       {step.steps.map((label, index) => {
         const done = index < step.index;
         const current = index === step.index;
@@ -71,6 +72,7 @@ export function WorkOrderProgress({ status }: { status: string }) {
         );
       })}
     </ol>
+    <p className="mt-1 text-xs text-slate-600">{WORK_ORDER_STEP_HELP[step.steps[step.index]]}</p>
     </>
   );
 }
