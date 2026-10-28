@@ -258,31 +258,40 @@ function NavItemLink({
 }) {
   const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
 
+  const pinTone =
+    tone === "inverse"
+      ? active
+        ? "text-brand-900/70 hover:bg-brand-900/10 hover:text-brand-900"
+        : "text-white/60 hover:bg-white/10 hover:text-white"
+      : "text-slate-400 hover:bg-slate-100 hover:text-brand-700";
+
   return (
-    <div className="group flex items-center gap-1">
+    <div className="group relative">
       <Link
         href={item.href as Route}
         onClick={onNavigate}
         aria-current={toNavAriaCurrent(active)}
         title={item.label}
-        className={`flex min-h-11 flex-1 items-center gap-2.5 rounded-lg px-2.5 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
-          compact ? "justify-center px-0" : ""
+        className={`flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
+          compact ? "justify-center px-0" : "pr-11"
         } ${active ? activeClass : idleClass}`}
       >
         <Icon aria-hidden size={18} className="shrink-0" />
-        {compact ? <span className="sr-only">{item.label}</span> : <span className="truncate">{item.label}</span>}
+        {compact ? <span className="sr-only">{item.label}</span> : <span className="min-w-0 flex-1 truncate">{item.label}</span>}
         {!compact && badgeCount != null ? <NavBadge count={badgeCount} /> : null}
       </Link>
       {compact ? null : (
+        // Sits inside the row on the right, vertically centred, so every pin lines up in one column.
+        // Mouse users see it on hover/focus (or when pinned); touch screens always show it.
         <button
           type="button"
           onClick={onToggleFavorite}
-          className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md opacity-100 transition focus-visible:opacity-100 xl:opacity-0 xl:group-hover:opacity-100 xl:focus-visible:opacity-100 ${
-            tone === "inverse" ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-slate-400 hover:bg-slate-100 hover:text-brand-700"
-          }`}
+          className={`absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md transition focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600 [@media(pointer:coarse)]:h-10 [@media(pointer:coarse)]:w-10 ${
+            isFavorite ? "opacity-100" : "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+          } ${pinTone}`}
           aria-label={isFavorite ? `Unpin ${item.label}` : `Pin ${item.label}`}
         >
-          {isFavorite ? <PinOff size={14} /> : <Pin size={14} />}
+          {isFavorite ? <PinOff aria-hidden size={14} /> : <Pin aria-hidden size={14} />}
         </button>
       )}
     </div>
