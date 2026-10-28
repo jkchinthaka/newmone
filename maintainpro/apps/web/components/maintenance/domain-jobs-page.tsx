@@ -18,11 +18,11 @@ export function DomainJobsPage({ jobDomain, title, description }: DomainJobsPage
   const sub =
     description ??
     (jobDomain === "MACHINERY"
-      ? "Machinery jobs. Scan the machine, status, and next action."
+      ? "Only jobs created with the Machinery category (machines and equipment)."
       : jobDomain === "SERVICE"
-        ? "Service jobs by location and service type."
+        ? "Only jobs created with the Service category (buildings, facilities and places)."
         : jobDomain === "VEHICLE"
-          ? "Vehicle jobs with registration and odometer."
+          ? "Only jobs created with the Vehicle category."
           : "All maintenance jobs across machinery, vehicles and services.");
 
   return (

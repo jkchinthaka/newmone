@@ -431,22 +431,22 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "machinery-jobs",
-    label: "Machine Jobs",
+    label: "Machinery Jobs",
     href: "/maintenance/jobs/machinery",
     icon: "HardDrive",
     allowedRoles: DOMAIN_JOB_LANE_ROLES,
     category: "advanced",
-    description: "Jobs for machines and equipment",
+    description: "Machinery jobs: machines and equipment",
     activeMatch: "exact"
   },
   {
     id: "service-jobs",
-    label: "Building Jobs",
+    label: "Service Jobs",
     href: "/maintenance/jobs/service",
     icon: "Building2",
     allowedRoles: DOMAIN_JOB_LANE_ROLES,
     category: "advanced",
-    description: "Jobs for buildings and facilities",
+    description: "Service jobs: buildings, facilities and places",
     activeMatch: "exact"
   },
   {

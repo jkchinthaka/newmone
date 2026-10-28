@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { resolveJobDomain } from "../../common/utils/job-domain.util";
 import {
   AccidentEvidenceType,
   AccidentResponsibility,
@@ -294,6 +295,8 @@ export class AccidentsService {
         status: WorkOrderStatus.OPEN,
         type: WorkOrderType.ACCIDENT_REPAIR,
         vehicleId: acc.vehicleId,
+        // Every job needs its category so it shows on Machinery / Service / Vehicle Jobs.
+        jobDomain: resolveJobDomain({ vehicleId: acc.vehicleId }),
         createdById: a.sub,
         technicianId: body.technicianId,
         estimatedCost: body.estimatedCost,
