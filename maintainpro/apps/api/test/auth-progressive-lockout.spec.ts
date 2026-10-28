@@ -76,4 +76,29 @@ describe("progressive login lockout", () => {
       })
     });
   });
+
+  it("unknown emails get the same five tries and 30 s countdown, then 60 s", async () => {
+    const prisma = {
+      user: { findUnique: jest.fn().mockResolvedValue(null), update: jest.fn() },
+      securityEvent: { count: jest.fn(), create: jest.fn().mockResolvedValue({}) },
+      refreshToken: { create: jest.fn() }
+    };
+    const service = new AuthService(prisma as any, {} as any, config as any, { dispatch: jest.fn() } as any);
+    const tryOnce = () => service.login({ email: "Nobody@Nelna.lk", password: "Wrong-1" }).catch((e: HttpException) => e);
+    for (let i = 0; i < 4; i += 1) expect(((await tryOnce()) as HttpException).getStatus()).toBe(401);
+    const locked = (await tryOnce()) as HttpException;
+    expect(locked.getStatus()).toBe(429);
+    expect(locked.getResponse()).toMatchObject({ code: "ACCOUNT_LOCKED", metadata: { retryAfterSeconds: 30 } });
+    // Still locked: same reply, no extra attempt counted.
+    expect(((await tryOnce()) as HttpException).getStatus()).toBe(429);
+
+    jest.useFakeTimers({ now: Date.now() + 31_000 });
+    try {
+      for (let i = 0; i < 4; i += 1) expect(((await tryOnce()) as HttpException).getStatus()).toBe(401);
+      expect(((await tryOnce()) as HttpException).getResponse()).toMatchObject({ metadata: { retryAfterSeconds: 60 } });
+    } finally {
+      jest.useRealTimers();
+    }
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
 });

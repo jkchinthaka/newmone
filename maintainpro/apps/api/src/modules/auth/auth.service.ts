@@ -365,6 +365,47 @@ export class AuthService {
     await bcrypt.compare(password ?? "", TIMING_EQUALIZER_HASH);
   }
 
+  /**
+   * Unknown, inactive and workforce-disabled sign-ins follow the same 5-try / 30-60-90 s lock as
+   * real accounts, so the sign-in page always counts down and the reply never reveals which
+   * emails exist. Kept in memory: there is no user row to store it on.
+   */
+  private readonly unknownLoginLocks = new Map<string, { failed: number; lockedUntil: number; rounds: number; lastAt: number }>();
+
+  private assertUnknownIdentifierNotLocked(email: string, now: Date): void {
+    const entry = this.unknownLoginLocks.get(email.trim().toLowerCase());
+    if (entry && entry.lockedUntil > now.getTime()) {
+      throw accountLockedError((entry.lockedUntil - now.getTime()) / 1000);
+    }
+  }
+
+  private failUnknownIdentifier(email: string, now: Date): never {
+    const key = email.trim().toLowerCase();
+    const at = now.getTime();
+    const previous = this.unknownLoginLocks.get(key);
+    const fresh = !previous || at - previous.lastAt > LOCKOUT_MEMORY_MS;
+    const entry = fresh ? { failed: 0, lockedUntil: 0, rounds: 0, lastAt: at } : previous;
+    if (entry.lockedUntil && entry.lockedUntil <= at) {
+      entry.failed = 0;
+      entry.lockedUntil = 0;
+    }
+    entry.failed += 1;
+    entry.lastAt = at;
+    this.unknownLoginLocks.delete(key);
+    this.unknownLoginLocks.set(key, entry);
+    if (this.unknownLoginLocks.size > 5000) {
+      const oldest = this.unknownLoginLocks.keys().next().value;
+      if (oldest !== undefined) this.unknownLoginLocks.delete(oldest);
+    }
+    if (entry.failed >= MAX_FAILED_LOGIN_ATTEMPTS) {
+      const seconds = lockoutSecondsForRound(entry.rounds);
+      entry.rounds += 1;
+      entry.lockedUntil = at + seconds * 1000;
+      throw accountLockedError(seconds);
+    }
+    throw new UnauthorizedException("Invalid email or password");
+  }
+
   async login(dto: LoginDto) {
     const now = new Date();
     const user = await this.prisma.user.findUnique({
@@ -388,6 +429,7 @@ export class AuthService {
     });
 
     if (!user || !user.isActive) {
+      this.assertUnknownIdentifierNotLocked(dto.email, now);
       await this.equalizeLoginTiming(dto.password);
       recordAuthSecurityEvent(this.prisma, {
         eventType: "LOGIN_FAILURE",
@@ -397,11 +439,12 @@ export class AuthService {
         requestId: requestContext.get()?.requestId ?? null,
         metadata: { reason: "unknown_or_inactive" }
       });
-      throw new UnauthorizedException("Invalid email or password");
+      this.failUnknownIdentifier(dto.email, now);
     }
 
     const linkedEmployee = user.linkedWorkforceEmployees?.[0];
     if (linkedEmployee && !linkedEmployee.active) {
+      this.assertUnknownIdentifierNotLocked(dto.email, now);
       await this.equalizeLoginTiming(dto.password);
       recordAuthSecurityEvent(this.prisma, {
         tenantId: user.tenantId,
@@ -412,7 +455,7 @@ export class AuthService {
         identifierHint: dto.email,
         requestId: requestContext.get()?.requestId ?? null
       });
-      throw new UnauthorizedException("Invalid email or password");
+      this.failUnknownIdentifier(dto.email, now);
     }
 
     if (user.lockedUntil && user.lockedUntil > now) {
