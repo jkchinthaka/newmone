@@ -201,8 +201,8 @@ export default function WorkforceEmployeesPage() {
     const ok = await confirm({
       title: nextActive ? "Activate employee?" : "Deactivate employee?",
       description: nextActive
-        ? `${row.fullName} will appear in work order assignment lists.`
-        : `${row.fullName} will be hidden from assignment and cannot receive new work orders.`,
+        ? `${row.fullName} will appear in job assignment lists.`
+        : `${row.fullName} will be hidden from assignment and cannot receive new jobs.`,
       confirmLabel: nextActive ? "Activate" : "Deactivate",
       variant: nextActive ? "default" : "destructive"
     });
@@ -231,7 +231,7 @@ export default function WorkforceEmployeesPage() {
           <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Workforce</p>
           <h1 className="mt-1 page-title">Employees & Technicians</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500">
-            Maintain workforce members for work order assignment. Login access is optional — employees without
+            Maintain workforce members for job assignment. Login access is optional — employees without
             accounts can still be assigned to jobs.
           </p>
         </div>
@@ -354,7 +354,7 @@ export default function WorkforceEmployeesPage() {
                   checked={form.canReceiveWorkOrders}
                   onChange={(event) => setForm((current) => ({ ...current, canReceiveWorkOrders: event.target.checked }))}
                 />
-                Can receive work orders
+                Can receive jobs
               </label>
               <label className="space-y-1">
                 <span className="font-medium text-slate-700">Availability</span>

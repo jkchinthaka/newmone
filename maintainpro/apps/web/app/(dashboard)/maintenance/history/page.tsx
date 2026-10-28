@@ -146,7 +146,7 @@ export default function MaintenanceHistoryPage() {
         ]}
       />
       <OperationalPageHeader
-        title="Maintenance History"
+        title="Job History"
         description="Completed and closed work. Open a row for that job’s history. Cancelled jobs stay out of this list until you ask for them."
       />
 
@@ -155,7 +155,7 @@ export default function MaintenanceHistoryPage() {
           <input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="WO, asset, vehicle, title, technician, or vendor"
+            placeholder="Job, asset, vehicle, title, technician, or vendor"
             aria-label="Search maintenance history"
             className="h-10 min-w-[12rem] flex-1 rounded-md border border-slate-300 px-3 text-sm"
           />
@@ -172,7 +172,7 @@ export default function MaintenanceHistoryPage() {
           <DateField bare label="Completed from" value={state.from} onChange={(from) => write({ from: from || null })} />
           <DateField bare label="Completed to" value={state.to} onChange={(to) => write({ to: to || null })} />
           <select
-            aria-label="Work order status"
+            aria-label="Job status"
             className="h-10 rounded-md border border-slate-300 px-2 text-sm"
             value={state.status}
             onChange={(event) => write({ status: event.target.value || null })}
@@ -208,7 +208,7 @@ export default function MaintenanceHistoryPage() {
             <select aria-label="Maintenance type" className="h-10 rounded-md border px-2 text-sm" value={state.type} onChange={(event) => write({ type: event.target.value || null })}>
               <option value="">Maintenance type</option>
               <option value="CORRECTIVE">Corrective</option>
-              <option value="PREVENTIVE">Preventive</option>
+              <option value="PREVENTIVE">Scheduled service</option>
               <option value="EMERGENCY">Emergency</option>
               <option value="INSPECTION">Inspection</option>
               <option value="ACCIDENT_REPAIR">Accident repair</option>
@@ -250,7 +250,7 @@ export default function MaintenanceHistoryPage() {
               <table className="min-w-full text-left text-sm">
                 <thead className="border-y border-slate-200 text-xs font-medium uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-3 py-2">WO No</th>
+                    <th className="px-3 py-2">Job No</th>
                     <th className="px-3 py-2">Asset / vehicle</th>
                     <th className="px-3 py-2">Work performed</th>
                     <th className="hidden xl:table-cell px-3 py-2">Category</th>

@@ -367,7 +367,7 @@ function NewRequestForm() {
         payload
       });
       setPendingLocalId(localActionId);
-      toast.message("Pending Sync. This request is not submitted until it syncs.");
+      toast.message("Not sent yet (no internet). This request is not submitted until it syncs.");
       return;
     }
 
@@ -693,7 +693,7 @@ function NewRequestForm() {
           <h2 className="font-semibold text-slate-900">Where is the problem?</h2>
           <p className="text-sm text-slate-600">
             You do not need to know the exact equipment. A reviewer will confirm the target before
-            any work order is created.
+            any job is created.
           </p>
           <select
             className="min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm"

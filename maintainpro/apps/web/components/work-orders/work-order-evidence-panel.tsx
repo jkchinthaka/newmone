@@ -200,7 +200,7 @@ export function WorkOrderEvidencePanel({
 
         if (!uploadResult.ok || !uploadResult.attachmentId || uploadResult.uploadMethod !== "direct") {
           setUploadPhase("failed");
-          toast.error(uploadResult.message || "Evidence upload is not available.");
+          toast.error(uploadResult.message || "Photos upload is not available.");
           return;
         }
 
@@ -220,7 +220,7 @@ export function WorkOrderEvidencePanel({
 
         if (!confirmResponse.data.data.ok) {
           setUploadPhase("failed");
-          toast.error(confirmResponse.data.data.message || "Evidence upload confirmation failed.");
+          toast.error(confirmResponse.data.data.message || "Photos upload confirmation failed.");
           return;
         }
 
@@ -232,7 +232,7 @@ export function WorkOrderEvidencePanel({
         await onRefresh?.();
       } catch (error) {
         setUploadPhase("failed");
-        toast.error(getApiErrorMessage(error, "Evidence upload failed."));
+        toast.error(getApiErrorMessage(error, "Photos upload failed."));
       } finally {
         setSubmitting(false);
       }
@@ -299,7 +299,7 @@ export function WorkOrderEvidencePanel({
     try {
       if (action === "accept") {
         await apiClient.post(`/work-orders/${workOrderId}/evidence/${evidenceId}/accept`, {});
-        toast.success("Evidence accepted.");
+        toast.success("Photos accepted.");
       } else {
         if (rejectReason.trim().length < 3) {
           toast.error("Rejection reason is required.");
@@ -308,13 +308,13 @@ export function WorkOrderEvidencePanel({
         await apiClient.post(`/work-orders/${workOrderId}/evidence/${evidenceId}/reject`, {
           reason: rejectReason.trim()
         });
-        toast.error("Evidence rejected. Rework required.");
+        toast.error("Photos rejected. Needs to be fixed again.");
         setRejectTargetId(null);
         setRejectReason("");
       }
       await onRefresh?.();
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Could not update evidence review."));
+      toast.error(getApiErrorMessage(error, "Could not update photos review."));
     } finally {
       setSubmitting(false);
     }
@@ -406,10 +406,10 @@ export function WorkOrderEvidencePanel({
       <div>
         <div className="flex items-center gap-2 text-sm font-medium text-brand-700">
           <Camera size={18} aria-hidden="true" />
-          <span>Evidence & field proof</span>
+          <span>Photos & field proof</span>
         </div>
         <h4 id="work-order-evidence-heading" className="mt-2 text-sm font-semibold text-slate-900">
-          Photo evidence
+          photos
         </h4>
         <p className="mt-1 text-xs text-slate-600">Before/after proof, QR verification, and supervisor review</p>
       </div>
@@ -459,7 +459,7 @@ export function WorkOrderEvidencePanel({
 
       {requirements ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-          <p className="font-medium text-slate-900">Evidence requirements checklist</p>
+          <p className="font-medium text-slate-900">Photos requirements checklist</p>
           <ul className="mt-2 space-y-1">
             <li>{requirements.hasBefore ? "✓" : "○"} Before photo ({requirements.beforeCount})</li>
             <li>{requirements.hasAfter ? "✓" : "○"} After photo ({requirements.afterCount})</li>
@@ -474,19 +474,19 @@ export function WorkOrderEvidencePanel({
             ) : null}
           </ul>
           {requirements.waived ? (
-            <p className="mt-2 font-medium text-slate-700">Photo evidence waived while storage is off.</p>
+            <p className="mt-2 font-medium text-slate-700">photos waived while storage is off.</p>
           ) : !requirements.complete && requirements.required ? (
-            <p className="mt-2 font-medium text-amber-800">Required evidence missing.</p>
+            <p className="mt-2 font-medium text-amber-800">Required photos missing.</p>
           ) : null}
           {requirements.rejectedCount > 0 ? (
-            <p className="mt-1 font-medium text-red-700">Evidence rejected. Rework required.</p>
+            <p className="mt-1 font-medium text-red-700">Photos rejected. Needs to be fixed again.</p>
           ) : null}
         </div>
       ) : null}
 
       {readOnly ? null : (
       <div className="rounded-lg border border-slate-200 p-4">
-        <p className="text-sm font-medium text-slate-900">Upload evidence</p>
+        <p className="text-sm font-medium text-slate-900">Upload photos</p>
         {!storageConfigured ? (
           <p className="mt-2 text-xs text-amber-800">
             Photo storage is not set up yet. Ask your administrator.
@@ -495,7 +495,7 @@ export function WorkOrderEvidencePanel({
               : ""}
           </p>
         ) : null}
-        {uploadPhase === "uploading" ? <p className="mt-2 text-xs text-slate-600">Uploading evidence…</p> : null}
+        {uploadPhase === "uploading" ? <p className="mt-2 text-xs text-slate-600">Uploading photos…</p> : null}
         {uploadPhase === "failed" ? (
           <p className="mt-2 text-xs text-red-700">Upload failed. Choose the file again to retry.</p>
         ) : null}
@@ -705,7 +705,7 @@ export function WorkOrderEvidencePanel({
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-slate-600">
           <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-          Loading evidence…
+          Loading photos…
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -727,7 +727,7 @@ export function WorkOrderEvidencePanel({
       )}
 
       {evidencePayloadHasSecrets({ items, readiness }) ? (
-        <p className="text-xs font-medium text-red-700">Unexpected secret-like fields detected in evidence data.</p>
+        <p className="text-xs font-medium text-red-700">Unexpected secret-like fields detected in photos data.</p>
       ) : null}
     </section>
   );

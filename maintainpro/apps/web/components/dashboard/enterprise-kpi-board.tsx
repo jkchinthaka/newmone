@@ -16,15 +16,15 @@ const KPI_ITEMS: Array<{ key: keyof EnterpriseDashboard; label: string }> = [
   { key: "criticalVehicles", label: "Critical vehicles" },
   { key: "maintenanceDue", label: "Maintenance due" },
   { key: "maintenanceOverdue", label: "Maintenance overdue" },
-  { key: "openCriticalWorkOrders", label: "Open critical WOs" },
+  { key: "openCriticalWorkOrders", label: "Open critical jobs" },
   { key: "lowStock", label: "Low stock" },
   { key: "outOfStock", label: "Out of stock" },
   { key: "forecastShortages", label: "Forecast shortages" },
-  { key: "erpVariances", label: "ERP variances" },
+  { key: "erpVariances", label: "ERP differences" },
   { key: "openExceptions", label: "Open exceptions" },
   { key: "warrantyOpportunities", label: "Warranty opportunities" },
-  { key: "procurementRecommendations", label: "Procurement recommendations" },
-  { key: "slaBreaches", label: "SLA breaches" },
+  { key: "procurementRecommendations", label: "Buying recommendations" },
+  { key: "slaBreaches", label: "Time limit breaches" },
   { key: "monthlyFleetCost", label: "Monthly fleet cost" }
 ];
 
@@ -59,11 +59,11 @@ export function EnterpriseKpiBoard() {
   return (
     <DashboardSection
       title="Enterprise operations"
-      description="Live actionable KPIs. Empty or insufficient values are not invented."
+      description="Live actionable key numbers. Empty or insufficient values are not invented."
     >
-      {query.isLoading ? <InlineLoadingState label="Loading operations KPIs…" /> : null}
+      {query.isLoading ? <InlineLoadingState label="Loading operations key numbers…" /> : null}
       {query.error && !query.data ? (
-        <ErrorState title="Could not load operations KPIs" description={getApiErrorMessage(query.error, "Unable to load KPIs.")} />
+        <ErrorState title="Could not load operations key numbers" description={getApiErrorMessage(query.error, "Unable to load key numbers.")} />
       ) : null}
       {query.data ? (
         <div className="summary-strip">

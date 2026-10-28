@@ -99,7 +99,7 @@ function AccidentsRegister() {
     { id: "location", header: "Location", cell: (row) => row.location || "—", hideOnMobile: true },
     { id: "severity", header: "Severity", cell: (row) => formatEnumLabel(row.severity) },
     { id: "status", header: "Status", cell: (row) => formatEnumLabel(row.status) },
-    { id: "wo", header: "Work order", cell: (row) => row.workOrder?.workOrderNumber ?? "—", hideOnMobile: true },
+    { id: "wo", header: "Job", cell: (row) => row.workOrder?.workOrderNumber ?? "—", hideOnMobile: true },
     {
       id: "damage",
       header: "Damage",
@@ -416,10 +416,10 @@ function AccidentDetailDialog({
         fileUrl: evidenceUrl.trim()
       });
       setEvidenceUrl("");
-      toast.success("Evidence added");
+      toast.success("Photos added");
       await load();
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to add evidence"));
+      toast.error(getApiErrorMessage(err, "Failed to add photos"));
     } finally {
       setBusy(false);
     }
@@ -429,11 +429,11 @@ function AccidentDetailDialog({
     setBusy(true);
     try {
       await p4Post(`/accidents/${id}/work-order`, { priority: "HIGH" });
-      toast.success("Work order linked");
+      toast.success("Job linked");
       await load();
       onChanged();
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to link work order"));
+      toast.error(getApiErrorMessage(err, "Failed to link job"));
     } finally {
       setBusy(false);
     }
@@ -444,7 +444,7 @@ function AccidentDetailDialog({
       {loadError && !detail ? (
         <ErrorState title="Couldn't load this accident" error={loadError} onRetry={() => void load()} />
       ) : loading && !detail ? (
-        <LoadingState title="Loading accident" description="Fetching the report and evidence." />
+        <LoadingState title="Loading accident" description="Fetching the report and photos." />
       ) : !detail ? null : (
         <div className="space-y-4 text-sm">
           <div className="grid grid-cols-2 gap-3">
@@ -486,7 +486,7 @@ function AccidentDetailDialog({
                 </li>
               ))}
               {(!detail.evidence || detail.evidence.length === 0) && (
-                <li className="px-3 py-3 text-center text-sm text-slate-500">No evidence added.</li>
+                <li className="px-3 py-3 text-center text-sm text-slate-500">No photos added.</li>
               )}
             </ul>
             {canReport ? (
@@ -541,7 +541,7 @@ function AccidentDetailDialog({
                     onClick={linkWorkOrder}
                     className="ml-auto inline-flex items-center gap-1 rounded bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
                   >
-                    <Wrench size={12} /> Create Work Order
+                    <Wrench size={12} /> Create job
                   </button>
                 ) : (
                   <span className="ml-auto inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-xs text-emerald-700">

@@ -104,7 +104,7 @@ export function CreatePmPlanDialog({ busy, error, onClose, onSubmit }: Props) {
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id={titleId} className="text-lg font-semibold text-slate-900">
-            Create PM Plan
+            Create scheduled service plan
           </h2>
           <button type="button" className="min-h-10 px-2 text-sm" onClick={onClose}>
             Close
@@ -195,7 +195,7 @@ export function CreatePmPlanDialog({ busy, error, onClose, onSubmit }: Props) {
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={autoWo} onChange={(event) => setAutoWo(event.target.checked)} />
-            Auto-generate work order when due
+            Auto-generate job when due
           </label>
         </div>
         {shownError ? (

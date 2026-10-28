@@ -89,7 +89,7 @@ export function workOrderNextStepHint(status: string, role?: string | null): str
   }
   if (status === "TECHNICIAN_COMPLETED" || status === "VERIFIED") {
     if (role === "MANAGER" || role === "ADMIN" || role === "SUPER_ADMIN" || role === "SUPERVISOR") {
-      return "Review the evidence and close the job when the work is confirmed.";
+      return "Review the photos and close the job when the work is confirmed.";
     }
     return "Waiting for a manager to verify and close the job.";
   }
@@ -116,7 +116,7 @@ const VENDOR_STEP_INDEX: Record<string, number> = {
   CLOSED: 4
 };
 
-export const VENDOR_REPAIR_STEPS = ["Quotation", "Approval", "Work done", "Invoice", "Completed"] as const;
+export const VENDOR_REPAIR_STEPS = ["Price quote", "Approval", "Work done", "Invoice", "Completed"] as const;
 
 export function vendorRepairStepper(status?: string | null):
   | { cancelled: true }

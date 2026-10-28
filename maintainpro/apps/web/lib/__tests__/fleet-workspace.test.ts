@@ -27,7 +27,7 @@ test("the retired gate view falls back to Vehicles and drops its filter", () => 
   assert.equal(fleetSearch(state), "q=WP");
 });
 
-test("KPI clicks open the matching filtered view", () => {
+test("Key numbers clicks open the matching filtered view", () => {
   assert.equal(fleetSearch(fleetKpiTarget("overdue")), "service=overdue");
   assert.equal(fleetSearch(fleetKpiTarget("due")), "service=due-soon");
   assert.equal(fleetSearch(fleetKpiTarget("docs")), "view=compliance&expiry=30d");

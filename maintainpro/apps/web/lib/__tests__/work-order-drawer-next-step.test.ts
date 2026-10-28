@@ -8,7 +8,7 @@ import { queueNextControl } from "../batch-3-presentation";
 const modal = readFileSync(path.resolve(__dirname, "../../components/work-orders/work-order-editor-modal.tsx"), "utf8");
 const page = readFileSync(path.resolve(__dirname, "../../components/work-orders/work-orders-page.tsx"), "utf8");
 
-test("work order drawer footer shows the same next step as the list row", () => {
+test("job drawer footer shows the same next step as the list row", () => {
   assert.match(modal, /queueNextControl\(\{\s*status: workOrder\.status,\s*role: actorRole,\s*approvalStatus: workOrder\.approvalStatus/);
   assert.match(modal, /onClick=\{\(\) => onPrimaryAction\(workOrder, next\.actionId\)\}/);
   assert.match(page, /actorRole=\{currentUser\.role\}/);
@@ -38,7 +38,7 @@ test("a verified job offers Close job to managers, with a reason prompt for earl
   assert.match(page, /if \(selected === "close"\)/);
 });
 
-test("My Jobs Complete opens the full completion form", () => {
+test("My jobs Complete opens the full completion form", () => {
   const myJobs = readFileSync(path.resolve(__dirname, "../../app/(dashboard)/work-orders/my/page.tsx"), "utf8");
   assert.match(myJobs, /router\.push\(`\/work-orders\?wo=\$\{encodeURIComponent\(job\.id\)\}`/);
   assert.doesNotMatch(myJobs, /complete-technician/);

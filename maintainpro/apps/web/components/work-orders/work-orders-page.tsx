@@ -100,8 +100,8 @@ function readCurrentUserId(): string | null {
 function LoadingSkeleton() {
   return (
     <LoadingState
-      description="Fetching work orders, filters, and assignment data."
-      title="Loading work orders"
+      description="Fetching jobs, filters, and assignment data."
+      title="Loading jobs"
     >
       <LoadingCardSkeleton rows={6} />
     </LoadingState>
@@ -305,7 +305,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
 
   useEffect(() => {
     if (deepLinkId && deepLinkQuery.isError) {
-      toast.error("That work order could not be found or you don't have access to it.");
+      toast.error("That job could not be found or you don't have access to it.");
       clearDeepLinkParam();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -364,12 +364,12 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
   const handleDelete = async (workOrder: WorkOrder) => {
     const reason = await prompt({
       title: `Cancel ${workOrder.woNumber}?`,
-      description: "The work order is cancelled and its history is kept. It is not deleted.",
+      description: "The job is cancelled and its history is kept. It is not deleted.",
       label: "Reason for cancelling",
       required: true,
       validate: (value) => (value.trim().length < 3 ? "Enter at least 3 characters." : null),
-      submitLabel: "Cancel work order",
-      cancelLabel: "Keep work order"
+      submitLabel: "Cancel job",
+      cancelLabel: "Keep job"
     });
     if (!reason?.trim()) {
       return;
@@ -433,7 +433,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
   const postClose = (workOrder: WorkOrder, expectedVersion: number | undefined, overrideReason?: string) =>
     apiClient.post(`/work-orders/${workOrder.id}/close`, {
       expectedVersion,
-      note: "Closed after verification",
+      note: "Closed after supervisor check",
       ...(overrideReason ? { overrideReason } : {})
     });
 
@@ -468,8 +468,8 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     if (selected === action?.id && action?.disabledReason) return;
     if (selected === "send-back") {
       const reason = await prompt({
-        title: `Send ${workOrder.woNumber} back for rework`,
-        description: "The technician sees this on My Jobs.",
+        title: `Send ${workOrder.woNumber} back to be fixed again`,
+        description: "The technician sees this on My jobs.",
         label: "What needs to be fixed?",
         required: true,
         validate: (value) => (value.trim().length < 3 ? "Enter at least 3 characters." : null),
@@ -518,7 +518,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
         await closeWithReasonIfNeeded(workOrder, workOrder.version);
         toast.success(`${workOrder.woNumber} closed`);
       } catch (error) {
-        toast.error(`${getErrorMessage(error)} The work order stays verified.`);
+        toast.error(`${getErrorMessage(error)} The job stays verified.`);
       }
       await workOrdersQuery.refetch();
       return;
@@ -527,14 +527,14 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       verify: () =>
         apiClient.post<{ data?: { version?: number } }>(`/work-orders/${workOrder.id}/verify-supervisor`, {
           expectedVersion: workOrder.version,
-          verificationNote: "Verified from the work order list"
+          verificationNote: "Verified from the job list"
         }),
       close: (verified) => closeWithReasonIfNeeded(workOrder, verified.data?.data?.version ?? workOrder.version)
     });
     if (!result.ok) {
       toast.error(
         result.stage === "close"
-          ? `${getErrorMessage(result.error)} The work order stays verified.`
+          ? `${getErrorMessage(result.error)} The job stays verified.`
           : getErrorMessage(result.error)
       );
       if (result.stage === "close") await workOrdersQuery.refetch();
@@ -563,7 +563,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     if (!result.ok) {
       toast.error(
         result.stage === "assign"
-          ? `${getErrorMessage(result.error)} The work order stays approved.`
+          ? `${getErrorMessage(result.error)} The job stays approved.`
           : getErrorMessage(result.error)
       );
       if (result.stage === "assign") {
@@ -629,9 +629,9 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     }
 
     const confirmed = await confirm({
-      title: "Cancel open work orders?",
-      description: "Only OPEN work orders will be cancelled. Records are kept for audit.",
-      confirmLabel: "Cancel open work orders",
+      title: "Cancel open jobs?",
+      description: "Only OPEN jobs will be cancelled. Records are kept for audit.",
+      confirmLabel: "Cancel open jobs",
       cancelLabel: "Keep selected",
       variant: "destructive"
     });
@@ -661,7 +661,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     }
 
     if (status === "COMPLETED") {
-      toast.error("Bulk completion requires actual cost and hours per work order.");
+      toast.error("Bulk completion requires actual cost and hours per job.");
       return;
     }
 
@@ -679,14 +679,14 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       const labels = Object.fromEntries(rows.map((row) => [row.id, row.woNumber || row.id]));
       const summary = summarizeBulkStatusResults(result.results ?? [], labels);
       if (summary.ok > 0) {
-        toast.success(`Updated ${summary.ok} work order(s) to ${humanWorkOrderStatusLabel(status)}`);
+        toast.success(`Updated ${summary.ok} job(s) to ${humanWorkOrderStatusLabel(status)}`);
       }
       if (summary.conflict > 0) {
-        toast.error(`${summary.conflict} work order(s) changed elsewhere. The list was refreshed.`);
+        toast.error(`${summary.conflict} job(s) changed elsewhere. The list was refreshed.`);
         void workOrdersQuery.refetch();
       }
       if (summary.error > 0) {
-        toast.error(summary.lines.filter((line) => !line.includes("changed by someone else")).join(" ") || "Some work orders could not be updated.");
+        toast.error(summary.lines.filter((line) => !line.includes("changed by someone else")).join(" ") || "Some jobs could not be updated.");
       }
       setSelectedIds(remainingBulkSelection(selectedIds, result.results ?? []));
     } catch (error) {
@@ -736,10 +736,10 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
         <ErrorState
           error={workOrdersQuery.error}
           onRetry={() => workOrdersQuery.refetch()}
-          title="Could not load work orders"
+          title="Could not load jobs"
           description={toSafeApiErrorMessage(
             workOrdersQuery.error,
-            "Unable to load work orders right now."
+            "Unable to load jobs right now."
           )}
         />
       );
@@ -842,7 +842,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     technicians
   ]);
 
-  const pageHeading = heading ?? "Work Orders";
+  const pageHeading = heading ?? "Jobs";
   const pageDescription =
     description ?? "All maintenance jobs across machinery, vehicles and services.";
 
@@ -861,7 +861,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
               onClick={openCreateModal}
               className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
             >
-              <Plus size={16} aria-hidden /> Create Work Order
+              <Plus size={16} aria-hidden /> Create job
             </button>
           ) : null}
         </div>
@@ -897,7 +897,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             disabled={bulkBusy || cancellableIds.length === 0}
             className="rounded-md border border-rose-300 px-2 py-1 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60"
           >
-            Cancel open work orders
+            Cancel open jobs
           </button>
         </div>
       ) : null}
@@ -920,7 +920,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       )}
 
       {view === "queues" ? null : (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Work order counts">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Job counts">
           {(
             [
               ["Open", workOrdersQuery.stats.open, "text-slate-900"],
@@ -945,7 +945,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       >
         <div className="flex items-center justify-between px-1 text-sm text-slate-500">
           {view === "queues" ? (
-            <span className="sr-only">Work order queue</span>
+            <span className="sr-only">Job queue</span>
           ) : (
             <p>
               {totalFiltered} of {workOrdersQuery.pagination.total} work order(s) shown
@@ -986,7 +986,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
         onClose={closeEditorModal}
         onCreate={(values) => {
           if (!canCreateWorkOrders) {
-            toast.error("You do not have permission to create work orders.");
+            toast.error("You do not have permission to create jobs.");
             return;
           }
           if (!currentUserId) {
@@ -1008,7 +1008,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
               idempotencyKey: createIdempotencyKey.current
             })
             .then(() => {
-              toast.success("Work order created");
+              toast.success("Job created");
               closeEditorModal();
             })
             .catch((error) => {
@@ -1026,7 +1026,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
               payload: values
             })
             .then(() => {
-              toast.success("Work order updated");
+              toast.success("Job updated");
               closeEditorModal();
             })
             .catch((error) => {
@@ -1115,7 +1115,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
               }
             })
             .then(() => {
-              toast.success("Work order submitted for supervisor verification");
+              toast.success("Job submitted for supervisor check");
               setCompletionTarget(null);
             })
             .catch((error) => {
@@ -1157,7 +1157,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
             <h2 className="text-lg font-semibold text-slate-900">Reject {rejectTarget.woNumber}</h2>
-            <p className="mt-1 text-sm text-slate-600">Provide a reason for rejection. This cancels the work order.</p>
+            <p className="mt-1 text-sm text-slate-600">Provide a reason for rejection. This cancels the job.</p>
             <textarea
               value={rejectReason}
               onChange={(event) => setRejectReason(event.target.value)}
@@ -1182,7 +1182,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
                 onClick={() => void submitReject()}
                 className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
               >
-                Reject work order
+                Reject job
               </button>
             </div>
           </div>

@@ -278,9 +278,9 @@ export function FacilityIssuesPage() {
 
   const createWorkOrderFromIssue = async (row: FacilityIssueRow) => {
     const confirmed = await confirm({
-      title: "Create work order?",
-      description: `Create a corrective work order from "${row.title}"? This cannot create a second work order for the same issue.`,
-      confirmLabel: "Create work order",
+      title: "Create job?",
+      description: `Create a repair job from "${row.title}"? This cannot create a second job for the same issue.`,
+      confirmLabel: "Create job",
       cancelLabel: "Cancel"
     });
 
@@ -297,11 +297,11 @@ export function FacilityIssuesPage() {
       const workOrderNumber =
         response.data?.data?.workOrder?.workOrderNumber ??
         response.data?.data?.issue?.workOrderNumber ??
-        "Work order";
+        "Job";
       setWorkOrderSuccess(`Created ${workOrderNumber} from issue.`);
       load();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to create work order from issue"));
+      setError(getApiErrorMessage(err, "Failed to create job from issue"));
     } finally {
       setCreatingWorkOrderId(null);
     }
@@ -328,7 +328,7 @@ export function FacilityIssuesPage() {
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Issue Management</h1>
           <p className="text-sm text-slate-600">
-            Track facility issues across OPEN → IN_PROGRESS → RESOLVED → CLOSED with SLA monitoring.
+            Track facility issues across OPEN → IN_PROGRESS → RESOLVED → CLOSED with time limit monitoring.
           </p>
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">Open: {summary.totalOpen}</span>
@@ -459,7 +459,7 @@ export function FacilityIssuesPage() {
               </select>
             </label>
             <label className="block text-sm">
-              <span className="font-medium text-slate-700">SLA hours</span>
+              <span className="font-medium text-slate-700">Time limit hours</span>
               <input
                 type="number"
                 name="slaHours"
@@ -548,7 +548,7 @@ export function FacilityIssuesPage() {
                 <th className="px-4 py-3">Severity</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Assigned</th>
-                <th className="px-4 py-3">SLA</th>
+                <th className="px-4 py-3">Time limit</th>
                 <th className="px-4 py-3">Reported by</th>
                 <th className="px-4 py-3">When</th>
               </tr>
@@ -622,7 +622,7 @@ export function FacilityIssuesPage() {
                               onClick={() => void createWorkOrderFromIssue(row)}
                               className="mt-2 block text-xs font-medium text-emerald-700 hover:text-emerald-800 disabled:opacity-50"
                             >
-                              {creatingWorkOrderId === row.id ? "Creating work order..." : "Create work order"}
+                              {creatingWorkOrderId === row.id ? "Creating job..." : "Create job"}
                             </button>
                           ) : null}
                         </td>
@@ -676,7 +676,7 @@ export function FacilityIssuesPage() {
                         </td>
                         <td className="px-4 py-3 text-xs">
                           <p className={slaBreached ? "text-red-700" : "text-slate-600"}>
-                            {row.slaTargetAt ? new Date(row.slaTargetAt).toLocaleString() : "No SLA"}
+                            {row.slaTargetAt ? new Date(row.slaTargetAt).toLocaleString() : "No time limit"}
                           </p>
                           {row.resolutionMinutes ? (
                             <p className="text-slate-500">Resolved in {row.resolutionMinutes} min</p>

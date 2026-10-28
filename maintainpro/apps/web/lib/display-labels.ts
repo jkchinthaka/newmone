@@ -13,14 +13,25 @@ const ENUM_LABELS: Record<string, string> = {
   ATTENTION_REQUIRED: "Attention required",
   NON_COMPLIANT: "Non-compliant",
   COMPLIANT: "Compliant",
-  PENDING_VERIFICATION: "Pending verification",
+  PENDING_VERIFICATION: "Waiting for supervisor check",
   EXPIRING_SOON: "Expiring soon",
   // One name per work-order status (same words on chips, pills, and filters).
-  TECHNICIAN_COMPLETED: "Awaiting verification",
-  REWORK_REQUIRED: "Sent back for rework",
+  TECHNICIAN_COMPLETED: "Done, waiting for check",
+  REWORK_REQUIRED: "Needs to be fixed again",
   WAITING_PARTS: "Waiting for parts",
   VERIFIED: "Verified",
-  CLOSED: "Closed"
+  CLOSED: "Closed",
+  // Plain-English names for codes that otherwise render as jargon.
+  CONVERTED_TO_WO: "Job created",
+  RESOLVED_WITHOUT_WO: "Resolved without a job",
+  PREVENTIVE: "Scheduled service",
+  CORRECTIVE: "Repair job",
+  PENDING_SYNC: "Not sent yet (no internet)",
+  QUOTATION: "Price quote",
+  DOWNTIME: "Machine stopped time",
+  RETURN_TO_SERVICE: "Back in use",
+  SLA_BREACHED: "Time limit missed",
+  TRIAGE: "Review"
 };
 
 /**
@@ -35,8 +46,8 @@ export const WORK_ORDER_STATUS_LABELS: Readonly<Record<string, string>> = {
   IN_PROGRESS: "In progress",
   ON_HOLD: "On hold",
   WAITING_PARTS: "Waiting for parts",
-  TECHNICIAN_COMPLETED: "Awaiting verification",
-  REWORK_REQUIRED: "Sent back for rework",
+  TECHNICIAN_COMPLETED: "Done, waiting for check",
+  REWORK_REQUIRED: "Needs to be fixed again",
   VERIFIED: "Verified",
   CLOSED: "Closed",
   COMPLETED: "Closed",

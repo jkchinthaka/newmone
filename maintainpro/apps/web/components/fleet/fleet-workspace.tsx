@@ -402,7 +402,7 @@ function VehicleTable({ rows }: { rows: VehicleRow[] }) {
           actions={[
             { label: "Open", href: fleetVehicleHref(row.id) },
             { label: "Edit", href: fleetVehicleHref(row.id) },
-            { label: "Create work order", href: "/maintenance/jobs/vehicle" }
+            { label: "Create job", href: "/maintenance/jobs/vehicle" }
           ]}
         />
       )}

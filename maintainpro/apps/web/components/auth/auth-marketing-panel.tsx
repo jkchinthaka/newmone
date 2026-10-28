@@ -6,7 +6,7 @@ const highlights = [
   {
     icon: ClipboardList,
     title: "Unified operations",
-    description: "Work orders, preventive maintenance and asset lifecycle in one workspace."
+    description: "Jobs, scheduled service and asset lifecycle in one workspace."
   },
   {
     icon: Truck,

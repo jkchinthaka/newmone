@@ -43,7 +43,7 @@ export function WorkOrderProgress({ status }: { status: string }) {
       <p className="mt-3 text-sm font-medium text-slate-800 sm:hidden">
         Step {step.index + 1} of {step.steps.length} · {step.steps[step.index]}
       </p>
-      <ol className="mt-3 hidden min-w-0 items-center gap-1 overflow-x-auto text-xs sm:flex" aria-label="Work order progress">
+      <ol className="mt-3 hidden min-w-0 items-center gap-1 overflow-x-auto text-xs sm:flex" aria-label="Job progress">
       {step.steps.map((label, index) => {
         const done = index < step.index;
         const current = index === step.index;
@@ -205,8 +205,8 @@ export function WorkOrderOverviewView({
           ) : null}
           {showSla ? (
             <p className="mt-3 text-sm text-slate-700">
-              {workOrder.slaDeadline ? `SLA deadline ${when(workOrder.slaDeadline)}` : "SLA"}
-              {workOrder.slaBreached ? " · SLA breached" : ""}
+              {workOrder.slaDeadline ? `Time limit deadline ${when(workOrder.slaDeadline)}` : "Time limit"}
+              {workOrder.slaBreached ? " · Time limit breached" : ""}
             </p>
           ) : null}
         </SectionCard>
@@ -220,7 +220,7 @@ export function WorkOrderOverviewView({
 }
 
 export function drawerTitle(workOrder: WorkOrder): string {
-  return displayWorkOrderTitle(workOrder.title || "Work order");
+  return displayWorkOrderTitle(workOrder.title || "Job");
 }
 
 export function DrawerStatusRow({ workOrder }: { workOrder: WorkOrder }) {
@@ -238,7 +238,7 @@ export function DrawerStatusRow({ workOrder }: { workOrder: WorkOrder }) {
       />
       {workOrder.slaBreached ? (
         <span className="rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-800">
-          SLA breached
+          Time limit breached
         </span>
       ) : null}
       <span className="min-w-0 break-words">

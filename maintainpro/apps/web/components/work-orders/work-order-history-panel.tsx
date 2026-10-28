@@ -73,7 +73,7 @@ export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
         message={getApiErrorMessageForRoute(
           query.error,
           "work-order-history",
-          "Could not load maintenance history for this work order."
+          "Could not load maintenance history for this job."
         )}
         onRetry={() => void query.refetch()}
       />
@@ -92,8 +92,8 @@ export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
         <div>
           <h4 className="text-sm font-semibold text-slate-900">Previous maintenance history</h4>
           <p className="mt-1 text-xs text-slate-500">
-            Read-only historical context from completed work orders, maintenance logs, and linked asset/vehicle records.
-            Legacy FMS archive data is not copied into current work orders.
+            Read-only historical context from completed jobs, maintenance logs, and linked asset/vehicle records.
+            Legacy FMS archive data is not copied into current jobs.
           </p>
         </div>
       </div>
@@ -183,7 +183,7 @@ export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
         <>
           <HistoryTable
             title="Previous spare parts used"
-            empty="No spare parts linked to prior work orders."
+            empty="No spare parts linked to prior jobs."
             rows={data.previousPartsUsed.slice(0, 12).map((row) => ({
               key: `${row.workOrderId}-${row.partId}`,
               primary: String(row.partName ?? row.partNumber),

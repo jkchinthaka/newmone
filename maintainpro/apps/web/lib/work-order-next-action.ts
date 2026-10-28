@@ -20,7 +20,7 @@ export function primaryWorkOrderAction(input: {
       return {
         id: "assign",
         label: "Assign technician",
-        disabledReason: "Approve this work order before assigning a technician."
+        disabledReason: "Approve this job before assigning a technician."
       };
     }
     return { id: "assign", label: "Assign technician" };

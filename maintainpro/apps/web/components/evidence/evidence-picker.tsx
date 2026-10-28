@@ -71,7 +71,7 @@ export function EvidencePicker({
         return file.type === pattern || file.name.toLowerCase().endsWith(pattern.replace(".", ""));
       });
       if (!ok && file.type) {
-        onInvalid?.("Unsupported file type for maintenance evidence.");
+        onInvalid?.("Unsupported file type for maintenance photos.");
         return;
       }
     }
@@ -145,7 +145,7 @@ export function EvidencePicker({
             <button
               type="button"
               className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-300 text-slate-700"
-              aria-label="Remove selected evidence"
+              aria-label="Remove selected photos"
               onClick={clearSelection}
             >
               <Trash2 size={16} aria-hidden />
@@ -155,7 +155,7 @@ export function EvidencePicker({
             // eslint-disable-next-line @next/next/no-img-element -- local blob preview
             <img
               src={selection.previewUrl}
-              alt="Selected evidence preview"
+              alt="Selected photos preview"
               className="mt-3 max-h-56 w-full rounded-lg object-contain bg-white"
             />
           ) : null}

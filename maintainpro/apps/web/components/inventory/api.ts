@@ -108,7 +108,7 @@ export async function stockInPart(payload: StockAdjustmentPayload): Promise<unkn
 
 export async function stockOutPart(payload: StockAdjustmentPayload): Promise<unknown> {
   if (!payload.workOrderId?.trim()) {
-    throw new Error("A work order is required to issue stock.");
+    throw new Error("A job is required to issue stock.");
   }
   const response = await apiClient.post(`/inventory/parts/${payload.id}/stock-out`, {
     quantity: payload.quantity,

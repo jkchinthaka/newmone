@@ -51,9 +51,9 @@ export function myJobPurpose(filter: MyJobFilter): string {
     case "waiting-parts":
       return "Assigned jobs that are not finished and still have a parts request, issue, or return.";
     case "evidence-needed":
-      return "Assigned jobs that are not finished and are missing required evidence, or have rejected evidence.";
+      return "Assigned jobs that are not finished and are missing required photos, or have rejected photos.";
     case "rework-required":
-      return "Assigned jobs sent back for rework.";
+      return "Assigned jobs sent back to be fixed again.";
     case "in-progress":
       return "Assigned jobs that are in progress.";
     case "completed":

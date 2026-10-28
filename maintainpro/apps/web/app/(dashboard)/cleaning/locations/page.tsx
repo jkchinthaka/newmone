@@ -372,7 +372,7 @@ export default function CleaningLocationsPage() {
             </label>
             <label className="flex items-center gap-2 text-sm text-slate-700">
               <input type="checkbox" name="requirePhotoEvidence" />
-              Require photo evidence
+              Require photos
             </label>
             <textarea
               name="description"

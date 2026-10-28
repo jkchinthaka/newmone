@@ -46,8 +46,8 @@ export type NotificationUatSendResult = {
 
 export const NOTIFICATION_UAT_TEMPLATE_OPTIONS = [
   { value: "critical_facility_issue", label: "Critical facility issue" },
-  { value: "work_order_from_issue", label: "Work order from issue" },
-  { value: "overdue_sla_alert", label: "Overdue SLA alert" },
+  { value: "work_order_from_issue", label: "Job from issue" },
+  { value: "overdue_sla_alert", label: "Overdue time limit alert" },
   { value: "invitation_created", label: "Invitation created" }
 ] as const;
 

@@ -80,7 +80,7 @@ export function ProviderReadinessPanel() {
         Provider diagnostics (cutover)
       </h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-        Honest provider status for evidence storage and outbound notifications. Staging remains disabled until operator
+        Honest provider status for photos storage and outbound notifications. Staging remains disabled until operator
         credentials are configured — no fake success states.
       </p>
 
@@ -94,7 +94,7 @@ export function ProviderReadinessPanel() {
           <article className={`rounded-lg border p-4 ${indicatorTone(evidence?.indicator ?? "DISABLED")}`}>
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide opacity-80">
               <HardDrive size={14} aria-hidden="true" />
-              Evidence storage
+              Photos storage
             </div>
             <p className="mt-2 text-sm font-semibold">{evidence?.indicator ?? "UNKNOWN"}</p>
             <p className="mt-1 text-xs opacity-90">{evidence?.message ?? "No readiness data"}</p>

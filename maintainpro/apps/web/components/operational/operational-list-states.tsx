@@ -11,7 +11,7 @@ type EmptyProps = {
 };
 
 export function OperationalEmptyState({
-  title = "No work orders match these filters.",
+  title = "No jobs match these filters.",
   onClear,
   onViewAll
 }: EmptyProps) {

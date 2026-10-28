@@ -10,9 +10,9 @@ export type InboxTabId =
 export const INBOX_TAB_LABELS: Array<{ id: InboxTabId; label: string }> = [
   { id: "all", label: "All" },
   { id: "requests", label: "Requests" },
-  { id: "work_orders", label: "Work orders" },
+  { id: "work_orders", label: "Jobs" },
   { id: "parts", label: "Parts" },
-  { id: "vendor_quotations", label: "Vendor quotations" },
+  { id: "vendor_quotations", label: "Vendor price quotes" },
   { id: "vendor_invoices", label: "Vendor invoices" },
   { id: "emergency", label: "Emergency closures" }
 ];

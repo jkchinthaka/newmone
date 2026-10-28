@@ -239,7 +239,7 @@ export function CompleteWorkOrderModal({
             <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">
-                  {technicianMode ? "Mark Technician Completed" : "Complete Work Order"}
+                  {technicianMode ? "Mark as done" : "Complete job"}
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
                   {technicianMode
@@ -331,7 +331,7 @@ export function CompleteWorkOrderModal({
                               onClick={() => onOpenTab(item.tab as CompletionChecklistTab)}
                               className="mt-1 inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-2 text-xs font-medium text-brand-700"
                             >
-                              {item.tab === "parts" ? "Go to Parts" : "Go to Evidence"}
+                              {item.tab === "parts" ? "Go to Parts" : "Go to photos"}
                             </button>
                           ) : null}
                         </div>
@@ -536,7 +536,7 @@ export function CompleteWorkOrderModal({
                   className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                  {technicianMode ? "Submit completion for verification" : "Save completion note"}
+                  {technicianMode ? "Submit completion for supervisor check" : "Save completion note"}
                 </button>
               </div>
             </form>

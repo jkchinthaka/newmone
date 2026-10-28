@@ -79,7 +79,7 @@ export function WorkOrderCard({
             type="button"
             onClick={() => onEdit(workOrder)}
             className="rounded-md border border-slate-200 bg-slate-50 p-1 text-slate-500 hover:bg-slate-100"
-            aria-label="Edit work order"
+            aria-label="Edit job"
           >
             <Pencil size={12} />
           </button>
@@ -194,7 +194,7 @@ export function WorkOrderCard({
             type="button"
             onClick={() => onDelete(workOrder)}
             className="inline-flex items-center justify-center rounded-md border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-            aria-label="Cancel work order"
+            aria-label="Cancel job"
           >
             <Trash2 size={12} />
           </button>

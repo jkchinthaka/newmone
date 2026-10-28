@@ -13,7 +13,7 @@ function seedPassword() {
 const outDir = path.resolve(__dirname, "../../../docs/handover/ui-redesign/batch-3b");
 
 const pages = [
-  { slug: "work-orders", route: "/maintenance/jobs", heading: "Work Orders" },
+  { slug: "work-orders", route: "/maintenance/jobs", heading: "Jobs" },
   { slug: "approvals", route: "/approvals", heading: "Approvals" },
   { slug: "fleet", route: "/fleet", heading: "Fleet" },
   { slug: "spare-parts", route: "/inventory", heading: "Spare Parts" }

@@ -15,17 +15,17 @@ type EditorStep = "basic" | "allocation" | "timing" | "items" | "summary";
 
 const moduleMeta: Record<ModuleKey, { title: string; description: string; accent: string }> = {
   machinery: {
-    title: "Machinery Jobs",
+    title: "Machinery jobs",
     description: "Workshop and equipment jobs with staff allocation, item requests, and completion control.",
     accent: "from-violet-100 to-fuchsia-50 border-violet-200"
   },
   service: {
-    title: "Service Jobs",
+    title: "Service jobs",
     description: "Service contracts, vendor work, time estimation, and pending service execution.",
     accent: "from-amber-100 to-orange-50 border-amber-200"
   },
   vehicle: {
-    title: "Vehicle Jobs",
+    title: "Vehicle jobs",
     description: "Fleet repair and maintenance jobs with position-level definitions and costing.",
     accent: "from-sky-100 to-cyan-50 border-sky-200"
   }
@@ -349,7 +349,7 @@ export function ModuleJobListScreen({ module }: { module: ModuleKey }) {
             <p className="mt-2 text-sm text-slate-600">{meta.description}</p>
           </div>
           <button type="button" onClick={() => window.location.assign(`/${module}/new`)} className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">
-            <PlusCircle size={16} /> New Job
+            <PlusCircle size={16} /> New job
           </button>
         </div>
       </section>
@@ -383,7 +383,7 @@ export function ModuleJobListScreen({ module }: { module: ModuleKey }) {
         <section className="card rounded-[28px] p-5">
           <div className="flex items-center gap-2">
             <Wrench size={18} className="text-brand-600" />
-            <h3 className="text-lg font-semibold text-slate-900">Pending Service Jobs</h3>
+            <h3 className="text-lg font-semibold text-slate-900">Pending Service jobs</h3>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {pendingServiceJobs.map((job, index) => <JobCard key={job.id || job.jobId || `service-pending-${index}`} job={job} onOpen={() => window.location.assign(`/service/${job.id}`)} />)}
@@ -449,7 +449,7 @@ export function JobEditorScreen({ module, jobId }: { module: ModuleKey; jobId?: 
       <section className={`card rounded-[28px] border bg-gradient-to-br ${meta.accent} p-5`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">{jobId ? "Job Detail" : "New Job"}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">{jobId ? "Job Detail" : "New job"}</p>
             <h2 className="mt-2 page-title">{meta.title} Workspace</h2>
             <p className="mt-2 text-sm text-slate-600">Use the tabs below to replicate the complete mobile workflow in a connected web flow.</p>
           </div>
@@ -476,22 +476,22 @@ export function JobEditorScreen({ module, jobId }: { module: ModuleKey; jobId?: 
             <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Job Date</span><DateField bare label="Job Date" value={form.date} onChange={(date) => setForm((current) => current ? { ...current, date } : current)} /></label>
             <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Job ID</span><input readOnly value={form.jobId} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900" /></label>
             <label className="text-sm text-slate-600 md:col-span-2"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Asset / Vehicle No</span><input value={form.assetNumber} onChange={(event) => setForm((current) => current ? { ...current, assetNumber: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
-            <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" checked={form.onlineOrdering} onChange={(event) => setForm((current) => current ? { ...current, onlineOrdering: event.target.checked } : current)} className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" /> Online Job Ordering</label>
-            <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Main Job Code</span><input value={form.mainJobCode} onChange={(event) => setForm((current) => current ? { ...current, mainJobCode: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
+            <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" checked={form.onlineOrdering} onChange={(event) => setForm((current) => current ? { ...current, onlineOrdering: event.target.checked } : current)} className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" /> Online job Ordering</label>
+            <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Main job Code</span><input value={form.mainJobCode} onChange={(event) => setForm((current) => current ? { ...current, mainJobCode: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
 
             {module === "machinery" ? (
               <>
                 <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Building Name & Number</span><input value={form.buildingName} onChange={(event) => setForm((current) => current ? { ...current, buildingName: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
                 <DepartmentSelect label="Department Name" value={form.departmentId ?? null} selectedName={form.departmentName || form.department} required error={departmentError} onChange={handleDepartmentChange} />
                 <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Section Name</span><input value={form.sectionName} onChange={(event) => setForm((current) => current ? { ...current, sectionName: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
-                <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Main Job Category</span><input value={form.mainJobCategory} onChange={(event) => setForm((current) => current ? { ...current, mainJobCategory: event.target.value, title: event.target.value || current.title } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
-                <label className="text-sm text-slate-600 md:col-span-2"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Sub Job Category</span><input value={form.subJobCategory} onChange={(event) => setForm((current) => current ? { ...current, subJobCategory: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
+                <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Main job Category</span><input value={form.mainJobCategory} onChange={(event) => setForm((current) => current ? { ...current, mainJobCategory: event.target.value, title: event.target.value || current.title } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
+                <label className="text-sm text-slate-600 md:col-span-2"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Sub job Category</span><input value={form.subJobCategory} onChange={(event) => setForm((current) => current ? { ...current, subJobCategory: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
               </>
             ) : null}
 
             {module === "service" ? (
               <>
-                <label className="text-sm text-slate-600 md:col-span-2"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Service Job Definition</span><input value={form.serviceJobDefinition} onChange={(event) => setForm((current) => current ? { ...current, serviceJobDefinition: event.target.value, title: event.target.value || current.title } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
+                <label className="text-sm text-slate-600 md:col-span-2"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Service job Definition</span><input value={form.serviceJobDefinition} onChange={(event) => setForm((current) => current ? { ...current, serviceJobDefinition: event.target.value, title: event.target.value || current.title } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
                 <DepartmentSelect label="Department Name" value={form.departmentId ?? null} selectedName={form.departmentName || form.department} required error={departmentError} onChange={handleDepartmentChange} />
                 <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Section Name</span><input value={form.sectionName} onChange={(event) => setForm((current) => current ? { ...current, sectionName: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
                 <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Service Party</span><select value={form.servicePartyCode} onChange={(event) => { const vendor = vendors.find((entry) => entry.code === event.target.value); setForm((current) => current ? { ...current, servicePartyCode: event.target.value, servicePartyName: vendor?.name ?? "" } : current); }} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400">{vendors.map((vendor) => <option key={vendor.code} value={vendor.code}>{vendor.code} {vendor.name}</option>)}</select></label>
@@ -513,7 +513,7 @@ export function JobEditorScreen({ module, jobId }: { module: ModuleKey; jobId?: 
                 </div>
                 <div className="md:col-span-2">
                   <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-                    <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Sub Job Definition</span><input value={subJobDraft} onChange={(event) => setSubJobDraft(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
+                    <label className="text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Sub job Definition</span><input value={subJobDraft} onChange={(event) => setSubJobDraft(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
                     <button type="button" onClick={() => { if (!subJobDraft.trim()) return; setForm((current) => current ? { ...current, subJobDefinitions: [...current.subJobDefinitions, subJobDraft.trim()] } : current); setSubJobDraft(""); }} className="self-end rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">ADD</button>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -528,7 +528,7 @@ export function JobEditorScreen({ module, jobId }: { module: ModuleKey; jobId?: 
 
           <div className="mt-6 flex justify-end gap-3">
             <button type="button" onClick={() => window.location.assign(`/${module}`)} className="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100">Cancel</button>
-            <button type="button" disabled={!canEdit} onClick={handleSaveBasic} className="rounded-2xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-55">{form.id ? "Save Basic Info" : "Create Job"}</button>
+            <button type="button" disabled={!canEdit} onClick={handleSaveBasic} className="rounded-2xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-55">{form.id ? "Save Basic Info" : "Create job"}</button>
           </div>
         </section>
       ) : null}
@@ -620,7 +620,7 @@ export function JobEditorScreen({ module, jobId }: { module: ModuleKey; jobId?: 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Job Summary</p>
-              <h3 className="mt-2 text-xl font-semibold text-slate-900">Complete Job</h3>
+              <h3 className="mt-2 text-xl font-semibold text-slate-900">Complete job</h3>
             </div>
             <StatusBadge status={form.status} />
           </div>
@@ -651,7 +651,7 @@ export function JobEditorScreen({ module, jobId }: { module: ModuleKey; jobId?: 
           <label className="mt-4 block text-sm text-slate-600"><span className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Completion summary / total report</span><textarea rows={5} value={form.completionNotes} onChange={(event) => setForm((current) => current ? { ...current, completionNotes: event.target.value } : current)} className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-brand-400" /></label>
 
           <div className="mt-6 flex flex-wrap justify-end gap-3">
-            <button type="button" onClick={() => window.location.assign("/reports/job-costing")} className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100"><BarChart3 size={16} /> View Total Job Report</button>
+            <button type="button" onClick={() => window.location.assign("/reports/job-costing")} className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100"><BarChart3 size={16} /> View Total job Report</button>
             <button type="button" disabled={!canEdit || !form.id} onClick={() => { if (!form.id) return; const completed = completeJob(form.id, form); if (completed) setForm(completed); }} className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-55"><CheckCircle2 size={16} /> Complete</button>
           </div>
         </section>

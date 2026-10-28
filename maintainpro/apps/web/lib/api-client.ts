@@ -109,8 +109,8 @@ export type DeploymentRouteFeature = "workforce" | "work-order-assignees" | "wor
 
 const DEPLOYMENT_ROUTE_MESSAGES: Record<DeploymentRouteFeature, string> = {
   workforce: "Workforce API is not available on the current backend deployment.",
-  "work-order-assignees": "Work order assignee API is not available on the current backend deployment.",
-  "work-order-history": "Work order history API is not available on the current backend deployment."
+  "work-order-assignees": "Job assignee API is not available on the current backend deployment.",
+  "work-order-history": "Job history API is not available on the current backend deployment."
 };
 
 export function getDeploymentRouteUnavailableMessage(

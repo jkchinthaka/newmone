@@ -17,7 +17,7 @@ import { DashboardSection } from "./dashboard-section";
 
 const PENDING_PO_STATUSES = new Set(["PENDING", "ORDERED", "PARTIALLY_RECEIVED"]);
 const TITLE = "Inventory overview";
-const DESCRIPTION = "Stock levels and procurement activity from live inventory records.";
+const DESCRIPTION = "Stock levels and buying activity from live inventory records.";
 
 export function InventorySummary() {
   // Server-side totals over every active part. Previously this downloaded the part list (bounded
@@ -66,14 +66,14 @@ export function InventorySummary() {
   return (
     <DashboardSection
       title="Inventory overview"
-      description="Stock levels and procurement activity from live inventory records."
+      description="Stock levels and buying activity from live inventory records."
       action={
         <div className="flex flex-wrap gap-3">
           <Link href={"/inventory" as Route} className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800">
             Inventory <ArrowRight size={14} aria-hidden="true" />
           </Link>
           <Link href={"/procurement" as Route} className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800">
-            Procurement <ArrowRight size={14} aria-hidden="true" />
+            Buying <ArrowRight size={14} aria-hidden="true" />
           </Link>
         </div>
       }

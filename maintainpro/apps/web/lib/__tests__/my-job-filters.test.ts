@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { myJobFilterHref, resolveMyJobFilter, myJobPurpose } from "../my-job-filters";
 
-test("home card filters map onto My Jobs", () => {
+test("home card filters map onto My jobs", () => {
   assert.equal(myJobFilterHref("active"), "/work-orders/my");
   assert.equal(myJobFilterHref("due-today"), "/work-orders/my?filter=due-today");
   assert.equal(myJobFilterHref("overdue"), "/work-orders/my?filter=overdue");
@@ -25,8 +25,8 @@ test("my job purpose matches the assigned-job view rules", () => {
   assert.match(myJobPurpose("due-today"), /today/);
   assert.match(myJobPurpose("overdue"), /past due/);
   assert.match(myJobPurpose("waiting-parts"), /parts/);
-  assert.match(myJobPurpose("evidence-needed"), /evidence/);
-  assert.match(myJobPurpose("rework-required"), /rework/);
+  assert.match(myJobPurpose("evidence-needed"), /photos/);
+  assert.match(myJobPurpose("rework-required"), /fixed again/);
   assert.match(myJobPurpose("in-progress"), /in progress/);
   assert.match(myJobPurpose("completed"), /completed or closed/);
 });

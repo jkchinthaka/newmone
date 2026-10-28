@@ -174,7 +174,7 @@ export function AddPersonWizard() {
               <input placeholder="Work categories" value={form.workCategories} onChange={(e) => setForm({ ...form, workCategories: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
               <input placeholder="Daily capacity hours" value={form.dailyCapacityHours} onChange={(e) => setForm({ ...form, dailyCapacityHours: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
               <input placeholder="Shift" value={form.shift} onChange={(e) => setForm({ ...form, shift: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.canReceiveWorkOrders} onChange={(e) => setForm({ ...form, canReceiveWorkOrders: e.target.checked })} /> Can receive work orders</label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.canReceiveWorkOrders} onChange={(e) => setForm({ ...form, canReceiveWorkOrders: e.target.checked })} /> Can receive jobs</label>
               <select value={form.availabilityStatus} onChange={(e) => setForm({ ...form, availabilityStatus: e.target.value })} className="w-full rounded border px-3 py-2 text-sm">
                 <option value="AVAILABLE">Available</option>
                 <option value="ON_LEAVE">On leave</option>

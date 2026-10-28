@@ -51,8 +51,8 @@ function completedCountFilters(assignedUserId: string): WorkOrderQueueFilters {
 
 export function WorkOrdersSummary({
   assignedUserId = null,
-  title = "Work orders",
-  description = "Live work order counts from the maintenance queue.",
+  title = "Jobs",
+  description = "Live job counts from the maintenance queue.",
   showPriorityList = true
 }: WorkOrdersSummaryProps) {
   const assigned = assignedUserId != null;
@@ -92,7 +92,7 @@ export function WorkOrdersSummary({
   if (countsQuery.isLoading) {
     return (
       <DashboardSection title={title} description={description}>
-        <InlineLoadingState label="Loading work order summary…" />
+        <InlineLoadingState label="Loading job summary…" />
       </DashboardSection>
     );
   }
@@ -100,7 +100,7 @@ export function WorkOrdersSummary({
   if (errorMode === "full") {
     return (
       <DashboardSection title={title} description={description}>
-        <ErrorState title="Could not load work orders" error={countsQuery.error} onRetry={() => void countsQuery.refetch()} />
+        <ErrorState title="Could not load jobs" error={countsQuery.error} onRetry={() => void countsQuery.refetch()} />
       </DashboardSection>
     );
   }
@@ -120,7 +120,7 @@ export function WorkOrdersSummary({
           href={(assigned ? "/work-orders/my" : "/work-orders") as Route}
           className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800"
         >
-          Open work orders <ArrowRight size={14} aria-hidden="true" />
+          Open jobs <ArrowRight size={14} aria-hidden="true" />
         </Link>
       }
     >
@@ -129,17 +129,17 @@ export function WorkOrdersSummary({
       ) : null}
       <WorkOrderStatsGrid stats={stats} assigned={assigned} />
       <p className="mt-2 text-xs text-slate-500">
-        Counts come from the server for all matching work orders (refreshed every 60s while this tab is open).
+        Counts come from the server for all matching jobs (refreshed every 60s while this tab is open).
       </p>
       {showPriorityList ? (
         listFailed ? (
-          <RefreshErrorBanner className="mt-4" message="Could not load priority work orders." onRetry={() => void listQuery.refetch()} retrying={listQuery.isFetching} />
+          <RefreshErrorBanner className="mt-4" message="Could not load priority jobs." onRetry={() => void listQuery.refetch()} retrying={listQuery.isFetching} />
         ) : listQuery.isLoading ? (
           <div className="mt-4">
-            <InlineLoadingState label="Loading priority work orders…" />
+            <InlineLoadingState label="Loading priority jobs…" />
           </div>
         ) : (
-          <PriorityWorkOrdersList orders={priorityOrders} emptyLabel={assigned ? "No assigned work orders right now." : "No open work orders need attention."} />
+          <PriorityWorkOrdersList orders={priorityOrders} emptyLabel={assigned ? "No assigned jobs right now." : "No open jobs need attention."} />
         )
       ) : null}
     </DashboardSection>
@@ -170,7 +170,7 @@ function PriorityWorkOrdersList({
   }
 
   return (
-    <ul className="mt-4 space-y-2" aria-label="Priority work orders">
+    <ul className="mt-4 space-y-2" aria-label="Priority jobs">
       {orders.map((order) => (
         <li key={order.id} className="rounded-lg border border-slate-200 px-3 py-3 text-sm">
           <div className="flex flex-wrap items-start justify-between gap-2">

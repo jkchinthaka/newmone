@@ -95,7 +95,7 @@ const MASTER_ENTITIES = [
   },
   {
     label: "Job Codes",
-    description: "Main jobs and cascading sub-jobs reused across all work orders.",
+    description: "Main jobs and cascading sub-jobs reused across all jobs.",
     href: "/maintenance/job-codes",
     icon: Tag,
     color: "text-indigo-600",

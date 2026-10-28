@@ -334,7 +334,7 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
 
       {!canSeeAssignees ? (
         <p className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
-          Your role does not have permission to view or manage work order assignments. Contact a manager or
+          Your role does not have permission to view or manage job assignments. Contact a manager or
           administrator.
         </p>
       ) : loadingAssignees ? (

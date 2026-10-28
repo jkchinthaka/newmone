@@ -104,10 +104,10 @@ export function WorkOrderActivityPanel({
 
       <EvidenceTimeline
         events={events}
-        title="Activity & evidence"
-        description="Chronological history derived from work order dates, linked facility issue context, and part requests."
+        title="Activity & photos"
+        description="Chronological history derived from job dates, linked facility issue context, and part requests."
         emptyTitle="No additional activity yet"
-        emptyDescription="Timeline events appear when work order or linked issue records include dated fields."
+        emptyDescription="Timeline events appear when job or linked issue records include dated fields."
       />
 
       {workOrderId ? (

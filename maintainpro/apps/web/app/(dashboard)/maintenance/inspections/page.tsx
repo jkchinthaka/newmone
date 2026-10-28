@@ -204,7 +204,7 @@ export default function MaintenanceInspectionsPage() {
                 <th className="px-3 py-2">Due</th>
                 <th className="px-3 py-2">Result</th>
                 <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Corrective action</th>
+                <th className="px-3 py-2">Repair action</th>
               </tr>
             </thead>
             <tbody>
@@ -232,7 +232,7 @@ export default function MaintenanceInspectionsPage() {
                     </td>
                     <td className="px-3 py-3">{statusLabel(row.status)}</td>
                     <td className="px-3 py-3">
-                      {actionId ? <Link className="text-brand-700" href={`/work-orders?wo=${actionId}` as Route}>Work order</Link> : null}
+                      {actionId ? <Link className="text-brand-700" href={`/work-orders?wo=${actionId}` as Route}>Job</Link> : null}
                       {requestId ? <Link className="block text-brand-700" href={`/requests/${requestId}` as Route}>Request</Link> : null}
                       {!actionId && !requestId ? "—" : null}
                     </td>

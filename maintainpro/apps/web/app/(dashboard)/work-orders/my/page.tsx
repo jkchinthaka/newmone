@@ -64,8 +64,8 @@ const VIEWS = [
   ["due-today", "Due today", "dueToday"],
   ["overdue", "Overdue", "overdue"],
   ["waiting-parts", "Waiting parts", "waitingParts"],
-  ["evidence-needed", "Evidence needed", "evidenceNeeded"],
-  ["rework-required", "Rework required", "reworkRequired"],
+  ["evidence-needed", "Photos needed", "evidenceNeeded"],
+  ["rework-required", "Needs to be fixed again", "reworkRequired"],
   ["in-progress", "In progress", "inProgress"],
   ["completed", "Completed", "completed"]
 ] as const;
@@ -292,13 +292,13 @@ export default function MyJobsPage() {
   return (
     <div className="ops-page pb-24 md:pb-0">
       <OperationalPageHeader
-        title="My Jobs"
+        title="My jobs"
         description="Jobs assigned to you, most urgent first."
         actions={
           <>
             {allWorkOrders ? (
               <Link href={allWorkOrders.href as Route} className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-3 text-sm">
-                All Work Orders
+                All jobs
               </Link>
             ) : null}
             <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => void refresh()}>
@@ -344,7 +344,7 @@ export default function MyJobsPage() {
       >
         <label className="text-sm">
           Search
-          <input className="mt-1 w-full rounded border border-slate-300 px-3 py-2" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="WO number, title, or asset" />
+          <input className="mt-1 w-full rounded border border-slate-300 px-3 py-2" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Job number, title, or asset" />
         </label>
         <label className="text-sm">
           Status
@@ -408,7 +408,7 @@ export default function MyJobsPage() {
       {!loading && !error && items.length === 0 && !filtersActive ? (
         <EmptyState
           title="No jobs assigned to you"
-          description="When a work order is assigned to your user, it will appear here."
+          description="When a job is assigned to your user, it will appear here."
           action={<button type="button" className="min-h-11 rounded border border-slate-300 px-3 text-sm" onClick={() => void refresh()}>Refresh</button>}
         />
       ) : null}

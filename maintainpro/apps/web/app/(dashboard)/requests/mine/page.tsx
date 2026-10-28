@@ -49,7 +49,7 @@ export default function MyRequestsPage() {
           href={"/requests/new" as Route}
           className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
         >
-          <Plus size={16} aria-hidden /> Report issue
+          <Plus size={16} aria-hidden /> Report a problem
         </Link>
       </div>
       {loading ? <p className="text-sm text-slate-600">Loading requests...</p> : null}
@@ -75,7 +75,7 @@ export default function MyRequestsPage() {
                 <Link href={`/requests/${item.id}` as Route} className="font-medium text-brand-700">
                   {item.requestNumber}
                 </Link>
-                <span className="text-sm text-slate-600">{item.workOrder?.woNumber ?? "No work order yet"}</span>
+                <span className="text-sm text-slate-600">{item.workOrder?.woNumber ?? "No job yet"}</span>
               </div>
               <p className="mt-1 text-sm text-slate-700">{item.description}</p>
               <p className="mt-2 text-xs text-slate-500">

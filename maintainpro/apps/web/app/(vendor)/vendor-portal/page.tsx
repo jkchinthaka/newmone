@@ -43,7 +43,7 @@ export default function VendorPortalJobsPage() {
       });
     },
     onSuccess: () => {
-      toast.success("Quotation submitted");
+      toast.success("Price quote submitted");
       setQuote({ caseId: "", quotationNo: "", quotedAmount: "" });
       void qc.invalidateQueries({ queryKey: withTenantScope(["vendor-portal", "jobs"]) });
     },
@@ -96,7 +96,7 @@ export default function VendorPortalJobsPage() {
         />
         <input
           className="rounded border px-3 py-2 text-sm"
-          placeholder="Quotation no"
+          placeholder="Price quote no"
           value={quote.quotationNo}
           onChange={(e) => setQuote((q) => ({ ...q, quotationNo: e.target.value }))}
         />
@@ -112,7 +112,7 @@ export default function VendorPortalJobsPage() {
           disabled={!quote.caseId || !quote.quotationNo || quoteMutation.isPending}
           onClick={() => quoteMutation.mutate()}
         >
-          Submit quotation
+          Submit price quote
         </button>
       </div>
 

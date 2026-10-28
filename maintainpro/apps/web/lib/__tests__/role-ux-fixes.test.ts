@@ -29,7 +29,7 @@ const read = (relative: string) => readFileSync(path.resolve(__dirname, "..", ".
 
 test("mobile bottom nav starts with the role's login home", () => {
   assert.equal(getMobileBottomNavItems("TECHNICIAN", { permissions: TECHNICIAN })[0]?.label, "My Jobs");
-  assert.equal(getMobileBottomNavItems("INVENTORY_KEEPER", { permissions: INVENTORY_KEEPER })[0]?.label, "Inventory");
+  assert.equal(getMobileBottomNavItems("INVENTORY_KEEPER", { permissions: INVENTORY_KEEPER })[0]?.label, "Parts");
   // The gate screen is retired: security officers land on Requests to report problems.
   const security = getMobileBottomNavItems("SECURITY_OFFICER", { permissions: SECURITY_OFFICER });
   assert.equal(security[0]?.href, "/requests");
@@ -37,7 +37,7 @@ test("mobile bottom nav starts with the role's login home", () => {
   assert.equal(security.some((item) => item.href.startsWith("/fleet")), false);
   // Managers land on the dashboard; Work Orders stays as the second tab.
   const manager = getMobileBottomNavItems("MANAGER");
-  assert.deepEqual(manager.slice(0, 2).map((item) => item.label), ["Dashboard", "Work Orders"]);
+  assert.deepEqual(manager.slice(0, 2).map((item) => item.label), ["Dashboard", "Jobs"]);
   assert.equal(manager[0]?.activeMatch, "exact");
 });
 
@@ -50,7 +50,7 @@ test("security officer favourites are Requests and Report issue; the gate screen
   assert.equal(visible.some((item) => item.href.startsWith("/fleet")), false);
 });
 
-test("technicians get My Jobs and Report issue, without the duplicate job lanes", () => {
+test("technicians get My jobs and Report issue, without the duplicate job lanes", () => {
   const ids = getVisibleNavigationItems("TECHNICIAN", { permissions: TECHNICIAN }).map((item) => item.id);
   assert.ok(ids.includes("my-jobs"));
   assert.ok(ids.includes("report-issue"));
@@ -64,7 +64,7 @@ test("own-only requesters get one entry and can open My requests and Report issu
     const items = getVisibleNavigationItems(role, { permissions: [...keys] });
     const entries = items.filter((item) => item.id === "requests" || item.id === "my-requests");
     assert.equal(entries.length, 1, role);
-    assert.equal(entries[0]?.label, "My requests", role);
+    assert.equal(entries[0]?.label, "My Requests", role);
     assert.equal(canAccessNavigationPath("/requests/mine", role, [...keys]), true, role);
     assert.equal(canAccessNavigationPath("/requests/new", role, [...keys]), true, role);
   }
@@ -83,17 +83,17 @@ test("menu and search descriptions are plain help, not developer notes", () => {
 });
 
 test("status codes have one plain name", () => {
-  assert.equal(workOrderStatusLabel("TECHNICIAN_COMPLETED"), "Awaiting verification");
-  assert.equal(workOrderStatusLabel("REWORK_REQUIRED"), "Sent back for rework");
+  assert.equal(workOrderStatusLabel("TECHNICIAN_COMPLETED"), "Done, waiting for check");
+  assert.equal(workOrderStatusLabel("REWORK_REQUIRED"), "Needs to be fixed again");
   assert.equal(workOrderStatusLabel("WAITING_PARTS"), "Waiting for parts");
   assert.equal(workOrderStatusLabel("VERIFIED"), "Verified");
   assert.equal(workOrderStatusLabel("CLOSED"), "Closed");
-  assert.equal(formatEnumLabel("TECHNICIAN_COMPLETED"), "Awaiting verification");
+  assert.equal(formatEnumLabel("TECHNICIAN_COMPLETED"), "Done, waiting for check");
   assert.equal(vehicleStatusLabel("UNDER_MAINTENANCE"), "In workshop");
   assert.equal(partRequestStatusLabel("APPROVED"), "Ready to issue");
   assert.equal(gateMovementLabel("OVERRIDE_APPROVED"), "Released by manager");
   const chips = activeQueueFilterChips({ ...DEFAULT_QUEUE_FILTERS, status: "TECHNICIAN_COMPLETED", jobDomain: "MACHINERY" });
-  assert.deepEqual(chips.map((chip) => chip.label), ["Awaiting verification", "Machinery"]);
+  assert.deepEqual(chips.map((chip) => chip.label), ["Done, waiting for check", "Machinery"]);
   for (const chip of chips) assert.doesNotMatch(chip.label, /[A-Z]{2,}_[A-Z]/);
 });
 
@@ -122,6 +122,6 @@ test("inventory home uses plain card titles and lists parts to issue", () => {
 test("My requests page is not a dead end", () => {
   const source = read("app/(dashboard)/requests/mine/page.tsx");
   assert.match(source, /href=\{"\/requests\/new" as Route\}/);
-  assert.match(source, /Report issue/);
+  assert.match(source, /Report a problem/);
   assert.doesNotMatch(source, /read-only/);
 });

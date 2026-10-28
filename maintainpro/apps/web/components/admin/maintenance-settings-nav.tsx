@@ -7,7 +7,7 @@ import type { Route } from "next";
 const LINKS = [
   { href: "/admin/maintenance-config", title: "General" },
   { href: "/admin/job-categories", title: "Job categories" },
-  { href: "/admin/priority-sla", title: "Priority & SLA" },
+  { href: "/admin/priority-sla", title: "Priority & Response Time" },
   { href: "/admin/approval-rules", title: "Approval rules" },
   { href: "/admin/reason-codes", title: "Reason codes" },
   { href: "/admin/fault-codes", title: "Fault codes" },

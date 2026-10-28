@@ -9,5 +9,5 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  return <ModuleRouteError error={error} moduleName="Work orders" reset={reset} />;
+  return <ModuleRouteError error={error} moduleName="Jobs" reset={reset} />;
 }

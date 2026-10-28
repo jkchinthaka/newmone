@@ -69,7 +69,7 @@ export function WorkOrderCompactTable({
                   <TouchCheckbox
                     checked={allSelected}
                     onChange={(event) => onToggleSelectAll(event.target.checked)}
-                    label="Select all work orders on this page"
+                    label="Select all jobs on this page"
                   />
                 </th>
               ) : null}

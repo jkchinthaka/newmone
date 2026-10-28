@@ -25,7 +25,7 @@ const PRIMARY_LABELS: Record<string, string> = {
   assigned: "Assigned",
   "in-progress": "In Progress",
   "waiting-parts": "Waiting for parts",
-  "supervisor-verification": "Awaiting verification",
+  "supervisor-verification": "Done, waiting for check",
   overdue: "Overdue",
   unassigned: "Unassigned",
   "high-priority": "High Priority",
@@ -132,10 +132,10 @@ export function nextActionLabel(row: {
     return { label: row.partsStatus === "Approval pending" ? "Approval pending" : "Waiting for parts", tone: "warn" };
   }
   if (row.evidenceStatus === "Missing" || row.evidenceStatus === "Rejected") {
-    return { label: "Evidence missing", tone: "warn" };
+    return { label: "Photos missing", tone: "warn" };
   }
   if (row.status === "TECHNICIAN_COMPLETED") {
-    return { label: "Awaiting verification", tone: "warn" };
+    return { label: "Done, waiting for check", tone: "warn" };
   }
   if (row.status === "COMPLETED" || row.status === "CLOSED" || row.status === "VERIFIED") {
     return { label: "Ready", tone: "ok" };
@@ -155,8 +155,8 @@ export function activeQueueFilterChips(filters: WorkOrderQueueFilters): QueueFil
   if (filters.jobDomain) chips.push({ key: "jobDomain", label: jobDomainLabel(filters.jobDomain) });
   if (filters.overdueOnly) chips.push({ key: "overdueOnly", label: "Overdue" });
   if (filters.highRiskOnly) chips.push({ key: "highRiskOnly", label: "High risk" });
-  if (filters.triageOnly) chips.push({ key: "triageOnly", label: "Triage" });
-  if (filters.evidenceStatus) chips.push({ key: "evidenceStatus", label: `Evidence: ${formatEnumLabel(filters.evidenceStatus)}` });
+  if (filters.triageOnly) chips.push({ key: "triageOnly", label: "Review" });
+  if (filters.evidenceStatus) chips.push({ key: "evidenceStatus", label: `Photos: ${formatEnumLabel(filters.evidenceStatus)}` });
   if (filters.partsStatus) chips.push({ key: "partsStatus", label: `Parts: ${formatEnumLabel(filters.partsStatus)}` });
   if (filters.dateFrom || filters.dateTo) {
     chips.push({ key: "dates", label: `Created ${filters.dateFrom || "…"}–${filters.dateTo || "…"}` });

@@ -194,7 +194,7 @@ export function CleaningOverview() {
         </div>
 
         <div className={cardClass}>
-          <p className="text-sm font-semibold text-slate-900">Weekly Throughput</p>
+          <p className="text-sm font-semibold text-slate-900">Jobs done this week</p>
           <p className="text-xs text-slate-500">Weekly cleaning output with risk indicators</p>
           <div className="mt-3 h-[280px]">
             <ResponsiveContainer width="100%" height="100%">

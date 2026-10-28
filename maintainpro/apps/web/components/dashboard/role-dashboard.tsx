@@ -48,11 +48,11 @@ export function RoleDashboard() {
       {dashboardShowsWorkOrdersSummary(variant) ? (
         <WorkOrdersSummary
           assignedUserId={variant === "technician" ? user.id : null}
-          title={variant === "technician" ? "My assigned work" : "Work orders"}
+          title={variant === "technician" ? "My assigned work" : "Jobs"}
           description={
             variant === "technician"
-              ? "Work orders assigned to you from the live maintenance queue."
-              : "Live work order counts and priority items from the maintenance queue."
+              ? "Jobs assigned to you from the live maintenance queue."
+              : "Live job counts and priority items from the maintenance queue."
           }
         />
       ) : null}

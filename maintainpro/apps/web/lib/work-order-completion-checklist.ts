@@ -41,14 +41,14 @@ export function buildCompletionChecklist(input: CompletionChecklistInput): Compl
         key: "before",
         label: "Before photo",
         met: req.hasBefore,
-        help: "Open the Evidence tab and add a before photo.",
+        help: "Open the photos tab and add a before photo.",
         tab: "evidence"
       });
       items.push({
         key: "after",
         label: "After photo",
         met: req.hasAfter,
-        help: "Open the Evidence tab and add an after photo.",
+        help: "Open the photos tab and add an after photo.",
         tab: "evidence"
       });
     }
@@ -69,7 +69,7 @@ export function buildCompletionChecklist(input: CompletionChecklistInput): Compl
       key: "qr",
       label: "QR scan",
       met: isQrVerified(req.qrVerificationStatus),
-      help: "Open the Evidence tab and scan the QR tag.",
+      help: "Open the photos tab and scan the QR tag.",
       tab: "evidence"
     });
   }

@@ -64,15 +64,15 @@ const laneConfig: Record<
   }
 > = {
   machinery: {
-    label: "Machinery Jobs",
+    label: "Machinery jobs",
     icon: Factory
   },
   service: {
-    label: "Service Jobs",
+    label: "Service jobs",
     icon: Wrench
   },
   vehicle: {
-    label: "Vehicle Jobs",
+    label: "Vehicle jobs",
     icon: CarFront
   }
 };
@@ -143,7 +143,7 @@ export function LegacyMaintenanceJobsBoard({
     <div className="space-y-5 rounded-3xl border border-slate-700/80 bg-gradient-to-br from-[#090f1f] via-[#0d1529] to-[#120f2a] p-5 text-slate-100 shadow-[0_26px_70px_rgba(2,6,23,0.52)]">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-slate-700/80 bg-slate-900/70 p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Total Jobs</p>
+          <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Total jobs</p>
           <p className="mt-2 text-3xl font-semibold text-violet-300">{statValue(jobs)}</p>
         </div>
         <div className="rounded-2xl border border-slate-700/80 bg-slate-900/70 p-4 shadow-sm">
@@ -213,7 +213,7 @@ export function LegacyMaintenanceJobsBoard({
         <section className="space-y-4 rounded-2xl border border-slate-700/80 bg-slate-900/75 p-4 backdrop-blur-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Maintenance Jobs</p>
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Maintenance jobs</p>
               <h2 className="mt-1 text-xl font-semibold text-white">{laneConfig[activeLane].label}</h2>
               <p className="text-sm text-slate-400">{filteredJobs.length} job(s) shown</p>
             </div>
@@ -223,7 +223,7 @@ export function LegacyMaintenanceJobsBoard({
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white hover:from-violet-400 hover:to-fuchsia-400"
             >
               <Plus size={15} />
-              New Job
+              New job
             </button>
           </div>
 

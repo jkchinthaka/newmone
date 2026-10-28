@@ -8,6 +8,20 @@
 > 3. Keep unfinished work on the current feature branch. Never force-push, never discard or
 >    reset someone else's changes, never push unvalidated code to `main`.
 
+**CURRENT (2026-10-28) — plain-English UI wording and task-based navigation on `release/develop-20261022b`.** Web UI text only. Database fields, API contracts, enums, stored statuses, routes, permission keys, nav ids and business logic are unchanged.
+- **Wording:**
+  - Work Order → Job; Triage → Review; Evidence → Photos; Verification → Supervisor check; Sign-off → Supervisor approval.
+  - Rework → Needs to be fixed again; Downtime → Machine stopped time; Quotation → Price quote; Consumption → Usage.
+  - SLA → Time limit / Response time; PM → Scheduled service; RCA → Why it broke; CAPA → Fix and prevent plan.
+  - KPI → Key numbers; Procurement → Buying; Stock count / Variance → Stock check / Difference; Permit → Work permit.
+  - Central fallbacks are in `lib/display-labels.ts`.
+- **Sidebar groups:** Daily Work, Jobs, Assets & Places, Parts & Stock, Reports & Analysis, Administration, Account.
+- **Kept on purpose:** API notification titles were not reworded, because web deep links match on them (`/verif/`).
+- **Tests:**
+  - Web tsc 0. Web unit 462/462. `next build` 0.
+  - API specs that import web libraries: 434/434.
+  - e2e label assertions updated.
+
 **CURRENT (2026-10-28) — production audit fix pass on `release/develop-20261022b` (on top of `403726d4`).** One commit covers the P0 security fixes, P1 data/list fixes, P2 cleanup, workflow defects, Gate Pass UI removal, and the loading/mobile/perf standard.
 - **Security:**
   - The BFF refresh latch is keyed per refresh-token hash.

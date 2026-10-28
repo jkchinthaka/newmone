@@ -7,7 +7,7 @@ import { myJobFilterHref } from "../my-job-filters";
 test("resolveRoleHome: PROCUREMENT_OFFICER resolves to the PROCUREMENT profile, not the REQUESTER fallback", () => {
   const profile = resolveRoleHome("PROCUREMENT_OFFICER");
   assert.equal(profile.roleKey, "PROCUREMENT");
-  assert.equal(profile.title, "Procurement Home");
+  assert.equal(profile.title, "Buying Home");
   const cardIds = profile.cards.map((c) => c.id);
   assert.ok(cardIds.includes("procurement-queue"));
   assert.ok(cardIds.includes("procurement-vendors"));
@@ -19,7 +19,7 @@ test("resolveRoleHome: technician-bucket roles -> TECHNICIAN profile", () => {
   assert.equal(resolveRoleHome("MECHANIC").roleKey, "TECHNICIAN");
 });
 
-test("technician My Work has four distinct job filters and no evidence or rework cards", () => {
+test("technician My Work has four distinct job filters and no photos or fix again cards", () => {
   const profile = resolveRoleHome("TECHNICIAN");
   assert.equal(profile.title, "My Work");
   assert.deepEqual(

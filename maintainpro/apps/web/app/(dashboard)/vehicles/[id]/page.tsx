@@ -992,7 +992,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
         <section className="space-y-4">
           <div className="grid gap-3 md:grid-cols-3">
             <MetricCard
-              label="Average Consumption"
+              label="Average Usage"
               value={`${fuelAnalytics.averageConsumptionLPer100Km.toFixed(2)} L/100km`}
               tone="bg-emerald-50 text-emerald-800"
             />
@@ -1188,7 +1188,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
             <h3 className="text-sm font-semibold text-slate-800">Roadmap: BI, Audit, Integrations</h3>
             <ul className="mt-2 grid gap-2 text-sm text-slate-600 md:grid-cols-2">
               <li className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                Maintenance cost, downtime, and cost-per-vehicle metrics
+                Maintenance cost, machine stopped time, and cost-per-vehicle metrics
               </li>
               <li className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                 Predictive maintenance and behavior-based smart alerts

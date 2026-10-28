@@ -59,7 +59,7 @@ test.describe("UAT-002 staging browser verification", () => {
     await expectNavLink(page, "Admin Console", true);
     await expectNavLink(page, "Settings", true);
     await expectNavLink(page, "System Health", true);
-    await expectNavLink(page, "Work Orders", true);
+    await expectNavLink(page, "All Jobs", true);
 
     await page.goto(`${stagingWeb}/admin`);
     await expect(page.getByRole("heading", { name: "Admin Console" })).toBeVisible();
@@ -67,7 +67,7 @@ test.describe("UAT-002 staging browser verification", () => {
 
     await page.goto(`${stagingWeb}/work-orders`);
     await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => undefined);
-    await expect(page.getByRole("heading", { name: /Work Orders/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Jobs/i })).toBeVisible();
     await capture(page, "05-work-order-list.png");
 
     await page.goto(`${stagingWeb}/system-health`);
@@ -79,12 +79,12 @@ test.describe("UAT-002 staging browser verification", () => {
     await loginAs(page, personas.manager.email);
     await capture(page, "04-manager-dashboard.png");
 
-    await expectNavLink(page, "Work Orders", true);
+    await expectNavLink(page, "All Jobs", true);
     await expectNavLink(page, "Reports", true);
     await expectNavLink(page, "Admin Console", false);
 
     await page.goto(`${stagingWeb}/work-orders`);
-    await expect(page.getByRole("heading", { name: "Work Orders", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Jobs", exact: true })).toBeVisible();
     await expect(page.getByText(/Minified React error/i)).toHaveCount(0);
     await page.goto(`${stagingWeb}/reports`);
     await expect(page.getByRole("heading", { name: "Reports", exact: true })).toBeVisible();
@@ -95,12 +95,12 @@ test.describe("UAT-002 staging browser verification", () => {
     await loginAs(page, personas.technician.email);
     await capture(page, "06-technician-work-orders.png");
 
-    await expectNavLink(page, "Work Orders", true);
+    await expectNavLink(page, "All Jobs", true);
     await expectNavLink(page, "Admin Console", false);
     await expectNavLink(page, "Inventory", false);
 
     await page.goto(`${stagingWeb}/work-orders`);
-    await expect(page.getByRole("heading", { name: "Work Orders", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Jobs", exact: true })).toBeVisible();
     await expect(page.getByText(/Minified React error/i)).toHaveCount(0);
   });
 
@@ -109,7 +109,7 @@ test.describe("UAT-002 staging browser verification", () => {
     await capture(page, "07-security-fleet.png");
 
     await expectNavLink(page, "Fleet", true);
-    await expectNavLink(page, "Work Orders", false);
+    await expectNavLink(page, "All Jobs", false);
 
     await page.goto(`${stagingWeb}/fleet`);
     await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => undefined);
@@ -123,7 +123,7 @@ test.describe("UAT-002 staging browser verification", () => {
 
     await expectNavLink(page, "Inventory", true);
     await expectNavLink(page, "Procurement", true);
-    await expectNavLink(page, "Work Orders", false);
+    await expectNavLink(page, "All Jobs", false);
 
     await page.goto(`${stagingWeb}/inventory`);
     await expect(page.getByRole("heading", { name: /Inventory/i })).toBeVisible();

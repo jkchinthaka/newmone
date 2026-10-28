@@ -407,10 +407,10 @@ export function WorkOrderEditorModal({
             <header className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-brand-800">
-                  {isCreateMode ? "New work order" : workOrder?.woNumber || "Work order"}
+                  {isCreateMode ? "New job" : workOrder?.woNumber || "Job"}
                 </p>
                 <h3 id="work-order-editor-title" className="page-title break-words">
-                  {isCreateMode ? "Create an open job" : workOrder ? drawerTitle(workOrder) : "Work order"}
+                  {isCreateMode ? "Create an open job" : workOrder ? drawerTitle(workOrder) : "Job"}
                 </h3>
                 {!isCreateMode && workOrder ? (
                   <>
@@ -451,7 +451,7 @@ export function WorkOrderEditorModal({
                         {(
                           [
                             ["history", "Open history"],
-                            ["evidence", "Open evidence"],
+                            ["evidence", "Open photos"],
                             ...(currentUser.role === "TECHNICIAN" || currentUser.role === "MECHANIC"
                               ? []
                               : ([["assignment", "Open assignment"]] as const))
@@ -764,7 +764,7 @@ export function WorkOrderEditorModal({
                 </label>
                 {workOrder?.status === "CANCELLED" ? (
                   <p className="text-sm text-slate-700 sm:col-span-2">
-                    This work order is cancelled. Its approval record stays as history. This screen does not reopen it or change that approval.
+                    This job is cancelled. Its approval record stays as history. This screen does not reopen it or change that approval.
                   </p>
                 ) : null}
                 {scheduleLocked ? (

@@ -76,7 +76,7 @@ export const EVIDENCE_TYPE_OPTIONS = [
   { value: "DAMAGE_PHOTO", label: "Damage photo" },
   { value: "PART_PHOTO", label: "Part photo" },
   { value: "INVOICE", label: "Invoice" },
-  { value: "QUOTATION", label: "Quotation" },
+  { value: "QUOTATION", label: "Price quote" },
   { value: "SIGNATURE", label: "Signature" },
   { value: "TECHNICIAN_NOTE", label: "Technician note" },
   { value: "OTHER_DOCUMENT", label: "Other document" }
@@ -167,7 +167,7 @@ export function evidencePayloadHasSecrets(value: unknown): boolean {
 
 export function evidenceUploadDisabledMessage(readiness: EvidenceStorageReadiness | null | undefined): string {
   if (!readiness) {
-    return "Evidence upload setup is unavailable.";
+    return "Photos upload setup is unavailable.";
   }
 
   if (!readiness.uploadsEnabled) {
@@ -188,9 +188,9 @@ export function evidenceTypeLabel(type: string): string {
 export function verificationStatusLabel(status: string): string {
   switch (status) {
     case "ACCEPTED":
-      return "Evidence accepted.";
+      return "Photos accepted.";
     case "REJECTED":
-      return "Evidence rejected. Rework required.";
+      return "Photos rejected. Needs to be fixed again.";
     case "PENDING":
     default:
       return "Pending review";

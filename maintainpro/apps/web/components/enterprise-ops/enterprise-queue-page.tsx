@@ -139,8 +139,8 @@ export function EnterpriseQueuePage({
     }
     if (kind === "sla") {
       return [
-        { id: "woNumber", header: "Work order", cell: (row) => asText(row.woNumber) },
-        { id: "stage", header: "SLA stage", cell: (row) => asText(row.stage) },
+        { id: "woNumber", header: "Job", cell: (row) => asText(row.woNumber) },
+        { id: "stage", header: "Time limit stage", cell: (row) => asText(row.stage) },
         { id: "consumedPct", header: "Consumed %", cell: (row) => asText(row.consumedPct) },
         { id: "slaBreached", header: "Breached", cell: (row) => asText(row.slaBreached) }
       ];
@@ -167,7 +167,7 @@ export function EnterpriseQueuePage({
         { id: "assetTag", header: "Asset", cell: (row) => asText(row.assetTag) },
         { id: "score", header: "Score", cell: (row) => asText(row.score) },
         { id: "band", header: "Band", cell: (row) => asText(row.band) },
-        { id: "criticality", header: "Criticality", cell: (row) => asText(row.criticality) },
+        { id: "criticality", header: "How important", cell: (row) => asText(row.criticality) },
         { id: "reasons", header: "Reasons", cell: (row) => asText(row.reasons) }
       ];
     }

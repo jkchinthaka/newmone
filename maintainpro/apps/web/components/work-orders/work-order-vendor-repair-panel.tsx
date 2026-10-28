@@ -142,10 +142,10 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus, re
 
       {costSummary ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric label="Approved quotation" value={formatCurrency(costSummary.approvedQuotationTotal)} />
+          <Metric label="Approved price quote" value={formatCurrency(costSummary.approvedQuotationTotal)} />
           <Metric label="Invoice total" value={formatCurrency(costSummary.invoiceTotal)} />
           <Metric
-            label="Variance"
+            label="Difference"
             value={costSummary.invoiceTotal > 0 ? formatCurrency(costSummary.varianceAmount) : "—"}
             warn={costSummary.invoiceTotal > 0 && costSummary.varianceAmount > 0}
           />
@@ -213,7 +213,7 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus, re
 
       {!readOnly && vendorCase && canRequestVendorRepair(role) ? (
         <section className="space-y-3 rounded-lg border border-slate-200 p-4">
-          <h4 className="font-semibold text-slate-900">Vendor & quotations</h4>
+          <h4 className="font-semibold text-slate-900">Vendor & price quotes</h4>
           {!vendorCase.supplier ? (
             <div className="flex flex-wrap gap-2">
               <select
@@ -249,7 +249,7 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus, re
             <input
               value={quotationNo}
               onChange={(event) => setQuotationNo(event.target.value)}
-              placeholder="Quotation no"
+              placeholder="Price quote no"
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
             <input
@@ -273,7 +273,7 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus, re
               disabled={submitting || !quotationNo.trim() || !quotedAmount || !taxRateInputIsValid(quotationTaxRate) || !vendorCase.supplier?.id}
               onClick={(event) => {
                 event.currentTarget.disabled = true;
-                void runAction("Quotation submitted", async () => {
+                void runAction("Price quote submitted", async () => {
                   await apiClient.post(`/work-orders/${workOrderId}/vendor-repair/quotations`, {
                     supplierId: vendorCase.supplier!.id,
                     quotationNo: quotationNo.trim(),
@@ -288,7 +288,7 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus, re
               }}
               className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900 disabled:opacity-60"
             >
-              Add Quotation
+              Add Price quote
             </button>
           </div>
 
@@ -310,7 +310,7 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus, re
                         type="button"
                         disabled={submitting}
                         onClick={() =>
-                          void runAction("Quotation approved", async () => {
+                          void runAction("Price quote approved", async () => {
                             await apiClient.post(
                               `/work-orders/${workOrderId}/vendor-repair/quotations/${quotation.id}/approve`,
                               {}
@@ -325,7 +325,7 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus, re
                         type="button"
                         disabled={submitting}
                         onClick={() =>
-                          void runAction("Quotation rejected", async () => {
+                          void runAction("Price quote rejected", async () => {
                             await apiClient.post(
                               `/work-orders/${workOrderId}/vendor-repair/quotations/${quotation.id}/reject`,
                               { reason: "Rejected from vendor repair panel" }
@@ -342,7 +342,7 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus, re
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-amber-800">Quotation required before vendor work authorization.</p>
+            <p className="text-sm text-amber-800">Price quote required before vendor work authorization.</p>
           )}
 
           <div className="flex flex-wrap gap-2">
@@ -378,10 +378,10 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus, re
         <section className="space-y-3 rounded-lg border border-slate-200 p-4">
           <h4 className="font-semibold text-slate-900">Invoice review</h4>
           {verificationStatus !== "VERIFIED" ? (
-            <p className="text-sm text-amber-800">Supervisor verification required before invoice approval.</p>
+            <p className="text-sm text-amber-800">Supervisor check required before invoice approval.</p>
           ) : (
             <p className="flex items-center gap-1 text-sm text-emerald-700">
-              <CheckCircle2 size={14} /> Supervisor verification completed
+              <CheckCircle2 size={14} /> Supervisor check completed
             </p>
           )}
           <div className="grid gap-2 sm:grid-cols-4">
@@ -429,7 +429,7 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus, re
           <input
             value={exceedsReason}
             onChange={(event) => setExceedsReason(event.target.value)}
-            placeholder="Reason if invoice exceeds approved quotation"
+            placeholder="Reason if invoice exceeds approved price quote"
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
 

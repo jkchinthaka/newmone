@@ -14,7 +14,7 @@ test("status badge keeps work-order labels and tones, including legacy statuses"
   assert.equal(statusBadgePresentation("ASSIGNED").tone, "violet");
   assert.equal(statusBadgePresentation("OPEN").tone, "sky");
   assert.equal(statusBadgePresentation("TECHNICIAN_COMPLETED").tone, "fuchsia");
-  assert.equal(statusBadgePresentation("TECHNICIAN_COMPLETED").label, "Awaiting verification");
+  assert.equal(statusBadgePresentation("TECHNICIAN_COMPLETED").label, "Done, waiting for check");
   assert.equal(statusBadgePresentation("ON_HOLD").label, "On hold");
   assert.equal(statusBadgePresentation("APPROVED").tone, "emerald");
   assert.equal(statusBadgePresentation("PENDING").tone, "amber");

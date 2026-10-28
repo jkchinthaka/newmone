@@ -69,17 +69,17 @@ export function WorkOrderDomainPanel({
   const rtsMutation = useMutation({
     mutationFn: async () => {
       const response = await apiClient.post(`/work-orders/${workOrderId}/return-to-service`, {
-        note: "Authorized return to service after verification"
+        note: "Authorized back in use after supervisor check"
       });
       return response.data?.data;
     },
     onSuccess: () => {
-      toast.success("Return to service recorded");
+      toast.success("Back in use recorded");
       void queryClient.invalidateQueries({ queryKey: ["work-orders", workOrderId] });
       void query.refetch();
     },
     onError: (error) => {
-      toast.error(getApiErrorMessage(error, "Return to service was blocked."));
+      toast.error(getApiErrorMessage(error, "Back in use was blocked."));
     }
   });
 
@@ -97,7 +97,7 @@ export function WorkOrderDomainPanel({
   if (query.isError || !query.data) {
     return (
       <section className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-        {getApiErrorMessage(query.error, "Could not load domain context for this work order.")}
+        {getApiErrorMessage(query.error, "Could not load domain context for this job.")}
       </section>
     );
   }
@@ -124,7 +124,7 @@ export function WorkOrderDomainPanel({
                   : "Domain context"}
           </h4>
           <p className="mt-1 text-sm text-brand-800">
-            Canonical target identity and domain readiness. Work Order status stays separate from
+            Canonical target identity and domain readiness. Job status stays separate from
             asset/vehicle operational status.
           </p>
         </div>
@@ -154,7 +154,7 @@ export function WorkOrderDomainPanel({
         <dl className="grid gap-3 rounded-xl border border-brand-100 bg-white p-3 sm:grid-cols-2">
           <Field label="Machine" value={data.identity.machinery.label} />
           <Field label="Operational status" value={data.identity.machinery.operationalStatus} />
-          <Field label="Criticality" value={data.identity.machinery.criticality} />
+          <Field label="How important" value={data.identity.machinery.criticality} />
           <Field label="Site" value={data.identity.machinery.site} />
           <Field label="Location" value={data.identity.machinery.functionalLocation} />
           <Field label="Meter" value={data.identity.machinery.meterReading} />
@@ -192,7 +192,7 @@ export function WorkOrderDomainPanel({
 
       <dl className="grid gap-3 rounded-xl border border-brand-100 bg-brand-50 p-3 sm:grid-cols-2">
         <Field label="Open jobs on target" value={data.openJobsOnTarget} />
-        <Field label="Critical open WOs" value={data.criticalOpenWorkOrders} />
+        <Field label="Critical open jobs" value={data.criticalOpenWorkOrders} />
         <Field label="Functional test" value={data.completion.functionalTestResult} />
         <Field label="Road / workshop test" value={data.completion.roadTestResult} />
         <Field label="Completion meter" value={data.completion.completionMeterReading} />
@@ -211,7 +211,7 @@ export function WorkOrderDomainPanel({
       {showRts ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3">
           <p className="text-sm text-emerald-950">
-            Supervisor return-to-service checks tests, critical open WOs, temporary restrictions, and
+            Supervisor return-to-service checks tests, critical open jobs, temporary restrictions, and
             compliance. Technician completion alone never marks the target available.
           </p>
           <button

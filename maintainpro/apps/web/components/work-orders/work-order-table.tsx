@@ -70,8 +70,8 @@ export function WorkOrderTable({
   const columns: DataTableColumn<WorkOrder>[] = [
     {
       id: "woNumber",
-      header: "WO Number",
-      mobileLabel: "WO Number",
+      header: "Job Number",
+      mobileLabel: "Job Number",
       sortable: true,
       cell: (workOrder) => (
         <div>
@@ -161,16 +161,16 @@ export function WorkOrderTable({
 
   return (
     <DataTable
-      ariaLabel="Work orders"
+      ariaLabel="Jobs"
       className="card border-0 shadow-none md:rounded-xl md:border md:border-slate-200 md:shadow-sm"
       columns={columns}
-      emptyDescription="Adjust filters or create a new work order to get started."
-      emptyTitle="No work orders found"
+      emptyDescription="Adjust filters or create a new job to get started."
+      emptyTitle="No jobs found"
       getRowId={(row) => row.id}
       leadingHeader={
         <TouchCheckbox
           checked={allChecked}
-          label="Select all work orders on this page"
+          label="Select all jobs on this page"
           onChange={(event) => onToggleSelectAll(selectableIds, event.target.checked)}
         />
       }
@@ -249,7 +249,7 @@ export function WorkOrderTable({
       renderLeadingCell={(workOrder) => (
         <TouchCheckbox
           checked={selectedIds.includes(workOrder.id)}
-          label={`Select work order ${workOrder.woNumber}`}
+          label={`Select job ${workOrder.woNumber}`}
           onChange={(event) => onToggleSelect(workOrder.id, event.target.checked)}
         />
       )}

@@ -143,8 +143,8 @@ function formatDue(value: string | null) {
 const priorityColumns: Array<DataTableColumn<PriorityWorkOrder>> = [
   {
     id: "work-order",
-    header: "Work order",
-    mobileLabel: "Work order",
+    header: "Job",
+    mobileLabel: "Job",
     cell: (wo) => (
       <>
         <Link
@@ -297,12 +297,12 @@ function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: st
           </Link>
         }
         description="The five most urgent open jobs."
-        title="Priority work orders"
+        title="Priority jobs"
       >
         {priority.length === 0 ? (
-          <EmptyState description="No overdue or high-priority work orders right now." title="Nothing urgent" />
+          <EmptyState description="No overdue or high-priority jobs right now." title="Nothing urgent" />
         ) : (
-          <DataTable ariaLabel="Priority work orders" columns={priorityColumns} getRowId={(wo) => wo.id} minWidth="720px" rows={priority} />
+          <DataTable ariaLabel="Priority jobs" columns={priorityColumns} getRowId={(wo) => wo.id} minWidth="720px" rows={priority} />
         )}
       </SectionCard>
 
@@ -345,8 +345,8 @@ function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: st
       <SectionCard description="Requests, preventive work, and approvals that can unblock jobs." title="Pipeline">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <LinkedKpi compact href="/requests?stage=open" id="requests" label="Requests awaiting action" value={data.requestsOpen} />
-          <LinkedKpi compact href={PM_DUE_SOON_HREF} id="pm-due" label="PM due soon" value={data.pmDueSoon} />
-          <LinkedKpi compact href={PM_OVERDUE_HREF} id="pm-overdue" label="PM overdue" value={data.pmOverdue ?? 0} />
+          <LinkedKpi compact href={PM_DUE_SOON_HREF} id="pm-due" label="Scheduled service due soon" value={data.pmDueSoon} />
+          <LinkedKpi compact href={PM_OVERDUE_HREF} id="pm-overdue" label="Scheduled service overdue" value={data.pmOverdue ?? 0} />
           {data.availability.approvals && data.pendingApprovals != null ? (
             <LinkedKpi compact href="/approvals" id="approvals" label="Approvals pending" value={data.pendingApprovals} />
           ) : null}

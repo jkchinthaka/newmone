@@ -59,7 +59,7 @@ export default function AdminWorkPermitsPage() {
       });
     },
     onSuccess: () => {
-      toast.success("Permit created");
+      toast.success("Work permit created");
       setForm((f) => ({ ...f, workOrderId: "", notes: "" }));
       void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "work-permits"]) });
     },
@@ -71,19 +71,19 @@ export default function AdminWorkPermitsPage() {
       await apiClient.patch(`/work-permits/${id}/status`, { status });
     },
     onSuccess: () => {
-      toast.success("Permit updated");
+      toast.success("Work permit updated");
       void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "work-permits"]) });
     },
     onError: (error) => toast.error(getApiErrorMessage(error, "Update failed"))
   });
 
   if (listQuery.isLoading) {
-    return <LoadingState title="Loading permits" description="Fetching work permits." />;
+    return <LoadingState title="Loading work permits" description="Fetching work permits." />;
   }
   if (listQuery.isError) {
     return (
       <ErrorState
-        title="Unable to load permits"
+        title="Unable to load work permits"
         description={getApiErrorMessage(listQuery.error, "Request failed")}
         onRetry={() => listQuery.refetch()}
       />
@@ -105,7 +105,7 @@ export default function AdminWorkPermitsPage() {
       <div>
         <h1 className="page-title">Permit-to-Work</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Issue and approve permits. Critical-asset work orders cannot start without a valid permit when
+          Issue and approve work permits. Critical-asset jobs cannot start without a valid work permit when
           policy requires it.
         </p>
       </div>
@@ -113,7 +113,7 @@ export default function AdminWorkPermitsPage() {
       <div className="grid max-w-xl gap-3 rounded-lg border border-slate-200 bg-white p-4">
         <input
           className="rounded border border-slate-300 px-3 py-2 text-sm"
-          placeholder="Work order ID"
+          placeholder="Job number"
           value={form.workOrderId}
           onChange={(e) => setForm((f) => ({ ...f, workOrderId: e.target.value }))}
         />
@@ -146,7 +146,7 @@ export default function AdminWorkPermitsPage() {
           disabled={!form.workOrderId || createMutation.isPending}
           onClick={() => createMutation.mutate()}
         >
-          Create draft permit
+          Create draft work permit
         </button>
       </div>
 
@@ -157,7 +157,7 @@ export default function AdminWorkPermitsPage() {
               <th className="px-3 py-2">Number</th>
               <th className="px-3 py-2">Type</th>
               <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">WO</th>
+              <th className="px-3 py-2">Job</th>
               <th className="px-3 py-2">Valid to</th>
               <th className="px-3 py-2">Actions</th>
             </tr>
@@ -208,7 +208,7 @@ export default function AdminWorkPermitsPage() {
           </tbody>
         </table>
         {rows.length === 0 ? (
-          <p className="p-4 text-sm text-slate-500">No permits yet.</p>
+          <p className="p-4 text-sm text-slate-500">No work permits yet.</p>
         ) : null}
       </div>
     </div>

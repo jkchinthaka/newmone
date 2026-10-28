@@ -24,7 +24,7 @@ test("inbox URL keeps filters and page size", () => {
   assert.match(inboxSearchParams(state), /pageSize=50/);
 });
 
-test("open context uses the exact work order, vehicle, and plan routes", () => {
+test("open context uses the exact job, vehicle, and plan routes", () => {
   assert.equal(
     notificationContextHref({ referenceType: "WorkOrder", referenceId: "wo-1", type: "WORK_ORDER_UPDATED" }),
     "/work-orders?wo=wo-1"
@@ -51,7 +51,7 @@ test("open context uses the exact work order, vehicle, and plan routes", () => {
   assert.equal(notificationContextIsLinked("https://evil.example"), false);
   assert.equal(notificationContextIsLinked("/vehicles/veh-1"), true);
   assert.equal(notificationNextAction({ type: "LOW_STOCK" }), "Open parts");
-  assert.equal(notificationNextAction({ type: "MAINTENANCE_DUE" }), "Open PM plan");
+  assert.equal(notificationNextAction({ type: "MAINTENANCE_DUE" }), "Open scheduled service plan");
 });
 
 test("notification state and settings helpers stay specific", () => {

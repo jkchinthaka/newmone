@@ -5,7 +5,7 @@ import { resolveAuthorizedDestination } from "../navigation";
 import { getPostLoginRedirect, safeInternalReturnPath } from "../role-redirect";
 
 describe("authorized landing", () => {
-  it("sends a technician to My Jobs", () => {
+  it("sends a technician to My jobs", () => {
     assert.equal(getPostLoginRedirect("TECHNICIAN"), "/work-orders/my");
     assert.equal(getPostLoginRedirect("MECHANIC"), "/work-orders/my");
   });

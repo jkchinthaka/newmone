@@ -29,7 +29,7 @@ export const MANAGER_ACTION_CARDS = [
   },
   {
     id: "verification-required",
-    label: "Verification Required",
+    label: "Supervisor check needed",
     href: workOrderFilterHref("verification-required"),
     countKey: "verificationRequired",
     queue: "technician-completed"
@@ -56,7 +56,7 @@ export const WORKLOAD_CARDS = [
   { id: "on-hold", label: "On Hold", href: workOrderFilterHref("on-hold"), countKey: "onHoldJobs", queue: "in-progress" },
   {
     id: "verification-required",
-    label: "Verification Required",
+    label: "Supervisor check needed",
     href: workOrderFilterHref("verification-required"),
     countKey: "verificationRequired",
     queue: "technician-completed"
@@ -64,7 +64,7 @@ export const WORKLOAD_CARDS = [
 ] as const;
 
 export const TECHNICIAN_ACTION_CARDS = [
-  { id: "my-jobs", label: "My Jobs", href: myJobFilterHref("active"), countKey: "active" },
+  { id: "my-jobs", label: "My jobs", href: myJobFilterHref("active"), countKey: "active" },
   { id: "due-today", label: "Due Today", href: myJobFilterHref("due-today"), countKey: "dueToday" },
   { id: "overdue", label: "Overdue", href: myJobFilterHref("overdue"), countKey: "overdue" },
   { id: "waiting-parts", label: "Waiting Parts", href: myJobFilterHref("waiting-parts"), countKey: "waitingParts" }

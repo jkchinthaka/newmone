@@ -326,7 +326,7 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
             <Loader2 className="mr-1 animate-spin" size={14} /> Loading…
           </div>
         ) : requests.length === 0 ? (
-          <p className="mt-3 text-xs text-slate-500">No part requests for this work order.</p>
+          <p className="mt-3 text-xs text-slate-500">No part requests for this job.</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {requests.map((pr) => (

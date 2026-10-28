@@ -269,7 +269,7 @@ function NavItemLink({
           compact ? "justify-center px-0" : ""
         } ${active ? activeClass : idleClass}`}
       >
-        <Icon aria-hidden size={18} />
+        <Icon aria-hidden size={18} className="shrink-0" />
         {compact ? <span className="sr-only">{item.label}</span> : <span className="truncate">{item.label}</span>}
         {!compact && badgeCount != null ? <NavBadge count={badgeCount} /> : null}
       </Link>
@@ -410,11 +410,11 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
             <button
               type="button"
               onClick={() => toggleGroup(group.category)}
-              className={`flex min-h-11 w-full items-center justify-between px-2 ${surface.heading}`}
+              className={`flex min-h-11 w-full items-center justify-between gap-2 px-2 text-left ${surface.heading}`}
               aria-expanded={!collapsed}
             >
-              <span>{group.label}</span>
-              <ChevronDown aria-hidden size={14} className={`transition ${collapsed ? "" : "rotate-180"}`} />
+              <span className="min-w-0 truncate">{group.label}</span>
+              <ChevronDown aria-hidden size={14} className={`shrink-0 transition ${collapsed ? "" : "rotate-180"}`} />
             </button>
             )}
             {!collapsed ? (

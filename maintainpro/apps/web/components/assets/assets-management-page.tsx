@@ -1115,7 +1115,7 @@ export default function AssetsManagementPage() {
       });
       const message = getErrorMessage(error);
       if (message.toLowerCase().includes("open work orders")) {
-        toast.error("Cannot delete - asset has open work orders.");
+        toast.error("Cannot delete - asset has open jobs.");
       } else {
         toast.error(message);
       }
@@ -1309,7 +1309,7 @@ export default function AssetsManagementPage() {
 
   function handleCreateWorkOrder(asset: AssetListItem | AssetDetail) {
     if (!canCreateWorkOrders) {
-      toast.error("You do not have permission to create work orders.");
+      toast.error("You do not have permission to create jobs.");
       return;
     }
     router.push(assetCreateWorkOrderHref(asset.id, `${asset.assetTag} — ${asset.name}`) as Route);
@@ -1339,7 +1339,7 @@ export default function AssetsManagementPage() {
   function handleDeleteClick(asset: AssetListItem) {
     const openWorkOrderCount = asset.openWorkOrderCount ?? 0;
     if (openWorkOrderCount > 0) {
-      toast.error("Cannot delete - asset has open work orders.");
+      toast.error("Cannot delete - asset has open jobs.");
       return;
     }
     setDeleteTarget(asset);
@@ -1351,7 +1351,7 @@ export default function AssetsManagementPage() {
         <PageBreadcrumbs />
         <OperationalPageHeader
           eyebrow="Assets"
-          title="Assets"
+          title="Machines & Equipment"
           description="Register of equipment, tools, and facilities."
           actions={
             <>
@@ -2820,7 +2820,7 @@ function AssetDetailsDrawer({
                   tab === "workOrders" ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-700"
                 }`}
               >
-                Work Orders
+                Jobs
               </button>
               <button
                 onClick={() => setTab("activity")}
@@ -2964,18 +2964,18 @@ function AssetDetailsDrawer({
             {tab === "workOrders" && (
               <section className="rounded-2xl border border-slate-200 p-4">
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-semibold text-slate-900">Linked Work Orders</p>
+                  <p className="text-sm font-semibold text-slate-900">Linked jobs</p>
                   {canCreateWorkOrder && (
                     <button
                       onClick={() => onCreateWorkOrder(asset)}
                       className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
                     >
-                      <Plus size={14} /> Create work order
+                      <Plus size={14} /> Create job
                     </button>
                   )}
                 </div>
                 {asset.workOrders.length === 0 ? (
-                  <p className="text-sm text-slate-500">No work orders linked.</p>
+                  <p className="text-sm text-slate-500">No jobs linked.</p>
                 ) : (
                   <div className="space-y-2">
                     {asset.workOrders.map((workOrder) => (

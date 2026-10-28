@@ -14,7 +14,7 @@ type DomainJobsPageProps = {
  * Does not duplicate lifecycle, costing, or assignment logic.
  */
 export function DomainJobsPage({ jobDomain, title, description }: DomainJobsPageProps) {
-  const heading = title ?? (jobDomain ? `${JOB_DOMAIN_LABELS[jobDomain]} Jobs` : "Work Orders");
+  const heading = title ?? (jobDomain ? `${JOB_DOMAIN_LABELS[jobDomain]} Jobs` : "Jobs");
   const sub =
     description ??
     (jobDomain === "MACHINERY"

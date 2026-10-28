@@ -212,7 +212,7 @@ export default function CleaningAnalyticsPage() {
         <MetricCard
           title="Avg Quality Score"
           value={analytics.summary.avgQualityScore}
-          subtitle="Checklist + photos + sign-off"
+          subtitle="Checklist + photos + supervisor approval"
           icon={<UserCheck size={16} />}
           tone="success"
         />

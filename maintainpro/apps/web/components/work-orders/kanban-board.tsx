@@ -64,7 +64,7 @@ export function KanbanBoard({
   if (!hasRows) {
     return (
       <div className="card grid min-h-[280px] place-items-center text-center text-sm text-slate-500">
-        No work orders match current filters. Adjust filters or create a new work order.
+        No jobs match current filters. Adjust filters or create a new job.
       </div>
     );
   }

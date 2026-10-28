@@ -292,7 +292,7 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
       ) : null}
       {!categoriesQuery.isLoading && !categoriesQuery.isError && categories.length === 0 ? (
         <p className="text-xs text-slate-500">
-          No active categories configured. Ask an administrator to seed Job Categories.
+          No active categories configured. Ask an administrator to set up job categories.
         </p>
       ) : null}
       {fieldErrors.jobCategoryId ? (
@@ -558,8 +558,8 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
               </div>
             ) : null}
             <p className="text-xs text-slate-500">
-              Technician assignment, planned start, parts, permits, and vendor repair are handled in
-              Planning after the work order is created as Open.
+              Technician assignment, planned start, parts, work permits, and vendor repair are handled in
+              Planning after the job is created as Open.
             </p>
           </div>
         ) : null}
@@ -590,7 +590,7 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
               Creating…
             </span>
           ) : (
-            "Create Work Order"
+            "Create job"
           )}
         </button>
       </div>

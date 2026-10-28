@@ -70,9 +70,9 @@ test("completion checklist lists every server check with plain help", () => {
       ["odometer", false]
     ]
   );
-  assert.equal(items.find((item) => item.key === "before")?.help, "Open the Evidence tab and add a before photo.");
+  assert.equal(items.find((item) => item.key === "before")?.help, "Open the photos tab and add a before photo.");
   assert.equal(items.find((item) => item.key === "parts")?.tab, "parts");
-  assert.match(completionBlockReason(items) ?? "", /^Cannot submit yet\. Open the Evidence tab and add a before photo\. 4 more items/);
+  assert.match(completionBlockReason(items) ?? "", /^Cannot submit yet\. Open the photos tab and add a before photo\. 4 more items/);
 });
 
 test("completion checklist hides lines that do not apply and unblocks when done", () => {
@@ -131,7 +131,7 @@ test("completion modal shows checklist, loads existing endpoints, keeps typed fi
   assert.doesNotMatch(modal, /setCompletionNote\(""\)/);
 });
 
-test("evidence type moves to After once a before photo exists or was just uploaded", () => {
+test("photos type moves to After once a before photo exists or was just uploaded", () => {
   assert.equal(defaultEvidenceType([]), "BEFORE_PHOTO");
   assert.equal(defaultEvidenceType([{ evidenceType: "BEFORE_PHOTO", status: "UPLOADED" }]), "AFTER_PHOTO");
   assert.equal(defaultEvidenceType([{ evidenceType: "BEFORE_PHOTO", status: "FAILED" }]), "BEFORE_PHOTO");
@@ -151,7 +151,7 @@ test("QR camera scan verifies at once; override only for roles allowed by both A
   for (const role of ["TECHNICIAN", "MECHANIC", "OPERATIONS_MANAGER", "SUPERVISOR", "INVENTORY_KEEPER", "SECURITY_OFFICER", null]) {
     assert.equal(canOverrideQrMismatch(role), false, String(role));
   }
-  assert.equal(isQrMismatchMessage("Scanned asset does not match this work order."), true);
+  assert.equal(isQrMismatchMessage("Scanned asset does not match this job."), true);
   assert.equal(qrStatusLabel("VERIFIED"), "Tag checked. This is the right asset.");
   assert.match(qrStatusLabel("PENDING"), /Not checked yet/);
   assert.match(evidencePanel, /onScan=\{\(value\) => \{[\s\S]*?void verifyQr\(value\);/);
@@ -181,7 +181,7 @@ test("parts panel shows plain status words and hides buttons a role cannot use",
   assert.match(partsPanel, /\{showApprove \? \(/);
 });
 
-test("My Jobs hold asks for a reason choice and a note of 3+ letters", () => {
+test("My jobs hold asks for a reason choice and a note of 3+ letters", () => {
   assert.deepEqual(
     MY_JOB_HOLD_CHOICES.map((choice) => choice.code),
     ["WAITING_PARTS", "WAITING_APPROVAL", "OTHER"]
@@ -199,7 +199,7 @@ test("My Jobs hold asks for a reason choice and a note of 3+ letters", () => {
   assert.match(myJobs, /validateHoldNote\(note\)/);
 });
 
-test("My Jobs card shows why a job was sent back", () => {
+test("My jobs card shows why a job was sent back", () => {
   assert.equal(
     sentBackLabel({ status: "REWORK_REQUIRED", verificationRejectionReason: " Belt still loose " }),
     "Sent back: Belt still loose"

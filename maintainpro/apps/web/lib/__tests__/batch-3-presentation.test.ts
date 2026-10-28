@@ -34,7 +34,7 @@ test("priority and status pills use the batch-3 tones", () => {
   assert.equal(statusBadgePresentation("CANCELLED").tone, "neutral");
 });
 
-test("work order KPIs hide counts the summary does not provide", () => {
+test("job key numbers hide counts the summary does not provide", () => {
   const cards = deriveWorkOrderKpis({
     queues: [
       { key: "open-requests", count: 44 },

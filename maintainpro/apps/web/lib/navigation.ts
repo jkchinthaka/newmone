@@ -310,12 +310,12 @@ export const NAV_CATEGORY_LABELS: Record<NavCategory, string> = {
   primary: "Main",
   secondary: "Account",
   workspace: "Home",
-  core: "Assets",
-  operations: "Maintenance",
-  advanced: "Advanced Maintenance",
-  safety: "Reliability & Safety",
+  core: "Assets & Places",
+  operations: "Daily Work",
+  advanced: "Jobs",
+  safety: "Reports & Analysis",
   compliance: "Fleet",
-  reports: "ERP & Inventory",
+  reports: "Parts & Stock",
   admin: "Administration",
   cleaning: "Facility (retired)",
   farm: "Farm (retired)",
@@ -350,7 +350,7 @@ export const FULL_NAVIGATION_ROLES = new Set<string>(["SUPER_ADMIN", "ADMIN"]);
 export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   {
     id: "maintenance-dashboard",
-    label: "Maintenance Dashboard",
+    label: "Dashboard",
     href: "/maintenance",
     icon: "LayoutDashboard",
     allowedRoles: WO_ROLES,
@@ -360,31 +360,8 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "exact"
   },
   {
-    id: "requests",
-    label: "Requests",
-    href: "/requests",
-    icon: "AlertTriangle",
-    allowedRoles: REQUEST_ROLES,
-    requiredPermissions: REQUEST_LIST_PERMISSIONS,
-    category: "operations",
-    description: "Report a problem and follow requests",
-    mobilePriority: true,
-    activeMatch: "startsWith"
-  },
-  {
-    id: "my-requests",
-    label: "My requests",
-    href: "/requests/mine",
-    icon: "ClipboardCheck",
-    allowedRoles: REQUEST_ROLES,
-    requiredPermissions: ["maintenance_requests.create"],
-    category: "operations",
-    description: "Problems you reported",
-    activeMatch: "exact"
-  },
-  {
     id: "report-issue",
-    label: "Report issue",
+    label: "Report a Problem",
     href: "/requests/new",
     icon: "AlertTriangle",
     allowedRoles: REQUEST_ROLES,
@@ -394,12 +371,58 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "exact"
   },
   {
+    id: "requests",
+    label: "Requests",
+    href: "/requests",
+    icon: "FileCheck2",
+    allowedRoles: REQUEST_ROLES,
+    requiredPermissions: REQUEST_LIST_PERMISSIONS,
+    category: "operations",
+    description: "Report a problem and follow requests",
+    mobilePriority: true,
+    activeMatch: "startsWith"
+  },
+  {
+    id: "my-requests",
+    label: "My Requests",
+    href: "/requests/mine",
+    icon: "ClipboardCheck",
+    allowedRoles: REQUEST_ROLES,
+    requiredPermissions: ["maintenance_requests.create"],
+    category: "operations",
+    description: "Problems you reported",
+    activeMatch: "exact"
+  },
+  {
+    id: "my-jobs",
+    label: "My Jobs",
+    href: "/work-orders/my",
+    icon: "ClipboardList",
+    allowedRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN"]),
+    category: "operations",
+    description: "Jobs assigned to you",
+    mobilePriority: true,
+    activeMatch: "exact"
+  },
+  {
+    id: "approvals",
+    label: "Approvals",
+    href: "/approvals",
+    icon: "ClipboardCheck",
+    allowedRoles: mergeRoles(SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN", "OPERATIONS_MANAGER", "FINANCE", "FACILITY_MANAGER"]),
+    requiredPermissions: ["approvals.view"],
+    badgeKey: "approvals",
+    category: "operations",
+    description: "Items waiting for your approval",
+    activeMatch: "startsWith"
+  },
+  {
     id: "all-jobs",
-    label: "Work Orders",
+    label: "All Jobs",
     href: "/maintenance/jobs",
     icon: "ClipboardList",
     allowedRoles: WO_ROLES,
-    category: "operations",
+    category: "advanced",
     description: "All maintenance jobs",
     badgeKey: "my-tasks",
     mobilePriority: true,
@@ -408,21 +431,21 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "machinery-jobs",
-    label: "Machinery Jobs",
+    label: "Machine Jobs",
     href: "/maintenance/jobs/machinery",
     icon: "HardDrive",
     allowedRoles: DOMAIN_JOB_LANE_ROLES,
-    category: "operations",
+    category: "advanced",
     description: "Jobs for machines and equipment",
     activeMatch: "exact"
   },
   {
     id: "service-jobs",
-    label: "Service Jobs",
+    label: "Building Jobs",
     href: "/maintenance/jobs/service",
     icon: "Building2",
     allowedRoles: DOMAIN_JOB_LANE_ROLES,
-    category: "operations",
+    category: "advanced",
     description: "Jobs for buildings and facilities",
     activeMatch: "exact"
   },
@@ -432,9 +455,19 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     href: "/maintenance/jobs/vehicle",
     icon: "Truck",
     allowedRoles: mergeRoles(DOMAIN_JOB_LANE_ROLES, FLEET_ROLES),
-    category: "operations",
+    category: "advanced",
     description: "Repair and service jobs for vehicles",
     activeMatch: "exact"
+  },
+  {
+    id: "preventive-maintenance",
+    label: "Scheduled Service",
+    href: "/maintenance/plans",
+    icon: "CalendarClock",
+    allowedRoles: PM_ROLES,
+    category: "advanced",
+    description: "Planned service by date or usage",
+    activeMatch: "startsWith"
   },
   {
     id: "inspections",
@@ -457,96 +490,33 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
-    id: "reliability",
-    label: "Reliability",
-    href: "/maintenance/reliability",
-    icon: "Activity",
-    allowedRoles: mergeRoles(SUPERVISOR_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
-    category: "advanced",
-    description: "Breakdowns, downtime, and their causes",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "approvals",
-    label: "Approvals",
-    href: "/approvals",
-    icon: "ClipboardCheck",
-    allowedRoles: mergeRoles(SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN", "OPERATIONS_MANAGER", "FINANCE", "FACILITY_MANAGER"]),
-    requiredPermissions: ["approvals.view"],
-    badgeKey: "approvals",
-    category: "advanced",
-    description: "Items waiting for your approval",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "preventive-maintenance",
-    label: "Preventive Maintenance",
-    href: "/maintenance/plans",
-    icon: "CalendarClock",
-    allowedRoles: PM_ROLES,
-    category: "operations",
-    description: "Planned service by date or usage",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "my-jobs",
-    label: "My Jobs",
-    href: "/work-orders/my",
-    icon: "ClipboardList",
-    allowedRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN"]),
-    category: "operations",
-    description: "Jobs assigned to you",
-    mobilePriority: true,
-    activeMatch: "exact"
-  },
-  {
     id: "vendors-external",
-    label: "Vendors / External Repairs",
+    label: "Outside Repairs",
     href: "/procurement/vendors",
     icon: "Users",
     allowedRoles: mergeRoles(PARTS_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES, PROCUREMENT_ROLES),
-    category: "operations",
+    category: "advanced",
     description: "Suppliers and outside repairs",
     activeMatch: "startsWith"
   },
   {
     id: "maintenance-history",
-    label: "Maintenance History",
+    label: "Job History",
     href: "/maintenance/history",
     icon: "Clock3",
     allowedRoles: WO_ROLES,
-    category: "operations",
+    category: "advanced",
     description: "Past work on a machine, vehicle, or place",
     activeMatch: "startsWith"
   },
   {
-    id: "reports",
-    label: "Reports",
-    href: "/reports",
-    icon: "BarChart3",
-    allowedRoles: REPORT_ROLES,
-    category: "operations",
-    description: "Maintenance and fleet reports",
-    activeMatch: "startsWith"
-  },
-  {
     id: "assets",
-    label: "Asset Register",
+    label: "Machines & Equipment",
     href: "/assets",
     icon: "Boxes",
     allowedRoles: ASSET_NAV_ROLES,
     category: "core",
     description: "All machines and equipment",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "facilities",
-    label: "Facilities / Locations",
-    href: "/admin/organization",
-    icon: "Building2",
-    allowedRoles: mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES, FACILITY_ROLES, ASSET_ROLES),
-    category: "core",
-    description: "Sites, buildings, and locations",
     activeMatch: "startsWith"
   },
   {
@@ -556,8 +526,18 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     icon: "Truck",
     allowedRoles: FLEET_NAV_ROLES,
     requiredFeature: "FLEET",
-    category: "compliance",
+    category: "core",
     description: "Vehicles and their status",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "facilities",
+    label: "Sites & Locations",
+    href: "/admin/organization",
+    icon: "Building2",
+    allowedRoles: mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES, FACILITY_ROLES, ASSET_ROLES),
+    category: "core",
+    description: "Sites, buildings, and locations",
     activeMatch: "startsWith"
   },
   {
@@ -571,24 +551,24 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
-    id: "erp-integration",
-    label: "ERP Sync",
-    href: "/erp",
-    icon: "Database",
-    allowedRoles: ADMIN_ROLES,
-    category: "admin",
-    description: "Match stock with the ERP system",
+    id: "reports",
+    label: "Reports",
+    href: "/reports",
+    icon: "BarChart3",
+    allowedRoles: REPORT_ROLES,
+    category: "safety",
+    description: "Maintenance and fleet reports",
     activeMatch: "startsWith"
   },
   {
-    id: "maintenance-supply",
-    label: "ERP Mapping",
-    href: "/maintenance-supply",
-    icon: "Layers",
-    allowedRoles: PARTS_ROLES,
-    category: "admin",
-    description: "Parts linked to ERP codes, and tool returns",
-    activeMatch: "exact"
+    id: "reliability",
+    label: "Breakdowns & Causes",
+    href: "/maintenance/reliability",
+    icon: "Activity",
+    allowedRoles: mergeRoles(SUPERVISOR_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
+    category: "safety",
+    description: "Breakdowns, machine stopped time, and their causes",
+    activeMatch: "startsWith"
   },
   {
     id: "admin",
@@ -602,7 +582,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "admin-asset-register",
-    label: "Register asset",
+    label: "Add Machine",
     href: "/admin/assets/new",
     icon: "Package",
     allowedRoles: ADMIN_ROLES,
@@ -612,7 +592,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "admin-vehicle-register",
-    label: "Register vehicle",
+    label: "Add Vehicle",
     href: "/admin/vehicles/new",
     icon: "Truck",
     allowedRoles: ADMIN_ROLES,
@@ -622,12 +602,32 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "admin-asset-tags",
-    label: "Asset tag upload",
+    label: "Upload Asset Tags",
     href: "/admin/asset-tags",
     icon: "QrCode",
     allowedRoles: ADMIN_ROLES,
     category: "admin",
     description: "Upload and check asset tags",
+    activeMatch: "exact"
+  },
+  {
+    id: "erp-integration",
+    label: "ERP Sync",
+    href: "/erp",
+    icon: "Database",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "Match stock with the ERP system",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "maintenance-supply",
+    label: "ERP Part Codes",
+    href: "/maintenance-supply",
+    icon: "Layers",
+    allowedRoles: PARTS_ROLES,
+    category: "admin",
+    description: "Parts linked to ERP codes, and tool returns",
     activeMatch: "exact"
   },
   {
@@ -667,10 +667,10 @@ const NAV_CATEGORY_ORDER: NavCategory[] = [
   "workspace",
   "operations",
   "advanced",
-  "safety",
   "core",
   "compliance",
   "reports",
+  "safety",
   "admin",
   "secondary",
   "primary",
@@ -923,7 +923,7 @@ function collapseRequestEntries(
     .filter((item) => item.id !== "my-requests")
     .map((item) =>
       item.id === "requests" && ownOnly
-        ? { ...item, label: "My requests", description: "Report a problem and follow your requests" }
+        ? { ...item, label: "My Requests", description: "Report a problem and follow your requests" }
         : item
     );
 }
@@ -1050,10 +1050,10 @@ export type MobileBottomNavItem = {
 /** Short bottom-tab names for the nav item that is a role's login home. */
 const MOBILE_HOME_TAB_LABELS: Record<string, string> = {
   "my-jobs": "My Jobs",
-  "spare-parts": "Inventory",
+  "spare-parts": "Parts",
   "maintenance-dashboard": "Dashboard",
-  "all-jobs": "Work Orders",
-  fleet: "Fleet",
+  "all-jobs": "Jobs",
+  fleet: "Vehicles",
   assets: "Assets",
   reports: "Reports",
   admin: "Admin",
@@ -1107,16 +1107,16 @@ export function getMobileBottomNavItems(
     items.push(home);
     // Keep a jobs tab for roles whose home is not a job list (managers, stores).
     if (hasWorkOrders && !JOB_NAV_IDS.has(home.id)) {
-      items.push({ id: "work-orders", label: "Work Orders", href: jobsHref, icon: "ClipboardList" });
+      items.push({ id: "work-orders", label: "Jobs", href: jobsHref, icon: "ClipboardList" });
     }
   } else if (hasRequests && !hasWorkOrders) {
     items.push({ id: "requests", label: "Requests", href: requestsHref, icon: "AlertTriangle" });
   } else if (hasWorkOrders) {
-    items.push({ id: "work-orders", label: "Work Orders", href: jobsHref, icon: "ClipboardList" });
+    items.push({ id: "work-orders", label: "Jobs", href: jobsHref, icon: "ClipboardList" });
   } else if (hasAssets) {
     items.push({ id: "assets", label: "Assets", href: "/assets", icon: "Boxes" });
   } else if (hasFleet) {
-    items.push({ id: "fleet", label: "Fleet", href: "/fleet", icon: "Truck" });
+    items.push({ id: "fleet", label: "Vehicles", href: "/fleet", icon: "Truck" });
   } else if (hasParts) {
     items.push({ id: "spare-parts", label: "Parts", href: "/inventory", icon: "Layers" });
   } else if (hasReports) {

@@ -387,7 +387,7 @@ test("primary queues stay visible and secondary queues move into More", () => {
     { key: "my-tasks" as const, label: "My Tasks", count: 1 },
     { key: "open-requests" as const, label: "Open Requests", count: 4 },
     { key: "open-load" as const, label: "Open Load", count: 8 },
-    { key: "waiting-evidence" as const, label: "Waiting Evidence", count: 3 },
+    { key: "waiting-evidence" as const, label: "Waiting photos", count: 3 },
     { key: "all" as const, label: "All", count: 9 },
     { key: "overdue" as const, label: "Overdue", count: 1 }
   ];
@@ -498,9 +498,9 @@ test("queue requests stay on the current page and change when the page or filter
   assert.equal(new URLSearchParams(filtered).get("page"), "1");
 });
 
-test("next action prefers the server action, then parts and evidence", () => {
+test("next action prefers the server action, then parts and photos", () => {
   assert.equal(nextActionLabel({ actionRequired: [{ label: "Approval pending", severity: "HIGH" }] }).label, "Approval pending");
   assert.equal(nextActionLabel({ partsStatus: "Waiting issue" }).label, "Waiting for parts");
-  assert.equal(nextActionLabel({ evidenceStatus: "Missing" }).label, "Evidence missing");
+  assert.equal(nextActionLabel({ evidenceStatus: "Missing" }).label, "Photos missing");
   assert.equal(nextActionLabel({ status: "VERIFIED" }).label, "Ready");
 });

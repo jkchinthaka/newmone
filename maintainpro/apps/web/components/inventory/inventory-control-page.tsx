@@ -264,7 +264,7 @@ export function InventoryControlPage() {
       <OperationalJobsHeader
         eyebrow="Inventory"
         title="Spare Parts"
-        description="Stock comes from the ERP. Issue parts from the work order's Parts tab."
+        description="Stock comes from the ERP. Issue parts from the job's Parts tab."
         actions={
           <>
             <button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>Refresh</button>
@@ -332,7 +332,7 @@ export function InventoryControlPage() {
                         {row.part?.name ?? "Part"} × {row.quantityToIssue}
                       </span>
                       <span className="block text-xs text-slate-600">
-                        {[row.workOrder?.woNumber, row.workOrder?.title].filter(Boolean).join(" · ") || "Work order"}
+                        {[row.workOrder?.woNumber, row.workOrder?.title].filter(Boolean).join(" · ") || "Job"}
                         {row.requestedBy ? ` · for ${row.requestedBy}` : ""}
                       </span>
                     </span>

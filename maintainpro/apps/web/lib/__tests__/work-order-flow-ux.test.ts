@@ -17,7 +17,7 @@ test("a held job offers Resume to the technician", () => {
 test("send back and reassignment ask for a reason first", () => {
   assert.match(page, /label: "What needs to be fixed\?"/);
   assert.match(page, /label: "Reason for the change"/);
-  assert.doesNotMatch(page, /reason: "Sent back for rework"/);
+  assert.doesNotMatch(page, /reason: "Needs to be fixed again"/);
 });
 
 test("close checks pending part returns before verifying, with a link to Parts", () => {

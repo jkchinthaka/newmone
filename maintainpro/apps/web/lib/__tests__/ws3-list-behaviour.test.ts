@@ -311,7 +311,7 @@ test("asset selection clears on filter/page/sort change and bulk actions use vis
 
 // --- Formatting -------------------------------------------------------------------------------
 
-test("work order history money is LKR and maintenance-job dates use Colombo today", () => {
+test("job history money is LKR and maintenance-job dates use Colombo today", () => {
   assert.doesNotMatch(source("components/work-orders/work-order-history-panel.tsx"), /USD/);
   for (const file of ["components/maintenance-job/screens.tsx", "components/maintenance-job/provider.tsx"]) {
     const text = source(file);

@@ -211,7 +211,7 @@ export default function CleaningVisitsPage() {
             >
               <option value="">All statuses</option>
               <option value="COMPLETED">Completed</option>
-              <option value="PENDING_VERIFICATION">Pending Verification</option>
+              <option value="PENDING_VERIFICATION">Waiting for supervisor check</option>
               <option value="SUBMITTED">Submitted</option>
               <option value="APPROVED">Approved</option>
               <option value="REJECTED">Rejected</option>

@@ -117,10 +117,10 @@ export function notificationNextAction(input: {
   const type = input.type ?? "";
   const title = input.title ?? "";
   if (/gate/i.test(title) || /gate/i.test(type)) return "Open vehicle";
-  if (/verif/i.test(title) || /verif/i.test(type)) return "Open work order verification";
+  if (/verif/i.test(title) || /verif/i.test(type)) return "Open job supervisor check";
   if (type === "LOW_STOCK") return "Open parts";
-  if (type === "MAINTENANCE_DUE" || input.referenceType === "MaintenancePlan") return "Open PM plan";
-  if (input.referenceType === "WorkOrder" || type.startsWith("WORK_ORDER")) return "Open work order";
+  if (type === "MAINTENANCE_DUE" || input.referenceType === "MaintenancePlan") return "Open scheduled service plan";
+  if (input.referenceType === "WorkOrder" || type.startsWith("WORK_ORDER")) return "Open job";
   if (input.referenceType === "Vehicle") return "Open vehicle";
   if (input.referenceType === "FacilityIssue") return "Open request";
   return "Open context";

@@ -28,10 +28,10 @@ export function MaintenanceJobShell({ children }: { children: ReactNode }) {
     <div className="space-y-5 pb-24">
       <section className="rounded-card border border-brand-100 bg-white p-3 text-ink shadow-card">
         <p className="text-sm font-semibold uppercase tracking-wide text-brand-800">Legacy FMS workspace</p>
-        <h1 className="page-title">Archived Maintenance Job Module</h1>
+        <h1 className="page-title">Archived Maintenance job Module</h1>
         <p className="max-w-2xl text-sm text-brand-800">
           Read-only archived workspace for legacy pending requests and job demos. Current
-          operations live in MaintainPro dashboards, work orders, inventory, and procurement.
+          operations live in MaintainPro dashboards, jobs, inventory, and buying.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link className="btn-primary" href="/dashboard">

@@ -190,7 +190,7 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     const inspections = NAVIGATION_ITEMS.find((item) => item.id === "inspections");
 
     expect(maintenance?.items.some((item) => item.id === "inspections")).toBe(false);
-    expect(planning?.label).toBe("Advanced Maintenance");
+    expect(planning?.label).toBe("Jobs");
     expect(planning?.items.map((item) => item.href)).toContain("/maintenance/inspections");
     expect(inspections?.allowedRoles).toEqual(
       NAVIGATION_ITEMS.find((item) => item.id === "all-jobs")?.allowedRoles
@@ -200,20 +200,19 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(EXISTING_NAV_ROUTES.has("/maintenance/inspections")).toBe(true);
   });
 
-  it("keeps reliability out of the primary maintenance menu", () => {
+  it("keeps reliability out of the daily work menu, under Reports & Analysis", () => {
     const groups = getNavigationGroups("MANAGER");
     const maintenance = groups.find((group) => group.category === "operations");
-    const advanced = groups.find((group) => group.category === "advanced");
+    const analysis = groups.find((group) => group.category === "safety");
     const categoryOf = (id: string) => NAVIGATION_ITEMS.find((item) => item.id === id)?.category;
 
     expect(maintenance?.items.some((item) => item.id === "reliability")).toBe(false);
-    expect(groups.some((group) => group.category === "safety")).toBe(false);
-    expect(categoryOf("all-jobs")).toBe("operations");
+    expect(categoryOf("all-jobs")).toBe("advanced");
     expect(categoryOf("requests")).toBe("operations");
-    expect(categoryOf("preventive-maintenance")).toBe("operations");
+    expect(categoryOf("preventive-maintenance")).toBe("advanced");
     expect(categoryOf("my-jobs")).toBe("operations");
-    expect(advanced?.label).toBe("Advanced Maintenance");
-    expect(advanced?.items.map((item) => item.href)).toContain("/maintenance/reliability");
+    expect(analysis?.label).toBe("Reports & Analysis");
+    expect(analysis?.items.map((item) => item.href)).toContain("/maintenance/reliability");
     expect(getVisibleNavigationItems("MANAGER").some((item) => item.id === "reliability")).toBe(true);
     expect(getVisibleNavigationItems("TECHNICIAN").some((item) => item.id === "reliability")).toBe(false);
     expect(canAccessNavigationPath("/maintenance/reliability", "MANAGER", [])).toBe(true);
@@ -221,14 +220,13 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(EXISTING_NAV_ROUTES.has("/maintenance/reliability")).toBe(true);
   });
 
-  it("keeps pending approvals out of the primary maintenance menu", () => {
+  it("lists pending approvals under Daily Work", () => {
     const groups = getNavigationGroups("MANAGER", { permissions: ["approvals.view"] });
-    const maintenance = groups.find((group) => group.category === "operations");
-    const planning = groups.find((group) => group.category === "advanced");
+    const daily = groups.find((group) => group.category === "operations");
     const approvals = NAVIGATION_ITEMS.find((item) => item.id === "approvals");
 
-    expect(maintenance?.items.some((item) => item.id === "approvals")).toBe(false);
-    expect(planning?.items.map((item) => item.href)).toContain("/approvals");
+    expect(daily?.label).toBe("Daily Work");
+    expect(daily?.items.map((item) => item.href)).toContain("/approvals");
     expect(approvals?.requiredPermissions).toEqual(["approvals.view"]);
     expect(approvals?.href).toBe("/approvals");
     expect(getVisibleNavigationItems("MANAGER", { permissions: ["approvals.view"] }).some((item) => item.id === "approvals")).toBe(true);
@@ -320,7 +318,7 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     // First tab is the login home for the role.
     expect(technicianMobile[0]).toEqual(expect.objectContaining({ id: "my-jobs", label: "My Jobs", href: "/work-orders/my" }));
     const inventoryMobile = getMobileBottomNavItems("INVENTORY_KEEPER");
-    expect(inventoryMobile[0]).toEqual(expect.objectContaining({ label: "Inventory", href: "/inventory" }));
+    expect(inventoryMobile[0]).toEqual(expect.objectContaining({ label: "Parts", href: "/inventory" }));
     const securityMobile = getMobileBottomNavItems("SECURITY_OFFICER", { permissions: SECURITY_OFFICER_KEYS });
     expect(securityMobile[0]).toEqual(expect.objectContaining({ id: "requests", label: "Requests", href: "/requests" }));
     expect(securityMobile.some((item) => item.href.startsWith("/fleet"))).toBe(false);

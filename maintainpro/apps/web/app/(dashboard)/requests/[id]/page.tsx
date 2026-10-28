@@ -250,7 +250,7 @@ export default function RequestDetailPage() {
       if (targetKind === "asset") body.siteId = null;
       body.targetUnresolved = false;
     }
-    void run(() => triageRequest(id, body), targetId ? "Triage saved and target confirmed" : "Triage saved");
+    void run(() => triageRequest(id, body), targetId ? "Review saved and target confirmed" : "Review saved");
   };
 
   const governancePanel =
@@ -555,7 +555,7 @@ export default function RequestDetailPage() {
                   ) : null}
                   <textarea
                     className="min-h-20 w-full rounded-lg border border-slate-300 p-2 text-sm"
-                    aria-label="Internal triage notes"
+                    aria-label="Internal review notes"
                     placeholder="Internal notes (not shown to the requester)"
                     value={triageNotes}
                     onChange={(e) => setTriageNotes(e.target.value)}
@@ -566,7 +566,7 @@ export default function RequestDetailPage() {
                     className="min-h-11 w-full rounded-lg border border-slate-300 bg-white text-sm font-medium disabled:opacity-40"
                     onClick={saveTriage}
                   >
-                    Save triage
+                    Save review
                   </button>
                 </div>
               ) : null}
@@ -598,13 +598,13 @@ export default function RequestDetailPage() {
                           toast.message(
                             result.alreadyConverted
                               ? `Already linked to ${result.workOrder.woNumber}`
-                              : `Created work order ${result.workOrder.woNumber}`
+                              : `Created job ${result.workOrder.woNumber}`
                           );
                         }
-                      }, "Work order created")
+                      }, "Job created")
                     }
                   >
-                    Create work order
+                    Create job
                   </button>
                   <BlockedNote reason={actionBlockedReason(actions, "convert")} />
                 </div>
@@ -704,7 +704,7 @@ export default function RequestDetailPage() {
               {allowed("close") ? (
                 <details className="border-t border-brand-100 pt-3">
                   <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-red-800">
-                    Close without a work order
+                    Close without a job
                   </summary>
                   <div className="mt-2 space-y-2">
                     <select
@@ -733,7 +733,7 @@ export default function RequestDetailPage() {
                       onClick={() =>
                         void run(
                           () => rejectRequest(id, { reasonType: closeType, reason: closeReason.trim() || undefined }),
-                          "Request closed without a work order"
+                          "Request closed without a job"
                         )
                       }
                     >

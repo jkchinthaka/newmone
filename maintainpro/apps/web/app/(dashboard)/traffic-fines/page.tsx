@@ -114,7 +114,7 @@ function TrafficFinesRegister() {
         </span>
       )
     },
-    { id: "wo", header: "Work order", cell: (row) => row.workOrder?.workOrderNumber ?? "—", hideOnMobile: true },
+    { id: "wo", header: "Job", cell: (row) => row.workOrder?.workOrderNumber ?? "—", hideOnMobile: true },
     { id: "amount", header: "Amount", cell: (row) => formatCurrency(row.fineAmount), className: "text-right", headerClassName: "text-right" }
   ];
 
@@ -380,7 +380,7 @@ function CreateFineDialog({
           />
           Document related fine (auto-classify by validity on fine date)
         </label>
-        <Field label="Evidence URLs (one per line)">
+        <Field label="Photos URLs (one per line)">
           <textarea
             rows={2}
             value={form.evidenceUrls}
@@ -462,10 +462,10 @@ function FineDetailDialog({
     setBusy(true);
     try {
       await p4Post(`/traffic-fines/${fine.id}/work-order`, {});
-      toast.success("Work order linked");
+      toast.success("Job linked");
       onSaved();
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to link work order"));
+      toast.error(getApiErrorMessage(err, "Failed to link job"));
     } finally {
       setBusy(false);
     }
@@ -569,7 +569,7 @@ function FineDetailDialog({
             onClick={linkWorkOrder}
             className="inline-flex items-center gap-1 rounded bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
           >
-            <Wrench size={12} /> Create Corrective Work Order
+            <Wrench size={12} /> Create repair job
           </button>
         </div>
       ) : null}

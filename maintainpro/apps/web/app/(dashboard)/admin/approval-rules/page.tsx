@@ -188,7 +188,7 @@ export default function AdminApprovalsPage() {
             />
           </label>
           <label className="text-sm">
-            SLA hours
+            Time limit hours
             <input
               className="mt-1 min-h-11 w-full rounded-lg border px-3"
               value={form.slaHours}

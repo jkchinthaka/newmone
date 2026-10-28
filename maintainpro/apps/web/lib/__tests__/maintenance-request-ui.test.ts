@@ -21,11 +21,11 @@ import { getVisibleNavigationItems, isNavItemActive, NAVIGATION_ITEMS, REQUEST_L
 describe("maintenance request labels", () => {
   it("uses business wording instead of raw codes", () => {
     assert.equal(requestStatusLabel("APPROVED"), "Accepted");
-    assert.equal(requestStatusLabel("CONVERTED_TO_WO"), "Converted to Work Order");
+    assert.equal(requestStatusLabel("CONVERTED_TO_WO"), "Job created");
     assert.match(requestTriageExplanation(), /Needs Information/);
     assert.match(requestTriageExplanation(), /Accepted requests stay on All requests/);
     assert.equal(requestHistoryActionLabel("START_REVIEW"), "Review started");
-    assert.equal(requestHistoryActionLabel("CONVERTED_TO_WO"), "Work order created");
+    assert.equal(requestHistoryActionLabel("CONVERTED_TO_WO"), "Job created");
     assert.equal(requestValueLabel("VERY_URGENT"), "Very urgent");
     assert.equal(requestValueLabel("NOT_SURE"), "Not sure");
   });
@@ -83,7 +83,7 @@ describe("requestNextStep", () => {
   });
 
   it("does not call technician completion a resolved request", () => {
-    assert.equal(requesterFacingStatus("CONVERTED_TO_WO", "TECHNICIAN_COMPLETED"), "Work Done — Awaiting Verification");
+    assert.equal(requesterFacingStatus("CONVERTED_TO_WO", "TECHNICIAN_COMPLETED"), "Work done — waiting for supervisor check");
     assert.equal(requesterFacingStatus("CONVERTED_TO_WO", "IN_PROGRESS"), "Maintenance In Progress");
     assert.equal(requesterFacingStatus("CONVERTED_TO_WO", "OPEN"), "Accepted / Scheduled");
     assert.equal(requesterFacingStatus("CONVERTED_TO_WO", "VERIFIED"), "Resolved / Completed");
@@ -92,22 +92,22 @@ describe("requestNextStep", () => {
     assert.equal(requesterFacingStatus("NEW"), "Submitted");
   });
 
-  it("tells the requester the linked work is still awaiting verification", () => {
+  it("tells the requester the linked work is still awaiting supervisor check", () => {
     const step = requestNextStep({
       status: "CONVERTED_TO_WO",
       isOwner: true,
       workOrder: { woNumber: "WO-2026-0042", status: "TECHNICIAN_COMPLETED" }
     });
-    assert.equal(step.title, "Work Done — Awaiting Verification");
+    assert.equal(step.title, "Work done — waiting for supervisor check");
     assert.equal(step.tone, "waiting");
   });
-  it("points a reviewer at the work order once converted", () => {
+  it("points a reviewer at the job once converted", () => {
     const step = requestNextStep({
       status: "CONVERTED_TO_WO",
       isOwner: false,
       workOrder: { woNumber: "WO-2026-0042" }
     });
-    assert.equal(step.title, "Work order WO-2026-0042");
+    assert.equal(step.title, "Job WO-2026-0042");
   });
 });
 
@@ -172,7 +172,7 @@ describe("Requests navigation visibility", () => {
     }
     const label = (role: string, permissions: string[]) =>
       getVisibleNavigationItems(role, { permissions }).find((item) => item.id === "requests")?.label;
-    assert.equal(label("SECURITY_OFFICER", ["maintenance_requests.create"]), "My requests");
+    assert.equal(label("SECURITY_OFFICER", ["maintenance_requests.create"]), "My Requests");
     assert.equal(label("MANAGER", ["maintenance_requests.view_own", "maintenance_requests.triage"]), "Requests");
     const requests = NAVIGATION_ITEMS.find((item) => item.id === "requests");
     const report = NAVIGATION_ITEMS.find((item) => item.id === "report-issue");
@@ -207,7 +207,7 @@ describe("request action menu activation", () => {
 });
 
 describe("request tracker", () => {
-  it("moves from submitted to done using the request and the work order", () => {
+  it("moves from submitted to done using the request and the job", () => {
     assert.equal(requestTrackerIndex("NEW", null), 0);
     assert.equal(requestTrackerIndex("APPROVED", null), 1);
     assert.equal(requestTrackerIndex("CONVERTED_TO_WO", "ASSIGNED"), 1);

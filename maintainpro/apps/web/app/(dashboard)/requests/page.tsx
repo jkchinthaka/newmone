@@ -373,7 +373,7 @@ export default function RequestsPage() {
     if (item.workOrder?.id && canViewAll) {
       actions.push({
         id: "wo",
-        label: `Open work order ${item.workOrder.woNumber}`,
+        label: `Open job ${item.workOrder.woNumber}`,
         href: `/work-orders?wo=${item.workOrder.id}`
       });
     }
@@ -408,14 +408,14 @@ export default function RequestsPage() {
     if (isActionAllowed(allowed, "convert")) {
       actions.push({
         id: "convert",
-        label: "Create work order",
+        label: "Create job",
         run: async () => {
           const result = await convertRequestToWorkOrder(item.id);
           if (result.workOrder?.woNumber) {
             toast.message(
               result.alreadyConverted
                 ? `Already linked to ${result.workOrder.woNumber}`
-                : `Created work order ${result.workOrder.woNumber}`
+                : `Created job ${result.workOrder.woNumber}`
             );
           }
           return true;
@@ -464,7 +464,7 @@ export default function RequestsPage() {
     ? [
         ["all", "All requests"],
         ["mine", "My requests"],
-        ...(canTriage ? [["triage", "Triage queue"] as [View, string]] : [])
+        ...(canTriage ? [["triage", "Requests to review"] as [View, string]] : [])
       ]
     : [];
 
@@ -479,7 +479,7 @@ export default function RequestsPage() {
           <p className="mt-1 text-sm text-slate-600">
             {ownOnly
               ? "Report a maintenance issue and follow your own requests."
-              : "Report issues, then triage and accept them before a work order is created."}
+              : "Report issues, then review and accept them before a job is created."}
           </p>
         </div>
         {canReport ? (
@@ -487,7 +487,7 @@ export default function RequestsPage() {
             href={"/requests/new" as Route}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
           >
-            <Plus size={16} aria-hidden /> Report issue
+            <Plus size={16} aria-hidden /> Report a problem
           </Link>
         ) : null}
       </header>
@@ -582,7 +582,7 @@ export default function RequestsPage() {
             className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
             value={stage || view === "triage" ? "" : status}
             disabled={view === "triage"}
-            title={view === "triage" ? "The triage queue always shows New, Under Review and Needs Information." : undefined}
+            title={view === "triage" ? "Requests to review always shows New, Under Review and Needs Information." : undefined}
             onChange={(event) => writeQuery({ status: event.target.value || null, stage: null })}
           >
             <option value="">{stage ? REQUEST_STAGE_LABELS[stage] : "Any status"}</option>
@@ -634,14 +634,14 @@ export default function RequestsPage() {
               <DateField bare label="Reported from" value={from} onChange={(value) => writeQuery({ from: value || null })} />
             </label>
             <select
-              aria-label="Work order link"
+              aria-label="Job link"
               className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
               value={converted}
               onChange={(event) => writeQuery({ converted: event.target.value || null })}
             >
-              <option value="">With or without a work order</option>
-              <option value="yes">Has a work order</option>
-              <option value="no">No work order yet</option>
+              <option value="">With or without a job</option>
+              <option value="yes">Has a job</option>
+              <option value="no">No job yet</option>
             </select>
           </div>
         ) : null}
@@ -717,14 +717,14 @@ export default function RequestsPage() {
 
       {!loading && !error && items.length === 0 ? (
         <EmptyState
-          title={filtered ? "No requests match these filters." : view === "triage" ? "Nothing is waiting for triage." : "No maintenance requests yet."}
+          title={filtered ? "No requests match these filters." : view === "triage" ? "Nothing is waiting for review." : "No maintenance requests yet."}
           description={
             filtered
               ? "Try a different search or clear the filters."
               : view === "triage"
                 ? "New requests appear here as soon as they are reported."
                 : canReport
-                  ? "Report an issue to start the maintenance workflow."
+                  ? "Report a problem to start the maintenance workflow."
                   : "Requests you are allowed to see will appear here."
           }
           action={
@@ -734,7 +734,7 @@ export default function RequestsPage() {
               </button>
             ) : canReport && view !== "triage" ? (
               <Link href={"/requests/new" as Route} className="inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white">
-                Report issue
+                Report a problem
               </Link>
             ) : null
           }
