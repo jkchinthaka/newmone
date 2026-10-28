@@ -18,7 +18,8 @@ defaults:
 
 jobs:
   full-stack-e2e:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, which Playwright 1.60 cannot install Chromium on.
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
       NODE_ENV: test
