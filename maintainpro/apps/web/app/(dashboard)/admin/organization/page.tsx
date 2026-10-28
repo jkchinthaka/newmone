@@ -12,6 +12,7 @@ import { ActiveFilterChips } from "@/components/operational/active-filter-chips"
 import { OperationalPageHeader } from "@/components/operational/operational-page-header";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { formatEnumLabel } from "@/lib/display-labels";
 import { isAdminConsoleRole } from "@/lib/admin-console";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { extractRoleName } from "@/lib/role-redirect";
@@ -135,6 +136,7 @@ export default function OrganizationAdminPage() {
 
   const [summary, setSummary] = useState<OrganizationSummary | null>(null);
   const [sites, setSites] = useState<OrgSite[]>([]);
+  const [locationSiteId, setLocationSiteId] = useState("");
   const [siteMeta, setSiteMeta] = useState({ page: 1, totalPages: 1, total: 0 });
   const [roots, setRoots] = useState<OrgLocation[]>([]);
   const [childrenById, setChildrenById] = useState<Record<string, OrgLocation[]>>({});
@@ -167,6 +169,8 @@ export default function OrganizationAdminPage() {
   }
 
   function openCreateLocation(parent: OrgLocation | null = null) {
+    // The site comes from the page selection, else the first site; the dialog lets the user change it.
+    setLocationSiteId(selectedSiteId ?? sites[0]?.id ?? "");
     setLocationDraft({ code: "", name: "", type: "AREA" });
     setMoveParentId("");
     setMoveReason("");
@@ -296,7 +300,12 @@ export default function OrganizationAdminPage() {
   }
 
   async function saveLocation() {
-    if (!selectedSiteId || dialog?.kind !== "location") return;
+    if (dialog?.kind !== "location") return;
+    const siteId = dialog.location || dialog.parent ? selectedSiteId : locationSiteId || selectedSiteId;
+    if (!siteId) {
+      toast.error("Choose a site for this location. Add a site first if there is none.");
+      return;
+    }
     try {
       if (dialog.location) {
         const reason = moveReason.trim();
@@ -315,7 +324,7 @@ export default function OrganizationAdminPage() {
         toast.success("Location updated");
       } else {
         await createFunctionalLocation({
-          siteId: selectedSiteId,
+          siteId,
           parentId: dialog.parent?.id ?? null,
           ...locationDraft
         });
@@ -323,7 +332,8 @@ export default function OrganizationAdminPage() {
       }
       setDialog(null);
       setChildrenById({});
-      await loadRoots(selectedSiteId);
+      if (siteId !== selectedSiteId) writeUrl(siteId, null);
+      else await loadRoots(siteId);
       await loadSites(page);
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Could not save the location."));
@@ -384,7 +394,6 @@ export default function OrganizationAdminPage() {
             <button
               type="button"
               className="h-10 rounded-lg bg-slate-900 px-3 text-sm font-medium text-white disabled:opacity-50"
-              disabled={!selectedSiteId}
               onClick={() => openCreateLocation(null)}
             >
               Add Location
@@ -598,11 +607,26 @@ export default function OrganizationAdminPage() {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" role="presentation">
           <form role="dialog" aria-modal="true" aria-labelledby="location-dialog-title" className="w-full max-w-md space-y-3 rounded-xl bg-white p-4" onSubmit={(event) => { event.preventDefault(); void saveLocation(); }}>
             <h2 id="location-dialog-title" className="text-base font-semibold">{dialog.location ? "Edit location" : dialog.parent ? `Add child under ${dialog.parent.name}` : "Add location"}</h2>
+            {!dialog.location && !dialog.parent ? (
+              sites.length > 0 ? (
+                <label className="block text-sm">Site
+                  <select required value={locationSiteId} onChange={(event) => setLocationSiteId(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2">
+                    <option value="" disabled>Choose a site</option>
+                    {sites.map((site) => <option key={site.id} value={site.id}>{site.name} ({site.code})</option>)}
+                  </select>
+                </label>
+              ) : (
+                <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-sm text-amber-900">
+                  Add a site first. Locations sit inside a site.{" "}
+                  <button type="button" className="font-medium underline" onClick={() => { setDialog(null); openCreateSite(); }}>Add Site</button>
+                </p>
+              )
+            ) : null}
             <label className="block text-sm">Code<input required value={locationDraft.code} onChange={(event) => setLocationDraft((current) => ({ ...current, code: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" /></label>
             <label className="block text-sm">Name<input required value={locationDraft.name} onChange={(event) => setLocationDraft((current) => ({ ...current, name: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" /></label>
             <label className="block text-sm">Type
               <select value={locationDraft.type} onChange={(event) => setLocationDraft((current) => ({ ...current, type: event.target.value as FunctionalLocationType }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2">
-                {FUNCTIONAL_LOCATION_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                {FUNCTIONAL_LOCATION_TYPES.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
               </select>
             </label>
             {dialog.location ? (

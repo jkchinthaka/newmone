@@ -1,5 +1,6 @@
 "use client";
 
+import { parseJobDomain, type JobDomain } from "@/lib/job-domain";
 import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
@@ -39,6 +40,13 @@ import {
   requesterFacingStatus,
   resolveRequestMenuActivation
 } from "@/lib/maintenance-request-ui";
+
+const REQUEST_TYPE_FILTER_LABELS: Record<JobDomain, string> = {
+  MACHINERY: "Machinery",
+  VEHICLE: "Vehicle",
+  SERVICE: "Service (building)"
+};
+const REQUEST_TYPE_FILTER_ORDER: JobDomain[] = ["MACHINERY", "VEHICLE", "SERVICE"];
 
 type View = "all" | "mine" | "triage";
 
@@ -232,6 +240,8 @@ export default function RequestsPage() {
   const stage = isRequestStage(rawStage) ? rawStage : null;
   const status = searchParams.get("status") ?? "";
   const priority = searchParams.get("priority") ?? "";
+  // Machinery / Vehicle / Service (building); the API filters on MaintenanceRequest.jobDomain.
+  const jobDomain = parseJobDomain(searchParams.get("type")) ?? "";
   const assetQuery = searchParams.get("asset") ?? "";
   const queryText = searchParams.get("q") ?? "";
   const sortBy = searchParams.get("sort") ?? "reportedAt";
@@ -306,6 +316,7 @@ export default function RequestsPage() {
           stage: triage ? undefined : stage ?? undefined,
           status: triage || stage ? undefined : status || undefined,
           priority: priority || undefined,
+          jobDomain: jobDomain || undefined,
           assetQuery: assetQuery || undefined,
           search: queryText || undefined,
           sortBy: triage ? undefined : sortBy,
@@ -334,7 +345,7 @@ export default function RequestsPage() {
     } finally {
       if (sequencer.current.isLatest(request.id)) setLoading(false);
     }
-  }, [assetQuery, converted, from, page, priority, queryText, reporter, sortBy, sortDirection, stage, status, view, writeQuery]);
+  }, [assetQuery, converted, from, jobDomain, page, priority, queryText, reporter, sortBy, sortDirection, stage, status, view, writeQuery]);
 
   useEffect(() => {
     void refresh();
@@ -360,6 +371,7 @@ export default function RequestsPage() {
   if (stage && view !== "triage") activeFilters.push({ key: "stage", label: REQUEST_STAGE_LABELS[stage], clear: { stage: null } });
   if (status && !stage && view !== "triage") activeFilters.push({ key: "status", label: `Status: ${requestStatusLabel(status)}`, clear: { status: null } });
   if (priority) activeFilters.push({ key: "priority", label: `Priority: ${requestValueLabel(priority)}`, clear: { priority: null } });
+  if (jobDomain) activeFilters.push({ key: "type", label: `Type: ${REQUEST_TYPE_FILTER_LABELS[jobDomain]}`, clear: { type: null } });
   if (assetQuery) activeFilters.push({ key: "asset", label: `Asset: ${assetQuery}`, clear: { asset: null } });
   if (queryText) activeFilters.push({ key: "q", label: `Search: ${queryText}`, clear: { q: null } });
   if (reporter) activeFilters.push({ key: "reporter", label: `Reported by: ${reporter}`, clear: { reporter: null } });
@@ -603,6 +615,19 @@ export default function RequestsPage() {
             <option value="HIGH">High</option>
             <option value="MEDIUM">Medium</option>
             <option value="LOW">Low</option>
+          </select>
+          <select
+            aria-label="Type"
+            className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
+            value={jobDomain}
+            onChange={(event) => writeQuery({ type: event.target.value || null })}
+          >
+            <option value="">Any type</option>
+            {REQUEST_TYPE_FILTER_ORDER.map((value) => (
+              <option key={value} value={value}>
+                {REQUEST_TYPE_FILTER_LABELS[value]}
+              </option>
+            ))}
           </select>
           <input
             aria-label="Asset, vehicle or location"

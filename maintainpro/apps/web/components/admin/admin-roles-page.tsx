@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Database, RefreshCw } from "lucide-react";
+import { ArrowLeft, Database, Download, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState, ErrorState, KpiCard } from "@/components/ui/dashboard";
@@ -13,7 +13,8 @@ import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { PermissionState } from "@/components/ui/page-state";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { fetchAdminRolesPermissionsMatrix, syncPermissionCatalog } from "@/lib/admin-roles-api";
-import { filterRolesPermissionsMatrix, formatRoleLabel, type AdminRoleReviewRow } from "@/lib/admin-roles";
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
+import { filterRolesPermissionsMatrix, formatRoleLabel, rolesPermissionsExportSheets, type AdminRoleReviewRow } from "@/lib/admin-roles";
 import { isAdminConsoleRole } from "@/lib/admin-console";
 import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
@@ -65,10 +66,30 @@ export function AdminRolesPage() {
     syncMutation.mutate();
   };
 
+  const [downloading, setDownloading] = useState(false);
   const filteredMatrix = useMemo(
     () => (query.data ? filterRolesPermissionsMatrix(query.data, search) : null),
     [query.data, search]
   );
+
+  /** Downloads what is on screen (search applied) as an Excel workbook. */
+  async function downloadExcel() {
+    if (!filteredMatrix) return;
+    setDownloading(true);
+    try {
+      const XLSX = await import("xlsx");
+      const { grid, roles } = rolesPermissionsExportSheets(filteredMatrix);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(grid), "Permissions by role");
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(roles), "Roles");
+      XLSX.writeFile(workbook, `roles-and-permissions-${colomboTodayYmd()}.xlsx`);
+      toast.success("Roles and permissions downloaded.");
+    } catch {
+      toast.error("The download could not be created. Try again.");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   if (!isAdmin) {
     return (
@@ -115,6 +136,16 @@ export function AdminRolesPage() {
               {syncMutation.isPending ? "Syncing…" : "Sync Permission Catalog"}
             </button>
           ) : null}
+          <button
+            type="button"
+            onClick={() => void downloadExcel()}
+            disabled={!filteredMatrix || downloading}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            title="Download the roles and permissions shown below as an Excel file"
+          >
+            {downloading ? <ButtonSpinner className="h-[15px] w-[15px]" /> : <Download size={15} aria-hidden="true" />}
+            Download Excel
+          </button>
           <button
             type="button"
             onClick={() => query.refetch()}
