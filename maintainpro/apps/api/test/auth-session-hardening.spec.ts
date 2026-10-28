@@ -1,3 +1,4 @@
+import { TenancyController } from "../src/modules/tenancy/tenancy.controller";
 import { ForbiddenException, UnauthorizedException } from "@nestjs/common";
 import { RoleName } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
@@ -215,12 +216,14 @@ describe("PasswordChangeRequiredGuard", () => {
     expect(guard().canActivate(context({ sub: "u1", mustChangePassword: false }))).toBe(true);
   });
 
-  it("exempts only auth/me, auth/logout and the password change route", () => {
+  it("exempts only auth/me, auth/logout, tenants/me and the password change route", () => {
     const allowed = (target: object, name: string) =>
       Reflect.getMetadata(ALLOW_PENDING_PASSWORD_CHANGE_KEY, (target as Record<string, object>)[name]) === true;
     expect(allowed(AuthController.prototype, "me")).toBe(true);
     expect(allowed(AuthController.prototype, "logout")).toBe(true);
     expect(allowed(SettingsController.prototype, "changePassword")).toBe(true);
+    expect(allowed(TenancyController.prototype, "me")).toBe(true);
+    expect(allowed(TenancyController.prototype, "switchTenant")).toBe(false);
     expect(allowed(AuthController.prototype, "logoutAll")).toBe(false);
     expect(allowed(SettingsController.prototype, "updateProfile")).toBe(false);
   });
