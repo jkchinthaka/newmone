@@ -42,7 +42,11 @@ import { Optional } from "@nestjs/common";
 import { ErpSyncProviderService } from "./erp-sync-provider.service";
 import { InventoryTransactionEngine } from "./inventory-transaction.engine";
 import { shouldPromotePoStatusToOrdered } from "./purchase-order-status.util";
-import { assertVerifiedIssueAllowed } from "./verified-stock-availability";
+import {
+  assertVerifiedIssueAllowed,
+  MISSING_ERP_PROVENANCE_MESSAGE,
+  MISSING_ERP_SNAPSHOT_MESSAGE
+} from "./verified-stock-availability";
 import { WorkOrderPartsService } from "../work-orders/work-order-parts.service";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
@@ -518,8 +522,16 @@ export class InventoryService {
     const unitCost = Number(part.unitCost ?? 0);
     const eventId = `stock-out:${workOrder.id}:${id}:${idempotencyKey}`;
     const outbox = await this.prisma.$transaction(async (tx) => {
-      // Same rule as a part-request issue: no verified ERP stock, no issue.
-      await assertVerifiedIssueAllowed(tx, { tenantId, partId: id, quantity });
+      // Verified ERP stock that is too low blocks the issue. A part with no ERP provenance or
+      // snapshot yet is still recorded as a PENDING consumption for Bileeta to reconcile
+      // (Bileeta owns the quantity), as before.
+      try {
+        await assertVerifiedIssueAllowed(tx, { tenantId, partId: id, quantity });
+      } catch (error) {
+        const message = error instanceof BadRequestException ? error.message : "";
+        const unverified = message === MISSING_ERP_PROVENANCE_MESSAGE || message === MISSING_ERP_SNAPSHOT_MESSAGE;
+        if (!unverified) throw error;
+      }
       const created = await tx.domainEventOutbox.create({
         data: {
           tenantId,

@@ -171,7 +171,7 @@ export default function RcaDetailPage() {
               <p className="font-medium">{action.description}</p>
               <p className="text-slate-600">{formatEnumLabel(action.kind)} · {formatEnumLabel(action.status)} · due {lkDate(action.dueDate)}</p>
               <p className="text-slate-600">Owner {action.ownerId || "—"} · verified {lkDateTime(action.verifiedAt)}</p>
-              {action.verificationNote ? <p>Verification: {action.verificationNote}</p> : null}
+              {action.verificationNote ? <p>Supervisor check: {action.verificationNote}</p> : null}
               <div className="mt-2 flex flex-wrap gap-2">
                 {action.status === "OPEN" ? <button type="button" className="rounded border px-2 py-1" onClick={() => updateCapa.mutate({ capaId: action.id, status: "IN_PROGRESS" })}>Start</button> : null}
                 {action.status === "IN_PROGRESS" ? <button type="button" className="rounded border px-2 py-1" onClick={() => updateCapa.mutate({ capaId: action.id, status: "VERIFIED", evidence: ["completed"], verificationNote: "Work completed and awaiting effectiveness review" })}>Mark completed</button> : null}

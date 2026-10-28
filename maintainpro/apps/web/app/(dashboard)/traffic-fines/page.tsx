@@ -575,7 +575,7 @@ function FineDetailDialog({
       ) : null}
       {fine.workOrder ? (
         <p className="mt-3 text-right text-xs text-emerald-700">
-          Linked to Work Order {fine.workOrder.workOrderNumber}
+          Linked to job {fine.workOrder.workOrderNumber}
         </p>
       ) : null}
     </Modal>

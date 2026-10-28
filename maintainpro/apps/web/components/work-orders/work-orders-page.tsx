@@ -948,7 +948,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             <span className="sr-only">Job queue</span>
           ) : (
             <p>
-              {totalFiltered} of {workOrdersQuery.pagination.total} work order(s) shown
+              {totalFiltered} of {workOrdersQuery.pagination.total} job(s) shown
             </p>
           )}
           {workOrdersQuery.isFetching ? (

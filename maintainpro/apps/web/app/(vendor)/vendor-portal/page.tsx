@@ -126,7 +126,7 @@ export default function VendorPortalJobsPage() {
                 </p>
                 <p className="text-sm text-slate-600">{job.workOrder?.problem}</p>
                 <p className="mt-1 text-xs text-slate-500">
-                  Case {job.id.slice(0, 10)}… · {job.status} · WO {job.workOrder?.status}
+                  Case {job.id.slice(0, 10)}… · {job.status} · Job {job.workOrder?.status}
                 </p>
               </div>
               <div className="flex gap-2">

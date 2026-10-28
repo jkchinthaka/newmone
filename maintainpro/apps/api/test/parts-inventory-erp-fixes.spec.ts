@@ -4,7 +4,6 @@ import { RoleName, WorkOrderApprovalStatus, WorkOrderPartLineStatus, WorkOrderSt
 import { requestContext } from "../src/common/context/request-context";
 import { compareStockBalances, parseBileetaStockBalances } from "../src/modules/inventory/erp-stock-sync.mapper";
 import { boundedPaging, InventoryService } from "../src/modules/inventory/inventory.service";
-import { MISSING_ERP_PROVENANCE_MESSAGE } from "../src/modules/inventory/verified-stock-availability";
 import { WorkOrderPartsService } from "../src/modules/work-orders/work-order-parts.service";
 import { WorkOrdersService } from "../src/modules/work-orders/work-orders.service";
 import { createWorkOrderPartsServiceMock } from "./helpers/work-order-parts-service.mock";
@@ -117,12 +116,34 @@ describe("inventory stock-out", () => {
     return { service, workOrderParts };
   }
 
-  it("refuses to issue without verified ERP stock (same rule as a part-request issue)", async () => {
-    const tx = { warehouse: { findMany: jest.fn().mockResolvedValue([]) }, domainEventOutbox: { create: jest.fn() } };
+  it("records an unverified part as a pending ERP consumption and still adds the job part line", async () => {
+    const tx = {
+      warehouse: { findMany: jest.fn().mockResolvedValue([]) },
+      domainEventOutbox: { create: jest.fn().mockResolvedValue({ id: "ob-1" }) },
+      inventoryStockIssueIdempotency: { create: jest.fn() },
+      auditLog: { create: jest.fn() }
+    };
+    const { service, workOrderParts } = build(tx);
+    await service.stockOut("part-1", 2, { workOrderId: "wo-1", idempotencyKey: "k1" }, actor as never).catch(() => undefined);
+    expect(tx.domainEventOutbox.create).toHaveBeenCalled();
+    expect(workOrderParts.recordDirectIssueLine).toHaveBeenCalledWith(
+      expect.objectContaining({ workOrderId: "wo-1", partId: "part-1", quantity: 2 }),
+      tx
+    );
+  });
+
+  it("refuses to issue more than the verified ERP stock", async () => {
+    const tx = {
+      warehouse: {
+        findMany: jest.fn().mockResolvedValue([{ id: "wh-1", erpWarehouseCode: "MAIN", lastErpValidatedAt: new Date("2026-01-01") }])
+      },
+      warehouseItemBalance: { findFirst: jest.fn().mockResolvedValue({ id: "b1", onHand: 1, reserved: 0, available: 1 }) },
+      domainEventOutbox: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() }
+    };
     const { service, workOrderParts } = build(tx);
     await expect(
-      service.stockOut("part-1", 2, { workOrderId: "wo-1", idempotencyKey: "k1" }, actor as never)
-    ).rejects.toThrow(new BadRequestException(MISSING_ERP_PROVENANCE_MESSAGE));
+      service.stockOut("part-1", 2, { workOrderId: "wo-1", idempotencyKey: "k2" }, actor as never)
+    ).rejects.toThrow(/Insufficient verified stock/);
     expect(tx.domainEventOutbox.create).not.toHaveBeenCalled();
     expect(workOrderParts.recordDirectIssueLine).not.toHaveBeenCalled();
   });

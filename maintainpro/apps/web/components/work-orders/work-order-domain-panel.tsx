@@ -225,7 +225,7 @@ export function WorkOrderDomainPanel({
             ) : (
               <CheckCircle2 size={14} />
             )}
-            Return to service
+            Back in use
           </button>
         </div>
       ) : null}

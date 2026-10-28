@@ -105,7 +105,7 @@ export default function SuppliersPage() {
           <div>
             <h1 className="page-title">Suppliers</h1>
             <p className="mt-1 text-sm text-slate-500">
-              MaintainPro owns supplier master data for inventory, purchase orders, and work orders. Optional ERP sync
+              MaintainPro owns supplier master data for inventory, purchase orders, and jobs. Optional ERP sync
               can refresh vendor records — see{" "}
               <Link href={"/erp/mock-sync" as Route} className="font-medium text-brand-700 hover:underline">
                 ERP mock sync

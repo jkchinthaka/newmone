@@ -496,7 +496,7 @@ export function WorkOrderVendorRepairPanel({ workOrderId, verificationStatus, re
       {costSummary && costSummary.invoiceTotal > 0 && costSummary.varianceAmount > 0 ? (
         <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-          Invoice exceeds quotation by {formatCurrency(costSummary.varianceAmount)} (
+          Invoice exceeds price quote by {formatCurrency(costSummary.varianceAmount)} (
           {costSummary.variancePercentage.toFixed(1)}%).
         </div>
       ) : null}

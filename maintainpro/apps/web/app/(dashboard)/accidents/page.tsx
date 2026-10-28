@@ -466,7 +466,7 @@ function AccidentDetailDialog({
 
           <section className="rounded border border-slate-200 bg-white">
             <header className="border-b border-slate-200 px-3 py-2 text-xs font-semibold uppercase text-slate-500">
-              Evidence ({detail.evidence?.length ?? 0})
+              Photos ({detail.evidence?.length ?? 0})
             </header>
             <ul className="divide-y divide-slate-100">
               {(detail.evidence ?? []).map((ev) => (

@@ -612,7 +612,7 @@ export function FacilityIssuesPage() {
                                 href="/work-orders"
                                 className="font-medium text-sky-700 hover:text-sky-800"
                               >
-                                Linked work order: {formatLinkedWorkOrderLabel(row)}
+                                Linked job: {formatLinkedWorkOrderLabel(row)}
                               </Link>
                             </div>
                           ) : showCreateWorkOrder ? (

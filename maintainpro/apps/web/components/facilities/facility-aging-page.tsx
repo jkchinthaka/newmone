@@ -113,7 +113,7 @@ export function FacilityAgingPage() {
             <h1 className="page-title">Time limit / Aging Report</h1>
           </div>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
-            Tenant-scoped aging buckets for active facility issues and linked work orders with due dates.
+            Tenant-scoped aging buckets for active facility issues and linked jobs with due dates.
             Generated {formatDateTime(report.generatedAt)}.
           </p>
         </div>

@@ -38,7 +38,7 @@ export function FacilityAttentionList({
                   </p>
                   {item.slaTargetAt ? (
                     <p className="text-xs text-amber-700">
-                      SLA target: {formatDateTime(item.slaTargetAt)}
+                      Time limit target: {formatDateTime(item.slaTargetAt)}
                     </p>
                   ) : null}
                 </div>
