@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, Logger } from "@nestjs/common";
+import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
 import {
   Prisma,
   RoleName,
@@ -132,8 +133,10 @@ const listInclude = {
   functionalLocation: { select: { name: true, code: true } },
   site: { select: { name: true } },
   vendorSupplier: { select: { name: true } },
-  technician: { include: { role: true } },
-  createdBy: { include: { role: true } },
+  // Public fields only: a full User row would put the password hash and lockout data in the
+  // job list response (visible in the browser's Network tab).
+  technician: { select: { ...PUBLIC_USER_SUMMARY_SELECT, role: { select: { id: true, name: true } } } },
+  createdBy: { select: { ...PUBLIC_USER_SUMMARY_SELECT, role: { select: { id: true, name: true } } } },
   parts: { include: { part: true } },
   partIssues: { select: { id: true }, take: 5 },
   assignees: {

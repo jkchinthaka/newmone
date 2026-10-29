@@ -34,6 +34,19 @@ function isDecimalLike(value: object): value is { toNumber: () => number } {
  * handling on the web. Convert them to numbers once, here. Only plain objects and
  * arrays are walked, so Dates, Buffers and streams pass through untouched.
  */
+/**
+ * Secret columns that must never leave the API, whatever a query happened to include
+ * (a full User row has passwordHash; token tables have hashes). Last line of defence:
+ * queries should still select public fields only.
+ */
+export const RESPONSE_SECRET_KEYS = new Set([
+  "passwordHash",
+  "tokenHash",
+  "replacedByTokenHash",
+  "secretHash",
+  "keyHash"
+]);
+
 export function normalizeDecimals(value: unknown): unknown {
   if (value === null || typeof value !== "object") return value;
   if (isDecimalLike(value)) return value.toNumber();
@@ -42,6 +55,7 @@ export function normalizeDecimals(value: unknown): unknown {
   if (proto !== Object.prototype && proto !== null) return value;
   const out: Record<string, unknown> = {};
   for (const [key, entry] of Object.entries(value)) {
+    if (RESPONSE_SECRET_KEYS.has(key)) continue;
     out[key] = normalizeDecimals(entry);
   }
   return out;
