@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { assertJobDetailsEditableBy } from "./work-order-edit-rights";
+import { jobPermitRiskReasons } from "./job-permit-risk";
 import {
   EvidenceType,
   ApprovalDecisionStatus,
@@ -2223,7 +2224,8 @@ export class WorkOrdersService {
           tenantId,
           workOrderId: id,
           assetId: current.assetId,
-          allowEmergencyOverride: emergencyOverride
+          allowEmergencyOverride: emergencyOverride,
+          jobRiskReasons: jobPermitRiskReasons(current)
         });
         await this.reliability.assertLotoReadyForStart({
           tenantId,
@@ -2298,17 +2300,20 @@ export class WorkOrdersService {
       }
       // First start only (not resume after hold): a live before photo proves the technician is at
       // the machine/place. Admins may start without it, with a recorded reason.
-      if (current.status !== WorkOrderStatus.ON_HOLD && !current.startDate && isStorageUploadsEnabled()) {
-        const startItems = await this.prisma.evidenceAttachment.findMany({
-          where: { workOrderId: id, deletedAt: null, evidenceType: EvidenceType.BEFORE_PHOTO },
-          select: { evidenceType: true, status: true, verificationStatus: true }
-        });
+      if (current.status !== WorkOrderStatus.ON_HOLD && !current.startDate) {
+        const storageEnabled = isStorageUploadsEnabled();
+        const startItems = storageEnabled
+          ? await this.prisma.evidenceAttachment.findMany({
+              where: { workOrderId: id, deletedAt: null, evidenceType: EvidenceType.BEFORE_PHOTO },
+              select: { evidenceType: true, status: true, verificationStatus: true }
+            })
+          : [];
         const startOverride =
           Boolean(data.overrideReason?.trim()) &&
           (actor?.role === RoleName.ADMIN || actor?.role === RoleName.SUPER_ADMIN)
             ? data.overrideReason
             : undefined;
-        assertStartPhotoPresent({ items: startItems, overrideReason: startOverride });
+        assertStartPhotoPresent({ items: startItems, storageEnabled, overrideReason: startOverride });
         if (startOverride) {
           await this.recordAudit({
             entity: "WorkOrder",
@@ -2775,6 +2780,7 @@ export class WorkOrdersService {
       await this.afterWorkOrderExit(current, "CANCELLED", data.cancelReason ?? "Work order cancelled", actor);
     } else if (targetStatus === WorkOrderStatus.COMPLETED) {
       await this.workOrderPartsService.releaseWorkOrderReservations(id, tenantId, actor, "Work order closed");
+      await this.closeJobPermits(tenantId, id, actor, "Work order completed");
     }
 
     if (targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED) {
@@ -3045,6 +3051,7 @@ export class WorkOrdersService {
       }
     );
     await this.workOrderPartsService.releaseWorkOrderReservations(id, current.tenantId, actor, "Work order closed");
+    await this.closeJobPermits(current.tenantId, id, actor, "Work order closed");
     await this.completePmOccurrenceForClosedWorkOrder(current);
     await this.resetVehicleServiceDueAfterService(current);
     if (this.workOrderDomain) {
@@ -4906,6 +4913,14 @@ export class WorkOrdersService {
     });
   }
 
+  /** A permit covers one job only; never let a finished job's permit stay open. Non-blocking. */
+  private async closeJobPermits(tenantId: string, workOrderId: string, actor: Actor | undefined, reason: string) {
+    if (!this.reliability || typeof this.reliability.closePermitsForWorkOrder !== "function") return;
+    await this.reliability
+      .closePermitsForWorkOrder({ tenantId, workOrderId, actorId: actor?.sub ?? null, reason })
+      .catch(() => undefined);
+  }
+
   /** Rejected/cancelled jobs free their reserved stock and hand a converted request back to review. */
   private async afterWorkOrderExit(
     workOrder: { id: string; tenantId: string; woNumber?: string | null },
@@ -4916,6 +4931,12 @@ export class WorkOrdersService {
     await this.workOrderPartsService.releaseWorkOrderReservations(
       workOrder.id,
       workOrder.tenantId,
+      actor,
+      outcome === "REJECTED" ? "Work order rejected" : "Work order cancelled"
+    );
+    await this.closeJobPermits(
+      workOrder.tenantId,
+      workOrder.id,
       actor,
       outcome === "REJECTED" ? "Work order rejected" : "Work order cancelled"
     );

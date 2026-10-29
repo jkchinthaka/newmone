@@ -185,7 +185,20 @@ export function assertStartPhotoPresent(input: {
   overrideReason?: string | null;
 }) {
   const storageEnabled = input.storageEnabled ?? isStorageUploadsEnabled();
-  if (!storageEnabled || input.overrideReason?.trim()) return;
+  if (input.overrideReason?.trim()) return;
+  if (!storageEnabled) {
+    // Same rule as completion: in production a job that cannot store its photos cannot start,
+    // otherwise the technician starts and is then blocked at Complete. Outside production the
+    // photo is waived so local/dev setups without storage keep working.
+    if (String(process.env.NODE_ENV ?? "").toLowerCase() === "production") {
+      throw new BadRequestException({
+        message:
+          "Photo storage is not set up on this server, so jobs cannot be started or completed. Ask an admin to set up photo storage.",
+        code: "PHOTO_STORAGE_UNAVAILABLE"
+      });
+    }
+    return;
+  }
   const hasBefore = input.items.some(
     (item) =>
       item.evidenceType === EvidenceType.BEFORE_PHOTO &&

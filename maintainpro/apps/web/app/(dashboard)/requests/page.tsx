@@ -34,6 +34,7 @@ import {
   REQUEST_STAGE_LABELS,
   requestResultCountLabel,
   requestStageCards,
+  requestListStatusLabel,
   requestStatusLabel,
   requestTriageExplanation,
   requestValueLabel,
@@ -109,7 +110,7 @@ function PriorityBadge({ priority }: { priority: string }) {
 function StatusBadge({ status, workOrderStatus, ownOnly }: { status: string; workOrderStatus?: string | null; ownOnly?: boolean }) {
   return (
     <span className="inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-800">
-      {ownOnly ? requesterFacingStatus(status, workOrderStatus) : requestStatusLabel(status)}
+      {ownOnly ? requesterFacingStatus(status, workOrderStatus) : requestListStatusLabel(status, workOrderStatus)}
     </span>
   );
 }

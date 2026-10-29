@@ -15,6 +15,7 @@ import { getApiErrorMessage } from "@/lib/api-client";
 import { formatEnumLabel } from "@/lib/display-labels";
 import { isAdminConsoleRole } from "@/lib/admin-console";
 import { useCurrentUser } from "@/lib/use-current-user";
+import { EMPTY_SITE_GEO, siteGeoDraftFrom, siteGeoPayload, type SiteGeoDraft } from "@/lib/site-geo";
 import { extractRoleName } from "@/lib/role-redirect";
 import {
   FUNCTIONAL_LOCATION_TYPES,
@@ -156,6 +157,8 @@ export default function OrganizationAdminPage() {
   const [locationSearch, setLocationSearch] = useState("");
   const [locationHits, setLocationHits] = useState<OrgLocation[] | null>(null);
   const [siteDraft, setSiteDraft] = useState({ code: "", name: "", type: "FACTORY" as SiteType });
+  const [siteGeo, setSiteGeo] = useState<SiteGeoDraft>(EMPTY_SITE_GEO);
+  const [locating, setLocating] = useState(false);
   const [locationDraft, setLocationDraft] = useState({ code: "", name: "", type: "AREA" as FunctionalLocationType });
   const [moveParentId, setMoveParentId] = useState("");
   const [moveReason, setMoveReason] = useState("");
@@ -165,6 +168,7 @@ export default function OrganizationAdminPage() {
 
   function openCreateSite() {
     setSiteDraft({ code: "", name: "", type: "FACTORY" });
+    setSiteGeo(EMPTY_SITE_GEO);
     setDialog({ kind: "site", site: null });
   }
 
@@ -282,13 +286,41 @@ export default function OrganizationAdminPage() {
     }
   }
 
+  function useMyLocationForSite() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast.error("This browser cannot read the location.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocating(false);
+        setSiteGeo((current) => ({
+          ...current,
+          latitude: position.coords.latitude.toFixed(6),
+          longitude: position.coords.longitude.toFixed(6)
+        }));
+      },
+      () => {
+        setLocating(false);
+        toast.error("Could not read the location. Allow location for this site and try again, or type it in.");
+      },
+      { enableHighAccuracy: true, timeout: 10_000 }
+    );
+  }
+
   async function saveSite() {
+    const geo = siteGeoPayload(siteGeo);
+    if (!geo.ok) {
+      toast.error(geo.error);
+      return;
+    }
     try {
       if (dialog?.kind === "site" && dialog.site) {
-        await updateSite(dialog.site.id, siteDraft);
+        await updateSite(dialog.site.id, { ...siteDraft, ...geo.value });
         toast.success("Site updated");
       } else {
-        const created = await createSite(siteDraft);
+        const created = await createSite({ ...siteDraft, ...geo.value });
         toast.success("Site created");
         writeUrl(created.id, null);
       }
@@ -577,7 +609,7 @@ export default function OrganizationAdminPage() {
         <div className="fixed inset-0 z-40" onClick={() => setMenuSite(null)}>
           <div role="menu" aria-label={`Actions for ${menuSite.name}`} className="absolute right-6 top-40 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-lg" onClick={(event) => event.stopPropagation()}>
             <button type="button" className="block h-9 w-full rounded px-2 text-left text-sm" onClick={() => { writeUrl(menuSite.id, null); setMenuSite(null); }}>Open</button>
-            <button type="button" className="block h-9 w-full rounded px-2 text-left text-sm" onClick={() => { setSiteDraft({ code: menuSite.code, name: menuSite.name, type: menuSite.type }); setDialog({ kind: "site", site: menuSite }); setMenuSite(null); }}>Edit</button>
+            <button type="button" className="block h-9 w-full rounded px-2 text-left text-sm" onClick={() => { setSiteDraft({ code: menuSite.code, name: menuSite.name, type: menuSite.type }); setSiteGeo(siteGeoDraftFrom(menuSite)); setDialog({ kind: "site", site: menuSite }); setMenuSite(null); }}>Edit</button>
             <button type="button" className="block h-9 w-full rounded px-2 text-left text-sm" onClick={() => { writeUrl(menuSite.id, null); openCreateLocation(null); setMenuSite(null); }}>Add Location</button>
             <button type="button" className="block h-9 w-full rounded px-2 text-left text-sm" onClick={() => void setSiteActive(menuSite, !menuSite.isActive)}>{menuSite.isActive ? "Deactivate" : "Activate"}</button>
           </div>
@@ -586,7 +618,7 @@ export default function OrganizationAdminPage() {
 
       {dialog?.kind === "site" ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" role="presentation">
-          <form role="dialog" aria-modal="true" aria-labelledby="site-dialog-title" className="w-full max-w-md space-y-3 rounded-xl bg-white p-4" onSubmit={(event) => { event.preventDefault(); void saveSite(); }}>
+          <form role="dialog" aria-modal="true" aria-labelledby="site-dialog-title" className="max-h-[90dvh] w-full max-w-md space-y-3 overflow-y-auto rounded-xl bg-white p-4" onSubmit={(event) => { event.preventDefault(); void saveSite(); }}>
             <h2 id="site-dialog-title" className="text-base font-semibold">{dialog.site ? "Edit site" : "Add site"}</h2>
             <label className="block text-sm">Code<input required value={siteDraft.code} onChange={(event) => setSiteDraft((current) => ({ ...current, code: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" /></label>
             <label className="block text-sm">Name<input required value={siteDraft.name} onChange={(event) => setSiteDraft((current) => ({ ...current, name: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" /></label>
@@ -595,6 +627,16 @@ export default function OrganizationAdminPage() {
                 {SITE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
               </select>
             </label>
+            <fieldset className="space-y-2 rounded-lg border border-slate-200 p-3">
+              <legend className="px-1 text-sm font-medium">Site location (optional)</legend>
+              <p className="text-xs text-slate-500">Used to flag job photos taken far from this site. Stand at the site and tap the button, or type it in.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block text-sm">Latitude<input inputMode="decimal" value={siteGeo.latitude} onChange={(event) => setSiteGeo((current) => ({ ...current, latitude: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" placeholder="6.8412" /></label>
+                <label className="block text-sm">Longitude<input inputMode="decimal" value={siteGeo.longitude} onChange={(event) => setSiteGeo((current) => ({ ...current, longitude: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" placeholder="80.0034" /></label>
+              </div>
+              <label className="block text-sm">Allowed distance (metres)<input inputMode="numeric" value={siteGeo.geoRadiusMeters} onChange={(event) => setSiteGeo((current) => ({ ...current, geoRadiusMeters: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" placeholder="500" /></label>
+              <button type="button" disabled={locating} onClick={useMyLocationForSite} className="h-10 rounded-lg border border-slate-300 px-3 text-sm disabled:opacity-60">{locating ? "Reading location…" : "Use my current location"}</button>
+            </fieldset>
             <div className="flex justify-end gap-2">
               <button type="button" className="h-10 px-3 text-sm" onClick={() => setDialog(null)}>Cancel</button>
               <button type="submit" className="h-10 rounded-lg bg-slate-900 px-3 text-sm text-white">Save</button>

@@ -53,6 +53,9 @@ export function FraudControlDashboardPage() {
         <Link href={"/reports/fraud-control/parts-misuse" as Route} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
           Parts misuse
         </Link>
+        <Link href={"/reports/fraud-control/field-checks" as Route} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+          Field checks (labour time, photo location)
+        </Link>
         <Link href="/reports/maintenance-exceptions" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
           Maintenance exceptions
         </Link>

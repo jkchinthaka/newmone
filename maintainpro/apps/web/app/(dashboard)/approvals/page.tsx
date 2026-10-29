@@ -76,7 +76,7 @@ export default function ApprovalsInboxPage() {
         siteId: site || undefined,
         from: from || undefined,
         to: to || undefined
-      });
+      }, { signal: request.signal });
       // A slower, older request must not overwrite the newer filter's results.
       if (!sequencer.current.isLatest(request.id)) return;
       const rows = (data.items ?? []).map(toView);

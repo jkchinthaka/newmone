@@ -8,6 +8,9 @@ import { colomboMonthKey } from "../reports/report-timezone.util";
 import { businessDayWindow } from "../work-orders/my-jobs.rules";
 import { comparableConsumptions, evaluateMeterReading, meterFractionDigits, parseStrictReadingValue } from "./meter-reading-rules";
 
+export const BILLS_DEFAULT_TAKE = 500;
+export const BILLS_MAX_TAKE = 1000;
+
 @Injectable()
 export class UtilitiesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -226,13 +229,18 @@ export class UtilitiesService {
     }));
   }
 
-  async bills(tenantId: string | null) {
+  async bills(tenantId: string | null, query: { take?: number; days?: number } = {}) {
     // Same orphan-tolerant strategy as `allReadings`: avoid Prisma's required
     // relation include throwing on dangling meterIds.
     const scopedTenantId = requireTenantId(tenantId);
+    // Newest first and bounded: default 500 bills, at most 1000; `days` limits to recent bills.
+    const take = Math.min(Math.max(Math.trunc(Number(query.take) || BILLS_DEFAULT_TAKE), 1), BILLS_MAX_TAKE);
+    const days = Number(query.days);
+    const since = Number.isFinite(days) && days > 0 ? new Date(Date.now() - Math.min(days, 3660) * 86_400_000) : null;
     const bills = await this.prisma.utilityBill.findMany({
-      where: { tenantId: scopedTenantId },
-      orderBy: { createdAt: "desc" }
+      where: { tenantId: scopedTenantId, ...(since ? { createdAt: { gte: since } } : {}) },
+      orderBy: { createdAt: "desc" },
+      take
     });
     if (bills.length === 0) return [];
 

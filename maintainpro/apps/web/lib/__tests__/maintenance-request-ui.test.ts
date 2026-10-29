@@ -107,7 +107,14 @@ describe("requestNextStep", () => {
       isOwner: false,
       workOrder: { woNumber: "WO-2026-0042" }
     });
-    assert.equal(step.title, "Job WO-2026-0042");
+    assert.equal(step.title, "Job WO-2026-0042 — Job created");
+    const closed = requestNextStep({
+      status: "CONVERTED_TO_WO",
+      isOwner: false,
+      workOrder: { woNumber: "WO-2026-0042", status: "CLOSED" }
+    });
+    assert.equal(closed.title, "Job WO-2026-0042 — Done");
+    assert.equal(closed.tone, "done");
   });
 });
 

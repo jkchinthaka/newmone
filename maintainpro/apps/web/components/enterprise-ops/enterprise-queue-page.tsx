@@ -271,7 +271,8 @@ export function EnterpriseQueuePage({
         <DataTable
           rows={rows}
           columns={columns}
-          getRowId={(row) => String(row.id ?? row.snapshotId ?? row.vehicleId ?? Math.random())}
+          // Stable fallback (row position) so React keys do not change on every render.
+          getRowId={(row) => String(row.id ?? row.snapshotId ?? row.vehicleId ?? `row-${rows.indexOf(row)}`)}
           getRowLabel={recordLabel}
           ariaLabel={title}
           onRowClick={(row) => setSelectedId(String(row.id ?? row.vehicleId ?? ""))}

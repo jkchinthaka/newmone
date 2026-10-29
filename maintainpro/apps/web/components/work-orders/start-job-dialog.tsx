@@ -79,7 +79,8 @@ export function StartJobDialog({
         return true;
       }
       if (result.blocked) {
-        // Nowhere to store photos on this server: the API does not require one, so let them start.
+        // Nowhere to store photos on this server. Test/dev servers waive the photo; the live
+        // server refuses Start with PHOTO_STORAGE_UNAVAILABLE and the message below says why.
         setStorageOff(true);
         setPhase("ready");
         return true;
@@ -156,7 +157,9 @@ export function StartJobDialog({
             <div className="space-y-3">
               <p className="flex items-center gap-2 text-sm text-emerald-800">
                 <CheckCircle2 size={16} aria-hidden />
-                {storageOff ? "Photo storage is not set up on this server, so the job starts without a photo." : "Before photo saved."}
+                {storageOff
+                  ? "Photo storage is not set up on this server. If Start is refused, ask an admin to set up photo storage."
+                  : "Before photo saved."}
               </p>
               <button
                 type="button"

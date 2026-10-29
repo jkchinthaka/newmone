@@ -77,6 +77,32 @@ export function requestStatusLabel(status: string | null | undefined) {
 }
 
 /**
+ * Status shown to reviewers and planners. A converted request follows its job, so a request whose
+ * job is closed reads "Done" instead of staying "Job created" forever.
+ */
+export function requestListStatusLabel(status: string | null | undefined, workOrderStatus?: string | null) {
+  if (status !== "CONVERTED_TO_WO") return requestStatusLabel(status);
+  switch ((workOrderStatus ?? "").toUpperCase()) {
+    case "IN_PROGRESS":
+    case "ON_HOLD":
+    case "OVERDUE":
+    case "REWORK_REQUIRED":
+      return "Job in progress";
+    case "TECHNICIAN_COMPLETED":
+      return "Job waiting for check";
+    case "VERIFIED":
+      return "Job checked — closing";
+    case "COMPLETED":
+    case "CLOSED":
+      return "Done";
+    case "CANCELLED":
+      return "Job cancelled";
+    default:
+      return "Job created";
+  }
+}
+
+/**
  * Requester-facing progress. These are labels only. Converted does not mean the
  * physical work is finished; that follows the linked work order status.
  */
@@ -240,10 +266,11 @@ export function requestNextStep(request: {
             : "A job was created. Progress is shown once its status is available."
         };
       }
+      const jobLabel = requestListStatusLabel(request.status, request.workOrder?.status);
       return {
-        tone: "done",
-        title: request.workOrder ? `Job ${request.workOrder.woNumber}` : "Converted to a job",
-        detail: "Progress continues on the job."
+        tone: jobLabel === "Done" ? "done" : "waiting",
+        title: request.workOrder ? `Job ${request.workOrder.woNumber} — ${jobLabel}` : "Converted to a job",
+        detail: jobLabel === "Done" ? "The job is closed. Nothing more to do on this request." : "Progress continues on the job."
       };
     }
     case "CLOSED":

@@ -47,6 +47,10 @@ const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
     { label: "Inventory", href: "/inventory" },
     { label: "Movements" }
   ],
+  "/inventory/unverified-issues": [
+    { label: "Inventory", href: "/inventory" },
+    { label: "Check part issues" }
+  ],
   "/inventory/daily": [
     { label: "Inventory", href: "/inventory" },
     { label: "Daily Inventory" }

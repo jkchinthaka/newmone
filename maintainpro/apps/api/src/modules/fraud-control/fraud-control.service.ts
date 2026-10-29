@@ -9,6 +9,12 @@ import {
   resolveRiskSeverity,
   type RiskSeverity
 } from "../../common/utils/maintenance-risk-score";
+import {
+  isLongLabourSession,
+  isPhotoFarFromSite,
+  labourSessionMinutes,
+  LONG_LABOUR_HOURS_DEFAULT
+} from "../../common/utils/fraud-field-checks";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { MaintenanceReportsService } from "../reports/maintenance-reports.service";
@@ -110,6 +116,30 @@ export class FraudControlService {
       };
     });
 
+    // Field checks (labour hours, photo location, parts without checked ERP stock).
+    const [longLabour, farPhotos, unverifiedIssues] = await Promise.all([
+      this.listLongLabourSessions(actor).catch(() => ({ items: [] as unknown[] })),
+      this.listPhotosFarFromSite(actor).catch(() => ({ items: [] as unknown[] })),
+      this.countOpenUnverifiedPartIssues(actor).catch(() => 0)
+    ]);
+    const fieldChecks: Array<{ key: string; label: string; module: string; href: string; count: number; owner: string }> = [
+      { key: "long-labour-sessions", label: "Very long labour time (over 12 hours)", module: "labour", href: "/reports/fraud-control/field-checks", count: longLabour.items.length, owner: "SUPERVISOR" },
+      { key: "photo-far-from-site", label: "Job photo taken far from the site", module: "evidence", href: "/reports/fraud-control/field-checks", count: farPhotos.items.length, owner: "SUPERVISOR" },
+      { key: "parts-issued-without-erp-stock", label: "Parts issued without checked ERP stock", module: "parts", href: "/inventory/unverified-issues", count: unverifiedIssues, owner: "INVENTORY_KEEPER" }
+    ];
+    for (const check of fieldChecks) {
+      alerts.push({
+        key: check.key,
+        label: check.label,
+        count: check.count,
+        severity: check.count >= 10 ? "HIGH" : check.count > 0 ? "MEDIUM" : "LOW",
+        module: check.module,
+        actionOwner: check.owner,
+        href: check.href,
+        lastUpdated: now
+      });
+    }
+
     const blockedAttempts = await this.countAuditEvents(actor, [
       FRAUD_AUDIT_EVENTS.PARTS_ISSUE_BLOCKED_NO_WORK_ORDER,
       FRAUD_AUDIT_EVENTS.MAKER_CHECKER_VIOLATION_BLOCKED,
@@ -128,6 +158,146 @@ export class FraudControlService {
         "Rule-based operational fraud and control indicators — not AI fraud detection. All sensitive actions require backend audit trails.",
       generatedAt: now
     };
+  }
+
+  /** Labour sessions longer than the limit (default 12 h) in the last `days` days, still-running ones included. */
+  async listLongLabourSessions(actor: Actor, query: { hours?: number; days?: number } = {}) {
+    const tenantId = this.requireTenant(actor);
+    const limitHours = Math.min(Math.max(Number(query.hours) || LONG_LABOUR_HOURS_DEFAULT, 4), 72);
+    const days = Math.min(Math.max(Number(query.days) || 30, 1), 180);
+    const now = new Date();
+    const since = new Date(now.getTime() - days * 86_400_000);
+    const limitMinutes = limitHours * 60;
+    const rows = await this.prisma.workOrderLabourEntry.findMany({
+      where: {
+        tenantId,
+        startedAt: { gte: since },
+        OR: [
+          { durationMinutes: { gt: limitMinutes } },
+          { correctedDurationMinutes: { gt: limitMinutes } },
+          { endedAt: null, startedAt: { lt: new Date(now.getTime() - limitMinutes * 60_000) } }
+        ]
+      },
+      include: { workOrder: { select: { id: true, woNumber: true, title: true, status: true } } },
+      orderBy: { startedAt: "desc" },
+      take: 500
+    });
+    const flagged = rows
+      .map((row) => ({ row, minutes: labourSessionMinutes(row, now) }))
+      .filter((entry) => isLongLabourSession(entry.minutes, limitHours));
+    const names = await this.userNames(flagged.map((entry) => entry.row.technicianUserId));
+    return {
+      limitHours,
+      days,
+      items: flagged.map(({ row, minutes }) => ({
+        id: row.id,
+        workOrderId: row.workOrderId,
+        woNumber: row.workOrder?.woNumber ?? null,
+        title: row.workOrder?.title ?? null,
+        technicianUserId: row.technicianUserId ?? null,
+        technicianName: row.technicianUserId ? names.get(row.technicianUserId) ?? null : null,
+        startedAt: row.startedAt,
+        endedAt: row.endedAt ?? null,
+        stillRunning: !row.endedAt,
+        hours: Math.round((minutes / 60) * 10) / 10,
+        corrected: row.correctedDurationMinutes != null
+      }))
+    };
+  }
+
+  /**
+   * Job photos whose phone location is outside the job site's radius. Needs the site's GPS centre
+   * (Organization → Sites). Vehicle jobs are skipped because a vehicle can be anywhere.
+   */
+  async listPhotosFarFromSite(actor: Actor, query: { days?: number } = {}) {
+    const tenantId = this.requireTenant(actor);
+    const days = Math.min(Math.max(Number(query.days) || 30, 1), 180);
+    const since = new Date(Date.now() - days * 86_400_000);
+    const sites = await this.prisma.site.findMany({
+      where: { tenantId, latitude: { not: null }, longitude: { not: null } },
+      select: { id: true, name: true, latitude: true, longitude: true, geoRadiusMeters: true }
+    });
+    if (sites.length === 0) return { days, sitesWithLocation: 0, items: [] };
+    const siteById = new Map(sites.map((site) => [site.id, site]));
+    const photos = await this.prisma.evidenceAttachment.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        createdAt: { gte: since },
+        captureLatitude: { not: null },
+        captureLongitude: { not: null },
+        workOrderId: { not: null }
+      },
+      select: {
+        id: true,
+        evidenceType: true,
+        createdAt: true,
+        uploadedById: true,
+        captureLatitude: true,
+        captureLongitude: true,
+        captureAccuracyMeters: true,
+        workOrder: { select: { id: true, woNumber: true, siteId: true, vehicleId: true, asset: { select: { siteId: true } } } }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 2000
+    });
+    const flagged = photos.flatMap((photo) => {
+      const job = photo.workOrder;
+      if (!job || job.vehicleId) return [];
+      const site = siteById.get(job.siteId ?? job.asset?.siteId ?? "");
+      if (!site || site.latitude == null || site.longitude == null) return [];
+      const check = isPhotoFarFromSite({
+        photo: { latitude: Number(photo.captureLatitude), longitude: Number(photo.captureLongitude), accuracyMeters: photo.captureAccuracyMeters },
+        site: { latitude: site.latitude, longitude: site.longitude, radiusMeters: site.geoRadiusMeters }
+      });
+      return check.far ? [{ photo, job, site, check }] : [];
+    });
+    const names = await this.userNames(flagged.map((entry) => entry.photo.uploadedById));
+    return {
+      days,
+      sitesWithLocation: sites.length,
+      items: flagged.map(({ photo, job, site, check }) => ({
+        id: photo.id,
+        evidenceType: photo.evidenceType,
+        takenAt: photo.createdAt,
+        uploadedById: photo.uploadedById,
+        uploadedByName: names.get(photo.uploadedById) ?? null,
+        workOrderId: job.id,
+        woNumber: job.woNumber,
+        siteName: site.name,
+        distanceMeters: check.distanceMeters,
+        allowedMeters: check.allowedMeters
+      }))
+    };
+  }
+
+  private async countOpenUnverifiedPartIssues(actor: Actor): Promise<number> {
+    const tenantId = this.requireTenant(actor);
+    const issues = await this.prisma.auditLog.findMany({
+      where: { tenantId, module: "inventory", entity: "PART_STOCK_ISSUE", metadata: { contains: '"stockVerified":false' } },
+      select: { id: true },
+      take: 500
+    });
+    if (issues.length === 0) return 0;
+    const reviewed = await this.prisma.auditLog.count({
+      where: { tenantId, entity: "PART_STOCK_ISSUE_REVIEW", entityId: { in: issues.map((row) => row.id) } }
+    });
+    return Math.max(0, issues.length - reviewed);
+  }
+
+  private requireTenant(actor: Actor): string {
+    if (!actor.tenantId) throw new BadRequestException("Tenant context is required");
+    return actor.tenantId;
+  }
+
+  private async userNames(ids: Array<string | null | undefined>): Promise<Map<string, string>> {
+    const unique = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+    if (unique.length === 0) return new Map();
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: unique } },
+      select: { id: true, firstName: true, lastName: true }
+    });
+    return new Map(users.map((user) => [user.id, `${user.firstName} ${user.lastName}`.trim()]));
   }
 
   async listAdminOverrides(actor: Actor, query: AdminOverrideQuery = {}) {

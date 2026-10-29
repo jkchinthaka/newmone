@@ -35,6 +35,7 @@ import {
   requestHistoryActionLabel,
   requestNextStep,
   requestResolutionLabel,
+  requestListStatusLabel,
   requestStatusLabel,
   requestValueLabel,
   requesterFacingStatus
@@ -293,7 +294,7 @@ export default function RequestDetailPage() {
       >
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-current/20 bg-white/70 px-2 py-0.5 text-xs font-semibold">
-            {requestStatusLabel(detail.status)}
+            {requestListStatusLabel(detail.status, detail.workOrder?.status)}
           </span>
           <p className="font-semibold">{nextStep.title}</p>
         </div>

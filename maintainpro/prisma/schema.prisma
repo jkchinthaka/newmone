@@ -2967,6 +2967,11 @@ model Site {
   description      String?
   address          String?
   contactPhone     String?
+  /// Site centre for the "photo taken far from the site" check (optional).
+  latitude         Float?
+  longitude        Float?
+  /// How far from the centre a job photo may be taken before it is flagged (default 500 m).
+  geoRadiusMeters  Int?
   isActive         Boolean  @default(true)
   /// Traceability to legacy Property during migration (do not delete Property yet)
   legacyPropertyId String?  @db.NVarChar(36)

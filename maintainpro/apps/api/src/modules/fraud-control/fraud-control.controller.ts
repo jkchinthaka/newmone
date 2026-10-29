@@ -34,6 +34,23 @@ export class FraudControlController {
     return { data, message: "Fraud control dashboard fetched" };
   }
 
+  @Get("field-checks/long-labour")
+  @Roles(...FRAUD_REPORT_ROLES, "SUPERVISOR")
+  async longLabour(@Req() req: AuthedRequest, @Query("hours") hours?: string, @Query("days") days?: string) {
+    const data = await this.fraudControlService.listLongLabourSessions(req.user, {
+      hours: hours ? Number(hours) : undefined,
+      days: days ? Number(days) : undefined
+    });
+    return { data, message: "Long labour sessions fetched" };
+  }
+
+  @Get("field-checks/photo-location")
+  @Roles(...FRAUD_REPORT_ROLES, "SUPERVISOR")
+  async photoLocation(@Req() req: AuthedRequest, @Query("days") days?: string) {
+    const data = await this.fraudControlService.listPhotosFarFromSite(req.user, { days: days ? Number(days) : undefined });
+    return { data, message: "Photos taken far from the site fetched" };
+  }
+
   @Get("admin-overrides")
   @Roles(...FRAUD_REPORT_ROLES)
   async adminOverrides(

@@ -171,6 +171,31 @@ export class InventoryController {
     return { data, message: "Stock added" };
   }
 
+  @Get("unverified-issues")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "MANAGER")
+  @Permissions("inventory.manage")
+  async unverifiedIssues(
+    @Req() req: AuthedRequest,
+    @Query("view") view?: string,
+    @Query("take") take?: string
+  ) {
+    const data = await this.inventoryService.listUnverifiedIssues(req.user, { view, take: take ? Number(take) : undefined });
+    return { data, message: "Parts issued without verified ERP stock" };
+  }
+
+  @Post("unverified-issues/:id/review")
+  @HttpCode(HttpStatus.OK)
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER")
+  @Permissions("inventory.manage")
+  async reviewUnverifiedIssue(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { outcome?: string; note?: string }
+  ) {
+    const data = await this.inventoryService.reviewUnverifiedIssue(req.user, id, body ?? {});
+    return { data, message: "Part issue checked" };
+  }
+
   @Post("parts/:id/stock-out")
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: "Stock issue accepted for ERP reconciliation. Local quantity is not deducted." })

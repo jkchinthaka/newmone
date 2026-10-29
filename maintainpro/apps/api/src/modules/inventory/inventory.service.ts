@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import {
   ApprovalDecisionStatus,
   ApprovalStage,
@@ -75,6 +75,11 @@ export function pagingMeta(total: number, take: number, skip: number) {
     totalPages: Math.max(1, Math.ceil(total / take))
   };
 }
+
+/** Text written into the stock-out audit metadata when the part had no verified ERP stock. */
+export const UNVERIFIED_ISSUE_MARKER = '"stockVerified":false';
+const UNVERIFIED_REVIEW_ENTITY = "PART_STOCK_ISSUE_REVIEW";
+export const UNVERIFIED_REVIEW_OUTCOMES = ["CONFIRMED", "NEEDS_FOLLOW_UP"] as const;
 
 @Injectable()
 export class InventoryService {
@@ -525,12 +530,15 @@ export class InventoryService {
       // Verified ERP stock that is too low blocks the issue. A part with no ERP provenance or
       // snapshot yet is still recorded as a PENDING consumption for Bileeta to reconcile
       // (Bileeta owns the quantity), as before.
+      // stockVerified=false puts the issue on the "Parts issued without ERP stock" review list.
+      let stockVerified = true;
       try {
         await assertVerifiedIssueAllowed(tx, { tenantId, partId: id, quantity });
       } catch (error) {
         const message = error instanceof BadRequestException ? error.message : "";
         const unverified = message === MISSING_ERP_PROVENANCE_MESSAGE || message === MISSING_ERP_SNAPSHOT_MESSAGE;
         if (!unverified) throw error;
+        stockVerified = false;
       }
       const created = await tx.domainEventOutbox.create({
         data: {
@@ -550,7 +558,8 @@ export class InventoryService {
             erpCode: part.erpCode ?? null,
             quantity,
             unitCost,
-            lineCost: quantity * unitCost
+            lineCost: quantity * unitCost,
+            stockVerified
           })
         }
       });
@@ -596,6 +605,7 @@ export class InventoryService {
             event: "parts_consumption_pending_erp",
             quantityInStockMutated: false,
             erpReconciliationStatus: "PENDING",
+            stockVerified,
             outboxId: created.id,
             overrideFlag: Boolean(options.overrideReason?.trim()),
             idempotencyKey
@@ -622,6 +632,139 @@ export class InventoryService {
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     return this.part(id, actor);
+  }
+
+  /**
+   * Parts issued to a job while the part had no verified ERP (Bileeta) stock. The issue is allowed
+   * so work is not stopped, but stores/admin must check each one: confirm the part really left the
+   * store, or flag it for follow-up. Reviews are audit rows, so nothing is overwritten.
+   */
+  async listUnverifiedIssues(actor: Actor | undefined, query: { view?: string; take?: number } = {}) {
+    const tenantId = this.resolveTenantId(actor);
+    const take = Math.min(Math.max(Number(query.take) || 100, 1), 200);
+    const issues = await this.prisma.auditLog.findMany({
+      where: {
+        tenantId,
+        module: "inventory",
+        entity: "PART_STOCK_ISSUE",
+        metadata: { contains: UNVERIFIED_ISSUE_MARKER }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 500
+    });
+    const reviews = issues.length
+      ? await this.prisma.auditLog.findMany({
+          where: { tenantId, entity: UNVERIFIED_REVIEW_ENTITY, entityId: { in: issues.map((row) => row.id) } },
+          orderBy: { createdAt: "desc" }
+        })
+      : [];
+    const reviewByIssue = new Map<string, (typeof reviews)[number]>();
+    for (const review of reviews) if (!reviewByIssue.has(review.entityId)) reviewByIssue.set(review.entityId, review);
+
+    const view = query.view === "all" || query.view === "reviewed" ? query.view : "open";
+    const filtered = issues
+      .filter((row) => (view === "all" ? true : view === "reviewed" ? reviewByIssue.has(row.id) : !reviewByIssue.has(row.id)))
+      .slice(0, take);
+
+    const meta = (text: string | null) => {
+      try {
+        return text ? (JSON.parse(text) as Record<string, unknown>) : {};
+      } catch {
+        return {};
+      }
+    };
+    const partIds = [...new Set(filtered.map((row) => row.entityId))];
+    const userIds = [
+      ...new Set(
+        [...filtered.map((row) => row.actorId), ...filtered.map((row) => reviewByIssue.get(row.id)?.actorId)].filter(
+          (value): value is string => Boolean(value)
+        )
+      )
+    ];
+    const [parts, users] = await Promise.all([
+      partIds.length
+        ? this.prisma.sparePart.findMany({
+            where: { tenantId, id: { in: partIds } },
+            select: { id: true, name: true, partNumber: true, erpCode: true }
+          })
+        : [],
+      userIds.length
+        ? this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, firstName: true, lastName: true } })
+        : []
+    ]);
+    const partById = new Map(parts.map((part) => [part.id, part]));
+    const nameById = new Map(users.map((user) => [user.id, `${user.firstName} ${user.lastName}`.trim()]));
+    const openCount = issues.filter((row) => !reviewByIssue.has(row.id)).length;
+
+    return {
+      openCount,
+      items: filtered.map((row) => {
+        const data = meta(row.metadata);
+        const review = reviewByIssue.get(row.id);
+        const reviewData = review ? meta(review.metadata) : {};
+        const part = partById.get(row.entityId);
+        return {
+          id: row.id,
+          issuedAt: row.createdAt,
+          issuedById: row.actorId,
+          issuedByName: row.actorId ? nameById.get(row.actorId) ?? null : null,
+          partId: row.entityId,
+          partName: part?.name ?? null,
+          partNumber: part?.partNumber ?? null,
+          erpCode: part?.erpCode ?? null,
+          quantity: Number(data.quantity ?? 0),
+          workOrderId: (data.workOrderId as string | undefined) ?? null,
+          woNumber: (data.woNumber as string | undefined) ?? null,
+          note: row.reason ?? null,
+          review: review
+            ? {
+                outcome: (reviewData.outcome as string | undefined) ?? null,
+                note: review.reason ?? null,
+                reviewedById: review.actorId,
+                reviewedByName: review.actorId ? nameById.get(review.actorId) ?? null : null,
+                reviewedAt: review.createdAt
+              }
+            : null
+        };
+      })
+    };
+  }
+
+  async reviewUnverifiedIssue(
+    actor: Actor | undefined,
+    issueId: string,
+    input: { outcome?: string; note?: string }
+  ) {
+    const tenantId = this.resolveTenantId(actor);
+    const reviewer = this.assertActor(actor);
+    const outcome = String(input.outcome ?? "").trim().toUpperCase();
+    if (!(UNVERIFIED_REVIEW_OUTCOMES as readonly string[]).includes(outcome)) {
+      throw new BadRequestException(`outcome must be one of: ${UNVERIFIED_REVIEW_OUTCOMES.join(", ")}`);
+    }
+    const note = input.note?.trim() ?? "";
+    if (outcome === "NEEDS_FOLLOW_UP" && note.length < 5) {
+      throw new BadRequestException("Say what is wrong (at least 5 characters) when flagging an issue for follow-up.");
+    }
+    const issue = await this.prisma.auditLog.findFirst({
+      where: { id: issueId, tenantId, module: "inventory", entity: "PART_STOCK_ISSUE", metadata: { contains: UNVERIFIED_ISSUE_MARKER } }
+    });
+    if (!issue) throw new NotFoundException("Unverified part issue not found");
+    if (issue.actorId && issue.actorId === reviewer.sub) {
+      throw new ForbiddenException("You issued this part, so someone else must check it.");
+    }
+    const already = await this.prisma.auditLog.findFirst({
+      where: { tenantId, entity: UNVERIFIED_REVIEW_ENTITY, entityId: issue.id }
+    });
+    if (already) throw new ConflictException("This part issue was already checked.");
+    await this.recordAudit({
+      entity: UNVERIFIED_REVIEW_ENTITY,
+      entityId: issue.id,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: note || undefined,
+      metadata: { event: "unverified_part_issue_reviewed", outcome, partId: issue.entityId }
+    });
+    return { id: issue.id, outcome };
   }
 
   async movements(id: string, actor?: Actor) {
