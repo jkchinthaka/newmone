@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { assertJobDetailsEditableBy } from "./work-order-edit-rights";
 import { jobPermitRiskReasons } from "./job-permit-risk";
+import { vehicleServiceState } from "./vehicle-jobs-overview";
 import {
   EvidenceType,
   ApprovalDecisionStatus,
@@ -22,7 +23,8 @@ import {
   WorkOrderType,
   QrVerificationStatus,
   WorkOrderCompletionCondition,
-  WorkOrderVerificationStatus
+  WorkOrderVerificationStatus,
+  VehicleStatus
 } from "@prisma/client";
 
 import { assertRequestWithinVerifiedStock, assertVerifiedIssueAllowed } from "../inventory/verified-stock-availability";
@@ -753,6 +755,8 @@ export class WorkOrdersService {
     return {
       asset: true,
       vehicle: true,
+      // Service jobs show their place; a job with no machine, vehicle or place is flagged in the list.
+      functionalLocation: { select: { id: true, code: true, name: true } },
       technician: { select: PUBLIC_USER_SUMMARY_SELECT },
       createdBy: { select: PUBLIC_USER_SUMMARY_SELECT },
       parts: {
@@ -2776,6 +2780,8 @@ export class WorkOrdersService {
       await this.notifyEnterpriseCompleted(updated, actor);
     }
 
+    await this.syncAutoDowntime(current, targetStatus, actor, data.holdReasonCode ?? current.holdReasonCode);
+
     if (targetStatus === WorkOrderStatus.CANCELLED) {
       await this.afterWorkOrderExit(current, "CANCELLED", data.cancelReason ?? "Work order cancelled", actor);
     } else if (targetStatus === WorkOrderStatus.COMPLETED) {
@@ -2880,6 +2886,8 @@ export class WorkOrdersService {
     if (data.expectedVersion == null || !Number.isFinite(Number(data.expectedVersion))) {
       throw new BadRequestException("expectedVersion is required");
     }
+    // Only a job raised from a reported issue has someone to ask "is it fixed?".
+    const sourceRequest = await this.linkedRequest(id, current.tenantId);
     const updatedCount = await this.prisma.workOrder.updateMany({
       where: { id, version: data.expectedVersion },
       data: {
@@ -2893,8 +2901,9 @@ export class WorkOrdersService {
         actualHours,
         completedDate: current.completedDate ?? now,
         delayReason: data.delayReason?.trim() || current.delayReason,
-        requesterConfirmationStatus: "PENDING",
-        requesterConfirmationDueAt,
+        requesterConfirmationStatus: sourceRequest ? "PENDING" : "NOT_REQUIRED",
+        requesterConfirmationOutcome: null,
+        requesterConfirmationDueAt: sourceRequest ? requesterConfirmationDueAt : null,
         requesterConfirmationPolicyHours,
         version: { increment: 1 }
       } as any
@@ -2922,6 +2931,23 @@ export class WorkOrdersService {
       beforeData: { status: current.status, verificationStatus: current.verificationStatus },
       afterData: { status: updated.status, verificationStatus: updated.verificationStatus }
     });
+
+    if (sourceRequest?.reportedById && sourceRequest.reportedById !== approver.sub) {
+      await this.notificationsService
+        .createNotification({
+          userId: sourceRequest.reportedById,
+          title: "Is it fixed?",
+          message: `${updated.woNumber} for your report ${sourceRequest.requestNumber} is done. Please confirm it is fixed, or say what is still wrong.`,
+          type: NotificationType.WORK_ORDER_UPDATED,
+          priority: NotificationPriority.WARNING,
+          channel: "IN_APP",
+          referenceId: sourceRequest.id,
+          referenceType: "MaintenanceRequest",
+          dueAt: requesterConfirmationDueAt,
+          dedupeKey: `requester-confirm:${id}:${now.toISOString()}`
+        })
+        .catch(() => undefined);
+    }
 
     await this.syncNormalizedExtensions(id, this.resolveTenantId(actor));
     return this.findOneWithRelations(id, actor);
@@ -2957,6 +2983,11 @@ export class WorkOrdersService {
     }
     const overrideReason = options?.overrideReason?.trim();
     const now = new Date();
+    if (currentWithRequester.requesterConfirmationOutcome === "UNRESOLVED") {
+      throw new BadRequestException(
+        "The person who reported this said it is not fixed. Send the job back for rework instead of closing it."
+      );
+    }
     if (
       currentWithRequester.requesterConfirmationStatus === "PENDING" &&
       (currentWithRequester.requesterConfirmationOutcome == null ||
@@ -3052,6 +3083,7 @@ export class WorkOrdersService {
     );
     await this.workOrderPartsService.releaseWorkOrderReservations(id, current.tenantId, actor, "Work order closed");
     await this.closeJobPermits(current.tenantId, id, actor, "Work order closed");
+    await this.syncAutoDowntime(current, WorkOrderStatus.CLOSED, actor);
     await this.completePmOccurrenceForClosedWorkOrder(current);
     await this.resetVehicleServiceDueAfterService(current);
     if (this.workOrderDomain) {
@@ -3236,6 +3268,14 @@ export class WorkOrdersService {
       afterData: { status: updated.status, verificationRejectionReason: trimmedReason }
     });
 
+    await this.notifyPeople(await this.workOrderPeople(id, current.technicianId), actor, {
+      title: "Job sent back for rework",
+      message: `${updated.woNumber} needs more work: ${trimmedReason}`,
+      workOrderId: id,
+      woNumber: updated.woNumber,
+      priority: NotificationPriority.CRITICAL
+    });
+
     return this.findOneWithRelations(id, actor);
   }
 
@@ -3248,34 +3288,106 @@ export class WorkOrdersService {
     },
     actor?: Actor
   ) {
-    const approver = this.assertActor(actor);
-    const current = await this.findOne(id, actor);
-    const updated = await this.prisma.workOrder.update({
-      where: { id },
+    await this.findOne(id, actor);
+    return this.applyRequesterConfirmation(id, { fixed: data.outcome === "RESOLVED", note: data.note ?? data.overrideReason }, actor);
+  }
+
+  /**
+   * "Is it fixed?" from the person who reported the issue (or a manager on their behalf).
+   * Yes: recorded, managers are told the job can be closed.
+   * No: a note is required and the job goes back to the technician for rework.
+   */
+  async applyRequesterConfirmation(id: string, data: { fixed: boolean; note?: string | null }, actor?: Actor) {
+    const confirmer = this.assertActor(actor);
+    const tenantId = this.resolveTenantId(actor);
+    const current = await this.prisma.workOrder.findFirst({ where: { id, tenantId } });
+    if (!current) throw new NotFoundException("Work order not found");
+    const ext = current as typeof current & { requesterConfirmationStatus?: string | null };
+    if (current.status !== WorkOrderStatus.VERIFIED || ext.requesterConfirmationStatus !== "PENDING") {
+      throw new BadRequestException("This job is not waiting for your confirmation.");
+    }
+    const note = data.note?.trim() || null;
+    if (!data.fixed) assertReasonProvided("What is still wrong", note);
+    const now = new Date();
+
+    const claimed = await this.prisma.workOrder.updateMany({
+      where: { id, tenantId, status: WorkOrderStatus.VERIFIED, version: current.version },
       data: {
         requesterConfirmationStatus: "CONFIRMED",
-        requesterConfirmationOutcome: data.outcome,
-        requesterConfirmationNote: data.note?.trim() || null,
-        requesterConfirmedAt: new Date(),
-        requesterConfirmedById: approver.sub,
+        requesterConfirmationOutcome: data.fixed ? "RESOLVED" : "UNRESOLVED",
+        requesterConfirmationNote: note,
+        requesterConfirmedAt: now,
+        requesterConfirmedById: confirmer.sub,
+        ...(data.fixed
+          ? {}
+          : {
+              status: WorkOrderStatus.REWORK_REQUIRED,
+              verificationStatus: WorkOrderVerificationStatus.REJECTED,
+              verificationRejectionReason: `Reporter says not fixed: ${note}`,
+              completedDate: null,
+              repairCompletedAt: null
+            }),
         version: { increment: 1 }
       } as any
     });
+    if (claimed.count !== 1) {
+      throw new ConflictException("This job was updated by someone else. Refresh and try again.");
+    }
 
+    if (!data.fixed) {
+      await this.appendStatusHistory(tenantId, id, {
+        fromStatus: current.status,
+        toStatus: WorkOrderStatus.REWORK_REQUIRED,
+        action: "REWORK_REQUIRED",
+        actorId: confirmer.sub,
+        reason: `Reporter says not fixed: ${note}`
+      });
+    }
     await this.recordAudit({
       entity: "WorkOrder",
       entityId: id,
       action: AuditAction.UPDATE,
       actor,
-      reason: data.overrideReason?.trim() || data.note?.trim() || "Requester confirmation recorded",
+      reason: note ?? (data.fixed ? "Reporter confirmed it is fixed" : "Reporter says not fixed"),
       metadata: {
         event: "work_order_requester_confirmation_recorded",
         woNumber: current.woNumber,
-        outcome: data.outcome
-      }
+        outcome: data.fixed ? "RESOLVED" : "UNRESOLVED"
+      },
+      beforeData: { status: current.status },
+      afterData: { status: data.fixed ? current.status : WorkOrderStatus.REWORK_REQUIRED }
     });
 
-    return updated;
+    const managers = await this.managerUserIds(tenantId);
+    if (data.fixed) {
+      await this.notifyPeople(managers, actor, {
+        title: "Reporter confirmed the fix",
+        message: `${current.woNumber}: the person who reported it confirmed it is fixed. The job can be closed.`,
+        workOrderId: id,
+        woNumber: current.woNumber
+      });
+    } else {
+      const people = await this.workOrderPeople(id, current.technicianId);
+      await this.notifyPeople([...people, ...managers], actor, {
+        title: "Not fixed — job back for rework",
+        message: `${current.woNumber}: the person who reported it says it is not fixed: ${note}`,
+        workOrderId: id,
+        woNumber: current.woNumber,
+        priority: NotificationPriority.CRITICAL
+      });
+    }
+    return this.prisma.workOrder.findFirst({ where: { id, tenantId } });
+  }
+
+  /** The reported issue this job came from, if any. */
+  private async linkedRequest(workOrderId: string, tenantId: string) {
+    if (typeof this.prisma.maintenanceRequest?.findFirst !== "function") return null;
+    return this.prisma.maintenanceRequest
+      .findFirst({
+        where: { workOrderId, tenantId },
+        select: { id: true, requestNumber: true, reportedById: true }
+      })
+      .catch(() => null);
   }
 
   async correctLabourEntry(
@@ -4794,6 +4906,7 @@ export class WorkOrdersService {
           );
         }
         await this.promoteAssignedTechnician(workOrderId, actor);
+        await this.notifyEmployeesAssigned(workOrderId, input.assigneeEmployeeIds, actor);
 
         if (input.expectedCompletionDate) {
           await this.prisma.workOrder.update({
@@ -4922,8 +5035,206 @@ export class WorkOrdersService {
   }
 
   /** Rejected/cancelled jobs free their reserved stock and hand a converted request back to review. */
+  /** Machinery downtime follows the job status; never blocks the status change. */
+  private async syncAutoDowntime(
+    current: { id: string; tenantId: string; assetId?: string | null; jobDomain?: string | null; type?: string | null },
+    targetStatus: WorkOrderStatus | string,
+    actor?: Actor,
+    holdReasonCode?: string | null
+  ) {
+    if (!this.reliability) return;
+    try {
+      await this.reliability.syncAutoDowntime({
+        tenantId: current.tenantId,
+        workOrder: current,
+        targetStatus: String(targetStatus),
+        actorId: actor?.sub ?? null,
+        holdReasonCode
+      });
+    } catch (error) {
+      this.logger.warn(`Auto downtime sync failed for ${current.id}: ${(error as Error)?.message ?? "unknown"}`);
+    }
+  }
+
+  /**
+   * Vehicle Jobs page header: vehicle jobs by stage, vehicles off the road, and the vehicles whose
+   * service is due soon or overdue (with the open service job, if one exists already).
+   */
+  async vehicleJobsOverview(actor?: Actor, now = new Date()) {
+    const tenantId = this.resolveTenantId(actor);
+    const domain = { tenantId, jobDomain: "VEHICLE" } as Prisma.WorkOrderWhereInput;
+    const [waitingToStart, inWorkshop, waiting, waitingCheck, offRoad] = await Promise.all([
+      this.prisma.workOrder.count({
+        where: { ...domain, status: { in: [WorkOrderStatus.OPEN, WorkOrderStatus.PLANNED, WorkOrderStatus.ASSIGNED] } }
+      }),
+      this.prisma.workOrder.count({
+        where: { ...domain, status: { in: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.REWORK_REQUIRED] } }
+      }),
+      this.prisma.workOrder.count({ where: { ...domain, status: WorkOrderStatus.ON_HOLD } }),
+      this.prisma.workOrder.count({
+        where: { ...domain, status: { in: [WorkOrderStatus.TECHNICIAN_COMPLETED, WorkOrderStatus.VERIFIED] } }
+      }),
+      this.prisma.vehicle.count({
+        where: { tenantId, status: { in: [VehicleStatus.UNDER_MAINTENANCE, VehicleStatus.OUT_OF_SERVICE] } }
+      })
+    ]);
+
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: {
+        tenantId,
+        status: { not: VehicleStatus.DISPOSED },
+        OR: [{ nextServiceDate: { not: null } }, { nextServiceMileage: { not: null } }]
+      },
+      select: {
+        id: true,
+        registrationNo: true,
+        make: true,
+        vehicleModel: true,
+        status: true,
+        currentMileage: true,
+        nextServiceDate: true,
+        nextServiceMileage: true,
+        driver: { select: { user: { select: { firstName: true, lastName: true } } } }
+      },
+      take: 2000
+    });
+    const due = vehicles
+      .map((vehicle) => ({ vehicle, service: vehicleServiceState(vehicle, now) }))
+      .filter((row) => row.service.state !== "OK");
+    const openJobs = due.length
+      ? await this.prisma.workOrder.findMany({
+          where: {
+            tenantId,
+            vehicleId: { in: due.map((row) => row.vehicle.id) },
+            status: { notIn: [WorkOrderStatus.CLOSED, WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED] },
+            OR: [{ type: WorkOrderType.PREVENTIVE }, { pmPlanId: { not: null } }]
+          },
+          select: { id: true, woNumber: true, vehicleId: true, status: true }
+        })
+      : [];
+    const openByVehicle = new Map(openJobs.map((job) => [job.vehicleId, job]));
+    const serviceDue = due
+      .map(({ vehicle, service }) => {
+        const driver = (vehicle.driver as { user?: { firstName?: string | null; lastName?: string | null } | null } | null)?.user ?? null;
+        return {
+          vehicleId: vehicle.id,
+          registrationNo: vehicle.registrationNo,
+          makeModel: [vehicle.make, vehicle.vehicleModel].filter(Boolean).join(" "),
+          driverName: driver ? `${driver.firstName ?? ""} ${driver.lastName ?? ""}`.trim() || null : null,
+          vehicleStatus: vehicle.status,
+          currentMileage: vehicle.currentMileage,
+          nextServiceDate: vehicle.nextServiceDate,
+          nextServiceMileage: vehicle.nextServiceMileage,
+          state: service.state,
+          daysLeft: service.daysLeft,
+          kmLeft: service.kmLeft,
+          openServiceJob: openByVehicle.get(vehicle.id) ?? null
+        };
+      })
+      .sort((a, b) => (a.state === b.state ? (a.daysLeft ?? 9999) - (b.daysLeft ?? 9999) : a.state === "OVERDUE" ? -1 : 1));
+
+    return {
+      counts: {
+        waitingToStart,
+        inWorkshop,
+        waitingPartsOrVendor: waiting,
+        waitingCheck,
+        offRoad,
+        serviceOverdue: serviceDue.filter((row) => row.state === "OVERDUE").length,
+        serviceDueSoon: serviceDue.filter((row) => row.state === "DUE_SOON").length
+      },
+      serviceDue: serviceDue.slice(0, 200)
+    };
+  }
+
+  /** Login users working on a job: the lead technician plus every active assignee with a login. */
+  private async workOrderPeople(workOrderId: string, technicianId?: string | null): Promise<string[]> {
+    const ids = new Set<string>();
+    try {
+      if (technicianId) ids.add(technicianId);
+      if (typeof this.prisma.workOrderAssignee?.findMany === "function") {
+        const rows = await this.prisma.workOrderAssignee.findMany({
+          where: { workOrderId, assignmentStatus: { not: "REMOVED" } },
+          select: { employee: { select: { linkedUserId: true } } }
+        });
+        for (const row of rows ?? []) {
+          const userId = (row as { employee?: { linkedUserId?: string | null } }).employee?.linkedUserId;
+          if (userId) ids.add(userId);
+        }
+      }
+    } catch {
+      // Notifications never block the job change.
+    }
+    return [...ids];
+  }
+
+  private async notifyPeople(
+    userIds: string[],
+    actor: Actor | undefined,
+    input: {
+      title: string;
+      message: string;
+      workOrderId: string;
+      woNumber: string;
+      type?: NotificationType;
+      priority?: NotificationPriority;
+      dedupeKey?: (userId: string) => string;
+    }
+  ) {
+    for (const userId of new Set(userIds)) {
+      if (!userId || userId === actor?.sub) continue;
+      await this.notificationsService
+        .createNotification({
+          userId,
+          title: input.title,
+          message: input.message,
+          type: input.type ?? NotificationType.WORK_ORDER_UPDATED,
+          priority: input.priority ?? NotificationPriority.WARNING,
+          channel: "IN_APP",
+          referenceId: input.workOrderId,
+          referenceType: "WorkOrder",
+          metadata: { woNumber: input.woNumber },
+          ...(input.dedupeKey ? { dedupeKey: input.dedupeKey(userId) } : {})
+        })
+        .catch(() => undefined);
+    }
+  }
+
+  /**
+   * People added from the Assignment tab or by bulk assign are told, the same as the Assign
+   * button. Only the newly added employees are notified.
+   */
+  async notifyEmployeesAssigned(workOrderId: string, employeeIds: string[], actor?: Actor) {
+    const tenantId = this.resolveTenantId(actor);
+    try {
+      const job = await this.prisma.workOrder.findFirst({
+        where: { id: workOrderId, tenantId },
+        select: { id: true, woNumber: true, title: true, dueDate: true }
+      });
+      if (!job || employeeIds.length === 0) return;
+      const employees = await this.prisma.employee.findMany({
+        where: { id: { in: employeeIds } },
+        select: { linkedUserId: true }
+      });
+      const due = job.dueDate ? ` Due ${job.dueDate.toISOString().slice(0, 10)}.` : "";
+      await this.notifyPeople(
+        employees.map((employee) => employee.linkedUserId ?? "").filter(Boolean),
+        actor,
+        {
+          title: "Work order assigned",
+          message: `${job.woNumber} (${job.title}) was assigned to you.${due}`,
+          workOrderId: job.id,
+          woNumber: job.woNumber,
+          type: NotificationType.WORK_ORDER_ASSIGNED
+        }
+      );
+    } catch {
+      // Notifications never block the assignment.
+    }
+  }
+
   private async afterWorkOrderExit(
-    workOrder: { id: string; tenantId: string; woNumber?: string | null },
+    workOrder: { id: string; tenantId: string; woNumber?: string | null; technicianId?: string | null },
     outcome: WorkOrderExitOutcome,
     reason: string,
     actor?: Actor
@@ -4940,6 +5251,19 @@ export class WorkOrdersService {
       actor,
       outcome === "REJECTED" ? "Work order rejected" : "Work order cancelled"
     );
+    if (outcome === "CANCELLED") {
+      const people = await this.workOrderPeople(workOrder.id, workOrder.technicianId);
+      await this.notifyPeople(people, actor, {
+        title: "Job cancelled",
+        message: `${workOrder.woNumber ?? "A job"} was cancelled: ${reason}. Stop work on it.`,
+        workOrderId: workOrder.id,
+        woNumber: workOrder.woNumber ?? ""
+      });
+    }
+    // A started job put the machine / vehicle UNDER_MAINTENANCE; cancelling must give it back.
+    if (this.workOrderDomain) {
+      await this.workOrderDomain.releaseTargetAfterCancel(workOrder.id, actor);
+    }
     await reopenRequestAfterWorkOrderExit(this.prisma, this.notificationsService, {
       tenantId: workOrder.tenantId,
       workOrderId: workOrder.id,

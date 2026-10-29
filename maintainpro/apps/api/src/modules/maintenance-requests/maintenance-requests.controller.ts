@@ -18,6 +18,7 @@ import {
   LocationLookupQueryDto,
   VehicleLookupQueryDto,
   CancelMaintenanceRequestDto,
+  ConfirmFixedDto,
   ConvertToWorkOrderDto,
   CreateMaintenanceRequestDto,
   MaintenanceRequestListQueryDto,
@@ -267,6 +268,14 @@ export class MaintenanceRequestsController {
   ) {
     const data = await this.requests.cancel(req.user?.tenantId ?? null, id, req.user!, body);
     return { data, message: "Request cancelled" };
+  }
+
+  /** The reporter answers "Is it fixed?" after the supervisor has checked the job. */
+  @Post(":id/confirm-fixed")
+  @Permissions("maintenance_requests.view_own")
+  async confirmFixed(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: ConfirmFixedDto) {
+    const data = await this.requests.confirmFixed(req.user?.tenantId ?? null, id, req.user!, body);
+    return { data, message: body.fixed ? "Thanks — marked as fixed" : "Sent back for more work" };
   }
 
   @Post(":id/mark-duplicate")

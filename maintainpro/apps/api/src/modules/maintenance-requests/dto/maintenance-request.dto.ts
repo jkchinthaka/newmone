@@ -389,6 +389,19 @@ export class CancelMaintenanceRequestDto {
   reason!: string;
 }
 
+/** "Is it fixed?" answer from the person who reported the issue. */
+export class ConfirmFixedDto {
+  @ApiProperty()
+  @IsBoolean()
+  fixed!: boolean;
+
+  @ApiPropertyOptional({ description: "Required when fixed is false: what is still wrong." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+}
+
 export class MarkDuplicateDto {
   @ApiProperty()
   @IsString()

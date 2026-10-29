@@ -1,5 +1,9 @@
 "use client";
 
+import { useState } from "react";
+
+import { VehicleJobsOverview } from "@/components/maintenance/vehicle-jobs-overview";
+import type { WorkOrderStatus } from "@/components/work-orders/types";
 import WorkOrdersPage from "@/components/work-orders/work-orders-page";
 import { JOB_DOMAIN_LABELS, type JobDomain } from "@/lib/job-domain";
 
@@ -14,6 +18,7 @@ type DomainJobsPageProps = {
  * Does not duplicate lifecycle, costing, or assignment logic.
  */
 export function DomainJobsPage({ jobDomain, title, description }: DomainJobsPageProps) {
+  const [focus, setFocus] = useState<{ status: WorkOrderStatus | "ALL"; nonce: number } | null>(null);
   const heading = title ?? (jobDomain ? `${JOB_DOMAIN_LABELS[jobDomain]} Jobs` : "Jobs");
   const sub =
     description ??
@@ -26,7 +31,17 @@ export function DomainJobsPage({ jobDomain, title, description }: DomainJobsPage
           : "All maintenance jobs across machinery, vehicles and services.");
 
   return (
-    <WorkOrdersPage jobDomain={jobDomain} heading={heading} description={sub} />
+    <WorkOrdersPage
+      jobDomain={jobDomain}
+      heading={heading}
+      description={sub}
+      focus={focus}
+      aboveList={
+        jobDomain === "VEHICLE" ? (
+          <VehicleJobsOverview onFocus={(status) => setFocus({ status, nonce: Date.now() })} />
+        ) : null
+      }
+    />
   );
 }
 

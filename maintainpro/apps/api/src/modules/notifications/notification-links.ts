@@ -145,6 +145,13 @@ export function notificationContextHref(input: {
     return `/vehicles/${id}`;
   }
 
+  if (input.referenceType === "MaintenanceRequest" && id) {
+    return `/requests/${id}`;
+  }
+  if (input.referenceType === "WorkPermit") {
+    return "/admin/work-permits";
+  }
+
   if (input.referenceType === "MaintenancePlan" && id) {
     return `/maintenance/plans?q=${encodeURIComponent(id)}`;
   }
@@ -180,6 +187,7 @@ export function notificationNextAction(input: {
   if (type === "MAINTENANCE_DUE" || input.referenceType === "MaintenancePlan") return "Open PM plan";
   if (input.referenceType === "WorkOrder" || type.startsWith("WORK_ORDER")) return "Open work order";
   if (input.referenceType === "Vehicle") return "Open vehicle";
-  if (input.referenceType === "FacilityIssue") return "Open request";
+  if (input.referenceType === "FacilityIssue" || input.referenceType === "MaintenanceRequest") return "Open request";
+  if (input.referenceType === "WorkPermit") return "Open work permits";
   return "Open context";
 }

@@ -19,6 +19,17 @@ export const DOWNTIME_CATEGORIES = [
   "OTHER"
 ] as const;
 
+/** Hold reason code -> downtime reason, so reports show why the machine was waiting. */
+export function downtimeCategoryForHold(code: string | null | undefined): string {
+  const value = String(code ?? "").toUpperCase();
+  if (value.includes("PART") || value.includes("SPARE") || value.includes("STOCK")) return "WAITING_PARTS";
+  if (value.includes("VENDOR") || value.includes("SUPPLIER") || value.includes("CONTRACT")) return "WAITING_VENDOR";
+  if (value.includes("APPROV")) return "WAITING_APPROVAL";
+  if (value.includes("TECHNIC") || value.includes("LABOUR") || value.includes("LABOR") || value.includes("STAFF")) return "WAITING_TECHNICIAN";
+  if (value.includes("SHUTDOWN") || value.includes("PRODUCTION")) return "AWAITING_SHUTDOWN";
+  return "OTHER";
+}
+
 export const PERMIT_TYPES = [
   "ELECTRICAL",
   "HOT_WORK",
@@ -620,6 +631,85 @@ export class ReliabilityService {
     }
 
     return updated;
+  }
+
+  /**
+   * Machine downtime follows the job without anyone pressing a button (machinery jobs only):
+   * Start / resume opens ACTIVE_REPAIR, Hold switches to the matching WAITING_* reason, and
+   * technician completion, close or cancel ends it. Manual segments still work alongside.
+   */
+  async syncAutoDowntime(input: {
+    tenantId: string;
+    workOrder: { id: string; assetId?: string | null; jobDomain?: string | null; type?: string | null };
+    targetStatus: string;
+    actorId?: string | null;
+    holdReasonCode?: string | null;
+  }): Promise<void> {
+    const segments = (this.prisma as { downtimeSegment?: { findMany?: unknown } }).downtimeSegment;
+    if (typeof segments?.findMany !== "function") return;
+    const { tenantId, workOrder } = input;
+    if (!workOrder.assetId || String(workOrder.jobDomain ?? "").toUpperCase() !== "MACHINERY") return;
+
+    const now = new Date();
+    const open = await this.prisma.downtimeSegment.findMany({
+      where: { tenantId, workOrderId: workOrder.id, endedAt: null },
+      select: { id: true, category: true }
+    });
+    const closeOpen = async (keepCategory?: string) => {
+      const toClose = open.filter((segment) => segment.category !== keepCategory);
+      if (toClose.length === 0) return;
+      await this.prisma.downtimeSegment.updateMany({
+        where: { tenantId, id: { in: toClose.map((segment) => segment.id) } },
+        data: { endedAt: now, closedById: input.actorId ?? null }
+      });
+    };
+    const openSegment = async (category: string, note: string) => {
+      await this.prisma.downtimeSegment.create({
+        data: {
+          tenantId,
+          workOrderId: workOrder.id,
+          assetId: workOrder.assetId,
+          category,
+          planned: String(workOrder.type ?? "").toUpperCase() === "PREVENTIVE",
+          reasonCode: "AUTO",
+          reasonNotes: note,
+          startedAt: now,
+          productionAffected: true,
+          openedById: input.actorId ?? null
+        }
+      });
+      await this.prisma.workOrder.update({
+        where: { id: workOrder.id },
+        data: { downtimeApplicable: true, downtimeEndedAt: null }
+      });
+      await this.prisma.workOrder.updateMany({
+        where: { id: workOrder.id, downtimeStartedAt: null },
+        data: { downtimeStartedAt: now }
+      });
+    };
+
+    const status = input.targetStatus.toUpperCase();
+    if (status === "IN_PROGRESS") {
+      await closeOpen("ACTIVE_REPAIR");
+      if (!open.some((segment) => segment.category === "ACTIVE_REPAIR")) {
+        await openSegment("ACTIVE_REPAIR", "Opened automatically when work started.");
+      }
+      return;
+    }
+    if (status === "ON_HOLD") {
+      const category = downtimeCategoryForHold(input.holdReasonCode);
+      await closeOpen(category);
+      if (!open.some((segment) => segment.category === category)) {
+        await openSegment(category, "Opened automatically when the job was put on hold.");
+      }
+      return;
+    }
+    if (["TECHNICIAN_COMPLETED", "COMPLETED", "CLOSED", "CANCELLED"].includes(status)) {
+      await closeOpen();
+      if (open.length > 0) {
+        await this.prisma.workOrder.update({ where: { id: workOrder.id }, data: { downtimeEndedAt: now } });
+      }
+    }
   }
 
   async summarizeDowntime(actor: Actor, workOrderId: string) {

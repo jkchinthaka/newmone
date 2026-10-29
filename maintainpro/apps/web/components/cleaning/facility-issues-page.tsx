@@ -616,14 +616,13 @@ export function FacilityIssuesPage() {
                               </Link>
                             </div>
                           ) : showCreateWorkOrder ? (
-                            <button
-                              type="button"
-                              disabled={creatingWorkOrderId === row.id}
-                              onClick={() => void createWorkOrderFromIssue(row)}
-                              className="mt-2 block text-xs font-medium text-emerald-700 hover:text-emerald-800 disabled:opacity-50"
+                            // Jobs need an exact place; building issues go through Report issue → Service.
+                            <Link
+                              href="/requests/new"
+                              className="mt-2 block text-xs font-medium text-emerald-700 hover:text-emerald-800"
                             >
-                              {creatingWorkOrderId === row.id ? "Creating job..." : "Create job"}
-                            </button>
+                              Report as a Service issue
+                            </Link>
                           ) : null}
                         </td>
                         <td className="px-4 py-3">

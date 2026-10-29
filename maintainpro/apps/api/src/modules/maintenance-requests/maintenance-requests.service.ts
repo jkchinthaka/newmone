@@ -19,7 +19,7 @@ import { hasCompatiblePermission } from "../../common/guards/permissions.guard";
 import { writeAuditTrail } from "../../common/utils/audit-trail.util";
 import { rolePermissionKeys } from "../../common/utils/role-permissions.util";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
-import { resolveJobDomain } from "../../common/utils/job-domain.util";
+import { resolveTargetJobDomain } from "../../common/utils/job-domain.util";
 import { PrismaService } from "../../database/prisma.service";
 import { AssetRegistryService } from "../assets/asset-registry.service";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -287,7 +287,7 @@ export class MaintenanceRequestsService {
     // Do not silently classify unresolved targets as SERVICE.
     const jobDomain = placement.targetUnresolved
       ? null
-      : resolveJobDomain({
+      : resolveTargetJobDomain({
           jobDomain: dto.jobDomain,
           vehicleId: placement.vehicleId,
           assetId: placement.assetId,
@@ -607,7 +607,16 @@ export class MaintenanceRequestsService {
           }
         },
         workOrder: {
-          select: { id: true, woNumber: true, status: true, priority: true, title: true }
+          select: {
+            id: true,
+            woNumber: true,
+            status: true,
+            priority: true,
+            title: true,
+            requesterConfirmationStatus: true,
+            requesterConfirmationOutcome: true,
+            requesterConfirmationDueAt: true
+          }
         },
         evidenceAttachments: {
           where: { deletedAt: null },
@@ -756,8 +765,14 @@ export class MaintenanceRequestsService {
     }
     const jobDomain = placement.targetUnresolved
       ? null
-      : resolveJobDomain({
-          jobDomain: dto.jobDomain ?? current.jobDomain,
+      : resolveTargetJobDomain({
+          // A changed machine / vehicle / place re-derives the category unless one is sent now.
+          jobDomain:
+            dto.jobDomain ??
+            ((placement.assetId ?? null) !== (current.assetId ?? null) ||
+            (placement.vehicleId ?? null) !== (current.vehicleId ?? null)
+              ? undefined
+              : current.jobDomain),
           vehicleId: placement.vehicleId,
           assetId: placement.assetId,
           assetDomainCode
@@ -851,7 +866,7 @@ export class MaintenanceRequestsService {
       });
       assetDomainCode = domain?.code;
     }
-    const jobDomain = resolveJobDomain({
+    const jobDomain = resolveTargetJobDomain({
       jobDomain: current.jobDomain,
       vehicleId: current.vehicleId,
       assetId: current.assetId,
@@ -1381,7 +1396,7 @@ export class MaintenanceRequestsService {
       });
       assetDomainCode = domain?.code;
     }
-    const jobDomain = resolveJobDomain({
+    const jobDomain = resolveTargetJobDomain({
       jobDomain: current.jobDomain,
       vehicleId: current.vehicleId,
       assetId: current.assetId,
@@ -2235,6 +2250,25 @@ export class MaintenanceRequestsService {
       },
       this.capabilities(actor)
     );
+  }
+
+  /**
+   * "Is it fixed?" — answered by the person who reported the issue (a reviewer may answer for
+   * them). Yes lets the job be closed; No sends it back to the technician with the note.
+   */
+  async confirmFixed(tenantId: string | null, id: string, actor: Actor, dto: { fixed: boolean; note?: string }) {
+    actor = await this.withCurrentPermissions(actor);
+    const tid = requireTenantId(tenantId);
+    const request = await this.requireRequest(tid, id);
+    const isReporter = request.reportedById === actor.sub;
+    if (!isReporter && !this.canTriage(actor)) {
+      throw new ForbiddenException("Only the person who reported this issue can confirm the fix.");
+    }
+    if (!request.workOrderId) {
+      throw new BadRequestException("No job has been created for this request yet.");
+    }
+    await this.workOrders.applyRequesterConfirmation(request.workOrderId, { fixed: dto.fixed, note: dto.note }, actor as never);
+    return this.findOne(tid, id, actor, { forceAll: true });
   }
 
   /**

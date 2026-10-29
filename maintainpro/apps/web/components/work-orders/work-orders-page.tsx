@@ -1,7 +1,7 @@
 "use client";
 
 import { StartJobDialog } from "./start-job-dialog";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -113,9 +113,13 @@ type WorkOrdersPageProps = {
   jobDomain?: string;
   heading?: string;
   description?: string;
+  /** Set by a summary card above the list: show the list filtered to this status. */
+  focus?: { status: WorkOrderStatus | "ALL"; nonce: number } | null;
+  /** Rendered between the page header and the job list (for example the vehicle overview). */
+  aboveList?: ReactNode;
 };
 
-export default function WorkOrdersPage({ jobDomain, heading, description }: WorkOrdersPageProps) {
+export default function WorkOrdersPage({ jobDomain, heading, description, focus, aboveList }: WorkOrdersPageProps) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const { prompt, dialog: promptDialog } = usePromptDialog();
   const [view, setView] = useState<WorkOrderViewMode>("queues");
@@ -201,6 +205,14 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       patchFilters({ jobDomain });
     }
   }, [jobDomain, filters.jobDomain, patchFilters]);
+
+  // A summary card was pressed: show the list with that status.
+  useEffect(() => {
+    if (!focus) return;
+    setView("list");
+    patchFilters({ status: focus.status });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.nonce]);
 
   const currentUser = useCurrentUser();
   const canLoadTechnicians = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR"].includes(
@@ -875,6 +887,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
         </div>
         }
       />
+      {aboveList}
       {selectedIds.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
           <span className="font-medium text-slate-700">{bulkCancelSummary(selectedIds.length, cancellableIds.length)}</span>

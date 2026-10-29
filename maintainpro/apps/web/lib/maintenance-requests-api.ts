@@ -74,7 +74,14 @@ export type MaintenanceRequestListItem = {
   createdAt: string;
   publicUpdateNote?: string | null;
   workOrderId?: string | null;
-  workOrder?: { id: string; woNumber: string; status?: string } | null;
+  workOrder?: {
+    id: string;
+    woNumber: string;
+    status?: string;
+    requesterConfirmationStatus?: string | null;
+    requesterConfirmationOutcome?: string | null;
+    requesterConfirmationDueAt?: string | null;
+  } | null;
   resolutionCode?: string | null;
   asset?: { id: string; assetTag: string; name: string } | null;
   vehicle?: {
@@ -210,6 +217,12 @@ export async function convertRequestToWorkOrder(id: string, title?: string) {
   return unwrap<{ alreadyConverted?: boolean; workOrder?: { id: string; woNumber: string } }>(
     res.data
   );
+}
+
+/** "Is it fixed?" answer from the person who reported the issue. */
+export async function confirmRequestFixed(id: string, body: { fixed: boolean; note?: string }) {
+  const res = await apiClient.post(`/maintenance-requests/${id}/confirm-fixed`, body);
+  return unwrap(res.data);
 }
 
 export async function fetchDuplicateCandidates(id: string) {

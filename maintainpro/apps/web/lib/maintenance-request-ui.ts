@@ -220,7 +220,7 @@ export type RequestNextStep = {
 export function requestNextStep(request: {
   status: string;
   targetUnresolved?: boolean | null;
-  workOrder?: { woNumber: string; status?: string | null } | null;
+  workOrder?: { woNumber: string; status?: string | null; requesterConfirmationStatus?: string | null } | null;
   allowedActions?: RequestAllowedActions;
   isOwner: boolean;
 }): RequestNextStep {
@@ -257,6 +257,14 @@ export function requestNextStep(request: {
         : { tone: "waiting", title: "Accepted", detail: "A planner will create the job." };
     case "CONVERTED_TO_WO": {
       const progress = requesterFacingStatus(request.status, request.workOrder?.status);
+      const confirmation = request.workOrder?.requesterConfirmationStatus;
+      if (request.isOwner && request.workOrder?.status === "VERIFIED" && confirmation === "PENDING") {
+        return {
+          tone: "blocked",
+          title: "Please confirm it is fixed",
+          detail: `Job ${request.workOrder.woNumber} is done and checked. Answer "Is it fixed?" below.`
+        };
+      }
       if (request.isOwner) {
         return {
           tone: progress === "Resolved / Completed" ? "done" : "waiting",

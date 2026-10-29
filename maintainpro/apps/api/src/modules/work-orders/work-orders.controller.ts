@@ -226,6 +226,24 @@ export class WorkOrdersController {
     return { data, message: "Work order category summary fetched" };
   }
 
+  /** Vehicle Jobs page header: workshop counts and vehicles whose service is due or overdue. */
+  @Get("vehicle-overview")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "MECHANIC",
+    "TECHNICIAN",
+    "SUPERVISOR",
+    "INVENTORY_KEEPER"
+  )
+  async vehicleOverview(@Req() req: AuthedRequest) {
+    const data = await this.workOrdersService.vehicleJobsOverview(req.user);
+    return { data, message: "Vehicle jobs overview" };
+  }
+
   @Get("taxonomy/suggest")
   @Roles(
     "SUPER_ADMIN",
@@ -734,6 +752,7 @@ export class WorkOrdersController {
     const data = await this.workOrderAssigneesService.addAssignee(id, body, req.user);
     // An approved OPEN job with its first technician moves to ASSIGNED, so the technician can start it.
     await this.workOrdersService.promoteAssignedTechnician(id, req.user);
+    await this.workOrdersService.notifyEmployeesAssigned(id, [body.employeeId], req.user);
     return { data, message: "Work order assignee added" };
   }
 

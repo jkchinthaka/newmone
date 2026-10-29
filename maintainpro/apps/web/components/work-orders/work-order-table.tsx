@@ -12,6 +12,7 @@ import { canManageWorkOrders, primaryWorkOrderAction, secondaryWorkOrderActions 
 import {
   formatDate,
   getAssetLabel,
+  needsPlace,
   getTechnicianName,
   isWorkOrderOverdue
 } from "./helpers";
@@ -93,10 +94,20 @@ export function WorkOrderTable({
     },
     {
       id: "asset",
-      header: "Asset",
-      mobileLabel: "Asset",
+      header: "Machine / vehicle / place",
+      mobileLabel: "Where",
       sortable: true,
-      cell: (workOrder) => getAssetLabel(workOrder)
+      cell: (workOrder) =>
+        needsPlace(workOrder) ? (
+          <span
+            className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900"
+            title="This job has no machine, vehicle or place. Edit the job and add where the work is."
+          >
+            Place needed
+          </span>
+        ) : (
+          getAssetLabel(workOrder)
+        )
     },
     {
       id: "status",

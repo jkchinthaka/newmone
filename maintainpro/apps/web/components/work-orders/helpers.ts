@@ -175,10 +175,29 @@ export function getAssetLabel(order: WorkOrder): string {
   }
 
   if (order.vehicle?.registrationNo) {
-    return order.vehicle.registrationNo;
+    const model = [order.vehicle.make, order.vehicle.vehicleModel].filter(Boolean).join(" ");
+    return model ? `${order.vehicle.registrationNo} · ${model}` : order.vehicle.registrationNo;
   }
 
-  return "-";
+  if (order.functionalLocation?.name) {
+    return order.functionalLocation.code
+      ? `${order.functionalLocation.name} (${order.functionalLocation.code})`
+      : order.functionalLocation.name;
+  }
+
+  return needsPlace(order) ? "Place needed" : "-";
+}
+
+const FINISHED_STATUSES = new Set(["CLOSED", "COMPLETED", "CANCELLED", "VERIFIED"]);
+
+/**
+ * A job with no machine, vehicle or place (for example made by the system from an accident
+ * without a vehicle). Someone must add where the work is, or nobody can find it on site and the
+ * photo location check cannot run.
+ */
+export function needsPlace(order: Pick<WorkOrder, "status" | "assetId" | "vehicleId" | "asset" | "vehicle" | "functionalLocationId" | "functionalLocation">): boolean {
+  if (FINISHED_STATUSES.has(String(order.status))) return false;
+  return !(order.assetId || order.asset || order.vehicleId || order.vehicle || order.functionalLocationId || order.functionalLocation);
 }
 
 export function isWorkOrderOverdue(order: WorkOrder): boolean {

@@ -10,8 +10,10 @@ import { toast } from "sonner";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { ResponsivePageHeader } from "@/components/ui/responsive-page-header";
+import { ConfirmFixedCard } from "@/components/requests/confirm-fixed-card";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { canAnswerConfirmation, confirmationAnsweredLabel } from "@/lib/requester-confirmation";
 import { useCurrentUser } from "@/lib/use-current-user";
 import {
   approveRequest,
@@ -106,6 +108,9 @@ function BlockedNote({ reason }: { reason: string | null }) {
   if (!reason) return null;
   return <p className="text-xs text-amber-800">{reason}</p>;
 }
+
+/** Reviewers who may answer "Is it fixed?" for a reporter (same rule as the API). */
+const CONFIRM_ON_BEHALF_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "OPERATIONS_MANAGER"]);
 
 export default function RequestDetailPage() {
   const params = useParams<{ id: string }>();
@@ -300,6 +305,24 @@ export default function RequestDetailPage() {
         </div>
         {nextStep.detail ? <p className="mt-1 text-sm">{nextStep.detail}</p> : null}
       </section>
+
+      {detail.workOrder &&
+      canAnswerConfirmation({
+        workOrder: detail.workOrder,
+        isOwner,
+        canReview: CONFIRM_ON_BEHALF_ROLES.has(String(user.role ?? "").toUpperCase())
+      }) ? (
+        <ConfirmFixedCard
+          requestId={detail.id}
+          woNumber={detail.workOrder.woNumber}
+          onBehalf={!isOwner}
+          onDone={load}
+        />
+      ) : isOwner && confirmationAnsweredLabel(detail.workOrder) ? (
+        <p className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">
+          {confirmationAnsweredLabel(detail.workOrder)}
+        </p>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
