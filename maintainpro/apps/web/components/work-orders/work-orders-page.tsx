@@ -201,8 +201,9 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
   const deepLinkQuery = useWorkOrder(deepLinkId ?? null);
 
   useEffect(() => {
-    if (jobDomain && filters.jobDomain !== jobDomain) {
-      patchFilters({ jobDomain });
+    // The page decides the category: a category page sets it, All Jobs clears it.
+    if ((filters.jobDomain ?? undefined) !== (jobDomain ?? undefined)) {
+      patchFilters({ jobDomain: jobDomain ?? undefined });
     }
   }, [jobDomain, filters.jobDomain, patchFilters]);
 

@@ -14,6 +14,8 @@ import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { createIdempotencyKey, withIdempotencyBody } from "@/lib/idempotency";
 import { getBrowserNetworkState } from "@/lib/network-status";
 import { enqueueOfflineAction } from "@/lib/offline-queue";
+import { getActiveTenantId } from "@/lib/tenant-context";
+import { currentStoredUserId } from "@/lib/user-scoped-storage";
 import {
   createMaintenanceRequest,
   listMaintenanceRequests,
@@ -371,10 +373,12 @@ function NewRequestForm() {
         idempotencyKey,
         actionType: "MAINTENANCE_REQUEST_CREATE",
         entityType: "MaintenanceRequest",
-        payload
+        payload,
+        ownerUserId: currentStoredUserId(),
+        tenantId: getActiveTenantId()
       });
       setPendingLocalId(localActionId);
-      toast.message("Not sent yet (no internet). This request is not submitted until it syncs.");
+      toast.message("No internet. Saved on this device and it will be sent automatically when you are back online.");
       return;
     }
 
@@ -400,8 +404,8 @@ function NewRequestForm() {
 
       {pendingLocalId ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Not sent yet, no internet (local id {pendingLocalId.slice(0, 8)}…). Status is not Submitted until the
-          server confirms.
+          Not sent yet, no internet (local id {pendingLocalId.slice(0, 8)}…). It is sent automatically when
+          this device is back online and you are signed in; you will see a message with the request number.
         </div>
       ) : null}
 

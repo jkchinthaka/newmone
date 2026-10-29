@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { OfflineRequestReplayer } from "@/components/pwa/offline-request-replayer";
 import { useRouter } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
@@ -139,6 +140,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       <MobileBottomNav onOpenSearch={() => setCommandPaletteOpen(true)} onOpenMenu={() => setMobileNavOpen(true)} menuOpen={mobileNavOpen} />
       <GlobalCommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
       <Toaster closeButton position="top-center" richColors duration={4_000} />
+      <OfflineRequestReplayer ready={state === "READY"} />
     </div>
   );
 }

@@ -38,6 +38,13 @@ import {
   runExclusiveSilentRefresh
 } from "./bff-silent-refresh";
 
+/**
+ * Signed-in data (jobs, people, photos) must never be kept by the browser disk cache, the
+ * back/forward cache or a proxy in between: on a shared device the next person could see it,
+ * and a stale copy can hide a change made a moment ago.
+ */
+export const BFF_CACHE_CONTROL = "no-store, private, max-age=0";
+
 const ACCESS_MAX_AGE = 15 * 60;
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60;
 const REMEMBER_COOKIE = "maintainpro_remember";
@@ -336,7 +343,7 @@ export async function proxyBffRequest(
   });
   if (!attempt.ok) {
     const { failure } = attempt;
-    const responseHeaders: Record<string, string> = { "X-Request-Id": requestId };
+    const responseHeaders: Record<string, string> = { "X-Request-Id": requestId, "Cache-Control": BFF_CACHE_CONTROL };
     if (failure.status === 503) {
       responseHeaders["Retry-After"] = String(UPSTREAM_RETRY_AFTER_SECONDS);
     }
@@ -381,6 +388,7 @@ export async function proxyBffRequest(
 
   const responseHeaders = new Headers();
   responseHeaders.set("X-Request-Id", sanitizeRequestId(upstream.headers.get("x-request-id")) || requestId);
+  responseHeaders.set("Cache-Control", BFF_CACHE_CONTROL);
   // Rate-limit replies tell the browser how long to wait (the sign-in page counts this down).
   const retryAfter = upstream.headers.get("retry-after");
   if (retryAfter && /^\d{1,5}$/.test(retryAfter.trim())) {

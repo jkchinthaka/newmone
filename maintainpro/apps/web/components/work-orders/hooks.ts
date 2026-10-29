@@ -6,6 +6,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { isDatabaseUnavailableError } from "@/lib/api-client";
 import { backgroundPollingOptions, totalPagesFor } from "@/lib/list-query-state";
 import { withTenantScope } from "@/lib/tenant-query";
+import { userScopedStorageKey } from "@/lib/user-scoped-storage";
 
 import {
   assignWorkOrder,
@@ -50,15 +51,19 @@ function readStoredFilters(): WorkOrderFilters {
   }
 
   try {
-    const raw = window.localStorage.getItem(FILTER_STORAGE_KEY);
+    const raw = window.localStorage.getItem(userScopedStorageKey(FILTER_STORAGE_KEY));
     if (!raw) {
       return DEFAULT_WORK_ORDER_FILTERS;
     }
 
     const parsed = JSON.parse(raw) as Partial<WorkOrderFilters>;
+    // The job category belongs to the page (All / Machinery / Service / Vehicle Jobs), never to the
+    // saved filters; otherwise All Jobs keeps showing only the last category page's jobs.
+    const { jobDomain: _pageOwned, ...saved } = parsed;
+    void _pageOwned;
     return {
       ...DEFAULT_WORK_ORDER_FILTERS,
-      ...parsed,
+      ...saved,
       page: 1
     };
   } catch {
@@ -80,7 +85,9 @@ export function useWorkOrderFilters() {
 
     try {
       // Page lives in the URL (?listPage=), not in saved filters.
-      window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({ ...filters, page: 1 }));
+      const { jobDomain: _pageOwned, ...saved } = filters;
+      void _pageOwned;
+      window.localStorage.setItem(userScopedStorageKey(FILTER_STORAGE_KEY), JSON.stringify({ ...saved, page: 1 }));
     } catch {
       // Storage can be unavailable (private mode); filters still work for this visit.
     }

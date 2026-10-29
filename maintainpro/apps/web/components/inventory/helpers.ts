@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { userScopedStorageKey } from "@/lib/user-scoped-storage";
 
 import {
   formatCurrency as formatCurrencyLk,
@@ -374,12 +375,12 @@ export function getErrorMessage(error: unknown): string {
 }
 
 export function saveFilters(filters: InventoryFilters) {
-  localStorage.setItem(INVENTORY_FILTERS_STORAGE_KEY, JSON.stringify(filters));
+  localStorage.setItem(userScopedStorageKey(INVENTORY_FILTERS_STORAGE_KEY), JSON.stringify(filters));
 }
 
 export function loadSavedFilters(fallback: InventoryFilters): InventoryFilters {
   try {
-    const raw = localStorage.getItem(INVENTORY_FILTERS_STORAGE_KEY);
+    const raw = localStorage.getItem(userScopedStorageKey(INVENTORY_FILTERS_STORAGE_KEY));
 
     if (!raw) {
       return fallback;

@@ -13,7 +13,6 @@ import { LiveCameraCapture, type LiveCapture } from "@/components/evidence/live-
 import { isLivePhotoEvidenceType, readCaptureLocation, uploadWorkOrderFile } from "@/lib/work-order-photo-upload";
 import { QrScanner } from "@/components/qr/qr-scanner";
 import {
-  enqueueOfflineEvidenceDraft,
   isBrowserOnline,
   readOfflineEvidenceQueue,
   type OfflineEvidenceDraft,
@@ -158,20 +157,9 @@ export function WorkOrderEvidencePanel({
         return;
       }
 
-      if (!canUpload && !isBrowserOnline()) {
-        const clientGeneratedId = crypto.randomUUID();
-        enqueueOfflineEvidenceDraft({
-          clientGeneratedId,
-          workOrderId,
-          evidenceType,
-          fileName: file.name,
-          mimeType: file.type || "application/octet-stream",
-          sizeBytes: file.size,
-          note: uploadNote.trim() || undefined
-        });
-        setOfflineQueue(readOfflineEvidenceQueue().filter((item) => item.workOrderId === workOrderId));
-        toast.message("Offline draft saved. It will sync when online.");
-        setPendingFile(null);
+      if (!isBrowserOnline()) {
+        // The photo itself cannot be kept for later (only its name would be), so do not promise a sync.
+        toast.error("No internet. The file was not saved — keep it and upload it again when you are back online.");
         return;
       }
 
