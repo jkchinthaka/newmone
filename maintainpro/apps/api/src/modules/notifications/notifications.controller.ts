@@ -14,6 +14,7 @@ import { NotificationUatEmailTestDto, NotificationUatSmsTestDto } from "./dto/no
 type AuthedRequest = {
   user: {
     sub: string;
+    role?: string;
   };
 };
 
@@ -100,7 +101,7 @@ export class NotificationsController {
       payload?: Record<string, unknown>;
     }
   ) {
-    const data = await this.notificationsService.runAction(req.user.sub, id, req.user.sub, body);
+    const data = await this.notificationsService.runAction(req.user.sub, id, req.user.sub, body, req.user.role);
     return { data, message: "Notification action executed" };
   }
 
