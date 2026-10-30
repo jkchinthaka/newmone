@@ -31,7 +31,6 @@ type WizardState = {
   isTechnician: boolean;
   skills: string;
   workCategories: string;
-  dailyCapacityHours: string;
   shift: string;
   canReceiveWorkOrders: boolean;
   availabilityStatus: string;
@@ -55,7 +54,6 @@ const INITIAL: WizardState = {
   isTechnician: true,
   skills: "",
   workCategories: "",
-  dailyCapacityHours: "8",
   shift: "",
   canReceiveWorkOrders: true,
   availabilityStatus: "AVAILABLE",
@@ -119,7 +117,6 @@ export function AddPersonWizard() {
     isTechnician: form.isTechnician,
     skills: form.skills.split(",").map((s) => s.trim()).filter(Boolean),
     workCategories: form.workCategories.split(",").map((s) => s.trim()).filter(Boolean),
-    dailyCapacityHours: Number(form.dailyCapacityHours) || 8,
     shift: form.shift.trim() || undefined,
     canReceiveWorkOrders: form.canReceiveWorkOrders,
     availabilityStatus: form.availabilityStatus,
@@ -177,7 +174,6 @@ export function AddPersonWizard() {
             <>
               <input placeholder="Skills (comma separated)" value={form.skills} onChange={(e) => setForm({ ...form, skills: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
               <input placeholder="Work categories" value={form.workCategories} onChange={(e) => setForm({ ...form, workCategories: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-              <input placeholder="Daily capacity hours" value={form.dailyCapacityHours} onChange={(e) => setForm({ ...form, dailyCapacityHours: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
               <input placeholder="Shift" value={form.shift} onChange={(e) => setForm({ ...form, shift: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.canReceiveWorkOrders} onChange={(e) => setForm({ ...form, canReceiveWorkOrders: e.target.checked })} /> Can receive jobs</label>
               <select value={form.availabilityStatus} onChange={(e) => setForm({ ...form, availabilityStatus: e.target.value })} className="w-full rounded border px-3 py-2 text-sm">

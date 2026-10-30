@@ -174,6 +174,7 @@ export class GovernanceService {
             keywords.some((keyword) => category.toLowerCase().includes(keyword))
           );
         const onLeave = employee.employeeLeaveRequests.length > 0;
+        // Only orders the suggestions (least loaded first); daily capacity does not block assignment.
         const remainingHours = Math.max(
           0,
           (employee.dailyCapacityHours ?? 8) -
@@ -184,9 +185,7 @@ export class GovernanceService {
           employeeActive: employee.active && employee.availabilityStatus !== EmployeeAvailabilityStatus.INACTIVE,
           canReceiveWorkOrders: employee.canReceiveWorkOrders,
           onLeave,
-          skillMatch,
-          remainingHours,
-          estimatedHours: workOrder.estimatedHours ?? 1
+          skillMatch
         });
         return {
           employeeId: employee.id,

@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ResponsivePageHeader } from "@/components/ui/responsive-page-header";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { ConfirmFixedCard } from "@/components/requests/confirm-fixed-card";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
@@ -43,6 +44,9 @@ import {
   requesterFacingStatus
 } from "@/lib/maintenance-request-ui";
 
+
+/** What a reviewer can confirm for a "Not sure" request. */
+type TargetKind = "asset" | "vehicle" | "location";
 
 type Detail = Record<string, unknown> & {
   id: string;
@@ -126,6 +130,8 @@ export default function RequestDetailPage() {
   const [requesterResponse, setRequesterResponse] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [triageNotes, setTriageNotes] = useState("");
+  const [targetKind, setTargetKind] = useState<TargetKind>("asset");
+  const [targetId, setTargetId] = useState<string | null>(null);
   const [priority, setPriority] = useState("MEDIUM");
   const [priorityReason, setPriorityReason] = useState("");
   const [dupes, setDupes] = useState<MaintenanceRequestListItem[]>([]);
@@ -142,6 +148,7 @@ export default function RequestDetailPage() {
       setPriority(String(data.priority || "MEDIUM"));
       setPriorityReason("");
       setTriageNotes(String(data.triageNotes || ""));
+      setTargetId(null);
       if (isActionAllowed(data.allowedActions, "markDuplicate")) {
         try {
           const candidates = await fetchDuplicateCandidates(id);
@@ -241,6 +248,9 @@ export default function RequestDetailPage() {
           ? `Not sure${detail.approximateLocation ? ` · ${detail.approximateLocation}` : ""}`
           : "—";
 
+  // The item picker is shown only when the reporter chose "Not sure" (or no item is linked).
+  const needsTarget = Boolean(detail.targetUnresolved) || !hasTarget;
+
   const saveTriage = () => {
     const body: Record<string, unknown> = {
       priority,
@@ -248,7 +258,15 @@ export default function RequestDetailPage() {
       reason: priorityChanged ? priorityReason.trim() : undefined,
       isEmergency: detail.isEmergency
     };
-    void run(() => triageRequest(id, body), "Review saved");
+    if (needsTarget && targetId) {
+      // Only a "Not sure" request gets its item here; the site is re-derived from a machine.
+      body.assetId = targetKind === "asset" ? targetId : null;
+      body.vehicleId = targetKind === "vehicle" ? targetId : null;
+      body.functionalLocationId = targetKind === "location" ? targetId : null;
+      if (targetKind === "asset") body.siteId = null;
+      body.targetUnresolved = false;
+    }
+    void run(() => triageRequest(id, body), needsTarget && targetId ? "Item confirmed and review saved" : "Review saved");
   };
 
   const governancePanel =
@@ -483,12 +501,77 @@ export default function RequestDetailPage() {
 
               {allowed("triage") ? (
                 <div className="space-y-2">
-                  {detail.targetUnresolved || !hasTarget ? (
-                    <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
-                      The reporter was not sure which machine, vehicle or location has the problem
-                      {detail.approximateLocation ? ` (they described: ${detail.approximateLocation})` : ""}. Ask the
-                      reporter for it, or close this request so it can be reported again for the right item.
-                    </p>
+                  {needsTarget ? (
+                    <fieldset className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <legend className="px-1 text-sm font-semibold text-amber-950">Confirm the item</legend>
+                      <p className="text-xs text-amber-900">
+                        The reporter was not sure which machine, vehicle or location has the problem. Choose it, then
+                        save the review before accepting.
+                      </p>
+                      {detail.approximateLocation ? (
+                        <p className="text-xs text-slate-700">Reporter described: {detail.approximateLocation}</p>
+                      ) : null}
+                      <div className="grid grid-cols-3 gap-1" role="radiogroup" aria-label="Item type">
+                        {(
+                          [
+                            ["asset", "Machine"],
+                            ["vehicle", "Vehicle"],
+                            ["location", "Location"]
+                          ] as const
+                        ).map(([kind, label]) => (
+                          <button
+                            key={kind}
+                            type="button"
+                            role="radio"
+                            aria-checked={targetKind === kind}
+                            className={`min-h-11 rounded-lg border text-sm ${
+                              targetKind === kind ? "border-brand-500 bg-white font-semibold" : "border-slate-200 bg-white/60"
+                            }`}
+                            onClick={() => {
+                              setTargetKind(kind);
+                              setTargetId(null);
+                            }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      {targetKind === "asset" ? (
+                        <EntityPicker
+                          key="asset"
+                          endpoint="/assets"
+                          searchParam="search"
+                          pageSizeParam="limit"
+                          value={targetId}
+                          onChange={(value) => setTargetId(value)}
+                          displayField="name"
+                          secondaryField="assetTag"
+                          placeholder="Search machines by name or tag"
+                        />
+                      ) : targetKind === "vehicle" ? (
+                        <EntityPicker
+                          key="vehicle"
+                          endpoint="/vehicles"
+                          value={targetId}
+                          onChange={(value) => setTargetId(value)}
+                          displayField="registrationNo"
+                          secondaryField="vehicleModel"
+                          placeholder="Search vehicles by registration"
+                        />
+                      ) : (
+                        <EntityPicker
+                          key="location"
+                          // Request-scoped lookup: reviewers need not hold organization.view.
+                          endpoint="/maintenance-requests/location-lookup"
+                          searchParam="q"
+                          value={targetId}
+                          onChange={(value) => setTargetId(value)}
+                          displayField="name"
+                          secondaryField="code"
+                          placeholder="Search functional locations"
+                        />
+                      )}
+                    </fieldset>
                   ) : null}
 
                   <label className="block text-sm font-medium">

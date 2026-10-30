@@ -57,7 +57,7 @@ describe("server-computed request actions", () => {
 });
 
 describe("requestNextStep", () => {
-  it("tells a reviewer the exact item is not known when the target is unresolved", () => {
+  it("tells a reviewer to confirm the item when the reporter was not sure", () => {
     const step = requestNextStep({
       status: "UNDER_REVIEW",
       targetUnresolved: true,
@@ -65,8 +65,8 @@ describe("requestNextStep", () => {
       allowedActions: { triage: { allowed: true }, approve: { allowed: false, reason: "x" } }
     });
     assert.equal(step.tone, "blocked");
-    assert.match(step.title, /not known/i);
-    assert.match(step.detail, /Ask them, or close the request/);
+    assert.equal(step.title, "Confirm the item");
+    assert.match(step.detail, /Choose the machine, vehicle or location/);
   });
 
   it("asks the owner to answer when information is needed", () => {

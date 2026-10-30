@@ -41,7 +41,6 @@ interface FormState {
   departmentId: string | null;
   designation: string;
   skills: string;
-  dailyCapacityHours: string;
   active: boolean;
   canLogin: boolean;
   canReceiveWorkOrders: boolean;
@@ -57,7 +56,6 @@ const EMPTY_FORM: FormState = {
   departmentId: null,
   designation: "TECHNICIAN",
   skills: "",
-  dailyCapacityHours: "8",
   active: true,
   canLogin: false,
   canReceiveWorkOrders: true,
@@ -122,11 +120,6 @@ export default function WorkforceEmployeesPage() {
       toast.error("Designation is required");
       return;
     }
-    const capacity = Number(form.dailyCapacityHours);
-    if (!Number.isFinite(capacity) || capacity <= 0) {
-      toast.error("Daily capacity hours must be greater than 0");
-      return;
-    }
     if (form.canLogin && !form.email.trim()) {
       toast.error("Email is required when login access is enabled");
       return;
@@ -146,7 +139,6 @@ export default function WorkforceEmployeesPage() {
           .split(",")
           .map((entry) => entry.trim())
           .filter(Boolean),
-        dailyCapacityHours: capacity,
         active: form.active,
         canLogin: form.canLogin,
         ...(editingId
@@ -188,7 +180,6 @@ export default function WorkforceEmployeesPage() {
       departmentId: row.departmentId ?? null,
       designation: row.designation,
       skills: row.skills.join(", "),
-      dailyCapacityHours: String(row.dailyCapacityHours ?? 8),
       active: row.active,
       canLogin: row.canLogin,
       canReceiveWorkOrders: true,
@@ -327,18 +318,6 @@ export default function WorkforceEmployeesPage() {
                 className="w-full rounded-lg border border-slate-300 px-3 py-2"
               />
             </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium text-slate-700">Daily capacity hours *</span>
-              <input
-                type="number"
-                min="0.5"
-                step="0.5"
-                required
-                value={form.dailyCapacityHours}
-                onChange={(event) => setForm((current) => ({ ...current, dailyCapacityHours: event.target.value }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </label>
             <div className="flex flex-col gap-2 text-sm sm:col-span-2">
               <label className="flex items-center gap-2">
                 <input
@@ -462,7 +441,6 @@ export default function WorkforceEmployeesPage() {
                   <th className="px-4 py-3">Designation</th>
                   <th className="px-4 py-3">Branch / Dept</th>
                   <th className="px-4 py-3">Login</th>
-                  <th className="px-4 py-3">Capacity</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Actions</th>
                 </tr>
@@ -481,7 +459,6 @@ export default function WorkforceEmployeesPage() {
                     <td className="px-4 py-3 text-xs">
                       {row.canLogin ? row.linkedUser?.email ?? row.email ?? "Pending" : "No login"}
                     </td>
-                    <td className="px-4 py-3">{row.dailyCapacityHours}h</td>
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-medium ${

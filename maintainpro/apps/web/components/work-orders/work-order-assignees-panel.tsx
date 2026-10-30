@@ -60,9 +60,7 @@ type WorkforceEmployee = {
 
 type AssignmentPreview = {
   onApprovedLeave: boolean;
-  exceedsDailyCapacity: boolean;
   todayAllocatedHours: number;
-  dailyCapacityHours: number;
   incomingHours: number;
 };
 

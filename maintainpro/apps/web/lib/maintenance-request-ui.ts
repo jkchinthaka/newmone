@@ -240,8 +240,8 @@ export function requestNextStep(request: {
       if (request.targetUnresolved && isActionAllowed(actions, "triage")) {
         return {
           tone: "blocked",
-          title: "Exact item not known",
-          detail: "The reporter was not sure which machine, vehicle or location it is. Ask them, or close the request so it can be reported again for the right item."
+          title: "Confirm the item",
+          detail: "The reporter was not sure. Choose the machine, vehicle or location in Review, save, then accept the request."
         };
       }
       return isActionAllowed(actions, "approve") || isActionAllowed(actions, "close")
