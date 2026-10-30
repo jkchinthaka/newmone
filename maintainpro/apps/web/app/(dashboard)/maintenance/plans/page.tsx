@@ -241,42 +241,6 @@ export default function PreventiveMaintenancePage() {
             aria-label="Search scheduled service plans"
             className="h-10 min-w-[12rem] flex-1 rounded-md border border-slate-300 px-3 text-sm"
           />
-          <select
-            aria-label="Status"
-            className="h-10 rounded-md border px-2 text-sm"
-            value={state.status ?? ""}
-            onChange={(event) => write({ status: event.target.value || null })}
-          >
-            <option value="">Status</option>
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Paused</option>
-            <option value="DRAFT">Draft</option>
-          </select>
-          <select
-            aria-label="Trigger type"
-            className="h-10 rounded-md border px-2 text-sm"
-            value={state.trigger ?? ""}
-            onChange={(event) => write({ trigger: event.target.value || null })}
-          >
-            <option value="">Trigger</option>
-            <option value="CALENDAR">Calendar</option>
-            <option value="METER">Meter</option>
-          </select>
-          <select
-            aria-label="Due window"
-            className="h-10 rounded-md border px-2 text-sm"
-            value={state.attention ? "attention" : state.due ?? ""}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (value === "attention") write({ attention: "true", due: null });
-              else write({ due: value || null, attention: null });
-            }}
-          >
-            <option value="">Due window</option>
-            <option value="soon">Due soon</option>
-            <option value="overdue">Overdue</option>
-            <option value="attention">Needs attention</option>
-          </select>
           <button type="button" className="h-10 px-2 text-sm font-medium" aria-expanded={moreFilters} onClick={() => setMoreFilters((open) => !open)}>
             More filters
           </button>
@@ -287,7 +251,52 @@ export default function PreventiveMaintenancePage() {
           ) : null}
         </div>
         {moreFilters ? (
-          <div className="mt-2 grid gap-2 border-t border-slate-100 pt-2 sm:grid-cols-2">
+          <div className="mt-2 grid gap-2 border-t border-slate-100 pt-2 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-sm text-slate-700">
+              Status
+              <select
+                aria-label="Status"
+                className="mt-1 h-10 w-full rounded-md border px-2"
+                value={state.status ?? ""}
+                onChange={(event) => write({ status: event.target.value || null })}
+              >
+                <option value="">Any</option>
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Paused</option>
+                <option value="DRAFT">Draft</option>
+              </select>
+            </label>
+            <label className="text-sm text-slate-700">
+              Trigger
+              <select
+                aria-label="Trigger type"
+                className="mt-1 h-10 w-full rounded-md border px-2"
+                value={state.trigger ?? ""}
+                onChange={(event) => write({ trigger: event.target.value || null })}
+              >
+                <option value="">Any</option>
+                <option value="CALENDAR">Calendar</option>
+                <option value="METER">Meter</option>
+              </select>
+            </label>
+            <label className="text-sm text-slate-700">
+              Due window
+              <select
+                aria-label="Due window"
+                className="mt-1 h-10 w-full rounded-md border px-2"
+                value={state.attention ? "attention" : state.due ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === "attention") write({ attention: "true", due: null });
+                  else write({ due: value || null, attention: null });
+                }}
+              >
+                <option value="">Any</option>
+                <option value="soon">Due soon</option>
+                <option value="overdue">Overdue</option>
+                <option value="attention">Needs attention</option>
+              </select>
+            </label>
             <label className="text-sm text-slate-700">
               Auto job
               <select

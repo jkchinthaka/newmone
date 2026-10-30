@@ -254,7 +254,7 @@ export default function RequestsPage() {
   const converted = searchParams.get("converted") ?? "";
 
   const [draftQuery, setDraftQuery] = useState(queryText);
-  const [advanced, setAdvanced] = useState(Boolean(reporter || from || converted));
+  const [advanced, setAdvanced] = useState(Boolean(reporter || from || converted || priority || jobDomain));
   const [items, setItems] = useState<MaintenanceRequestListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<MaintenanceRequestSummary>(EMPTY_SUMMARY);
@@ -562,31 +562,10 @@ export default function RequestsPage() {
         ))}
       </div>
       ) : null}
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Status filters">
-        <button
-          type="button"
-          aria-pressed={!status && !stage}
-          className={`min-h-11 rounded-full border px-3 text-sm ${!status && !stage ? "border-brand-600 bg-brand-50 text-brand-800" : "border-slate-200 bg-white text-slate-700"}`}
-          onClick={() => writeQuery({ status: null, stage: null })}
-        >
-          All
-        </button>
-        {STATUS_OPTIONS.map((value) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={status === value}
-            className={`min-h-11 rounded-full border px-3 text-sm ${status === value ? "border-brand-600 bg-brand-50 text-brand-800" : "border-slate-200 bg-white text-slate-700"}`}
-            onClick={() => writeQuery({ status: value, stage: null })}
-          >
-            {requestStatusLabel(value)}
-          </button>
-        ))}
-      </div>
       {view === "triage" ? <p className="text-sm text-slate-600">{requestTriageExplanation()}</p> : null}
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-3" aria-label="Filters">
-        <div className="grid gap-2 lg:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,0.7fr))_auto]">
+        <div className="grid gap-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto]">
           <label className="relative block">
             <span className="sr-only">Search requests</span>
             <Search aria-hidden size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -612,31 +591,6 @@ export default function RequestsPage() {
               </option>
             ))}
           </select>
-          <select
-            aria-label="Priority"
-            className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
-            value={priority}
-            onChange={(event) => writeQuery({ priority: event.target.value || null })}
-          >
-            <option value="">Any priority</option>
-            <option value="CRITICAL">Critical</option>
-            <option value="HIGH">High</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LOW">Low</option>
-          </select>
-          <select
-            aria-label="Type"
-            className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
-            value={jobDomain}
-            onChange={(event) => writeQuery({ type: event.target.value || null })}
-          >
-            <option value="">Any type</option>
-            {REQUEST_TYPE_FILTER_ORDER.map((value) => (
-              <option key={value} value={value}>
-                {REQUEST_TYPE_FILTER_LABELS[value]}
-              </option>
-            ))}
-          </select>
           <input
             aria-label="Asset, vehicle or location"
             value={assetQuery}
@@ -655,6 +609,31 @@ export default function RequestsPage() {
         </div>
         {advanced ? (
           <div className="grid gap-2 md:grid-cols-3">
+            <select
+                aria-label="Priority"
+              className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
+              value={priority}
+              onChange={(event) => writeQuery({ priority: event.target.value || null })}
+            >
+              <option value="">Any priority</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+            </select>
+            <select
+                aria-label="Type"
+              className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
+              value={jobDomain}
+              onChange={(event) => writeQuery({ type: event.target.value || null })}
+            >
+              <option value="">Any type</option>
+              {REQUEST_TYPE_FILTER_ORDER.map((value) => (
+                <option key={value} value={value}>
+                  {REQUEST_TYPE_FILTER_LABELS[value]}
+                </option>
+              ))}
+            </select>
             <input
               aria-label="Reported by"
               value={reporter}
