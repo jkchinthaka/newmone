@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { Plus } from "lucide-react";
 
 import { getApiErrorMessage } from "@/lib/api-client";
+import { useLiveRefresh } from "@/lib/live-data";
 import {
   listMaintenanceRequests,
   type MaintenanceRequestListItem
@@ -21,14 +22,17 @@ export default function MyRequestsPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = useCallback((options: { silent?: boolean } = {}) => {
     let cancelled = false;
     listMaintenanceRequests({ mine: true, limit: 50 })
       .then((result) => {
-        if (!cancelled) setItems(result.items);
+        if (cancelled) return;
+        setItems(result.items);
+        setError("");
       })
       .catch((cause: unknown) => {
-        if (!cancelled) setError(getApiErrorMessage(cause, "Couldn't load your requests."));
+        // A failed background refresh keeps the list already on screen.
+        if (!cancelled && !options.silent) setError(getApiErrorMessage(cause, "Couldn't load your requests."));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -37,6 +41,11 @@ export default function MyRequestsPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => load(), [load]);
+  useLiveRefresh(() => {
+    load({ silent: true });
+  });
 
   return (
     <div className="space-y-4 p-4">

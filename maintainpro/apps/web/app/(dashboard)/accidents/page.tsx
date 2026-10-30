@@ -545,7 +545,7 @@ function AccidentDetailDialog({
                   </button>
                 ) : (
                   <span className="ml-auto inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-xs text-emerald-700">
-                    <CarFront size={12} /> WO {detail.workOrder.workOrderNumber}
+                    <CarFront size={12} /> Job {detail.workOrder.workOrderNumber}
                   </span>
                 )}
               </>

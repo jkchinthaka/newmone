@@ -16,6 +16,7 @@ import { resolveMyJobFilter, myJobPurpose } from "@/lib/my-job-filters";
 import { getVisibleNavigationItems } from "@/lib/navigation";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { useLiveRefresh } from "@/lib/live-data";
 import { mutationErrorMessage } from "@/lib/mutation-feedback";
 import { humanWorkOrderStatusLabel } from "@/components/work-orders/helpers";
 import { useFocusTrap } from "@/lib/use-focus-trap";
@@ -129,16 +130,19 @@ export default function MyJobsPage() {
     router.replace((text ? `${pathname}?${text}` : pathname) as Route);
   };
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options: { silent?: boolean } = {}) => {
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      if (options.silent) return;
       setOffline(true);
       setLoading(false);
       setError("You are offline. Assigned jobs cannot be refreshed until the connection returns.");
       return;
     }
-    setLoading(true);
-    setError(null);
-    setForbidden(false);
+    if (!options.silent) {
+      setLoading(true);
+      setError(null);
+      setForbidden(false);
+    }
     setOffline(false);
     try {
       const response = await apiClient.get("/work-orders/my-jobs", {
@@ -160,7 +164,10 @@ export default function MyJobsPage() {
       setCounts(payload.data?.counts ?? null);
       setTotal(payload.meta?.total ?? payload.data?.items?.length ?? 0);
       setCapped(Boolean(payload.data?.capped));
+      if (options.silent) setError(null);
     } catch (err) {
+      // A failed background refresh keeps the jobs already on screen.
+      if (options.silent) return;
       const statusCode = (err as { response?: { status?: number } })?.response?.status;
       if (statusCode === 401 || statusCode === 403) {
         setForbidden(true);
@@ -170,13 +177,15 @@ export default function MyJobsPage() {
       setCapped(false);
       setError(getApiErrorMessage(err, "We couldn't load your jobs."));
     } finally {
-      setLoading(false);
+      if (!options.silent) setLoading(false);
     }
   }, [due, page, priority, search, status, view]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useLiveRefresh(() => refresh({ silent: true }));
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

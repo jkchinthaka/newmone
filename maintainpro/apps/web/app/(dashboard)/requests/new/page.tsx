@@ -14,6 +14,7 @@ import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { createIdempotencyKey, withIdempotencyBody } from "@/lib/idempotency";
 import { getBrowserNetworkState } from "@/lib/network-status";
 import { enqueueOfflineAction } from "@/lib/offline-queue";
+import { reportReviewSections, type ReportTargetKind } from "@/lib/report-issue-review";
 import { getActiveTenantId } from "@/lib/tenant-context";
 import { currentStoredUserId } from "@/lib/user-scoped-storage";
 import {
@@ -267,6 +268,23 @@ function NewRequestForm() {
     [locations, functionalLocationId]
   );
 
+  const reviewSections = reportReviewSections({
+    targetKind: targetKind as ReportTargetKind | null,
+    machineLabel: selectedAsset ? `${selectedAsset.assetTag} — ${selectedAsset.name}` : null,
+    vehicleLabel: selectedVehicle
+      ? `${selectedVehicle.registrationNo}${selectedVehicle.assetTag ? ` — ${selectedVehicle.assetTag}` : ""} — ${selectedVehicle.make} ${selectedVehicle.vehicleModel}`
+      : null,
+    siteName: (() => {
+      const site = sites.find((s) => s.id === siteId);
+      return site ? `${site.name} (${site.code})` : null;
+    })(),
+    locationLabel: selectedLocation ? `${selectedLocation.code} — ${selectedLocation.name}` : null,
+    approximateLocation,
+    description,
+    reportedUrgency,
+    safetyImpact,
+    productionImpact
+  });
   const targetSummary = useMemo(() => {
     if (targetKind === "MACHINE" && selectedAsset) {
       return `${selectedAsset.assetTag} — ${selectedAsset.name}`;
@@ -846,7 +864,7 @@ function NewRequestForm() {
               className="min-h-11 flex-1 rounded-lg bg-brand-600 text-sm text-white"
               onClick={() => setStep(5)}
             >
-              Review
+              Continue
             </button>
           </div>
         </section>
@@ -855,44 +873,37 @@ function NewRequestForm() {
       {step === 5 ? (
         <form onSubmit={submit} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="font-semibold">Review & submit</h2>
-          <dl className="space-y-1 text-sm">
-            <div>
-              <dt className="text-slate-500">Target</dt>
-              <dd>{targetSummary || "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Urgency</dt>
-              <dd>
-                {reportedUrgency === "NORMAL"
-                  ? "Normal"
-                  : reportedUrgency === "URGENT"
-                    ? "Urgent"
-                    : "Very Urgent"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Safety</dt>
-              <dd>
-                {safetyImpact === "YES" ? "Yes" : safetyImpact === "NO" ? "No" : "Not Sure"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Production impact</dt>
-              <dd>
-                {productionImpact === "NONE"
-                  ? "None"
-                  : productionImpact === "REDUCED"
-                    ? "Reduced / Partial"
-                    : productionImpact === "STOPPED"
-                      ? "Completely Stopped"
-                      : "Not Sure"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Description</dt>
-              <dd className="whitespace-pre-wrap">{description}</dd>
-            </div>
-          </dl>
+          <p className="text-sm text-slate-600">Check your answers. Use Edit to change a step before you send it.</p>
+          <div className="space-y-3">
+            {reviewSections.map((section) => (
+              <section key={section.step} aria-labelledby={`review-step-${section.step}`} className="rounded-lg border border-slate-200">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
+                  <h3 id={`review-step-${section.step}`} className="text-sm font-semibold text-slate-800">
+                    <span className="mr-1 text-slate-500">{section.step}.</span>
+                    {section.title}
+                  </h3>
+                  <button
+                    type="button"
+                    className="min-h-11 shrink-0 px-2 text-sm font-medium text-brand-700 underline-offset-2 hover:underline"
+                    onClick={() => setStep(section.step as Step)}
+                    aria-label={`Edit step ${section.step}: ${section.title}`}
+                  >
+                    Edit
+                  </button>
+                </div>
+                <dl className="divide-y divide-slate-100">
+                  {section.items.map((item) => (
+                    <div key={item.question} className="grid gap-1 px-3 py-2 text-sm sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:gap-3">
+                      <dt className="text-slate-500">{item.question}</dt>
+                      <dd className={`min-w-0 break-words font-medium text-slate-900 ${item.multiline ? "whitespace-pre-wrap" : ""}`}>
+                        {item.answer}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            ))}
+          </div>
           <div className="flex gap-2">
             <button type="button" className="min-h-11 flex-1 rounded-lg border text-sm" onClick={() => setStep(4)}>
               Back

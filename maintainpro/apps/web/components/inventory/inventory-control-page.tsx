@@ -13,6 +13,7 @@ import { RefreshErrorBanner } from "@/components/ui/refresh-error-banner";
 import { clampPage, listErrorPresentation } from "@/lib/list-query-state";
 import { formatDateTime as lkDateTime } from "@/lib/localization";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { useLiveRefresh } from "@/lib/live-data";
 import { visibleTopUsedParts } from "@/lib/batch-3-presentation";
 import { canReadInventoryAnalytics } from "@/lib/user-role";
 import { workOrderRecordHref } from "@/lib/operational-deep-link";
@@ -104,12 +105,21 @@ export function InventoryControlPage() {
   const [movements, setMovements] = useState<Array<{ id: string; type?: string; quantity?: number; createdAt?: string }> | null>(null);
   const [movementsError, setMovementsError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  // Reloads started by automatic refresh keep the current rows on screen (no skeleton, no error swap).
+  const silentReloadKey = useRef(-1);
+  const partsLoadedForKey = useRef(-1);
   const [goodsInOpen, setGoodsInOpen] = useState(false);
   const [topUsed, setTopUsed] = useState<TopUsedPartPoint[] | null>(null);
   const [topUsedError, setTopUsedError] = useState(false);
 
   const stateRef = useRef(state);
   stateRef.current = state;
+  useLiveRefresh(() =>
+    setReloadKey((value) => {
+      silentReloadKey.current = value + 1;
+      return value + 1;
+    })
+  );
   const errorMode = listErrorPresentation({ isError: Boolean(error), hasData: hasLoaded && rows.length > 0 });
   useEffect(() => setDraftQuery(state.q), [state.q]);
   useEffect(() => {
@@ -162,7 +172,7 @@ export function InventoryControlPage() {
         });
       })
       .catch((err) => {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || silentReloadKey.current === reloadKey) return;
         setPartsToIssue(null);
         setPartsToIssueError(getApiErrorMessage(err, "Parts to issue could not be loaded."));
       });
@@ -175,7 +185,7 @@ export function InventoryControlPage() {
     void apiClient.get("/inventory/dashboard", { signal: controller.signal }).then((response) => {
       setSummary(response.data?.data ?? null);
     }).catch((err) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || silentReloadKey.current === reloadKey) return;
       setSummary(null);
       setSummaryError(getApiErrorMessage(err, "Inventory summary could not be loaded."));
     });
@@ -184,8 +194,12 @@ export function InventoryControlPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    setError(null);
+    const silent = silentReloadKey.current === reloadKey && partsLoadedForKey.current !== reloadKey;
+    partsLoadedForKey.current = reloadKey;
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     void apiClient.get("/inventory/parts", {
       signal: controller.signal,
       params: {
@@ -206,8 +220,9 @@ export function InventoryControlPage() {
       setRows(items);
       setMeta(partsPageMeta(response.data, state.page, state.pageSize, items.length));
       setHasLoaded(true);
+      if (silent) setError(null);
     }).catch((err) => {
-      if (!controller.signal.aborted) setError(getApiErrorMessage(err, "Unable to load inventory."));
+      if (!controller.signal.aborted && !silent) setError(getApiErrorMessage(err, "Unable to load inventory."));
     }).finally(() => {
       if (!controller.signal.aborted) setLoading(false);
     });

@@ -12,9 +12,14 @@
 import { ADMIN_PAGE_API_GATES, NAV_ITEM_API_GATES, type NavApiGate } from "./nav-api-gates";
 import { hasCompatiblePermission } from "./permission-aliases";
 import {
+  DEFAULT_POST_LOGIN_REDIRECT,
+  EXISTING_POST_LOGIN_ROUTES,
   extractRoleName,
   getPostLoginRedirect,
+  isRetiredActionCenterPath,
+  isRetiredSplashPath,
   LEGACY_FMS_HOME_PATH,
+  ROLE_POST_LOGIN_PREFERENCES,
   safeInternalReturnPath,
   type PostLoginUserLike
 } from "./role-redirect";
@@ -1184,17 +1189,60 @@ export function hasPrimaryHomeNavItem(items: readonly NavigationItem[]): boolean
 }
 
 /**
- * Safe return path when this role can open it; otherwise the role landing.
- * Never returns login, splash, or Action Center.
+ * Permission-led landings tried after the role's own preferences, so custom roles (role names
+ * are free text) still land on a dashboard they can open instead of the notifications list.
+ */
+const PERMISSION_LANDING_CANDIDATES = [
+  "/maintenance",
+  "/work-orders/my",
+  "/maintenance/jobs",
+  "/inventory",
+  "/fleet",
+  "/assets",
+  "/requests",
+  "/reports"
+] as const;
+
+/**
+ * The dashboard this person opens after signing in: the first landing for their role that their
+ * role and permissions can actually open, then a permission-based dashboard, then notifications.
+ */
+export function roleLandingPath(user: PostLoginUserLike, permissions: readonly string[] = []): string {
+  const role = extractRoleName(user);
+  const preferred = role ? ROLE_POST_LOGIN_PREFERENCES[role] ?? [] : [];
+  const roleLanding = getPostLoginRedirect(user);
+  const candidates = [...preferred, roleLanding, ...PERMISSION_LANDING_CANDIDATES];
+  for (const path of candidates) {
+    if (!EXISTING_POST_LOGIN_ROUTES.has(path) || isRetiredActionCenterPath(path) || isRetiredSplashPath(path)) continue;
+    if (path === DEFAULT_POST_LOGIN_REDIRECT) continue;
+    if (canAccessNavigationPath(path, role, permissions)) return path;
+  }
+  return DEFAULT_POST_LOGIN_REDIRECT;
+}
+
+/**
+ * A link to one specific record (a request, a job, a vehicle...) that brought the person to the
+ * sign-in page. Only these are honoured after sign-in; anything else goes to the role dashboard.
+ */
+export function isRecordDeepLink(target: string): boolean {
+  const [pathname, query = ""] = target.split("#")[0].split("?");
+  const params = new URLSearchParams(query);
+  if (params.get("wo") || params.get("open")) return true;
+  return /^\/(requests|vehicles|assets|utilities\/meters)\/(?!new$|mine$)[A-Za-z0-9_-]{6,}$/.test(pathname);
+}
+
+/**
+ * Where to go after sign-in: always the role dashboard, except a link to a specific record that
+ * this role can open (for example a job link from a notification email).
  */
 export function resolveAuthorizedDestination(
   user: PostLoginUserLike,
   returnTo: string | null | undefined,
   permissions: readonly string[] = []
 ): string {
-  const landing = getPostLoginRedirect(user);
+  const landing = roleLandingPath(user, permissions);
   const safe = safeInternalReturnPath(returnTo);
-  if (!safe) return landing;
+  if (!safe || !isRecordDeepLink(safe)) return landing;
   const path = safe.split("?")[0]?.split("#")[0] ?? "";
   if (!canAccessNavigationPath(path, extractRoleName(user), permissions)) {
     return landing;

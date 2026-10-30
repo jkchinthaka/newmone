@@ -596,14 +596,6 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
           </p>
         ) : null}
 
-        {assignmentPreview?.exceedsDailyCapacity ? (
-          <p className="inline-flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 sm:col-span-2">
-            <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden />
-            Daily capacity warning: {assignmentPreview.todayAllocatedHours + assignmentPreview.incomingHours}h planned /{" "}
-            {assignmentPreview.dailyCapacityHours}h capacity. Assignment may be blocked by the server.
-          </p>
-        ) : null}
-
         {assignmentPreview?.onApprovedLeave && !showLeaveOverride ? (
           <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 sm:col-span-2">
             Employee has approved leave in this window. Choose another employee or ask a manager to override.

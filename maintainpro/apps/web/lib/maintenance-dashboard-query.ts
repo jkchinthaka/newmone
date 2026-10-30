@@ -1,3 +1,4 @@
+import { LIVE_REFRESH_INTERVAL_MS } from "./live-data";
 import { isDatabaseUnavailableError } from "@/lib/api-client";
 import { isUpstreamUnavailableError, shouldRetryQuery } from "@/lib/upstream-status";
 
@@ -31,5 +32,5 @@ export function shouldRetryMaintenanceQuery(failureCount: number, error: unknown
 export function maintenanceRefetchInterval(query: { state: { error: unknown } }): number | false {
   const error = query.state.error;
   if (error && !shouldRetryMaintenanceQuery(0, error)) return false;
-  return 60_000;
+  return LIVE_REFRESH_INTERVAL_MS;
 }

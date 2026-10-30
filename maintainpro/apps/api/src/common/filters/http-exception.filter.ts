@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import type { Request, Response } from "express";
 
 import { requestContext } from "../context/request-context";
+import { displayJobNumbers, displayJobNumbersDeep } from "../job-number-display";
 
 /**
  * Prisma unique-constraint violations (e.g. Vehicle.registrationNo,
@@ -183,10 +184,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
       success: false,
       error: {
         code,
-        message: errorMessage,
-        details: clientDetails,
+        // Job order numbers are shown as JO-… (see common/job-number-display.ts).
+        message: displayJobNumbers(errorMessage),
+        details: displayJobNumbersDeep(clientDetails),
         ...(fieldErrors ? { fieldErrors } : {}),
-        ...(metadata ? { metadata } : {}),
+        ...(metadata ? { metadata: displayJobNumbersDeep(metadata) } : {}),
         requestId: requestId ?? undefined
       }
     });

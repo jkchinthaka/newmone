@@ -19,6 +19,7 @@ import { notificationContextHref, notificationListPage, notificationListWhere, t
 import { NotificationsGateway } from "./notifications.gateway";
 import { PushDeviceRegistration, PushDispatchService } from "./push-dispatch.service";
 import { SmsDispatchService } from "./sms-dispatch.service";
+import { displayJobNumbers } from "../../common/job-number-display";
 
 export interface NotificationPreference {
   inApp: boolean;
@@ -448,6 +449,8 @@ export class NotificationsService {
   }
 
   async createNotification(input: NotificationInput) {
+    // Job order numbers are shown as JO-… in the bell, push, email and SMS alike.
+    input = { ...input, title: displayJobNumbers(input.title), message: displayJobNumbers(input.message) };
     const preferences = await this.getPreferences(input.userId);
     const rules = await this.getRules(input.userId);
 

@@ -17,6 +17,7 @@ import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard"
 import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { clampPage, createRequestSequencer, isAbortError, totalPagesFor } from "@/lib/list-query-state";
+import { useLiveRefresh } from "@/lib/live-data";
 import {
   approveRequest,
   cancelRequest,
@@ -304,10 +305,12 @@ export default function RequestsPage() {
   // Scope is enforced by the API (non-managers only ever get their own requests, triage needs
   // permission), so the request does not wait on capabilities. Depending on canViewAll made admins
   // fetch twice: once before and once after the first summary arrived.
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options: { silent?: boolean } = {}) => {
     const request = sequencer.current.begin();
-    setLoading(true);
-    setError(null);
+    if (!options.silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const triage = view === "triage";
       const [result, counts] = await Promise.all([
@@ -337,6 +340,8 @@ export default function RequestsPage() {
       setSummary(counts);
     } catch (err) {
       if (!sequencer.current.isLatest(request.id) || isAbortError(err)) return;
+      // A failed background refresh keeps the rows already on screen.
+      if (options.silent) return;
       const message = getApiErrorMessage(err, "We couldn't load maintenance requests.");
       if (view === "triage" && /triage permission/i.test(message)) {
         writeQuery({ view: "mine", stage: null, status: null });
@@ -351,6 +356,8 @@ export default function RequestsPage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useLiveRefresh(() => refresh({ silent: true }));
 
   useEffect(() => {
     const sequence = sequencer.current;

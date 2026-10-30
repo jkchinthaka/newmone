@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LiveQueryInvalidator } from "@/components/pwa/live-query-invalidator";
 import { OfflineRequestReplayer } from "@/components/pwa/offline-request-replayer";
 import { useRouter } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -157,6 +158,7 @@ export default function DashboardLayout({
 
   return (
     <QueryClientProvider client={queryClient}>
+      <LiveQueryInvalidator />
       <TenantSessionProvider>
         <DashboardShell>{children}</DashboardShell>
       </TenantSessionProvider>

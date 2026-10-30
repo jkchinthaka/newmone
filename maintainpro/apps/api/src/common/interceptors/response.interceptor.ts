@@ -3,6 +3,8 @@ import { Prisma } from "@prisma/client";
 import { Observable } from "rxjs";
 import { map } from "rxjs/operators";
 
+import { displayJobNumbers, normalizeJobNumberInput } from "../job-number-display";
+
 interface PaginationMeta {
   page: number;
   limit: number;
@@ -48,6 +50,8 @@ export const RESPONSE_SECRET_KEYS = new Set([
 ]);
 
 export function normalizeDecimals(value: unknown): unknown {
+  // Job order numbers are stored as WO-… and shown as JO-… (see common/job-number-display.ts).
+  if (typeof value === "string") return displayJobNumbers(value);
   if (value === null || typeof value !== "object") return value;
   if (isDecimalLike(value)) return value.toNumber();
   if (Array.isArray(value)) return value.map(normalizeDecimals);
@@ -63,7 +67,9 @@ export function normalizeDecimals(value: unknown): unknown {
 
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<T, ApiResponse<T>> {
-  intercept(_context: ExecutionContext, next: CallHandler): Observable<ApiResponse<T>> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<ApiResponse<T>> {
+    // A job number typed or scanned as JO-… searches and looks up the stored WO-… value.
+    if (context.getType() === "http") normalizeJobNumberInput(context.switchToHttp().getRequest());
     return next.handle().pipe(
       map((value) => {
         const payload = value as { data?: unknown; message?: string; meta?: PaginationMeta };
@@ -71,7 +77,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, ApiResponse<T>
         return {
           success: true,
           data: normalizeDecimals(payload?.data ?? value) as T,
-          message: payload?.message ?? "Operation successful",
+          message: displayJobNumbers(payload?.message ?? "Operation successful"),
           meta: payload?.meta
         };
       })
