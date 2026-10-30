@@ -394,7 +394,7 @@ export function WorkOrderEditorModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={drawerMotion}
-          className="fixed inset-0 z-[80] flex justify-end bg-[#104D2B]/45"
+          className="fixed inset-0 z-[80] flex justify-end bg-[#103D2D]/45"
         >
           <motion.div
             ref={panelRef}
