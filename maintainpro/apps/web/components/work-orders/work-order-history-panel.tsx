@@ -1,11 +1,13 @@
 "use client";
 
+import { formatEnumLabel } from "@/lib/display-labels";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, History } from "lucide-react";
 
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard";
 import { apiClient, getApiErrorMessageForRoute } from "@/lib/api-client";
 import { formatCalendarDate } from "@/lib/colombo-datetime";
+import { formatCurrency } from "@/lib/localization";
 import { formatDrawerDateTime } from "@/lib/work-order-drawer-display";
 
 export type WorkOrderHistoryContext = {
@@ -42,8 +44,9 @@ function formatDate(value: unknown) {
 }
 
 function formatMoney(value: unknown) {
-  if (typeof value !== "number") return "—";
-  return value.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  // Business currency is LKR. Decimal costs can arrive as numeric strings.
+  if (typeof value !== "number" && typeof value !== "string") return "—";
+  return formatCurrency(value, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
 export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
@@ -70,7 +73,7 @@ export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
         message={getApiErrorMessageForRoute(
           query.error,
           "work-order-history",
-          "Could not load maintenance history for this work order."
+          "Could not load maintenance history for this job."
         )}
         onRetry={() => void query.refetch()}
       />
@@ -89,8 +92,8 @@ export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
         <div>
           <h4 className="text-sm font-semibold text-slate-900">Previous maintenance history</h4>
           <p className="mt-1 text-xs text-slate-500">
-            Read-only historical context from completed work orders, maintenance logs, and linked asset/vehicle records.
-            Legacy FMS archive data is not copied into current work orders.
+            Read-only historical context from completed jobs, maintenance logs, and linked asset/vehicle records.
+            Legacy FMS archive data is not copied into current jobs.
           </p>
         </div>
       </div>
@@ -160,7 +163,7 @@ export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
         rows={data.previousMaintenance.map((row) => ({
           key: String(row.id),
           primary: String(row.woNumber ?? row.title),
-          secondary: `${String(row.type ?? "").replaceAll("_", " ")} · ${formatDate(row.completedDate)}`,
+          secondary: `${formatEnumLabel(String(row.type ?? ""), "")} · ${formatDate(row.completedDate)}`,
           meta: row.technicianName ? String(row.technicianName) : undefined
         }))}
       />
@@ -171,7 +174,7 @@ export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
         rows={data.previousBreakdowns.map((row) => ({
           key: String(row.id),
           primary: String(row.title),
-          secondary: `${String(row.type ?? "").replaceAll("_", " ")} · ${formatDate(row.completedDate)}`,
+          secondary: `${formatEnumLabel(String(row.type ?? ""), "")} · ${formatDate(row.completedDate)}`,
           meta: typeof row.actualCost === "number" ? formatMoney(row.actualCost) : undefined
         }))}
       />
@@ -180,11 +183,11 @@ export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
         <>
           <HistoryTable
             title="Previous spare parts used"
-            empty="No spare parts linked to prior work orders."
+            empty="No spare parts linked to prior jobs."
             rows={data.previousPartsUsed.slice(0, 12).map((row) => ({
               key: `${row.workOrderId}-${row.partId}`,
               primary: String(row.partName ?? row.partNumber),
-              secondary: `WO ${String(row.woNumber ?? "")} · Qty ${String(row.quantity ?? "")}`,
+              secondary: `Job ${String(row.woNumber ?? "")} · Qty ${String(row.quantity ?? "")}`,
               meta: typeof row.totalCost === "number" ? formatMoney(row.totalCost) : undefined
             }))}
           />

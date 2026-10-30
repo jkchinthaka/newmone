@@ -8,8 +8,14 @@ import {
   Post,
   Query,
   Req,
-  UseGuards
+  Res,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import type { Response } from "express";
+import { memoryStorage } from "multer";
 import { ApiBearerAuth, ApiQuery, ApiTags } from "@nestjs/swagger";
 import { FunctionalLocationType, SiteType } from "@prisma/client";
 
@@ -25,6 +31,21 @@ import {
 } from "./dto/functional-location.dto";
 import { FacilityHierarchyMigrationService } from "./facility-hierarchy-migration.service";
 import { OrganizationService } from "./organization.service";
+import { PlacesImportService } from "./places-import.service";
+
+type RowsUpload = { buffer?: Buffer } | undefined;
+
+/** Rows come as a small JSON file built in the browser from the Excel sheet. */
+function rowsFromUpload(file: RowsUpload, body: { rows?: unknown }): unknown {
+  if (file?.buffer?.length) {
+    try {
+      return JSON.parse(file.buffer.toString("utf8"));
+    } catch {
+      return null;
+    }
+  }
+  return body?.rows;
+}
 
 type AuthedRequest = { user: JwtPayload };
 
@@ -52,7 +73,8 @@ const ORG_MANAGE_ROLES = ["SUPER_ADMIN", "ADMIN", "FACILITY_MANAGER"] as const;
 export class OrganizationController {
   constructor(
     private readonly organizationService: OrganizationService,
-    private readonly migrationService: FacilityHierarchyMigrationService
+    private readonly migrationService: FacilityHierarchyMigrationService,
+    private readonly placesImport: PlacesImportService
   ) {}
 
   @Get("summary")
@@ -239,6 +261,36 @@ export class OrganizationController {
       req.user
     );
     return { data, message: "Functional location moved" };
+  }
+
+  /** Sites + functional locations from Excel: template, check, save. */
+  @Get("places-import/template.xlsx")
+  @Roles(...ORG_MANAGE_ROLES)
+  @Permissions("organization.manage")
+  async placesTemplate(@Req() req: AuthedRequest, @Res() res: Response) {
+    const buffer = await this.placesImport.template(req.user);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", "attachment; filename=\"sites-and-locations-template.xlsx\"");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(buffer);
+  }
+
+  @Post("places-import/preview")
+  @Roles(...ORG_MANAGE_ROLES)
+  @Permissions("organization.manage")
+  @UseInterceptors(FileInterceptor("rows", { storage: memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } }))
+  async placesPreview(@Req() req: AuthedRequest, @UploadedFile() file: RowsUpload, @Body() body: { rows?: unknown }) {
+    const data = await this.placesImport.preview(req.user, rowsFromUpload(file, body));
+    return { data, message: "Sites and locations checked" };
+  }
+
+  @Post("places-import/save")
+  @Roles(...ORG_MANAGE_ROLES)
+  @Permissions("organization.manage")
+  @UseInterceptors(FileInterceptor("rows", { storage: memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } }))
+  async placesSave(@Req() req: AuthedRequest, @UploadedFile() file: RowsUpload, @Body() body: { rows?: unknown }) {
+    const data = await this.placesImport.save(req.user, rowsFromUpload(file, body));
+    return { data, message: "Sites and locations saved" };
   }
 
   @Get("data-quality")

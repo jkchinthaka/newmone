@@ -14,15 +14,21 @@ import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { createIdempotencyKey, withIdempotencyBody } from "@/lib/idempotency";
 import { getBrowserNetworkState } from "@/lib/network-status";
 import { enqueueOfflineAction } from "@/lib/offline-queue";
+import { reportReviewSections, type ReportTargetKind } from "@/lib/report-issue-review";
+import { getActiveTenantId } from "@/lib/tenant-context";
+import { currentStoredUserId } from "@/lib/user-scoped-storage";
 import {
   createMaintenanceRequest,
   listMaintenanceRequests,
+  listRequestLocations,
+  listRequestSites,
+  type RequestLocationOption,
+  type RequestSiteOption,
   type MaintenanceRequestListItem,
   type ProductionImpact,
   type ReportedUrgency,
   type SafetyImpact
 } from "@/lib/maintenance-requests-api";
-import { listLocations, listSites, type OrgLocation, type OrgSite } from "@/lib/organization-api";
 import {
   MACHINE_SEARCH_DEBOUNCE_MS,
   isCurrentMachineSearch,
@@ -75,8 +81,9 @@ function NewRequestForm() {
   const userEditedMachineQuery = useRef(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetHit | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleHit | null>(null);
-  const [sites, setSites] = useState<OrgSite[]>([]);
-  const [locations, setLocations] = useState<OrgLocation[]>([]);
+  const [sites, setSites] = useState<RequestSiteOption[]>([]);
+  const [sitesLoaded, setSitesLoaded] = useState(false);
+  const [locations, setLocations] = useState<RequestLocationOption[]>([]);
   const [siteId, setSiteId] = useState("");
   const [functionalLocationId, setFunctionalLocationId] = useState("");
   const [approximateLocation, setApproximateLocation] = useState("");
@@ -91,7 +98,8 @@ function NewRequestForm() {
   useEffect(() => {
     void (async () => {
       try {
-        setSites(await listSites({ includeInactive: false }));
+        setSites(await listRequestSites());
+        setSitesLoaded(true);
       } catch (err) {
         toast.error(getApiErrorMessage(err, "Unable to load sites."));
       }
@@ -105,7 +113,7 @@ function NewRequestForm() {
     }
     void (async () => {
       try {
-        setLocations(await listLocations({ siteId, includeInactive: false }));
+        setLocations(await listRequestLocations(siteId));
       } catch {
         setLocations([]);
       }
@@ -260,6 +268,23 @@ function NewRequestForm() {
     [locations, functionalLocationId]
   );
 
+  const reviewSections = reportReviewSections({
+    targetKind: targetKind as ReportTargetKind | null,
+    machineLabel: selectedAsset ? `${selectedAsset.assetTag} — ${selectedAsset.name}` : null,
+    vehicleLabel: selectedVehicle
+      ? `${selectedVehicle.registrationNo}${selectedVehicle.assetTag ? ` — ${selectedVehicle.assetTag}` : ""} — ${selectedVehicle.make} ${selectedVehicle.vehicleModel}`
+      : null,
+    siteName: (() => {
+      const site = sites.find((s) => s.id === siteId);
+      return site ? `${site.name} (${site.code})` : null;
+    })(),
+    locationLabel: selectedLocation ? `${selectedLocation.code} — ${selectedLocation.name}` : null,
+    approximateLocation,
+    description,
+    reportedUrgency,
+    safetyImpact,
+    productionImpact
+  });
   const targetSummary = useMemo(() => {
     if (targetKind === "MACHINE" && selectedAsset) {
       return `${selectedAsset.assetTag} — ${selectedAsset.name}`;
@@ -310,7 +335,7 @@ function NewRequestForm() {
     (targetKind === "MACHINE" && selectedAsset) ||
       (targetKind === "VEHICLE" && selectedVehicle) ||
       (targetKind === "FACILITY" && functionalLocationId && siteId) ||
-      (targetKind === "NOT_SURE" && siteId && approximateLocation.trim().length >= 3)
+      (targetKind === "NOT_SURE" && (siteId || (sitesLoaded && sites.length === 0)) && approximateLocation.trim().length >= 3)
   );
 
   const chooseKind = (kind: TargetKind) => {
@@ -318,6 +343,8 @@ function NewRequestForm() {
     setSelectedAsset(null);
     selectedMachineQuery.current = null;
     setSelectedVehicle(null);
+    // A site left over from another target type would clash with the new target's placement.
+    setSiteId("");
     setFunctionalLocationId("");
     setApproximateLocation("");
     setAssetHits([]);
@@ -364,10 +391,12 @@ function NewRequestForm() {
         idempotencyKey,
         actionType: "MAINTENANCE_REQUEST_CREATE",
         entityType: "MaintenanceRequest",
-        payload
+        payload,
+        ownerUserId: currentStoredUserId(),
+        tenantId: getActiveTenantId()
       });
       setPendingLocalId(localActionId);
-      toast.message("Pending Sync. This request is not submitted until it syncs.");
+      toast.message("No internet. Saved on this device and it will be sent automatically when you are back online.");
       return;
     }
 
@@ -393,8 +422,8 @@ function NewRequestForm() {
 
       {pendingLocalId ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Pending sync (local id {pendingLocalId.slice(0, 8)}…). Status is not Submitted until the
-          server confirms.
+          Not sent yet, no internet (local id {pendingLocalId.slice(0, 8)}…). It is sent automatically when
+          this device is back online and you are signed in; you will see a message with the request number.
         </div>
       ) : null}
 
@@ -644,6 +673,15 @@ function NewRequestForm() {
           <div className="mb-1 flex items-center gap-2 text-sm text-slate-600">
             <MapPin size={14} /> Site + functional location
           </div>
+          {sitesLoaded && sites.length === 0 ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              No sites or locations are set up yet.{" "}
+              <button type="button" className="font-medium underline" onClick={() => chooseKind("NOT_SURE")}>
+                Choose Not Sure and describe the place
+              </button>{" "}
+              — a reviewer will set the location.
+            </p>
+          ) : null}
           <select
             className="min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm"
             value={siteId}
@@ -672,6 +710,15 @@ function NewRequestForm() {
               </option>
             ))}
           </select>
+          {siteId && locations.length === 0 ? (
+            <p className="text-sm text-slate-600">
+              This site has no locations yet.{" "}
+              <button type="button" className="font-medium text-brand-700 underline" onClick={() => chooseKind("NOT_SURE")}>
+                Use Not Sure
+              </button>{" "}
+              and describe the area instead.
+            </p>
+          ) : null}
           <div className="flex gap-2">
             <button type="button" className="min-h-11 flex-1 rounded-lg border text-sm" onClick={() => setStep(1)}>
               Back
@@ -693,20 +740,23 @@ function NewRequestForm() {
           <h2 className="font-semibold text-slate-900">Where is the problem?</h2>
           <p className="text-sm text-slate-600">
             You do not need to know the exact equipment. A reviewer will confirm the target before
-            any work order is created.
+            any job is created.
           </p>
-          <select
-            className="min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm"
-            value={siteId}
-            onChange={(e) => setSiteId(e.target.value)}
-          >
-            <option value="">Select site…</option>
-            {sites.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.code})
-              </option>
-            ))}
-          </select>
+          {sitesLoaded && sites.length === 0 ? null : (
+            <select
+              className="min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm"
+              aria-label="Site"
+              value={siteId}
+              onChange={(e) => setSiteId(e.target.value)}
+            >
+              <option value="">Select site…</option>
+              {sites.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.code})
+                </option>
+              ))}
+            </select>
+          )}
           <textarea
             className="min-h-24 w-full rounded-lg border border-slate-200 p-3 text-sm"
             placeholder="Approximate area (building, room, yard, line…)"
@@ -814,7 +864,7 @@ function NewRequestForm() {
               className="min-h-11 flex-1 rounded-lg bg-brand-600 text-sm text-white"
               onClick={() => setStep(5)}
             >
-              Review
+              Continue
             </button>
           </div>
         </section>
@@ -823,44 +873,37 @@ function NewRequestForm() {
       {step === 5 ? (
         <form onSubmit={submit} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="font-semibold">Review & submit</h2>
-          <dl className="space-y-1 text-sm">
-            <div>
-              <dt className="text-slate-500">Target</dt>
-              <dd>{targetSummary || "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Urgency</dt>
-              <dd>
-                {reportedUrgency === "NORMAL"
-                  ? "Normal"
-                  : reportedUrgency === "URGENT"
-                    ? "Urgent"
-                    : "Very Urgent"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Safety</dt>
-              <dd>
-                {safetyImpact === "YES" ? "Yes" : safetyImpact === "NO" ? "No" : "Not Sure"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Production impact</dt>
-              <dd>
-                {productionImpact === "NONE"
-                  ? "None"
-                  : productionImpact === "REDUCED"
-                    ? "Reduced / Partial"
-                    : productionImpact === "STOPPED"
-                      ? "Completely Stopped"
-                      : "Not Sure"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Description</dt>
-              <dd className="whitespace-pre-wrap">{description}</dd>
-            </div>
-          </dl>
+          <p className="text-sm text-slate-600">Check your answers. Use Edit to change a step before you send it.</p>
+          <div className="space-y-3">
+            {reviewSections.map((section) => (
+              <section key={section.step} aria-labelledby={`review-step-${section.step}`} className="rounded-lg border border-slate-200">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
+                  <h3 id={`review-step-${section.step}`} className="text-sm font-semibold text-slate-800">
+                    <span className="mr-1 text-slate-500">{section.step}.</span>
+                    {section.title}
+                  </h3>
+                  <button
+                    type="button"
+                    className="min-h-11 shrink-0 px-2 text-sm font-medium text-brand-700 underline-offset-2 hover:underline"
+                    onClick={() => setStep(section.step as Step)}
+                    aria-label={`Edit step ${section.step}: ${section.title}`}
+                  >
+                    Edit
+                  </button>
+                </div>
+                <dl className="divide-y divide-slate-100">
+                  {section.items.map((item) => (
+                    <div key={item.question} className="grid gap-1 px-3 py-2 text-sm sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:gap-3">
+                      <dt className="text-slate-500">{item.question}</dt>
+                      <dd className={`min-w-0 break-words font-medium text-slate-900 ${item.multiline ? "whitespace-pre-wrap" : ""}`}>
+                        {item.answer}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            ))}
+          </div>
           <div className="flex gap-2">
             <button type="button" className="min-h-11 flex-1 rounded-lg border text-sm" onClick={() => setStep(4)}>
               Back

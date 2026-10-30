@@ -116,6 +116,17 @@ export function useIpv4Loopback(absoluteUrl: string): string {
   return parsed.href;
 }
 
+/**
+ * Path pieces must be plain names. "." / ".." (or a piece holding a slash) would let a request
+ * walk out of the matched route, for example out of the CSRF-exempt billing/webhooks/ prefix.
+ */
+export function hasUnsafePathSegment(pathSegments: string[]): boolean {
+  return pathSegments.some((part) => {
+    const text = String(part);
+    return text === "" || text === "." || text === ".." || /[\\/\u0000]/.test(text);
+  });
+}
+
 export function joinUpstreamPath(base: string, pathSegments: string[]): string {
   const suffix = pathSegments.map((part) => encodeURIComponent(String(part))).join("/");
   const url = `${base.replace(/\/+$/, "")}/${suffix}`;

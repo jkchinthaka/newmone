@@ -61,7 +61,7 @@ describe("canCreateWorkOrder (UI/API create RBAC)", () => {
       assert.equal(
         canCreateWorkOrder(role, [WORK_ORDERS_MANAGE_PERMISSION]),
         false,
-        `${role} must not see Create Work Order`
+        `${role} must not see Create job`
       );
     }
   });

@@ -28,6 +28,11 @@ export type OfflineQueueItem = {
   lastError?: string;
   /** Optional server version for conflict detection */
   expectedServerUpdatedAt?: string;
+  /** Who queued it and for which company: only that person's session may send it. */
+  ownerUserId?: string | null;
+  tenantId?: string | null;
+  /** Server reference once sent (for example the request number). */
+  serverReference?: string;
   syncState?: "QUEUED" | "IN_FLIGHT" | "CONFLICT" | "DONE";
 };
 
@@ -87,7 +92,7 @@ export function enqueueOfflineAction(
 
 export function updateOfflineAction(
   localActionId: string,
-  patch: Partial<Pick<OfflineQueueItem, "status" | "lastError" | "retryCount" | "syncState">>
+  patch: Partial<Pick<OfflineQueueItem, "status" | "lastError" | "retryCount" | "syncState" | "serverReference">>
 ): OfflineQueueItem[] {
   const queue = readOfflineActionQueue().map((item) =>
     item.localActionId === localActionId ? { ...item, ...patch } : item
@@ -111,4 +116,32 @@ export async function hydrateOfflineQueueFromIdb(): Promise<OfflineQueueItem[]> 
     writeOfflineActionQueue(fromIdb);
   }
   return fromIdb;
+}
+
+/**
+ * Items this person may send now: queued by them, for this company, not yet sent.
+ * Another person's items on a shared device are never sent under the current login.
+ */
+export function replayableOfflineActions(
+  queue: readonly OfflineQueueItem[],
+  owner: { userId: string | null; tenantId: string | null },
+  actionType: string
+): OfflineQueueItem[] {
+  if (!owner.userId) return [];
+  return queue.filter(
+    (item) =>
+      item.actionType === actionType &&
+      // SYNCING left over from a closed tab is retried; the idempotency key prevents a duplicate.
+      (item.status === "PENDING" || item.status === "FAILED" || item.status === "SYNCING") &&
+      item.retryCount < 5 &&
+      item.ownerUserId === owner.userId &&
+      (item.tenantId ?? null) === (owner.tenantId ?? null)
+  );
+}
+
+/** Sent items are kept for a day (for the "sent" message), then dropped. */
+export function pruneSyncedOfflineActions(now = Date.now()): void {
+  const queue = readOfflineActionQueue();
+  const kept = queue.filter((item) => item.status !== "SYNCED" || now - Date.parse(item.createdAt) < 24 * 60 * 60 * 1000);
+  if (kept.length !== queue.length) writeOfflineActionQueue(kept);
 }

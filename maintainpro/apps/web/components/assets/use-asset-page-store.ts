@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type AssetStatusFilter = "" | "ACTIVE" | "INACTIVE" | "UNDER_MAINTENANCE" | "RETIRED" | "DISPOSED";
+export type AssetStatusFilter = "" | "DRAFT" | "ACTIVE" | "INACTIVE" | "UNDER_MAINTENANCE" | "OUT_OF_SERVICE" | "RETIRED" | "DISPOSED";
 export type AssetCategoryFilter = "" | "MACHINE" | "EQUIPMENT" | "VEHICLE" | "INFRASTRUCTURE" | "OTHER";
 export type AssetSortField = "assetTag" | "name" | "category" | "status" | "createdAt" | "location" | "lastServiceDate";
 
@@ -75,8 +75,11 @@ export const useAssetPageStore = create<AssetPageState>((set, get) => ({
   selectedIds: [],
   visibleColumns: DEFAULT_VISIBLE_COLUMNS,
   highlightedRowId: null,
+  // Selection is scoped to the rows on screen: any filter, sort or page change clears it, so bulk
+  // actions can never touch rows the user can no longer see.
   setFilters: (patch) =>
     set((state) => ({
+      selectedIds: [],
       filters: {
         ...state.filters,
         ...patch,
@@ -86,9 +89,9 @@ export const useAssetPageStore = create<AssetPageState>((set, get) => ({
             : 1
       }
     })),
-  clearFilters: () => set({ filters: DEFAULT_FILTERS }),
-  setPage: (page) => set((state) => ({ filters: { ...state.filters, page } })),
-  setPageSize: (pageSize) => set((state) => ({ filters: { ...state.filters, pageSize, page: 1 } })),
+  clearFilters: () => set({ filters: DEFAULT_FILTERS, selectedIds: [] }),
+  setPage: (page) => set((state) => ({ filters: { ...state.filters, page }, selectedIds: [] })),
+  setPageSize: (pageSize) => set((state) => ({ filters: { ...state.filters, pageSize, page: 1 }, selectedIds: [] })),
   setSort: (sortBy) =>
     set((state) => {
       const sortOrder =
@@ -99,6 +102,7 @@ export const useAssetPageStore = create<AssetPageState>((set, get) => ({
           : "asc";
 
       return {
+        selectedIds: [],
         filters: {
           ...state.filters,
           sortBy,
@@ -147,4 +151,10 @@ export function hasActiveFilters(filters: AssetQueryFilters) {
       filters.sortBy !== DEFAULT_FILTERS.sortBy ||
       filters.sortOrder !== DEFAULT_FILTERS.sortOrder
   );
+}
+
+/** Selected ids that are on the current page. Bulk actions and the "N selected" count use only these. */
+export function visibleSelection(selectedIds: readonly string[], visibleIds: readonly string[]): string[] {
+  const visible = new Set(visibleIds);
+  return selectedIds.filter((id) => visible.has(id));
 }

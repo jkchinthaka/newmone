@@ -60,7 +60,7 @@ export function notificationContextHref(input: {
     const highlight = supplied.match(/[?&]highlight=([^&]+)/);
     if (highlight) return `/work-orders?wo=${decodeURIComponent(highlight[1])}`;
     const safe = safeNotificationPath(supplied);
-    if (safe) return safe;
+    if (safe) return retiredGateTarget(safe) ?? safe;
   }
 
   const id = input.referenceId?.trim();
@@ -71,14 +71,25 @@ export function notificationContextHref(input: {
     if (/verif/i.test(title) || /verif/i.test(type)) return `/work-orders?wo=${id}&tab=evidence`;
     return `/work-orders?wo=${id}`;
   }
-  if (input.referenceType === "Vehicle" && id) {
-    if (/gate/i.test(title) || /gate/i.test(type)) return `/fleet/gate?vehicle=${id}`;
-    return `/vehicles/${id}`;
-  }
+  // Gate notifications also open the vehicle record (the gate screen was retired from the UI).
+  if (input.referenceType === "Vehicle" && id) return `/vehicles/${id}`;
   if (type === "MAINTENANCE_DUE") return id ? `/maintenance/plans?q=${encodeURIComponent(id)}` : "/maintenance/plans?due=overdue";
   if (type === "LOW_STOCK" && id) return `/inventory?q=${encodeURIComponent(id)}`;
   if (input.referenceType === "FacilityIssue" && id) return `/cleaning/issues?issueId=${id}`;
+  if (input.referenceType === "MaintenanceRequest" && id) return `/requests/${id}`;
+  if (input.referenceType === "WorkPermit") return "/admin/work-permits";
   return "/notifications";
+}
+
+/**
+ * The gate screen was retired from the UI. Older notifications (and API deep links) that
+ * still point at /fleet/gate open the vehicle record, or the fleet list without a vehicle.
+ */
+export function retiredGateTarget(path: string): string | null {
+  const [pathname, query = ""] = path.split("?");
+  if (pathname !== "/fleet/gate" && !pathname.startsWith("/fleet/gate/")) return null;
+  const vehicle = new URLSearchParams(query).get("vehicle")?.trim();
+  return vehicle && /^[A-Za-z0-9_-]+$/.test(vehicle) ? `/vehicles/${vehicle}` : "/fleet";
 }
 
 /** In-app paths only. Absolute, protocol-relative, and script URLs are not notification targets. */
@@ -107,13 +118,14 @@ export function notificationNextAction(input: {
 }): string {
   const type = input.type ?? "";
   const title = input.title ?? "";
-  if (/gate/i.test(title) || /gate/i.test(type)) return "Open vehicle gate";
-  if (/verif/i.test(title) || /verif/i.test(type)) return "Open work order verification";
+  if (/gate/i.test(title) || /gate/i.test(type)) return "Open vehicle";
+  if (/verif/i.test(title) || /verif/i.test(type)) return "Open job supervisor check";
   if (type === "LOW_STOCK") return "Open parts";
-  if (type === "MAINTENANCE_DUE" || input.referenceType === "MaintenancePlan") return "Open PM plan";
-  if (input.referenceType === "WorkOrder" || type.startsWith("WORK_ORDER")) return "Open work order";
+  if (type === "MAINTENANCE_DUE" || input.referenceType === "MaintenancePlan") return "Open scheduled service plan";
+  if (input.referenceType === "WorkOrder" || type.startsWith("WORK_ORDER")) return "Open job";
   if (input.referenceType === "Vehicle") return "Open vehicle";
-  if (input.referenceType === "FacilityIssue") return "Open request";
+  if (input.referenceType === "FacilityIssue" || input.referenceType === "MaintenanceRequest") return "Open request";
+  if (input.referenceType === "WorkPermit") return "Open work permits";
   return "Open context";
 }
 

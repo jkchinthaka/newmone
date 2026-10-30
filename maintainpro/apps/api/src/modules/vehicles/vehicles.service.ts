@@ -44,6 +44,7 @@ import { canRecordFuel, canStartTrip } from "../policies/governance-policies";
 import { canVehicleGateOut } from "../policies/vehicle-policies";
 import { assertPolicy } from "../policies/policy-decision";
 import { evaluateVehicleEligibilityForNewFgRecord, fgFormAllowedVehicleTypes } from "./vehicle-eligibility";
+import { fuelEntryProblem } from "./fuel-checks";
 
 type VehicleListSortBy = "mileage" | "nextServiceDate" | "year" | "createdAt";
 
@@ -99,6 +100,13 @@ const MAX_LIST_PAGE_SIZE = 100;
 const DEFAULT_SERVICE_ALERT_DAYS = 14;
 const DEFAULT_SERVICE_ALERT_MILEAGE = 500;
 const MAX_METER_LOG_LIMIT = 500;
+
+/** Statuses an approved gate override may release from. */
+const GATE_OVERRIDE_CLAIMABLE_STATUSES: VehicleStatus[] = [
+  VehicleStatus.AVAILABLE,
+  VehicleStatus.UNDER_MAINTENANCE,
+  VehicleStatus.OUT_OF_SERVICE
+];
 
 @Injectable()
 export class VehiclesService {
@@ -762,7 +770,8 @@ export class VehiclesService {
       blockReasons.push("Vehicle is on a manual gate hold");
     }
 
-    const serviceEvaluation = this.evaluateServiceWindow(vehicle);
+    // Judge service due against the odometer reading presented at the gate, not the stored one.
+    const serviceEvaluation = this.evaluateServiceWindow({ ...vehicle, currentMileage: data.meterReading });
     if (serviceEvaluation.overdue) {
       blockReasons.push("Vehicle service is overdue");
     }
@@ -915,9 +924,16 @@ export class VehiclesService {
       serviceStatus: vehicle.serviceStatus
     });
 
+    // An approved override may release a vehicle held in maintenance/out of service, so claim the
+    // status it was evaluated in. IN_USE and DISPOSED are never claimable (active movement / retired).
+    const claimStatus =
+      movementStatus === GateMovementStatus.OVERRIDE_APPROVED && GATE_OVERRIDE_CLAIMABLE_STATUSES.includes(vehicle.status)
+        ? vehicle.status
+        : VehicleStatus.AVAILABLE;
+
     const result = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.vehicle.updateMany({
-        where: { id, tenantId, status: VehicleStatus.AVAILABLE },
+        where: { id, tenantId, status: claimStatus },
         data: {
           status: VehicleStatus.IN_USE,
           currentMileage: data.meterReading,
@@ -1052,10 +1068,29 @@ export class VehiclesService {
         });
       }
 
+      // A repair job can start while the vehicle is still out (status moves to UNDER_MAINTENANCE).
+      // It must still be able to come back in; it stays UNDER_MAINTENANCE until the job closes.
+      const lastMovement = await tx.vehicleGateMovement.findFirst({
+        where: {
+          vehicleId: id,
+          status: { in: [GateMovementStatus.ALLOWED, GateMovementStatus.OVERRIDE_APPROVED] }
+        },
+        orderBy: { occurredAt: "desc" },
+        select: { movementType: true }
+      });
+      const outForRepair =
+        vehicle.status === VehicleStatus.UNDER_MAINTENANCE && lastMovement?.movementType === GateMovementType.OUT;
+      // Work already started while it was out: it comes in to the workshop, not back to the pool.
+      const openRepairs = await tx.workOrder.count({
+        where: {
+          vehicleId: id,
+          status: { in: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD, WorkOrderStatus.REWORK_REQUIRED] }
+        }
+      });
       const claimed = await tx.vehicle.updateMany({
-        where: { id, status: VehicleStatus.IN_USE },
+        where: { id, status: outForRepair ? VehicleStatus.UNDER_MAINTENANCE : VehicleStatus.IN_USE },
         data: {
-          status: VehicleStatus.AVAILABLE,
+          status: outForRepair || openRepairs > 0 ? VehicleStatus.UNDER_MAINTENANCE : VehicleStatus.AVAILABLE,
           currentMileage: data.meterReading,
           serviceStatus
         }
@@ -1426,7 +1461,18 @@ export class VehiclesService {
 
   async fuelLog(
     id: string,
-    data: { driverId?: string; liters: number; costPerLiter: number; mileageAtFuel: number; fuelStation?: string; notes?: string; clientActionId?: string }
+    data: {
+      driverId?: string;
+      liters: number;
+      costPerLiter: number;
+      mileageAtFuel: number;
+      fuelStation?: string;
+      notes?: string;
+      clientActionId?: string;
+      priceReason?: string;
+    },
+    /** Stores the receipt photo once the entry passes every check; returns the stored key. */
+    saveReceipt?: () => Promise<string | null>
   ) {
     const vehicle = await this.findOne(id);
     const tenantId = this.currentTenantId();
@@ -1456,6 +1502,26 @@ export class VehiclesService {
       })
     );
 
+    // Tank size and usual price for this fuel (last 20 fills in the company).
+    const recent = await this.prisma.fuelLog.findMany({
+      where: { vehicle: { fuelType: (vehicle as { fuelType?: string }).fuelType, tenantId: requireTenantId(tenantId) } },
+      orderBy: { date: "desc" },
+      take: 20,
+      select: { costPerLiter: true }
+    });
+    const problem = fuelEntryProblem({
+      liters: Number(data.liters),
+      costPerLiter: Number(data.costPerLiter),
+      tankCapacity: (vehicle as { fuelCapacity?: number | null }).fuelCapacity,
+      recentPrices: recent.map((row) => Number(row.costPerLiter)),
+      priceReason: data.priceReason
+    });
+    if (problem) {
+      throw new BadRequestException({ code: problem.needsPriceReason ? "FUEL_PRICE_REASON_REQUIRED" : "FUEL_ENTRY_INVALID", message: problem.message });
+    }
+    const receiptKey = saveReceipt ? await saveReceipt() : null;
+    const priceNote = data.priceReason?.trim() ? `[price-check: ${data.priceReason.trim().slice(0, 200)}]` : "";
+
     const totalCost = data.liters * data.costPerLiter;
     const resolvedDriverId = await this.resolveFuelDriverId(data.driverId ?? vehicle.driverId ?? undefined);
 
@@ -1474,7 +1540,8 @@ export class VehiclesService {
         totalCost,
         mileageAtFuel: data.mileageAtFuel,
         fuelStation: data.fuelStation,
-        notes: data.notes,
+        receiptUrl: receiptKey,
+        notes: [priceNote, data.notes?.trim() ?? ""].filter(Boolean).join(" ") || null,
         clientActionId: data.clientActionId
       }
     });
@@ -2023,7 +2090,53 @@ export class VehiclesService {
     });
     if (!vehicle) throw new NotFoundException("Vehicle not found");
     const blockedReasons = await this.explainGateBlock(vehicle, tenantId);
-    return { vehicleId: id, blocked: blockedReasons.length > 0, blockedReasons };
+    const result = { vehicleId: id, blocked: blockedReasons.length > 0, blockedReasons };
+    await this.recordGateCheck(tenantId, id, result.blocked, blockedReasons);
+    return result;
+  }
+
+  async listGateChecks(date: string) {
+    const tenantId = this.currentTenantId();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new BadRequestException("date must be YYYY-MM-DD");
+    }
+    const start = new Date(`${date}T00:00:00.000+05:30`);
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+    const rows = await this.prisma.gateCheck.findMany({
+      where: { tenantId, createdAt: { gte: start, lt: end } },
+      orderBy: { createdAt: "desc" },
+      include: {
+        vehicle: { select: { registrationNo: true } },
+        checkedBy: { select: { firstName: true, lastName: true } }
+      }
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      vehicleId: row.vehicleId,
+      registrationNo: row.vehicle.registrationNo,
+      result: row.result,
+      reasons: row.reasons,
+      checkedBy: `${row.checkedBy.firstName} ${row.checkedBy.lastName}`.trim(),
+      createdAt: row.createdAt
+    }));
+  }
+
+  private async recordGateCheck(tenantId: string, vehicleId: string, blocked: boolean, reasons: string[]) {
+    const checkedById = requestContext.getActorId();
+    if (!checkedById || typeof this.prisma.gateCheck?.create !== "function") return;
+    try {
+      await this.prisma.gateCheck.create({
+        data: {
+          tenantId,
+          vehicleId,
+          checkedById,
+          result: blocked ? "BLOCKED" : "READY",
+          reasons: JSON.stringify(reasons)
+        }
+      });
+    } catch {
+      // History must not change the gate decision.
+    }
   }
 
   private async listGateQueueForTenant(

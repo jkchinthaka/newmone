@@ -7,7 +7,7 @@ import { myJobFilterHref } from "../my-job-filters";
 test("resolveRoleHome: PROCUREMENT_OFFICER resolves to the PROCUREMENT profile, not the REQUESTER fallback", () => {
   const profile = resolveRoleHome("PROCUREMENT_OFFICER");
   assert.equal(profile.roleKey, "PROCUREMENT");
-  assert.equal(profile.title, "Procurement Home");
+  assert.equal(profile.title, "Buying Home");
   const cardIds = profile.cards.map((c) => c.id);
   assert.ok(cardIds.includes("procurement-queue"));
   assert.ok(cardIds.includes("procurement-vendors"));
@@ -19,7 +19,7 @@ test("resolveRoleHome: technician-bucket roles -> TECHNICIAN profile", () => {
   assert.equal(resolveRoleHome("MECHANIC").roleKey, "TECHNICIAN");
 });
 
-test("technician My Work has four distinct job filters and no evidence or rework cards", () => {
+test("technician My Work has four distinct job filters and no photos or fix again cards", () => {
   const profile = resolveRoleHome("TECHNICIAN");
   assert.equal(profile.title, "My Work");
   assert.deepEqual(
@@ -78,11 +78,17 @@ test("resolveRoleHome: case-insensitive and trims whitespace", () => {
 test("manager report cards deep-link to distinct report views", () => {
   const profile = resolveRoleHome("MANAGER");
   const hrefs = new Map(profile.cards.map((card) => [card.id, card.href]));
-  assert.equal(hrefs.get("kpi-reports"), "/reports/performance");
-  assert.equal(hrefs.get("pm-compliance"), "/reports/performance?search=preventive");
+  assert.equal(hrefs.get("kpi-reports"), "/reports/operations");
+  assert.equal(hrefs.get("pm-compliance"), "/reports/operations?search=preventive");
   assert.equal(hrefs.get("downtime"), "/reports/assets?search=downtime");
-  assert.equal(hrefs.get("cost"), "/reports/financials");
+  assert.equal(hrefs.get("cost"), "/maintenance/jobs");
   assert.equal(hrefs.get("repeat-failures"), "/reports/maintenance-exceptions");
+});
+
+test("maintenance cost stays hidden when the role cannot open work-order insights", () => {
+  assert.equal(resolveRoleHome("MAINTENANCE_MANAGER").cards.some((card) => card.id === "cost"), false);
+  assert.equal(resolveRoleHome("FINANCE").cards.some((card) => card.id === "cost"), false);
+  assert.equal(resolveRoleHome("MANAGER").cards.some((card) => card.id === "cost"), true);
 });
 
 test("every ROLE_HOME_PROFILES entry has at least one card with a non-empty href", () => {

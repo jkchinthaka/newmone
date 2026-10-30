@@ -19,13 +19,13 @@ const SECTIONS = [
   },
   {
     href: "/admin/priority-sla",
-    title: "Priority / SLA Rules",
+    title: "Priority & Response Time Rules",
     description: "Response and completion targets — drives live work-order deadlines."
   },
   {
     href: "/admin/fault-codes",
     title: "Fault / Cause / Remedy",
-    description: "Failure library used on diagnosis and RCA."
+    description: "Failure library used on diagnosis and why it broke."
   },
   {
     href: "/admin/reason-codes",
@@ -40,12 +40,12 @@ const SECTIONS = [
   {
     href: "/admin/checklist-templates",
     title: "Checklist Templates",
-    description: "Versioned checklists with frozen snapshots on work orders."
+    description: "Versioned checklists with frozen snapshots on jobs."
   },
   {
     href: "/admin/maintenance-templates",
     title: "Maintenance Templates",
-    description: "Reusable job templates with immutable WO snapshots."
+    description: "Reusable job templates with immutable job snapshots."
   },
   {
     href: "/admin/feature-flags",
@@ -60,17 +60,17 @@ const SECTIONS = [
   {
     href: "/admin/reliability",
     title: "Reliability & Safety Policy",
-    description: "Repeat failure, asset criticality, RCA/CAPA, permit start gates."
+    description: "Repeat failure, asset importance, why it broke / Fix and prevent plan, work permit start gates."
   },
   {
     href: "/admin/work-permits",
     title: "Permit-to-Work",
-    description: "Issue and approve permits required before critical work starts."
+    description: "Issue and approve work permits required before critical work starts."
   },
   {
     href: "/admin/condition-monitoring",
     title: "Condition Monitoring",
-    description: "CBM threshold rules and open breach events."
+    description: "Alert limits from meter readings and open breach events."
   },
   {
     href: "/admin/approval-rules",
@@ -101,7 +101,7 @@ export default function AdminMaintenanceConfigPage() {
       <div>
         <h1 className="page-title">Maintenance settings</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Company defaults used across work orders, vendors and approvals.
+          Company defaults used across jobs, vendors and approvals.
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)]">
@@ -167,7 +167,7 @@ function DefaultTaxRateSetting() {
     >
       <h2 className="font-semibold">Default tax rate %</h2>
       <p className="mt-1 text-sm text-slate-600">
-        Used as the suggested VAT rate on vendor quotations and invoices. Each document can still use a different rate.
+        Used as the suggested VAT rate on vendor price quotes and invoices. Each document can still use a different rate.
       </p>
       <label className="mt-3 flex max-w-xs items-center gap-2 text-sm">
         <input

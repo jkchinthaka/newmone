@@ -1,5 +1,6 @@
 "use client";
 
+import { ProofPhotoInput } from "@/components/ui/proof-photo-input";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -84,6 +85,7 @@ import type {
   UtilityType,
   UtilityTypeFilter
 } from "./types";
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
 
 const meterFormSchema = z.object({
   meterNumber: z.string().trim().min(2, "Meter number is required"),
@@ -106,7 +108,7 @@ const billFormSchema = z
     meterId: z.string().min(1, "Meter is required"),
     billingPeriodStart: z.string().min(1, "Billing start date is required"),
     billingPeriodEnd: z.string().min(1, "Billing end date is required"),
-    totalConsumption: z.coerce.number().positive("Consumption must be greater than 0"),
+    totalConsumption: z.coerce.number().positive("Usage must be greater than 0"),
     ratePerUnit: z.coerce.number().positive("Rate must be greater than 0"),
     baseCharge: z.coerce.number().min(0).optional(),
     taxAmount: z.coerce.number().min(0).optional(),
@@ -135,8 +137,8 @@ function defaultAnalyticsFilters(): AnalyticsFilters {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
 
   return {
-    startDate: start.toISOString().slice(0, 10),
-    endDate: now.toISOString().slice(0, 10),
+    startDate: colomboTodayYmd(start),
+    endDate: colomboTodayYmd(now),
     utilityType: "ALL"
   };
 }
@@ -196,6 +198,7 @@ export default function UtilitiesDashboard() {
   const createMeterMutation = useCreateUtilityMeterMutation();
   const updateMeterMutation = useUpdateUtilityMeterMutation();
   const createReadingMutation = useCreateUtilityReadingMutation();
+  const [readingPhoto, setReadingPhoto] = useState<File | null>(null);
   const createBillMutation = useCreateUtilityBillMutation();
   const markBillPaidMutation = useMarkBillPaidMutation();
 
@@ -214,7 +217,7 @@ export default function UtilitiesDashboard() {
     resolver: zodResolver(readingFormSchema),
     defaultValues: {
       meterId: "",
-      readingDate: new Date().toISOString().slice(0, 10),
+      readingDate: colomboTodayYmd(),
       readingValue: 0,
       notes: "",
       images: ""
@@ -225,8 +228,8 @@ export default function UtilitiesDashboard() {
     resolver: zodResolver(billFormSchema),
     defaultValues: {
       meterId: "",
-      billingPeriodStart: new Date().toISOString().slice(0, 10),
-      billingPeriodEnd: new Date().toISOString().slice(0, 10),
+      billingPeriodStart: colomboTodayYmd(),
+      billingPeriodEnd: colomboTodayYmd(),
       totalConsumption: 0,
       ratePerUnit: 0,
       baseCharge: 0,
@@ -468,7 +471,7 @@ export default function UtilitiesDashboard() {
 
     readingForm.reset({
       meterId: defaultMeter,
-      readingDate: new Date().toISOString().slice(0, 10),
+      readingDate: colomboTodayYmd(),
       readingValue: 0,
       notes: "",
       images: ""
@@ -491,8 +494,9 @@ export default function UtilitiesDashboard() {
     }
 
     try {
-      await createReadingMutation.mutateAsync(values);
+      await createReadingMutation.mutateAsync({ ...values, photo: readingPhoto });
       toast.success("Meter reading added");
+      setReadingPhoto(null);
       setReadingModalOpen(false);
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -504,8 +508,8 @@ export default function UtilitiesDashboard() {
 
     billForm.reset({
       meterId: defaultMeter,
-      billingPeriodStart: new Date().toISOString().slice(0, 10),
-      billingPeriodEnd: new Date().toISOString().slice(0, 10),
+      billingPeriodStart: colomboTodayYmd(),
+      billingPeriodEnd: colomboTodayYmd(),
       totalConsumption: 0,
       ratePerUnit: 0,
       baseCharge: 0,
@@ -562,7 +566,7 @@ export default function UtilitiesDashboard() {
         <div>
           <h2 className="page-title">Utilities</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Live utility intelligence across meter operations, consumption tracking, and billing workflows.
+            Live utility intelligence across meter operations, usage tracking, and billing workflows.
           </p>
         </div>
         <button
@@ -602,7 +606,7 @@ export default function UtilitiesDashboard() {
             <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
               <TrendingUp className="mt-0.5" size={16} />
               <div>
-                <p className="font-semibold">Abnormal consumption spike detected</p>
+                <p className="font-semibold">Abnormal usage spike detected</p>
                 <p className="mt-1">
                   Latest spike on {spikes[0]?.meterNumber} at {formatDate(spikes[0]?.date)} with
                   consumption {formatQuantity(spikes[0]?.consumption ?? 0)}.
@@ -633,7 +637,7 @@ export default function UtilitiesDashboard() {
           icon={<Gauge size={18} />}
         />
         <StatCard
-          label="Current Month Consumption"
+          label="Current Month Usage"
           value={formatCompact(currentMonthConsumption)}
           supportingText="Across billed meters"
           icon={<Zap size={18} />}
@@ -683,7 +687,7 @@ export default function UtilitiesDashboard() {
       {activeTab === "overview" ? (
         <section className="grid gap-4 xl:grid-cols-3">
           <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
-            <h3 className="text-sm font-semibold text-slate-900">Monthly consumption trend by utility type</h3>
+            <h3 className="text-sm font-semibold text-slate-900">Monthly usage trend by utility type</h3>
             <div className="mt-4 h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={overviewConsumptionSeries}>
@@ -788,7 +792,7 @@ export default function UtilitiesDashboard() {
             <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Consumption over time</h3>
+                  <h3 className="text-sm font-semibold text-slate-900">Usage over time</h3>
                   <p className="mt-1 text-xs text-slate-500">
                     {selectedMeter.meterNumber} at {selectedMeter.location}
                   </p>
@@ -820,7 +824,7 @@ export default function UtilitiesDashboard() {
               )}
             </article>
           ) : (
-            <EmptyState title="No meter selected" description="Select a meter to see its consumption timeline." />
+            <EmptyState title="No meter selected" description="Select a meter to see its usage timeline." />
           )}
         </section>
       ) : null}
@@ -841,7 +845,7 @@ export default function UtilitiesDashboard() {
         <section className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
             <StatCard
-              label="Avg Consumption / Meter"
+              label="Avg Usage / Meter"
               value={`${formatQuantity(avgConsumptionPerMeter)} ${selectedMeter?.unit ?? ""}`.trim()}
               icon={<Droplets size={18} />}
               supportingText="Current month average"
@@ -853,7 +857,7 @@ export default function UtilitiesDashboard() {
               supportingText={
                 highestConsumingMeter
                   ? `${formatQuantity(highestConsumingMeter.consumption)} units`
-                  : "No consumption data"
+                  : "No usage data"
               }
             />
             <StatCard
@@ -1026,14 +1030,7 @@ export default function UtilitiesDashboard() {
             <span className="mt-1 block text-xs text-rose-600">{readingForm.formState.errors.readingValue?.message}</span>
           </label>
 
-          <label className="text-sm text-slate-700">
-            Image URLs
-            <input
-              {...readingForm.register("images")}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              placeholder="https://... (comma separated)"
-            />
-          </label>
+          <ProofPhotoInput label="Photo of the meter" hint="Needed to save. The number must be readable." file={readingPhoto} onChange={setReadingPhoto} />
 
           <label className="text-sm text-slate-700 md:col-span-2">
             Notes
@@ -1050,7 +1047,7 @@ export default function UtilitiesDashboard() {
       <ModalShell
         open={billModalOpen}
         title="Generate Utility Bill"
-        subtitle="Create a bill using billed consumption and utility rates."
+        subtitle="Create a bill using billed usage and utility rates."
         onClose={() => setBillModalOpen(false)}
         footer={
           <>
@@ -1122,7 +1119,7 @@ export default function UtilitiesDashboard() {
           </label>
 
           <label className="text-sm text-slate-700">
-            Total consumption
+            Total usage
             <input
               type="number"
               step="0.01"
@@ -1199,7 +1196,7 @@ export default function UtilitiesDashboard() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span>Consumption</span>
+              <span>Usage</span>
               <span className="font-medium">
                 {formatQuantity(billDetailsTarget.totalConsumption)} {billDetailsTarget.meter?.unit ?? ""}
               </span>

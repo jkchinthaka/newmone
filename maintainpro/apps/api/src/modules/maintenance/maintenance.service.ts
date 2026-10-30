@@ -24,6 +24,27 @@ function tenantFilterValue(tenantId: string | null): string {
   return tenantId ?? NO_TENANT_MATCH;
 }
 
+/** Fallback alert distance when a vehicle has no service interval. */
+export const SERVICE_MILEAGE_ALERT_FALLBACK_KM = 500;
+
+/**
+ * Service is "near" when the remaining distance to nextServiceMileage is within 10% of the
+ * vehicle's service interval (or 500 km without one) — not a share of the whole odometer.
+ */
+export function serviceMileageAlertWindow(input: {
+  nextServiceMileage?: number | null;
+  currentMileage?: number | null;
+  serviceIntervalMileage?: number | null;
+}): { remaining: number; threshold: number } | null {
+  const next = Number(input.nextServiceMileage ?? 0);
+  if (!Number.isFinite(next) || next <= 0) return null;
+  const current = Number(input.currentMileage ?? 0);
+  const interval = Number(input.serviceIntervalMileage ?? 0);
+  const threshold = Number.isFinite(interval) && interval > 0 ? interval * 0.1 : SERVICE_MILEAGE_ALERT_FALLBACK_KM;
+  const remaining = next - current;
+  return remaining <= threshold ? { remaining, threshold } : null;
+}
+
 @Injectable()
 export class MaintenanceService {
   constructor(
@@ -322,15 +343,21 @@ export class MaintenanceService {
     });
 
     for (const vehicle of vehicles) {
-      const nextMileage = Number(vehicle.nextServiceMileage ?? 0);
-      const currentMileage = Number(vehicle.currentMileage);
+      const window = serviceMileageAlertWindow({
+        nextServiceMileage: vehicle.nextServiceMileage,
+        currentMileage: vehicle.currentMileage,
+        serviceIntervalMileage: (vehicle as { serviceIntervalMileage?: number | null }).serviceIntervalMileage
+      });
 
-      if (nextMileage > 0 && currentMileage >= 0.8 * nextMileage) {
+      if (window) {
         alerts.push({
           id: `vehicle-mileage-${vehicle.id}`,
           type: "MILEAGE_THRESHOLD",
           riskLevel: RiskLevel.HIGH,
-          message: `Vehicle ${vehicle.registrationNo} exceeded 80% of next service mileage`,
+          message:
+            window.remaining <= 0
+              ? `Vehicle ${vehicle.registrationNo} is ${Math.round(-window.remaining)} km past its service mileage`
+              : `Vehicle ${vehicle.registrationNo} is ${Math.round(window.remaining)} km from its next service`,
           referenceId: vehicle.id
         });
       }

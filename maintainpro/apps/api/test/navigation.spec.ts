@@ -15,6 +15,9 @@ import {
 } from "../../web/lib/navigation";
 import { getPostLoginRedirect } from "../../web/lib/role-redirect";
 
+// Seeded SECURITY_OFFICER keys (plus the v1.0.3 request grant).
+const SECURITY_OFFICER_KEYS = ["dashboard.view", "vehicles.view", "gate.out.create", "gate.in.create", "maintenance_requests.create"];
+
 describe("navigation config (Phase 1 CMMS scope)", () => {
   it("exposes CMMS primary navigation for admin roles", () => {
     const hrefs = getVisibleNavigationItems("ADMIN").map((item) => item.href);
@@ -35,13 +38,14 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(hrefs).not.toContain("/billing");
   });
 
-  it("maps facility roles to Assets (facilities are not top-level)", () => {
+  it("keeps Assets away from facility roles the asset API does not admit (facilities are not top-level)", () => {
     const facilityManagerItems = getVisibleNavigationItems("FACILITY_MANAGER");
     const buildingSupervisorItems = getVisibleNavigationItems("BUILDING_SUPERVISOR");
     const cleanerItems = getVisibleNavigationItems("CLEANER");
 
-    expect(facilityManagerItems.map((item) => item.href)).toContain("/assets");
-    expect(buildingSupervisorItems.map((item) => item.href)).toContain("/assets");
+    // GET /assets @Roles has no facility roles, so the menu must not offer a page that returns 403.
+    expect(facilityManagerItems.map((item) => item.href)).not.toContain("/assets");
+    expect(buildingSupervisorItems.map((item) => item.href)).not.toContain("/assets");
     expect(cleanerItems.map((item) => item.href)).toContain("/notifications");
     expect(cleanerItems.map((item) => item.href)).not.toContain("/action-center");
     expect(cleanerItems.map((item) => item.href)).not.toContain("/facilities");
@@ -70,9 +74,10 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
   });
 
   it("maps supervisor roles to Requests, jobs, and PM", () => {
-    // Requests requires the list permission the API checks (seeded SUPERVISOR holds it).
+    // Requests and PM require the list permissions the API checks (seeded SUPERVISOR holds them;
+    // planning.view was granted on 2026-10-22).
     const supervisorItems = getVisibleNavigationItems("SUPERVISOR", {
-      permissions: ["maintenance_requests.view_own", "maintenance_requests.triage"]
+      permissions: ["maintenance_requests.view_own", "maintenance_requests.triage", "planning.view"]
     });
     const ids = supervisorItems.map((item) => item.id);
 
@@ -110,11 +115,14 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(ids).not.toContain("billing");
   });
 
-  it("maps security officer roles to Fleet", () => {
-    const securityItems = getVisibleNavigationItems("SECURITY_OFFICER");
+  it("maps security officer roles to Requests; the gate screen is retired from the UI", () => {
+    const securityItems = getVisibleNavigationItems("SECURITY_OFFICER", { permissions: SECURITY_OFFICER_KEYS });
     const ids = securityItems.map((item) => item.id);
 
-    expect(ids).toEqual(expect.arrayContaining(["fleet"]));
+    // The gate screen was removed from the UI; security officers report problems through Requests.
+    expect(ids).toEqual(expect.arrayContaining(["requests", "report-issue"]));
+    expect(ids).not.toContain("fleet-gate");
+    expect(ids).not.toContain("fleet");
     expect(ids).not.toContain("home");
     expect(ids).not.toContain("admin");
   });
@@ -182,7 +190,7 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     const inspections = NAVIGATION_ITEMS.find((item) => item.id === "inspections");
 
     expect(maintenance?.items.some((item) => item.id === "inspections")).toBe(false);
-    expect(planning?.label).toBe("Advanced Maintenance");
+    expect(planning?.label).toBe("Jobs");
     expect(planning?.items.map((item) => item.href)).toContain("/maintenance/inspections");
     expect(inspections?.allowedRoles).toEqual(
       NAVIGATION_ITEMS.find((item) => item.id === "all-jobs")?.allowedRoles
@@ -192,20 +200,19 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(EXISTING_NAV_ROUTES.has("/maintenance/inspections")).toBe(true);
   });
 
-  it("keeps reliability out of the primary maintenance menu", () => {
+  it("keeps reliability out of the daily work menu, under Reports & Analysis", () => {
     const groups = getNavigationGroups("MANAGER");
     const maintenance = groups.find((group) => group.category === "operations");
-    const advanced = groups.find((group) => group.category === "advanced");
+    const analysis = groups.find((group) => group.category === "safety");
     const categoryOf = (id: string) => NAVIGATION_ITEMS.find((item) => item.id === id)?.category;
 
     expect(maintenance?.items.some((item) => item.id === "reliability")).toBe(false);
-    expect(groups.some((group) => group.category === "safety")).toBe(false);
-    expect(categoryOf("all-jobs")).toBe("operations");
+    expect(categoryOf("all-jobs")).toBe("advanced");
     expect(categoryOf("requests")).toBe("operations");
-    expect(categoryOf("preventive-maintenance")).toBe("operations");
+    expect(categoryOf("preventive-maintenance")).toBe("advanced");
     expect(categoryOf("my-jobs")).toBe("operations");
-    expect(advanced?.label).toBe("Advanced Maintenance");
-    expect(advanced?.items.map((item) => item.href)).toContain("/maintenance/reliability");
+    expect(analysis?.label).toBe("Reports & Analysis");
+    expect(analysis?.items.map((item) => item.href)).toContain("/maintenance/reliability");
     expect(getVisibleNavigationItems("MANAGER").some((item) => item.id === "reliability")).toBe(true);
     expect(getVisibleNavigationItems("TECHNICIAN").some((item) => item.id === "reliability")).toBe(false);
     expect(canAccessNavigationPath("/maintenance/reliability", "MANAGER", [])).toBe(true);
@@ -213,14 +220,13 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(EXISTING_NAV_ROUTES.has("/maintenance/reliability")).toBe(true);
   });
 
-  it("keeps pending approvals out of the primary maintenance menu", () => {
+  it("lists pending approvals under Daily Work", () => {
     const groups = getNavigationGroups("MANAGER", { permissions: ["approvals.view"] });
-    const maintenance = groups.find((group) => group.category === "operations");
-    const planning = groups.find((group) => group.category === "advanced");
+    const daily = groups.find((group) => group.category === "operations");
     const approvals = NAVIGATION_ITEMS.find((item) => item.id === "approvals");
 
-    expect(maintenance?.items.some((item) => item.id === "approvals")).toBe(false);
-    expect(planning?.items.map((item) => item.href)).toContain("/approvals");
+    expect(daily?.label).toBe("Daily Work");
+    expect(daily?.items.map((item) => item.href)).toContain("/approvals");
     expect(approvals?.requiredPermissions).toEqual(["approvals.view"]);
     expect(approvals?.href).toBe("/approvals");
     expect(getVisibleNavigationItems("MANAGER", { permissions: ["approvals.view"] }).some((item) => item.id === "approvals")).toBe(true);
@@ -284,9 +290,11 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
   });
 
   it("provides role default favorites", () => {
-    expect(getDefaultFavoriteNavIds("TECHNICIAN")).toEqual(
-      expect.arrayContaining(["all-jobs"])
-    );
+    // My Jobs is the technician's main entry (same work as Work Orders > My Tasks).
+    expect(getDefaultFavoriteNavIds("TECHNICIAN")[0]).toBe("my-jobs");
+    expect(getDefaultFavoriteNavIds("TECHNICIAN")).not.toContain("all-jobs");
+    // Security officers cannot open the fleet overview; they report problems through Requests.
+    expect(getDefaultFavoriteNavIds("SECURITY_OFFICER")).toEqual(["requests", "report-issue"]);
     expect(getDefaultFavoriteNavIds("TECHNICIAN")).not.toContain("home");
     expect(getDefaultFavoriteNavIds("INVENTORY_KEEPER")).toEqual(
       expect.arrayContaining(["spare-parts"])
@@ -307,7 +315,24 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     const technicianMobile = getMobileBottomNavItems("TECHNICIAN");
     expect(technicianMobile.some((item) => item.id === "home")).toBe(false);
     expect(technicianMobile.some((item) => item.action === "search")).toBe(true);
-    expect(technicianMobile.some((item) => item.id === "work-orders")).toBe(true);
+    // First tab is the login home for the role.
+    expect(technicianMobile[0]).toEqual(expect.objectContaining({ id: "my-jobs", label: "My Jobs", href: "/work-orders/my" }));
+    const inventoryMobile = getMobileBottomNavItems("INVENTORY_KEEPER");
+    expect(inventoryMobile[0]).toEqual(expect.objectContaining({ label: "Parts", href: "/inventory" }));
+    const securityMobile = getMobileBottomNavItems("SECURITY_OFFICER", { permissions: SECURITY_OFFICER_KEYS });
+    expect(securityMobile[0]).toEqual(expect.objectContaining({ id: "requests", label: "Requests", href: "/requests" }));
+    expect(securityMobile.some((item) => item.href.startsWith("/fleet"))).toBe(false);
+  });
+
+  it("keeps the domain job lanes out of the technician menu but not the manager menu", () => {
+    const lanes = ["machinery-jobs", "service-jobs", "vehicle-jobs"];
+    const technicianIds = getVisibleNavigationItems("TECHNICIAN").map((item) => item.id);
+    for (const id of lanes) expect(technicianIds).not.toContain(id);
+    expect(technicianIds).toContain("my-jobs");
+    const managerIds = getVisibleNavigationItems("MANAGER").map((item) => item.id);
+    for (const id of lanes) expect(managerIds).toContain(id);
+    // Deep links still open for technicians.
+    expect(canAccessNavigationPath("/maintenance/jobs/machinery", "TECHNICIAN", [])).toBe(true);
   });
 
   it("does not invent FG records in mobile nav without FG access", () => {
@@ -322,7 +347,8 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
 
     expect(inventory?.items.some((item) => item.id === "spare-parts")).toBe(true);
     expect(inventory?.items.some((item) => item.id === "erp-integration" || item.id === "maintenance-supply")).toBe(false);
-    expect(admin?.items.map((item) => item.id)).toEqual(expect.arrayContaining(["erp-integration", "maintenance-supply"]));
+    // Short menus: ERP Sync and ERP Part Codes open from Admin Console (quick actions), not the side menu.
+    expect(admin?.items.map((item) => item.id)).toEqual(["admin"]);
     expect(canAccessNavigationPath("/erp", "ADMIN", [])).toBe(true);
     expect(canAccessNavigationPath("/maintenance-supply", "ADMIN", [])).toBe(true);
     expect(canAccessNavigationPath("/erp", "INVENTORY_KEEPER", [])).toBe(false);

@@ -1,3 +1,4 @@
+import { ProofPhotoService } from "../src/modules/evidence/proof-photo.service";
 import "reflect-metadata";
 
 import { INestApplication, Module } from "@nestjs/common";
@@ -38,10 +39,15 @@ const createPrismaMockBundle = (): PrismaMockBundle => {
       findFirst: jest.fn()
     },
     vehicleGateMovement: {
-      create: jest.fn()
+      create: jest.fn(),
+      // No previous movement: the vehicle is not already inside.
+      findFirst: jest.fn().mockResolvedValue(null)
     },
     vehicleMeterLog: {
       create: jest.fn()
+    },
+    workOrder: {
+      count: jest.fn().mockResolvedValue(0)
     },
     tripLog: {
       findFirst: jest.fn(),
@@ -164,6 +170,7 @@ const buildVehicle = (overrides: Record<string, unknown> = {}) => ({
   providers: [
     VehiclesService,
     Reflector,
+    { provide: ProofPhotoService, useValue: { requireAndSave: jest.fn().mockResolvedValue(null) } },
     {
       provide: PrismaService,
       useValue: prisma

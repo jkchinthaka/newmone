@@ -93,7 +93,7 @@ test("maintenance dashboard renders fetched counts instead of crashing", async (
   client.clear();
 });
 
-test("maintenance dashboard shows an error state when the API fails", async () => {
+test("maintenance dashboard keeps the last data and shows a refresh banner when a poll fails", async () => {
   const page = await loadDashboardPage();
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, refetchInterval: false } }
@@ -107,6 +107,32 @@ test("maintenance dashboard shows an error state when the API fails", async () =
   assert.ok(cached);
   cached.setState({
     ...cached.state,
+    status: "error",
+    fetchStatus: "idle",
+    error: Object.assign(new Error("unavailable"), { response: { status: 503 } })
+  });
+  const html = renderDashboard(page, client);
+  assert.match(html, /Could not refresh the dashboard/);
+  assert.match(html, />3</);
+  assert.doesNotMatch(html, /Unable to load maintenance dashboard/);
+  client.clear();
+});
+
+test("maintenance dashboard shows an error state when the API fails with nothing loaded", async () => {
+  const page = await loadDashboardPage();
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, retryOnMount: false, refetchInterval: false } }
+  });
+  const queryKey = withTenantScope(["maintenance", "dashboard", "d6"]);
+  await client.prefetchQuery({
+    queryKey,
+    queryFn: async () => dashboardFixture
+  });
+  const cached = client.getQueryCache().find({ queryKey });
+  assert.ok(cached);
+  cached.setState({
+    ...cached.state,
+    data: undefined,
     status: "error",
     fetchStatus: "idle",
     error: Object.assign(new Error("unavailable"), { response: { status: 503 } })
@@ -140,6 +166,8 @@ test("maintenance queries do not retry terminal auth or unavailable responses", 
   assert.equal(shouldRetryMaintenanceQuery(0, { response: { status: 503 } }), false);
   assert.equal(shouldRetryMaintenanceQuery(0, new Error("network")), true);
   assert.equal(shouldRetryMaintenanceQuery(1, new Error("network")), false);
-  assert.equal(maintenanceRefetchInterval({ state: { error: new Error("down") } }), false);
-  assert.equal(maintenanceRefetchInterval({ state: { error: null } }), 60_000);
+  // A failed poll no longer stops polling; the dashboard keeps its last data and retries on the next live refresh.
+  assert.equal(maintenanceRefetchInterval({ state: { error: new Error("down") } }), 30_000);
+  assert.equal(maintenanceRefetchInterval({ state: { error: { response: { status: 403 } } } }), false);
+  assert.equal(maintenanceRefetchInterval({ state: { error: null } }), 30_000);
 });

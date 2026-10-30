@@ -66,6 +66,7 @@ export const PERMISSION_CATALOG = [
   // Backward-compatible / module-level keys already used by other modules
   "users.manage",
   "modules.view_all",
+  "assets.view",
   "assets.manage",
   "work_orders.manage",
   "work_orders.update_status",

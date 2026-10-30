@@ -15,6 +15,7 @@ import { ErpMonitoringService } from "./erp-monitoring.service";
 import { ReportTemplatesService } from "./report-templates.service";
 import type { ReportTemplateDefinition } from "./report-kpi";
 import { MaintenanceCostQueryService } from "./maintenance-cost.query";
+import { displayJobNumbers } from "../../common/job-number-display";
 
 type AuthedRequest = { user: JwtPayload };
 
@@ -53,7 +54,7 @@ export class ReportsController {
   @Permissions("reports.view")
   async exportMaintenanceCosts(@Req() req: AuthedRequest, @Query() query: Record<string, string>, @Res() res: Response) {
     const result = await this.maintenanceCosts.list(req.user, { ...query, page: "1", pageSize: "5000" });
-    const header = ["WO number", "Title", "Status", "Asset", "Period parts", "Period labour", "Period services", "Period total", "Currency", "Completeness", "Lifetime actual", "Variance amount", "Variance percent", "Variance label"];
+    const header = ["Job order no", "Title", "Status", "Asset", "Period parts", "Period labour", "Period services", "Period total", "Currency", "Completeness", "Lifetime actual", "Variance amount", "Variance percent", "Variance label"];
     const lines = [
       header.join(","),
       ...result.items.map((job) =>
@@ -77,7 +78,7 @@ export class ReportsController {
     ];
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", contentDispositionAttachment("maintenance-costs.csv"));
-    res.send(lines.join("\n"));
+    res.send(displayJobNumbers(lines.join("\n")));
   }
 
   @Get("maintenance-costs")

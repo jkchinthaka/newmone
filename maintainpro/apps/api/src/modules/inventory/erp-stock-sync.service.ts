@@ -1,4 +1,4 @@
-import { Injectable, Optional } from "@nestjs/common";
+import { BadRequestException, Injectable, Optional } from "@nestjs/common";
 
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { PrismaService } from "../../database/prisma.service";
@@ -14,6 +14,7 @@ import {
   MaintainProPartSnapshot
 } from "./erp-stock-sync.mapper";
 import { InventoryTransactionEngine } from "./inventory-transaction.engine";
+import { MAINTAINPRO_STOCK_SOURCE } from "./verified-stock-availability";
 
 type Actor = Pick<JwtPayload, "sub" | "tenantId">;
 
@@ -102,10 +103,29 @@ export class ErpStockSyncService {
     });
   }
 
+  /**
+   * When the company keeps its stock in MaintainPro (goods in), an ERP snapshot must not overwrite
+   * it: ERP applies adjust the default store.
+   */
+  private async assertErpOwnsStock(actor?: Actor) {
+    const warehouses = (this.prisma as { warehouse?: { findFirst?: unknown } }).warehouse;
+    if (typeof warehouses?.findFirst !== "function" || !actor?.tenantId) return;
+    const owned = await this.prisma.warehouse.findFirst({
+      where: { tenantId: actor.tenantId, isActive: true, isDefault: true, stockSource: MAINTAINPRO_STOCK_SOURCE },
+      select: { id: true }
+    });
+    if (owned) {
+      throw new BadRequestException(
+        "Stock for this company is kept in MaintainPro (Goods in). ERP stock apply is turned off so it cannot overwrite it."
+      );
+    }
+  }
+
   async applyStockSnapshot(
     actor?: Actor,
     options?: ApplyStockSnapshotOptions
   ): Promise<ErpStockSyncApplyResult> {
+    await this.assertErpOwnsStock(actor);
     const lockKey = `tenant:${actor?.tenantId ?? "none"}`;
     return this.withApplyLock(lockKey, () => this.runApplyStockSnapshot(actor, options));
   }
@@ -172,6 +192,7 @@ export class ErpStockSyncService {
     erpBalances: StockBalanceSnapshot[],
     options: ApplyAbsoluteStockBalancesOptions
   ): Promise<ErpStockSyncApplyResult> {
+    await this.assertErpOwnsStock(actor);
     const lockKey = `tenant:${actor?.tenantId ?? "none"}`;
     return this.withApplyLock(lockKey, () =>
       this.runApplyAbsoluteStockBalances(actor, erpBalances, options)
@@ -342,7 +363,7 @@ export class ErpStockSyncService {
           onHand: true,
           warehouseId: true,
           warehouse: { select: { id: true, code: true } },
-          part: { select: { id: true, partNumber: true, name: true, isActive: true } }
+          part: { select: { id: true, partNumber: true, erpCode: true, name: true, isActive: true } }
         },
         orderBy: [{ part: { partNumber: "asc" } }, { warehouse: { code: "asc" } }]
       });
@@ -352,6 +373,7 @@ export class ErpStockSyncService {
         .map((row) => ({
           id: row.part.id,
           partNumber: row.part.partNumber,
+          erpCode: row.part.erpCode,
           name: row.part.name,
           quantityInStock: row.onHand,
           warehouseId: row.warehouseId,
@@ -366,7 +388,7 @@ export class ErpStockSyncService {
     // Fallback when warehouse balances are not yet populated — still tenant-scoped.
     const parts = await this.prisma.sparePart.findMany({
       where: { tenantId, isActive: true },
-      select: { id: true, partNumber: true, name: true, quantityInStock: true },
+      select: { id: true, partNumber: true, erpCode: true, name: true, quantityInStock: true },
       orderBy: { partNumber: "asc" }
     });
     return parts.map((part) => ({

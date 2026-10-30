@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -7,10 +8,13 @@ import { useParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
-import { EntityPicker } from "@/components/ui/entity-picker";
 import { ResponsivePageHeader } from "@/components/ui/responsive-page-header";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import { ConfirmFixedCard } from "@/components/requests/confirm-fixed-card";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { useLiveRefresh } from "@/lib/live-data";
+import { canAnswerConfirmation, confirmationAnsweredLabel } from "@/lib/requester-confirmation";
 import { useCurrentUser } from "@/lib/use-current-user";
 import {
   approveRequest,
@@ -34,11 +38,14 @@ import {
   requestHistoryActionLabel,
   requestNextStep,
   requestResolutionLabel,
+  requestListStatusLabel,
   requestStatusLabel,
   requestValueLabel,
   requesterFacingStatus
 } from "@/lib/maintenance-request-ui";
 
+
+/** What a reviewer can confirm for a "Not sure" request. */
 type TargetKind = "asset" | "vehicle" | "location";
 
 type Detail = Record<string, unknown> & {
@@ -105,6 +112,9 @@ function BlockedNote({ reason }: { reason: string | null }) {
   return <p className="text-xs text-amber-800">{reason}</p>;
 }
 
+/** Reviewers who may answer "Is it fixed?" for a reporter (same rule as the API). */
+const CONFIRM_ON_BEHALF_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "OPERATIONS_MANAGER"]);
+
 export default function RequestDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -120,24 +130,25 @@ export default function RequestDetailPage() {
   const [requesterResponse, setRequesterResponse] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [triageNotes, setTriageNotes] = useState("");
-  const [priority, setPriority] = useState("MEDIUM");
-  const [priorityReason, setPriorityReason] = useState("");
   const [targetKind, setTargetKind] = useState<TargetKind>("asset");
   const [targetId, setTargetId] = useState<string | null>(null);
+  const [priority, setPriority] = useState("MEDIUM");
+  const [priorityReason, setPriorityReason] = useState("");
   const [dupes, setDupes] = useState<MaintenanceRequestListItem[]>([]);
   const [canonicalDupId, setCanonicalDupId] = useState("");
   const [dupReason, setDupReason] = useState("");
 
-  const load = useCallback(async () => {
-    setError(null);
+  const load = useCallback(async (options: { silent?: boolean } = {}) => {
+    if (!options.silent) setError(null);
     try {
       const data = (await getMaintenanceRequest(id)) as Detail;
       setDetail(data);
+      // A background refresh updates the request but keeps what the reviewer is typing.
+      if (options.silent) return;
       setPriority(String(data.priority || "MEDIUM"));
       setPriorityReason("");
       setTriageNotes(String(data.triageNotes || ""));
       setTargetId(null);
-      setTargetKind(data.vehicle ? "vehicle" : data.asset ? "asset" : data.functionalLocation ? "location" : "asset");
       if (isActionAllowed(data.allowedActions, "markDuplicate")) {
         try {
           const candidates = await fetchDuplicateCandidates(id);
@@ -149,9 +160,10 @@ export default function RequestDetailPage() {
         setDupes([]);
       }
     } catch (err) {
-      setError(getApiErrorMessage(err, "Unable to load this request."));
+      // A failed background refresh keeps the request already on screen.
+      if (!options.silent) setError(getApiErrorMessage(err, "Unable to load this request."));
     } finally {
-      setLoading(false);
+      if (!options.silent) setLoading(false);
     }
   }, [id]);
 
@@ -159,6 +171,8 @@ export default function RequestDetailPage() {
     setLoading(true);
     void load();
   }, [load]);
+
+  useLiveRefresh(() => load({ silent: true }), { enabled: !busy });
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
@@ -234,6 +248,9 @@ export default function RequestDetailPage() {
           ? `Not sure${detail.approximateLocation ? ` · ${detail.approximateLocation}` : ""}`
           : "—";
 
+  // The item picker is shown only when the reporter chose "Not sure" (or no item is linked).
+  const needsTarget = Boolean(detail.targetUnresolved) || !hasTarget;
+
   const saveTriage = () => {
     const body: Record<string, unknown> = {
       priority,
@@ -241,15 +258,15 @@ export default function RequestDetailPage() {
       reason: priorityChanged ? priorityReason.trim() : undefined,
       isEmergency: detail.isEmergency
     };
-    if (targetId) {
-      // A newly confirmed target replaces the previous one; site is re-derived from an asset.
+    if (needsTarget && targetId) {
+      // Only a "Not sure" request gets its item here; the site is re-derived from a machine.
       body.assetId = targetKind === "asset" ? targetId : null;
       body.vehicleId = targetKind === "vehicle" ? targetId : null;
       body.functionalLocationId = targetKind === "location" ? targetId : null;
       if (targetKind === "asset") body.siteId = null;
       body.targetUnresolved = false;
     }
-    void run(() => triageRequest(id, body), targetId ? "Triage saved and target confirmed" : "Triage saved");
+    void run(() => triageRequest(id, body), needsTarget && targetId ? "Item confirmed and review saved" : "Review saved");
   };
 
   const governancePanel =
@@ -280,7 +297,7 @@ export default function RequestDetailPage() {
               href={`/work-orders?wo=${detail.workOrder.id}` as Route}
               className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium"
             >
-              Open work order {detail.workOrder.woNumber}
+              Open job {detail.workOrder.woNumber}
             </Link>
           ) : null
         }
@@ -292,12 +309,30 @@ export default function RequestDetailPage() {
       >
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-current/20 bg-white/70 px-2 py-0.5 text-xs font-semibold">
-            {requestStatusLabel(detail.status)}
+            {requestListStatusLabel(detail.status, detail.workOrder?.status)}
           </span>
           <p className="font-semibold">{nextStep.title}</p>
         </div>
         {nextStep.detail ? <p className="mt-1 text-sm">{nextStep.detail}</p> : null}
       </section>
+
+      {detail.workOrder &&
+      canAnswerConfirmation({
+        workOrder: detail.workOrder,
+        isOwner,
+        canReview: CONFIRM_ON_BEHALF_ROLES.has(String(user.role ?? "").toUpperCase())
+      }) ? (
+        <ConfirmFixedCard
+          requestId={detail.id}
+          woNumber={detail.workOrder.woNumber}
+          onBehalf={!isOwner}
+          onDone={load}
+        />
+      ) : isOwner && confirmationAnsweredLabel(detail.workOrder) ? (
+        <p className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">
+          {confirmationAnsweredLabel(detail.workOrder)}
+        </p>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
@@ -420,7 +455,7 @@ export default function RequestDetailPage() {
                       ) : null}
                     </div>
                     <div className="text-xs text-slate-500">
-                      {new Date(h.createdAt).toLocaleString()}
+                      {lkDateTime(h.createdAt)}
                       {h.actorName ? ` · ${h.actorName}` : ""}
                       {h.toStatus ? ` · now ${requestStatusLabel(h.toStatus)}` : ""}
                     </div>
@@ -436,10 +471,10 @@ export default function RequestDetailPage() {
           <section className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
             <h2 className="mb-2 font-semibold">Reported by</h2>
             <p>{detail.reportedBy?.name || "—"}</p>
-            <p className="text-slate-500">{detail.reportedAt ? new Date(detail.reportedAt).toLocaleString() : "—"}</p>
+            <p className="text-slate-500">{detail.reportedAt ? lkDateTime(detail.reportedAt) : "—"}</p>
             {detail.workOrder && (!isOwner || governancePanel) ? (
               <Link href={`/work-orders?wo=${detail.workOrder.id}` as Route} className="mt-3 inline-flex min-h-11 items-center font-medium text-brand-700">
-                Open work order {detail.workOrder.woNumber}
+                Open job {detail.workOrder.woNumber}
               </Link>
             ) : detail.workOrder ? (
               <p className="mt-3 text-slate-700">
@@ -466,72 +501,78 @@ export default function RequestDetailPage() {
 
               {allowed("triage") ? (
                 <div className="space-y-2">
-                  <fieldset className="space-y-2">
-                    <legend className="text-sm font-medium">
-                      {detail.targetUnresolved || !hasTarget ? "Confirm the maintenance target" : "Change the maintenance target"}
-                    </legend>
-                    <div className="grid grid-cols-3 gap-1" role="radiogroup" aria-label="Target type">
-                      {(
-                        [
-                          ["asset", "Machine"],
-                          ["vehicle", "Vehicle"],
-                          ["location", "Location"]
-                        ] as const
-                      ).map(([kind, label]) => (
-                        <button
-                          key={kind}
-                          type="button"
-                          role="radio"
-                          aria-checked={targetKind === kind}
-                          className={`min-h-11 rounded-lg border text-sm ${
-                            targetKind === kind ? "border-brand-500 bg-white font-semibold" : "border-slate-200 bg-white/60"
-                          }`}
-                          onClick={() => {
-                            setTargetKind(kind);
-                            setTargetId(null);
-                          }}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    {targetKind === "asset" ? (
-                      <EntityPicker
-                        key="asset"
-                        endpoint="/assets"
-                        searchParam="search"
-                        pageSizeParam="limit"
-                        value={targetId}
-                        onChange={(value) => setTargetId(value)}
-                        displayField="name"
-                        secondaryField="assetTag"
-                        placeholder="Search machines by name or tag"
-                      />
-                    ) : targetKind === "vehicle" ? (
-                      <EntityPicker
-                        key="vehicle"
-                        endpoint="/vehicles"
-                        value={targetId}
-                        onChange={(value) => setTargetId(value)}
-                        displayField="registrationNo"
-                        secondaryField="vehicleModel"
-                        placeholder="Search vehicles by registration"
-                      />
-                    ) : (
-                      <EntityPicker
-                        key="location"
-                        endpoint="/organization/locations"
-                        value={targetId}
-                        onChange={(value) => setTargetId(value)}
-                        displayField="name"
-                        secondaryField="code"
-                        placeholder="Search functional locations"
-                      />
-                    )}
-                    {detail.approximateLocation ? (
-                      <p className="text-xs text-slate-600">Requester described: {detail.approximateLocation}</p>
-                    ) : null}
-                  </fieldset>
+                  {needsTarget ? (
+                    <fieldset className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <legend className="px-1 text-sm font-semibold text-amber-950">Confirm the item</legend>
+                      <p className="text-xs text-amber-900">
+                        The reporter was not sure which machine, vehicle or location has the problem. Choose it, then
+                        save the review before accepting.
+                      </p>
+                      {detail.approximateLocation ? (
+                        <p className="text-xs text-slate-700">Reporter described: {detail.approximateLocation}</p>
+                      ) : null}
+                      <div className="grid grid-cols-3 gap-1" role="radiogroup" aria-label="Item type">
+                        {(
+                          [
+                            ["asset", "Machine"],
+                            ["vehicle", "Vehicle"],
+                            ["location", "Location"]
+                          ] as const
+                        ).map(([kind, label]) => (
+                          <button
+                            key={kind}
+                            type="button"
+                            role="radio"
+                            aria-checked={targetKind === kind}
+                            className={`min-h-11 rounded-lg border text-sm ${
+                              targetKind === kind ? "border-brand-500 bg-white font-semibold" : "border-slate-200 bg-white/60"
+                            }`}
+                            onClick={() => {
+                              setTargetKind(kind);
+                              setTargetId(null);
+                            }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      {targetKind === "asset" ? (
+                        <EntityPicker
+                          key="asset"
+                          endpoint="/assets"
+                          searchParam="search"
+                          pageSizeParam="limit"
+                          value={targetId}
+                          onChange={(value) => setTargetId(value)}
+                          displayField="name"
+                          secondaryField="assetTag"
+                          placeholder="Search machines by name or tag"
+                        />
+                      ) : targetKind === "vehicle" ? (
+                        <EntityPicker
+                          key="vehicle"
+                          endpoint="/vehicles"
+                          value={targetId}
+                          onChange={(value) => setTargetId(value)}
+                          displayField="registrationNo"
+                          secondaryField="vehicleModel"
+                          placeholder="Search vehicles by registration"
+                        />
+                      ) : (
+                        <EntityPicker
+                          key="location"
+                          // Request-scoped lookup: reviewers need not hold organization.view.
+                          endpoint="/maintenance-requests/location-lookup"
+                          searchParam="q"
+                          value={targetId}
+                          onChange={(value) => setTargetId(value)}
+                          displayField="name"
+                          secondaryField="code"
+                          placeholder="Search functional locations"
+                        />
+                      )}
+                    </fieldset>
+                  ) : null}
 
                   <label className="block text-sm font-medium">
                     Priority
@@ -554,7 +595,7 @@ export default function RequestDetailPage() {
                   ) : null}
                   <textarea
                     className="min-h-20 w-full rounded-lg border border-slate-300 p-2 text-sm"
-                    aria-label="Internal triage notes"
+                    aria-label="Internal review notes"
                     placeholder="Internal notes (not shown to the requester)"
                     value={triageNotes}
                     onChange={(e) => setTriageNotes(e.target.value)}
@@ -565,7 +606,7 @@ export default function RequestDetailPage() {
                     className="min-h-11 w-full rounded-lg border border-slate-300 bg-white text-sm font-medium disabled:opacity-40"
                     onClick={saveTriage}
                   >
-                    Save triage
+                    Save review
                   </button>
                 </div>
               ) : null}
@@ -597,13 +638,13 @@ export default function RequestDetailPage() {
                           toast.message(
                             result.alreadyConverted
                               ? `Already linked to ${result.workOrder.woNumber}`
-                              : `Created work order ${result.workOrder.woNumber}`
+                              : `Created job ${result.workOrder.woNumber}`
                           );
                         }
-                      }, "Work order created")
+                      }, "Job created")
                     }
                   >
-                    Create work order
+                    Create job
                   </button>
                   <BlockedNote reason={actionBlockedReason(actions, "convert")} />
                 </div>
@@ -703,7 +744,7 @@ export default function RequestDetailPage() {
               {allowed("close") ? (
                 <details className="border-t border-brand-100 pt-3">
                   <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-red-800">
-                    Close without a work order
+                    Close without a job
                   </summary>
                   <div className="mt-2 space-y-2">
                     <select
@@ -732,7 +773,7 @@ export default function RequestDetailPage() {
                       onClick={() =>
                         void run(
                           () => rejectRequest(id, { reasonType: closeType, reason: closeReason.trim() || undefined }),
-                          "Request closed without a work order"
+                          "Request closed without a job"
                         )
                       }
                     >

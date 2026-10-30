@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { Bell, CreditCard, Menu, Search, UserCircle2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -10,6 +11,7 @@ import { PRODUCT_NAME } from "@/lib/branding";
 import { useNotificationsSocket } from "@/hooks/use-notifications-socket";
 import { clearAuthSession } from "@/lib/auth-storage";
 import { apiClient } from "@/lib/api-client";
+import { LIVE_REFRESH_INTERVAL_MS, notifyDataChanged } from "@/lib/live-data";
 import { getVisibleNavigationItems } from "@/lib/navigation";
 import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
@@ -62,8 +64,9 @@ export function Topbar({
   const queryClient = useQueryClient();
   const currentUser = useCurrentUser();
   const roleName = extractRoleName({ role: currentUser.role });
-  const canViewBilling = getVisibleNavigationItems(roleName, { permissions: currentUser.permissions }).some(
-    (item) => item.id === "billing"
+  const canViewBilling = useMemo(
+    () => getVisibleNavigationItems(roleName, { permissions: currentUser.permissions }).some((item) => item.id === "billing"),
+    [roleName, currentUser.permissions]
   );
 
   const unreadQuery = useQuery({
@@ -79,12 +82,16 @@ export function Topbar({
 
       return Number(response.data.meta?.total ?? response.data.data?.items?.length ?? 0);
     },
-    refetchInterval: 30_000,
-    staleTime: 10_000
+    // The notifications socket invalidates this count live; polling is the fallback.
+    refetchInterval: LIVE_REFRESH_INTERVAL_MS,
+    staleTime: 30_000
   });
 
   useNotificationsSocket((payload) => {
     queryClient.invalidateQueries({ queryKey: TOPBAR_UNREAD_QUERY_KEY });
+    // A new notification means someone changed a job, request or approval: refresh what is open now
+    // instead of waiting for the next poll. Each tab has its own socket, so this stays in this tab.
+    notifyDataChanged("/notifications", { broadcast: false });
 
     if (payload && typeof payload === "object" && "title" in payload) {
       const title = (payload as Record<string, unknown>).title;

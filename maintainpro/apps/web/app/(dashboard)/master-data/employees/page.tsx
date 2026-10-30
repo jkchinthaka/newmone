@@ -1,5 +1,7 @@
 "use client";
 
+import { ButtonSpinner, TableLoadingRows } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/page-state";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -39,7 +41,6 @@ interface FormState {
   departmentId: string | null;
   designation: string;
   skills: string;
-  dailyCapacityHours: string;
   active: boolean;
   canLogin: boolean;
   canReceiveWorkOrders: boolean;
@@ -55,7 +56,6 @@ const EMPTY_FORM: FormState = {
   departmentId: null,
   designation: "TECHNICIAN",
   skills: "",
-  dailyCapacityHours: "8",
   active: true,
   canLogin: false,
   canReceiveWorkOrders: true,
@@ -67,6 +67,7 @@ export default function WorkforceEmployeesPage() {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [items, setItems] = useState<EmployeeRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -86,8 +87,9 @@ export default function WorkforceEmployeesPage() {
         }
       });
       setItems(Array.isArray(response.data?.data) ? response.data.data : []);
+      setLoadError(null);
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to load employees."));
+      setLoadError(err);
     } finally {
       setLoading(false);
     }
@@ -118,11 +120,6 @@ export default function WorkforceEmployeesPage() {
       toast.error("Designation is required");
       return;
     }
-    const capacity = Number(form.dailyCapacityHours);
-    if (!Number.isFinite(capacity) || capacity <= 0) {
-      toast.error("Daily capacity hours must be greater than 0");
-      return;
-    }
     if (form.canLogin && !form.email.trim()) {
       toast.error("Email is required when login access is enabled");
       return;
@@ -142,7 +139,6 @@ export default function WorkforceEmployeesPage() {
           .split(",")
           .map((entry) => entry.trim())
           .filter(Boolean),
-        dailyCapacityHours: capacity,
         active: form.active,
         canLogin: form.canLogin,
         ...(editingId
@@ -184,7 +180,6 @@ export default function WorkforceEmployeesPage() {
       departmentId: row.departmentId ?? null,
       designation: row.designation,
       skills: row.skills.join(", "),
-      dailyCapacityHours: String(row.dailyCapacityHours ?? 8),
       active: row.active,
       canLogin: row.canLogin,
       canReceiveWorkOrders: true,
@@ -197,8 +192,8 @@ export default function WorkforceEmployeesPage() {
     const ok = await confirm({
       title: nextActive ? "Activate employee?" : "Deactivate employee?",
       description: nextActive
-        ? `${row.fullName} will appear in work order assignment lists.`
-        : `${row.fullName} will be hidden from assignment and cannot receive new work orders.`,
+        ? `${row.fullName} will appear in job assignment lists.`
+        : `${row.fullName} will be hidden from assignment and cannot receive new jobs.`,
       confirmLabel: nextActive ? "Activate" : "Deactivate",
       variant: nextActive ? "default" : "destructive"
     });
@@ -227,7 +222,7 @@ export default function WorkforceEmployeesPage() {
           <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Workforce</p>
           <h1 className="mt-1 page-title">Employees & Technicians</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500">
-            Maintain workforce members for work order assignment. Login access is optional — employees without
+            Maintain workforce members for job assignment. Login access is optional — employees without
             accounts can still be assigned to jobs.
           </p>
         </div>
@@ -323,18 +318,6 @@ export default function WorkforceEmployeesPage() {
                 className="w-full rounded-lg border border-slate-300 px-3 py-2"
               />
             </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium text-slate-700">Daily capacity hours *</span>
-              <input
-                type="number"
-                min="0.5"
-                step="0.5"
-                required
-                value={form.dailyCapacityHours}
-                onChange={(event) => setForm((current) => ({ ...current, dailyCapacityHours: event.target.value }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </label>
             <div className="flex flex-col gap-2 text-sm sm:col-span-2">
               <label className="flex items-center gap-2">
                 <input
@@ -350,7 +333,7 @@ export default function WorkforceEmployeesPage() {
                   checked={form.canReceiveWorkOrders}
                   onChange={(event) => setForm((current) => ({ ...current, canReceiveWorkOrders: event.target.checked }))}
                 />
-                Can receive work orders
+                Can receive jobs
               </label>
               <label className="space-y-1">
                 <span className="font-medium text-slate-700">Availability</span>
@@ -386,7 +369,7 @@ export default function WorkforceEmployeesPage() {
               disabled={submitting}
               className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
+              {submitting ? <ButtonSpinner className="h-3.5 w-3.5" /> : null}
               {editingId ? "Save changes" : "Create employee"}
             </button>
             {editingId ? (
@@ -438,13 +421,15 @@ export default function WorkforceEmployeesPage() {
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm text-slate-500">
           <span className="inline-flex items-center gap-2 font-medium text-slate-700">
-            <Users size={16} aria-hidden /> {filteredCount} employees
+            <Users size={16} aria-hidden /> {loadError ? "Employees" : loading && items.length === 0 ? "Employees" : `${filteredCount} employees`}
           </span>
         </div>
-        {loading ? (
-          <p className="inline-flex items-center gap-2 px-4 py-8 text-sm text-slate-500">
-            <Loader2 size={16} className="animate-spin" /> Loading employees...
-          </p>
+        {loadError ? (
+          <div className="p-4">
+            <ErrorState title="Couldn't load employees" error={loadError} onRetry={() => void refresh()} />
+          </div>
+        ) : loading && items.length === 0 ? (
+          <TableLoadingRows label="Loading employees" />
         ) : items.length === 0 ? (
           <p className="px-4 py-8 text-sm text-slate-500">No employees match your filters.</p>
         ) : (
@@ -456,7 +441,6 @@ export default function WorkforceEmployeesPage() {
                   <th className="px-4 py-3">Designation</th>
                   <th className="px-4 py-3">Branch / Dept</th>
                   <th className="px-4 py-3">Login</th>
-                  <th className="px-4 py-3">Capacity</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Actions</th>
                 </tr>
@@ -475,7 +459,6 @@ export default function WorkforceEmployeesPage() {
                     <td className="px-4 py-3 text-xs">
                       {row.canLogin ? row.linkedUser?.email ?? row.email ?? "Pending" : "No login"}
                     </td>
-                    <td className="px-4 py-3">{row.dailyCapacityHours}h</td>
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-medium ${

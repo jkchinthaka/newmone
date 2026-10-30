@@ -16,8 +16,8 @@ export const WORK_ORDER_DETAIL_TABS: Array<{ id: WorkOrderDetailTab; label: stri
   { id: "overview", label: "Overview" },
   { id: "assignment", label: "Assignment" },
   { id: "parts", label: "Parts" },
-  { id: "safety", label: "Downtime" },
-  { id: "evidence", label: "Evidence" },
+  { id: "safety", label: "Machine stopped time" },
+  { id: "evidence", label: "Photos" },
   { id: "vendor-repair", label: "Vendor repair" },
   { id: "history", label: "History" },
   { id: "audit", label: "Audit" }
@@ -28,13 +28,16 @@ type Props = {
   onChange: (tab: WorkOrderDetailTab) => void;
   showAudit: boolean;
   showAssignment?: boolean;
+  /** Tabs folded away for this user (kept visible when it is the open tab, e.g. a deep link). */
+  hideTabs?: WorkOrderDetailTab[];
   counts?: Partial<Record<WorkOrderDetailTab, number>>;
 };
 
-export function WorkOrderDetailTabs({ activeTab, onChange, showAudit, showAssignment = true, counts }: Props) {
+export function WorkOrderDetailTabs({ activeTab, onChange, showAudit, showAssignment = true, hideTabs, counts }: Props) {
   const tabs = WORK_ORDER_DETAIL_TABS.filter((tab) => {
     if (tab.id === "audit") return showAudit;
     if (tab.id === "assignment") return showAssignment;
+    if (hideTabs?.includes(tab.id) && tab.id !== activeTab) return false;
     return true;
   });
 
@@ -47,7 +50,7 @@ export function WorkOrderDetailTabs({ activeTab, onChange, showAudit, showAssign
       <div
         className="flex w-full max-w-full min-w-0 gap-1 overflow-x-auto overscroll-x-contain px-2 [scrollbar-width:thin]"
         role="tablist"
-        aria-label="Work order sections"
+        aria-label="Job sections"
       >
         {tabs.map((tab) => {
           const selected = activeTab === tab.id;

@@ -142,8 +142,6 @@ export function canAssignTechnician(input: {
   skillMatch?: boolean;
   certificationRequired?: boolean;
   certified?: boolean;
-  remainingHours?: number;
-  estimatedHours?: number;
 }): PolicyDecision {
   return firstDenial(
     requireTenant(input.tenantId),
@@ -153,13 +151,8 @@ export function canAssignTechnician(input: {
     input.certificationRequired && input.certified === false
       ? deny("TECHNICIAN_CERTIFICATION_REQUIRED", undefined, "CRITICAL")
       : allow(),
-    input.skillMatch === false ? deny("TECHNICIAN_SKILL_MISMATCH", undefined, "WARNING") : allow(),
-    (input.remainingHours ?? 8) < (input.estimatedHours ?? 0)
-      ? deny("TECHNICIAN_OVER_CAPACITY", {
-          remainingHours: input.remainingHours,
-          estimatedHours: input.estimatedHours
-        })
-      : allow()
+    // Daily capacity is not a rule: remaining hours only order the suggestions.
+    input.skillMatch === false ? deny("TECHNICIAN_SKILL_MISMATCH", undefined, "WARNING") : allow()
   );
 }
 

@@ -1,7 +1,10 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { statSync, statfsSync, writeFileSync, unlinkSync, existsSync, realpathSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { isPrivateAbsoluteStorageRoot } from "../../config/local-storage-root";
 
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 import {
@@ -11,6 +14,7 @@ import {
   EvidenceStorageReadinessState,
   EvidenceUploadRequestResult,
   mapEvidenceStorageIndicator,
+  evidenceBytesMatchMime,
   parseAllowedMimeTypes
 } from "./evidence-storage.mapper";
 
@@ -31,7 +35,14 @@ export type EvidenceProviderUploadRequestOutput = {
 };
 
 @Injectable()
-export class EvidenceStorageProviderService {
+export class EvidenceStorageProviderService implements OnModuleInit {
+  private readonly logger = new Logger(EvidenceStorageProviderService.name);
+
+  onModuleInit(): void {
+    if (!this.isProduction() || this.resolveMode() !== "local") return;
+    const readiness = this.checkReadiness();
+    if (readiness.state !== "configured" || readiness.lowDiskSpace) this.logger.warn(readiness.message);
+  }
   constructor(private readonly configService: ConfigService) {}
 
   checkReadiness(): EvidenceStorageReadiness {
@@ -129,7 +140,8 @@ export class EvidenceStorageProviderService {
     maxFileSizeMb: number;
     allowedMimeTypes: string[];
   }): EvidenceStorageReadiness {
-    if (this.isProduction()) {
+    if (this.isProduction() && (!this.configService.get<boolean>("STORAGE_LOCAL_PRODUCTION", false) ||
+        !isPrivateAbsoluteStorageRoot(this.configService.get<string>("STORAGE_LOCAL_ROOT", "")))) {
       return this.finalizeReadiness({
         providerId: "EVIDENCE_OBJECT_STORAGE",
         mode: "local",
@@ -137,7 +149,7 @@ export class EvidenceStorageProviderService {
         uploadsEnabled: input.uploadsEnabled,
         maxFileSizeMb: input.maxFileSizeMb,
         allowedMimeTypes: input.allowedMimeTypes,
-        message: "Local file storage is not available in production. Configure MinIO or S3 before enabling uploads.",
+        message: "Production local storage requires explicit opt-in and a private absolute root.",
         missingKeys: ["STORAGE_MODE"]
       });
     }
@@ -169,14 +181,33 @@ export class EvidenceStorageProviderService {
       });
     }
 
+    let writable = false;
+    let freeSpaceBytes: number | null = null;
+    if (this.isProduction()) {
+      const probe = path.join(root, `.readiness-${randomUUID()}`);
+      try {
+        if (!statSync(root).isDirectory()) throw new Error("not a directory");
+        writeFileSync(probe, "probe", { flag: "wx" });
+        unlinkSync(probe);
+        writable = true;
+        const disk = statfsSync(root);
+        freeSpaceBytes = disk.bavail * disk.bsize;
+      } catch {
+        return this.finalizeReadiness({ providerId: "EVIDENCE_OBJECT_STORAGE", mode: "local",
+          state: "misconfigured", ...input, rootSet: true, writable: false, freeSpaceBytes,
+          message: "Local evidence directory must exist, permit write/delete, and report disk capacity.", missingKeys: [] });
+      }
+    }
+    const lowDiskSpace = freeSpaceBytes !== null && freeSpaceBytes < 5 * 1024 ** 3;
     return this.finalizeReadiness({
+      rootSet: true, writable: this.isProduction() ? writable : undefined, freeSpaceBytes, lowDiskSpace,
       providerId: "EVIDENCE_OBJECT_STORAGE",
       mode: "local",
       state: "configured",
       uploadsEnabled: true,
       maxFileSizeMb: input.maxFileSizeMb,
       allowedMimeTypes: input.allowedMimeTypes,
-      message: "Local private file storage is ready.",
+      message: lowDiskSpace ? "Warning: local evidence disk has less than 5 GB available." : "Local private file storage is ready.",
       missingKeys: []
     });
   }
@@ -237,16 +268,33 @@ export class EvidenceStorageProviderService {
 
   async putObject(storageKey: string, bytes: Buffer): Promise<void> {
     const absolute = this.resolveObjectPath(storageKey);
+    const readiness = this.checkReadiness();
+    if (readiness.mode !== "local" || readiness.state !== "configured") throw new BadRequestException("Local evidence storage is not ready.");
+    const mime = ({ ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".pdf": "application/pdf" } as Record<string, string>)[path.extname(storageKey).toLowerCase()];
+    if (!mime || !readiness.allowedMimeTypes.includes(mime) || !evidenceBytesMatchMime(bytes, mime)) throw new BadRequestException("Evidence file contents or MIME type are not allowed.");
+    if (!bytes.length || bytes.length > readiness.maxFileSizeMb * 1024 * 1024) throw new BadRequestException("Evidence exceeds the configured size limit.");
     await mkdir(path.dirname(absolute), { recursive: true });
     await writeFile(absolute, bytes);
+    await writeFile(this.resolveObjectPath(storageKey + ".sha256"), createHash("sha256").update(bytes).digest("hex"));
   }
 
   async readObject(storageKey: string): Promise<Buffer> {
-    return readFile(this.resolveObjectPath(storageKey));
+    const bytes = await readFile(this.resolveObjectPath(storageKey));
+    let expected: string;
+    try {
+      expected = (await readFile(this.resolveObjectPath(storageKey + ".sha256"), "utf8")).trim();
+    } catch (error) {
+      // Historical evidence/ keys predate checksums. New layout always requires one.
+      if (storageKey.replace(/\\/g, "/").startsWith("evidence/") && (error as NodeJS.ErrnoException).code === "ENOENT") return bytes;
+      throw new BadRequestException("Stored evidence checksum is unavailable.");
+    }
+    if (expected !== createHash("sha256").update(bytes).digest("hex")) throw new BadRequestException("Stored evidence checksum mismatch.");
+    return bytes;
   }
 
   async deleteObject(storageKey: string): Promise<void> {
     await rm(this.resolveObjectPath(storageKey), { force: true });
+    await rm(this.resolveObjectPath(storageKey + ".sha256"), { force: true });
   }
 
   getDownloadUrl(): { ok: false; url: null; message: string } {
@@ -291,13 +339,22 @@ export class EvidenceStorageProviderService {
       throw new BadRequestException("Local evidence storage is not configured.");
     }
     const normalized = storageKey.replace(/\\/g, "/");
-    if (!normalized.startsWith("evidence/") || normalized.split("/").some((segment) => segment === ".." || segment === "")) {
+    if (path.isAbsolute(normalized) || path.win32.isAbsolute(normalized) || normalized.includes(":") || normalized.split("/").some((segment) => segment === ".." || segment === "." || segment === "" || /[. ]$/.test(segment) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i.test(segment))) {
       throw new BadRequestException("Evidence path is not allowed.");
     }
     const absolute = path.resolve(root, ...normalized.split("/"));
     const relative = path.relative(root, absolute);
     if (relative.startsWith("..") || path.isAbsolute(relative)) {
       throw new BadRequestException("Evidence path is not allowed.");
+    }
+    // Reject junction/symlink escapes, including existing parent directories.
+    if (existsSync(root)) {
+      let ancestor = absolute;
+      while (!existsSync(ancestor)) ancestor = path.dirname(ancestor);
+      const realRelative = path.relative(realpathSync(root), realpathSync(ancestor));
+      if (realRelative === ".." || realRelative.startsWith(".." + path.sep) || path.isAbsolute(realRelative)) {
+        throw new BadRequestException("Evidence path is not allowed.");
+      }
     }
     return absolute;
   }

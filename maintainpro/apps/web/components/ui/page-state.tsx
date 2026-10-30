@@ -83,7 +83,7 @@ export function LoadingState({
       role="status"
       title={title}
     >
-      {children ?? <Loader2 aria-hidden className="h-6 w-6 animate-spin text-brand-600" />}
+      {children ?? <Loader2 aria-hidden className="h-6 w-6 animate-spin text-brand-600 motion-reduce:animate-none" />}
     </PageStateShell>
   );
 }
@@ -216,11 +216,12 @@ export function PermissionState({
   );
 }
 
+/** Card-shaped skeleton; same tint and reduced-motion rule as TableLoadingRows. */
 export function LoadingCardSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div aria-hidden className="space-y-3">
       {Array.from({ length: rows }).map((_, index) => (
-        <div key={index} className="h-12 animate-pulse rounded-lg bg-slate-100" />
+        <div key={index} className="h-12 animate-pulse rounded-lg bg-brand-100 motion-reduce:animate-none" />
       ))}
     </div>
   );
@@ -233,7 +234,7 @@ export function InlineLoadingState({ label = "Loading..." }: { label?: string })
       role="status"
       aria-live="polite"
     >
-      <Loader2 aria-hidden className="h-4 w-4 animate-spin text-brand-600" />
+      <Loader2 aria-hidden className="h-4 w-4 animate-spin text-brand-600 motion-reduce:animate-none" />
       <span>{label}</span>
     </div>
   );

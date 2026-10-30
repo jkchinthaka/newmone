@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { USER_KEY } from "@/lib/auth-storage";
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
 
 import type {
   Employee,
@@ -301,7 +302,8 @@ function normalizeModule(type: RequestType): ModuleKey {
 }
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  // Calendar "today" for the business is Asia/Colombo, not UTC.
+  return colomboTodayYmd();
 }
 
 function parseMoney(value: string | number | undefined) {

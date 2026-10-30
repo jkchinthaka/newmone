@@ -5,7 +5,7 @@ export default function VehicleCostsPage() {
     <EnterpriseQueuePage
       kind="costs"
       title="Vehicle costs"
-      description="Allocated operating costs from live work orders, parts, fuel, fines, and accidents. Cost/km requires a valid distance."
+      description="Allocated operating costs from live jobs, parts, fuel, fines, and accidents. Cost/km requires a valid distance."
     />
   );
 }

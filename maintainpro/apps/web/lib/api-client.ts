@@ -3,8 +3,14 @@ import { apiBaseUrl } from "@/lib/api-url";
 import { clearAuthSession } from "@/lib/auth-storage";
 import { safeInternalReturnPath } from "@/lib/role-redirect";
 import { getActiveTenantId, setActiveTenantId } from "@/lib/tenant-context";
+import {
+  PASSWORD_CHANGE_PATH,
+  isOnPasswordChangeScreen,
+  isPasswordChangeRequiredError
+} from "@/lib/password-change-required";
 import { shareAccessTokenRefresh } from "@/lib/access-token-refresh";
 import { isUpstreamUnavailableError, markUpstreamDegraded, markUpstreamHealthy } from "@/lib/upstream-status";
+import { notifyDataChanged, shouldAnnounceWrite } from "@/lib/live-data";
 
 const DEFAULT_API_TIMEOUT_MS = 60_000;
 const CSRF_COOKIE_KEY = "maintainpro_csrf";
@@ -104,8 +110,8 @@ export type DeploymentRouteFeature = "workforce" | "work-order-assignees" | "wor
 
 const DEPLOYMENT_ROUTE_MESSAGES: Record<DeploymentRouteFeature, string> = {
   workforce: "Workforce API is not available on the current backend deployment.",
-  "work-order-assignees": "Work order assignee API is not available on the current backend deployment.",
-  "work-order-history": "Work order history API is not available on the current backend deployment."
+  "work-order-assignees": "Job assignee API is not available on the current backend deployment.",
+  "work-order-history": "Job history API is not available on the current backend deployment."
 };
 
 export function getDeploymentRouteUnavailableMessage(
@@ -261,6 +267,9 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 apiClient.interceptors.response.use(
   (response) => {
     markUpstreamHealthy();
+    // A saved change refreshes the other screens, badges and open tabs (see lib/live-data.ts).
+    const path = normalizeRequestPath(response.config?.url);
+    if (shouldAnnounceWrite(response.config?.method, path)) notifyDataChanged(path);
     return response;
   },
   async (error: AxiosError) => {
@@ -289,6 +298,13 @@ apiClient.interceptors.response.use(
         code === "MEMBERSHIP_DISABLED")
     ) {
       setActiveTenantId(null);
+    }
+
+    if (typeof window !== "undefined" && isPasswordChangeRequiredError(error)) {
+      if (!isOnPasswordChangeScreen(window.location.pathname, window.location.search)) {
+        window.location.href = PASSWORD_CHANGE_PATH;
+      }
+      return Promise.reject(error);
     }
 
     if (

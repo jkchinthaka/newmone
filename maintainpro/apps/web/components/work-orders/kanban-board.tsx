@@ -16,7 +16,8 @@ type KanbanBoardProps = {
   onHold: (workOrder: WorkOrder) => void;
   onComplete: (workOrder: WorkOrder) => void;
   onAssign: (workOrder: WorkOrder, technicianId: string) => void;
-  onDelete: (workOrder: WorkOrder) => void;
+  /** Cancel action. Left out for roles the API does not allow to cancel. */
+  onDelete?: (workOrder: WorkOrder) => void;
   onEdit: (workOrder: WorkOrder) => void;
   canApprove?: boolean;
   onApprove?: (workOrder: WorkOrder) => void;
@@ -63,7 +64,7 @@ export function KanbanBoard({
   if (!hasRows) {
     return (
       <div className="card grid min-h-[280px] place-items-center text-center text-sm text-slate-500">
-        No work orders match current filters. Adjust filters or create a new work order.
+        No jobs match current filters. Adjust filters or create a new job.
       </div>
     );
   }

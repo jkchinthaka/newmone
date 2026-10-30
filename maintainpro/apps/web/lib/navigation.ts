@@ -9,10 +9,17 @@
  * FG Digital Records integration was removed from MaintainPro entirely.
  */
 
+import { ADMIN_PAGE_API_GATES, NAV_ITEM_API_GATES, type NavApiGate } from "./nav-api-gates";
+import { hasCompatiblePermission } from "./permission-aliases";
 import {
+  DEFAULT_POST_LOGIN_REDIRECT,
+  EXISTING_POST_LOGIN_ROUTES,
   extractRoleName,
   getPostLoginRedirect,
+  isRetiredActionCenterPath,
+  isRetiredSplashPath,
   LEGACY_FMS_HOME_PATH,
+  ROLE_POST_LOGIN_PREFERENCES,
   safeInternalReturnPath,
   type PostLoginUserLike
 } from "./role-redirect";
@@ -61,6 +68,11 @@ export interface NavigationItem {
   badgeKey?: NavBadgeKey;
   mobilePriority?: boolean;
   pinByDefaultForRoles?: readonly string[];
+  /**
+   * Kept off the side menu for these roles ("*" = everyone) but still allowed and searchable.
+   * Used to keep menus short: job lanes are tabs on Jobs, admin tools live in Admin Console.
+   */
+  menuHiddenFor?: readonly string[];
 }
 
 export interface NavigationGroup {
@@ -157,6 +169,13 @@ const WO_ROLES = mergeRoles(
   INVENTORY_ROLES
 );
 
+/**
+ * Domain job lanes (Machinery / Service / Vehicle) are planning views for managers.
+ * Technicians and mechanics use My Jobs for the same work, so the lanes stay out of their menu.
+ * Deep links under /maintenance/jobs/* still open for them through the Work Orders entry.
+ */
+const DOMAIN_JOB_LANE_ROLES = WO_ROLES.filter((role) => !(TECHNICIAN_ROLES as readonly string[]).includes(role));
+
 const PM_ROLES = mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES, SUPERVISOR_ROLES, ASSET_ROLES, TECHNICIAN_ROLES);
 
 const ASSET_NAV_ROLES = mergeRoles(
@@ -228,13 +247,13 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/assets",
   "/assets/health",
   "/fleet",
-  "/fleet/gate",
   "/fleet/tyres",
   "/vehicles",
   "/vehicles/health",
   "/vehicles/costs",
   "/inventory",
   "/inventory/movements",
+  "/inventory/unverified-issues",
   "/inventory/daily",
   "/inventory/stock-counts",
   "/inventory/import",
@@ -246,6 +265,7 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/reports",
   "/reports/maintenance-exceptions",
   "/reports/fraud-control",
+  "/reports/fraud-control/field-checks",
   "/reports/management-intelligence",
   "/admin",
   "/admin/organization",
@@ -302,12 +322,12 @@ export const NAV_CATEGORY_LABELS: Record<NavCategory, string> = {
   primary: "Main",
   secondary: "Account",
   workspace: "Home",
-  core: "Assets",
-  operations: "Maintenance",
-  advanced: "Advanced Maintenance",
-  safety: "Reliability & Safety",
+  core: "Assets & Places",
+  operations: "Daily Work",
+  advanced: "Jobs",
+  safety: "Reports & Analysis",
   compliance: "Fleet",
-  reports: "ERP & Inventory",
+  reports: "Parts & Stock",
   admin: "Administration",
   cleaning: "Facility (retired)",
   farm: "Farm (retired)",
@@ -315,8 +335,8 @@ export const NAV_CATEGORY_LABELS: Record<NavCategory, string> = {
 };
 
 export const ROLE_DEFAULT_FAVORITE_NAV_IDS: Record<string, readonly string[]> = {
-  TECHNICIAN: ["all-jobs", "my-jobs"],
-  MECHANIC: ["all-jobs", "my-jobs"],
+  TECHNICIAN: ["my-jobs", "report-issue"],
+  MECHANIC: ["my-jobs", "report-issue"],
   INVENTORY_KEEPER: ["spare-parts"],
   STOREKEEPER: ["spare-parts"],
   SUPERVISOR: ["all-jobs", "requests"],
@@ -325,7 +345,8 @@ export const ROLE_DEFAULT_FAVORITE_NAV_IDS: Record<string, readonly string[]> = 
   OPERATIONS_MANAGER: ["reports", "all-jobs", "my-jobs"],
   SUPER_ADMIN: ["admin", "system-health"],
   ADMIN: ["admin"],
-  SECURITY_OFFICER: ["fleet"],
+  // The fleet overview is hidden for security officers; they report problems through Requests.
+  SECURITY_OFFICER: ["requests", "report-issue"],
   FLEET_MANAGER: ["fleet", "vehicle-jobs"],
   DRIVER: ["fleet"],
   VIEWER: ["reports"],
@@ -341,110 +362,59 @@ export const FULL_NAVIGATION_ROLES = new Set<string>(["SUPER_ADMIN", "ADMIN"]);
 export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   {
     id: "maintenance-dashboard",
-    label: "Maintenance Dashboard",
+    label: "Dashboard",
     href: "/maintenance",
     icon: "LayoutDashboard",
     allowedRoles: WO_ROLES,
     category: "operations",
-    description: "Open jobs, critical, overdue, PM, and stock signals",
+    description: "Open, late, and urgent jobs at a glance",
     mobilePriority: true,
+    activeMatch: "exact"
+  },
+  {
+    id: "report-issue",
+    label: "Report a Problem",
+    href: "/requests/new",
+    icon: "AlertTriangle",
+    allowedRoles: REQUEST_ROLES,
+    requiredPermissions: ["maintenance_requests.create"],
+    category: "operations",
+    description: "Tell maintenance about a broken machine, vehicle, or building",
     activeMatch: "exact"
   },
   {
     id: "requests",
     label: "Requests",
     href: "/requests",
-    icon: "AlertTriangle",
+    icon: "FileCheck2",
     allowedRoles: REQUEST_ROLES,
     requiredPermissions: REQUEST_LIST_PERMISSIONS,
     category: "operations",
-    description: "Report and triage Maintenance Requests",
+    description: "Report a problem and follow requests",
     mobilePriority: true,
     activeMatch: "startsWith"
   },
   {
     id: "my-requests",
-    label: "My requests",
+    label: "My Requests",
     href: "/requests/mine",
     icon: "ClipboardCheck",
     allowedRoles: REQUEST_ROLES,
     requiredPermissions: ["maintenance_requests.create"],
     category: "operations",
-    description: "Track requests you submitted",
+    description: "Problems you reported",
     activeMatch: "exact"
   },
   {
-    id: "all-jobs",
-    label: "Work Orders",
-    href: "/maintenance/jobs",
+    id: "my-jobs",
+    label: "My Jobs",
+    href: "/work-orders/my",
     icon: "ClipboardList",
-    allowedRoles: WO_ROLES,
+    allowedRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN"]),
     category: "operations",
-    description: "Executable maintenance work orders",
-    badgeKey: "my-tasks",
+    description: "Jobs assigned to you",
     mobilePriority: true,
-    pinByDefaultForRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES),
     activeMatch: "exact"
-  },
-  {
-    id: "machinery-jobs",
-    label: "Machinery Jobs",
-    href: "/maintenance/jobs/machinery",
-    icon: "HardDrive",
-    allowedRoles: WO_ROLES,
-    category: "operations",
-    description: "Plant and equipment work orders",
-    activeMatch: "exact"
-  },
-  {
-    id: "service-jobs",
-    label: "Service Jobs",
-    href: "/maintenance/jobs/service",
-    icon: "Building2",
-    allowedRoles: WO_ROLES,
-    category: "operations",
-    description: "Facility and building service jobs",
-    activeMatch: "exact"
-  },
-  {
-    id: "vehicle-jobs",
-    label: "Vehicle Jobs",
-    href: "/maintenance/jobs/vehicle",
-    icon: "Truck",
-    allowedRoles: mergeRoles(WO_ROLES, FLEET_ROLES),
-    category: "operations",
-    description: "Fleet repair and scheduled service jobs",
-    activeMatch: "exact"
-  },
-  {
-    id: "inspections",
-    label: "Inspections",
-    href: "/maintenance/inspections",
-    icon: "ClipboardCheck",
-    allowedRoles: WO_ROLES,
-    category: "advanced",
-    description: "Phase 2. Overlaps with preventive maintenance, requests, and work orders.",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "meter-readings",
-    label: "Meter Readings",
-    href: "/utilities/readings",
-    icon: "Gauge",
-    allowedRoles: mergeRoles(ADMIN_ROLES, ["ASSET_MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC"]),
-    category: "advanced",
-    description: "Record utility meter readings",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "reliability",
-    label: "Reliability",
-    href: "/maintenance/reliability",
-    icon: "Activity",
-    allowedRoles: mergeRoles(SUPERVISOR_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
-    category: "advanced",
-    description: "Phase 2. Downtime, RCA, CAPA, criticality, and LOTO. Not a primary job workflow.",
-    activeMatch: "startsWith"
   },
   {
     id: "approvals",
@@ -454,102 +424,141 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     allowedRoles: mergeRoles(SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN", "OPERATIONS_MANAGER", "FINANCE", "FACILITY_MANAGER"]),
     requiredPermissions: ["approvals.view"],
     badgeKey: "approvals",
-    category: "advanced",
-    description: "Secondary inbox. Decide inside the work order, parts, vendor, request, or PM record.",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "preventive-maintenance",
-    label: "Preventive Maintenance",
-    href: "/maintenance/plans",
-    icon: "CalendarClock",
-    allowedRoles: PM_ROLES,
     category: "operations",
-    description: "Planned / triggered maintenance",
+    description: "Items waiting for your approval",
     activeMatch: "startsWith"
   },
   {
-    id: "my-jobs",
-    label: "My Jobs",
-    href: "/work-orders/my",
+    id: "all-jobs",
+    menuHiddenFor: ["TECHNICIAN", "MECHANIC"],
+    label: "Jobs",
+    href: "/maintenance/jobs",
     icon: "ClipboardList",
-    allowedRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES, ["ADMIN", "MANAGER", "SUPER_ADMIN"]),
-    category: "operations",
-    description: "Technician assigned work queue",
+    allowedRoles: WO_ROLES,
+    category: "advanced",
+    description: "All maintenance jobs",
+    badgeKey: "my-tasks",
     mobilePriority: true,
+    pinByDefaultForRoles: mergeRoles(TECHNICIAN_ROLES, SUPERVISOR_ROLES),
     activeMatch: "exact"
   },
   {
+    id: "machinery-jobs",
+    menuHiddenFor: ["*"],
+    label: "Machinery Jobs",
+    href: "/maintenance/jobs/machinery",
+    icon: "HardDrive",
+    allowedRoles: DOMAIN_JOB_LANE_ROLES,
+    category: "advanced",
+    description: "Machinery jobs: machines and equipment",
+    activeMatch: "exact"
+  },
+  {
+    id: "service-jobs",
+    menuHiddenFor: ["*"],
+    label: "Service Jobs",
+    href: "/maintenance/jobs/service",
+    icon: "Building2",
+    allowedRoles: DOMAIN_JOB_LANE_ROLES,
+    category: "advanced",
+    description: "Service jobs: buildings, facilities and places",
+    activeMatch: "exact"
+  },
+  {
+    id: "vehicle-jobs",
+    menuHiddenFor: ["*"],
+    label: "Vehicle Jobs",
+    href: "/maintenance/jobs/vehicle",
+    icon: "Truck",
+    allowedRoles: mergeRoles(DOMAIN_JOB_LANE_ROLES, FLEET_ROLES),
+    category: "advanced",
+    description: "Repair and service jobs for vehicles",
+    activeMatch: "exact"
+  },
+  {
+    id: "preventive-maintenance",
+    menuHiddenFor: ["TECHNICIAN", "MECHANIC"],
+    label: "Scheduled Service",
+    href: "/maintenance/plans",
+    icon: "CalendarClock",
+    allowedRoles: PM_ROLES,
+    category: "advanced",
+    description: "Planned service by date or usage",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "inspections",
+    label: "Inspections",
+    href: "/maintenance/inspections",
+    icon: "ClipboardCheck",
+    allowedRoles: WO_ROLES,
+    category: "advanced",
+    description: "Planned checks and checklists",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "meter-readings",
+    label: "Meter Readings",
+    href: "/utilities/readings",
+    icon: "Gauge",
+    allowedRoles: mergeRoles(ADMIN_ROLES, ["ASSET_MANAGER", "SUPERVISOR", "TECHNICIAN", "MECHANIC"]),
+    category: "advanced",
+    description: "Record water, power, and gas meter readings",
+    activeMatch: "startsWith"
+  },
+  {
     id: "vendors-external",
-    label: "Vendors / External Repairs",
+    label: "Outside Repairs",
     href: "/procurement/vendors",
     icon: "Users",
     allowedRoles: mergeRoles(PARTS_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES, PROCUREMENT_ROLES),
-    category: "operations",
-    description: "Suppliers and external repair cases",
+    category: "advanced",
+    description: "Suppliers and outside repairs",
     activeMatch: "startsWith"
   },
   {
     id: "maintenance-history",
-    label: "Maintenance History",
+    menuHiddenFor: ["*"],
+    label: "Job History",
     href: "/maintenance/history",
     icon: "Clock3",
     allowedRoles: WO_ROLES,
-    category: "operations",
-    description: "Asset / vehicle / location timelines",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "reports",
-    label: "Reports",
-    href: "/reports",
-    icon: "BarChart3",
-    allowedRoles: REPORT_ROLES,
-    category: "operations",
-    description: "Maintenance and fleet reports",
+    category: "advanced",
+    description: "Past work on a machine, vehicle, or place",
     activeMatch: "startsWith"
   },
   {
     id: "assets",
-    label: "Asset Register",
+    menuHiddenFor: ["TECHNICIAN", "MECHANIC"],
+    label: "Machines & Equipment",
     href: "/assets",
     icon: "Boxes",
     allowedRoles: ASSET_NAV_ROLES,
     category: "core",
-    description: "Universal asset register",
-    activeMatch: "startsWith"
-  },
-  {
-    id: "facilities",
-    label: "Facilities / Locations",
-    href: "/admin/organization",
-    icon: "Building2",
-    allowedRoles: mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES, FACILITY_ROLES, ASSET_ROLES),
-    category: "core",
-    description: "Sites and functional locations",
+    description: "All machines and equipment",
     activeMatch: "startsWith"
   },
   {
     id: "fleet",
+    menuHiddenFor: ["TECHNICIAN", "MECHANIC"],
     label: "Vehicles",
     href: "/fleet",
     icon: "Truck",
     allowedRoles: FLEET_NAV_ROLES,
     requiredFeature: "FLEET",
-    category: "compliance",
-    description: "Vehicles, gate, and fleet operations",
+    category: "core",
+    description: "Vehicles and their status",
     activeMatch: "startsWith"
   },
   {
-    id: "fleet-gate",
-    label: "Gate",
-    href: "/fleet/gate",
-    icon: "ShieldAlert",
-    requiredFeature: "GATE",
-    allowedRoles: mergeRoles(FLEET_ROLES, SECURITY_ROLES, ADMIN_ROLES, MANAGEMENT_ROLES),
-    category: "compliance",
-    description: "Gate-out eligibility and overrides",
-    activeMatch: "exact"
+    id: "facilities",
+    label: "Sites & Locations",
+    href: "/admin/organization",
+    icon: "Building2",
+    allowedRoles: mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES, FACILITY_ROLES, ASSET_ROLES),
+    category: "core",
+    description: "Sites, buildings, and locations",
+    activeMatch: "startsWith"
   },
   {
     id: "spare-parts",
@@ -558,28 +567,28 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     icon: "Layers",
     allowedRoles: PARTS_ROLES,
     category: "reports",
-    description: "Parts catalog and stock visibility",
+    description: "Parts and stock levels",
     activeMatch: "startsWith"
   },
   {
-    id: "erp-integration",
-    label: "ERP Sync",
-    href: "/erp",
-    icon: "Database",
-    allowedRoles: ADMIN_ROLES,
-    category: "admin",
-    description: "Bileeta mapping and reconciliation. Kept for administration, not daily inventory work.",
+    id: "reports",
+    label: "Reports",
+    href: "/reports",
+    icon: "BarChart3",
+    allowedRoles: REPORT_ROLES,
+    category: "safety",
+    description: "Maintenance and fleet reports",
     activeMatch: "startsWith"
   },
   {
-    id: "maintenance-supply",
-    label: "ERP Mapping",
-    href: "/maintenance-supply",
-    icon: "Layers",
-    allowedRoles: PARTS_ROLES,
-    category: "admin",
-    description: "ERP mapping status and tool returns. Kept for administration, not daily inventory work.",
-    activeMatch: "exact"
+    id: "reliability",
+    label: "Breakdowns & Causes",
+    href: "/maintenance/reliability",
+    icon: "Activity",
+    allowedRoles: mergeRoles(SUPERVISOR_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES),
+    category: "safety",
+    description: "Breakdowns, machine stopped time, and their causes",
+    activeMatch: "startsWith"
   },
   {
     id: "admin",
@@ -588,47 +597,73 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     icon: "ShieldCheck",
     allowedRoles: ADMIN_ROLES,
     category: "admin",
-    description: "Business administration and configuration",
+    description: "Users, roles, and settings",
     activeMatch: "startsWith"
   },
   {
     id: "admin-asset-register",
-    label: "Register asset",
+    menuHiddenFor: ["*"],
+    label: "Add Assets",
     href: "/admin/assets/new",
     icon: "Package",
     allowedRoles: ADMIN_ROLES,
     category: "admin",
-    description: "Create an asset from the admin register",
+    description: "Add one asset, or many from an Excel file",
     activeMatch: "exact"
   },
   {
     id: "admin-vehicle-register",
-    label: "Register vehicle",
+    menuHiddenFor: ["*"],
+    label: "Add Vehicle",
     href: "/admin/vehicles/new",
     icon: "Truck",
     allowedRoles: ADMIN_ROLES,
     category: "admin",
-    description: "Create a vehicle from the admin register",
+    description: "Add a new vehicle",
     activeMatch: "exact"
   },
   {
     id: "admin-asset-tags",
-    label: "Asset tag upload",
+    menuHiddenFor: ["*"],
+    label: "Assign QR Tags",
     href: "/admin/asset-tags",
     icon: "QrCode",
     allowedRoles: ADMIN_ROLES,
     category: "admin",
-    description: "Preview and apply asset tags",
+    description: "Give QR tags to assets already in the system",
+    activeMatch: "exact"
+  },
+  {
+    id: "erp-integration",
+    menuHiddenFor: ["*"],
+    label: "ERP Sync",
+    href: "/erp",
+    icon: "Database",
+    allowedRoles: ADMIN_ROLES,
+    category: "admin",
+    description: "Match stock with the ERP system",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "maintenance-supply",
+    menuHiddenFor: ["SUPER_ADMIN", "ADMIN"],
+    label: "ERP Part Codes",
+    href: "/maintenance-supply",
+    icon: "Layers",
+    allowedRoles: PARTS_ROLES,
+    category: "admin",
+    description: "Parts linked to ERP codes, and tool returns",
     activeMatch: "exact"
   },
   {
     id: "system-health",
+    menuHiddenFor: ["*"],
     label: "System Health",
     href: "/system-health",
     icon: "Activity",
     allowedRoles: ["SUPER_ADMIN"],
     category: "admin",
-    description: "Compact dependency status for technical administrators",
+    description: "Check that system services are running",
     badgeKey: "system-health",
     activeMatch: "startsWith"
   },
@@ -639,6 +674,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     icon: "Bell",
     allowedRoles: HOME_ROLES,
     category: "secondary",
+    description: "Your alerts and messages",
     activeMatch: "exact"
   },
   {
@@ -648,6 +684,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     icon: "UserCircle2",
     allowedRoles: HOME_ROLES,
     category: "secondary",
+    description: "Your name, password, and preferences",
     activeMatch: "startsWith"
   }
 ];
@@ -656,10 +693,10 @@ const NAV_CATEGORY_ORDER: NavCategory[] = [
   "workspace",
   "operations",
   "advanced",
-  "safety",
   "core",
   "compliance",
   "reports",
+  "safety",
   "admin",
   "secondary",
   "primary",
@@ -696,6 +733,7 @@ const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/admin/approval-rules": ["/admin"],
   "/admin/data-quality": ["/admin"],
   "/admin/audit": ["/admin"],
+  "/requests/mine": ["/requests"],
   "/work-orders": ["/maintenance/jobs"],
   "/maintenance/job-codes": ["/maintenance"],
   "/maintenance/forecast": ["/maintenance/planning"],
@@ -703,7 +741,6 @@ const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/vehicles": ["/fleet"],
   "/vehicles/health": ["/fleet"],
   "/vehicles/costs": ["/fleet"],
-  "/fleet/gate": ["/fleet"],
   "/fleet/tyres": ["/fleet"],
   "/procurement": ["/inventory"],
   "/procurement/vendors": ["/inventory"],
@@ -745,6 +782,63 @@ export function normalizeNavigationRole(roleName: string | null | undefined): st
   return trimmed.length > 0 ? trimmed.toUpperCase() : null;
 }
 
+/**
+ * Mirrors the API guards for the request that opens a page: @Roles (by role name) and
+ * @Permissions (with the same aliases). SUPER_ADMIN still needs to be listed in @Roles,
+ * exactly like the API RolesGuard.
+ */
+/** Role names the API knows (RoleName). Other names are tenant/custom labels the gates cannot judge. */
+const API_ROLE_NAMES = new Set([
+  "SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER", "FLEET_MANAGER", "COMPLIANCE_MANAGER", "MANAGER",
+  "TECHNICIAN", "MECHANIC", "ASSET_MANAGER", "INVENTORY_KEEPER", "PROCUREMENT_OFFICER", "FINANCE",
+  "SUPERVISOR", "SECURITY_OFFICER", "CLEANER", "DRIVER", "VIEWER", "FARM_OWNER", "FARM_MANAGER",
+  "FIELD_SUPERVISOR", "AGRONOMIST", "VETERINARIAN", "FARM_WORKER", "IRRIGATION_OPERATOR", "HARVEST_CREW",
+  "FACILITY_MANAGER", "BUILDING_SUPERVISOR"
+]);
+
+export function navApiGateAllows(gate: NavApiGate, role: string | null | undefined, permissions: readonly string[]): boolean {
+  if (!role) return false;
+  if (!API_ROLE_NAMES.has(role)) return true;
+  if (gate.roles.length > 0 && !gate.roles.includes(role)) return false;
+  // ADMIN / SUPER_ADMIN hold every key in practice; the existing nav already skips their
+  // permission checks. The @Roles part still applies (e.g. SUPER_ADMIN-only bulk imports).
+  // Callers that build a menu without the user's keys (landing defaults, role previews)
+  // only get the @Roles part; real sessions always carry keys, so the full check applies.
+  if (FULL_NAVIGATION_ROLES.has(role) || gate.permissions.length === 0 || permissions.length === 0) return true;
+  const granted = new Set(permissions.map((p) => p.trim()));
+  return gate.permissions.every((permission) => hasCompatiblePermission(granted, permission, role));
+}
+
+/** Items granted by permission alone (any department role may report a problem). */
+const PERMISSION_GRANTED_NAV_IDS = new Set(["requests", "my-requests", "report-issue"]);
+
+/** Mirrors maintenance-requests.controller.ts TRIAGE_ROLES (role previews without permission keys). */
+const REQUEST_TRIAGE_ROLES = new Set([
+  "SUPER_ADMIN",
+  "ADMIN",
+  "MANAGER",
+  "SUPERVISOR",
+  "ASSET_MANAGER",
+  "FACILITY_MANAGER",
+  "BUILDING_SUPERVISOR"
+]);
+
+/**
+ * Same rule as MaintenanceRequestsService.canViewAll: view_all or triage (with guard aliases).
+ * Without permission keys (role previews) the triage role list decides.
+ */
+export function canViewAllRequests(roleName: string | null | undefined, permissions: readonly string[] = []): boolean {
+  const normalized = normalizeNavigationRole(roleName);
+  if (!normalized) return false;
+  if (FULL_NAVIGATION_ROLES.has(normalized)) return true;
+  if (permissions.length === 0) return REQUEST_TRIAGE_ROLES.has(normalized);
+  const granted = new Set(permissions.map((p) => p.trim()));
+  return (
+    hasCompatiblePermission(granted, "maintenance_requests.view_all", normalized) ||
+    hasCompatiblePermission(granted, "maintenance_requests.triage", normalized)
+  );
+}
+
 export function isNavigationItemVisible(
   item: NavigationItem,
   roleName: string | null | undefined,
@@ -760,7 +854,7 @@ export function isNavigationItemVisible(
   if (!item.allowedRoles.includes(normalized)) {
     // Requests are granted by permission, not by department role. An authorized
     // Finance, Farm, or other employee must see the entry the API will allow.
-    if (item.id !== "requests" && item.id !== "my-requests") {
+    if (!PERMISSION_GRANTED_NAV_IDS.has(item.id)) {
       return false;
     }
   }
@@ -771,9 +865,17 @@ export function isNavigationItemVisible(
     }
   }
 
+  const apiGate = NAV_ITEM_API_GATES[item.id];
+  if (apiGate && !navApiGateAllows(apiGate, normalized, permissions)) {
+    return false;
+  }
+
   if (item.requiredPermissions?.length) {
     const granted = new Set(permissions.map((p) => p.trim()));
-    const hasPermission = item.requiredPermissions.some((permission) => granted.has(permission));
+    // Same alias rule as the API guard, so a MANAGER with work_orders.manage sees Approvals.
+    const hasPermission = item.requiredPermissions.some((permission) =>
+      hasCompatiblePermission(granted, permission, normalized)
+    );
     if (!hasPermission && !FULL_NAVIGATION_ROLES.has(normalized)) {
       return false;
     }
@@ -812,13 +914,14 @@ export function getVisibleNavigationItems(
   const permissions = options?.permissions ?? [];
   const enabledFeatures = options?.enabledFeatures;
 
-  const visible = NAVIGATION_ITEMS.filter((item) => {
+  const filtered = NAVIGATION_ITEMS.filter((item) => {
     const baseHref = item.href.split("?")[0];
     if (!EXISTING_NAV_ROUTES.has(baseHref)) {
       return false;
     }
     return isNavigationItemVisible(item, roleName, permissions, enabledFeatures);
   });
+  const visible = collapseRequestEntries(filtered, roleName, permissions);
 
   if (visible.length > 0) {
     return visible;
@@ -826,6 +929,29 @@ export function getVisibleNavigationItems(
 
   const fallback = NAVIGATION_ITEMS.find((item) => item.id === "notifications");
   return fallback ? [fallback] : [];
+}
+
+/**
+ * One Requests entry per person. The Requests page already has All / My / Triage tabs for
+ * people who can see every request, and shows only your own requests otherwise, so a
+ * separate "My requests" entry would open the same list. People who only see their own
+ * requests get the entry labelled "My requests".
+ */
+function collapseRequestEntries(
+  items: NavigationItem[],
+  roleName: string | null | undefined,
+  permissions: readonly string[]
+): NavigationItem[] {
+  const hasRequests = items.some((item) => item.id === "requests");
+  if (!hasRequests) return items;
+  const ownOnly = !canViewAllRequests(roleName, permissions);
+  return items
+    .filter((item) => item.id !== "my-requests")
+    .map((item) =>
+      item.id === "requests" && ownOnly
+        ? { ...item, label: "My Requests", description: "Report a problem and follow your requests" }
+        : item
+    );
 }
 
 export function getNavigationGroups(
@@ -836,7 +962,11 @@ export function getNavigationGroups(
     enabledFeatures?: readonly string[];
   }
 ): NavigationGroup[] {
-  const visibleItems = getVisibleNavigationItems(roleName, options);
+  const role = normalizeNavigationRole(roleName) ?? "";
+  // Side menu only: hidden items stay reachable (links, search, route access).
+  const visibleItems = getVisibleNavigationItems(roleName, options).filter(
+    (item) => !item.menuHiddenFor?.some((entry) => entry === "*" || entry === role)
+  );
 
   return NAV_CATEGORY_ORDER.map((category) => ({
     category,
@@ -873,6 +1003,11 @@ export function canAccessNavigationPath(
   if (isRetired) {
     // Soft retire: only technical admins retain browser access for migration/ops.
     return FULL_NAVIGATION_ROLES.has(normalized ?? "");
+  }
+
+  const adminPageGate = ADMIN_PAGE_API_GATES[normalizedPath];
+  if (adminPageGate && !navApiGateAllows(adminPageGate, normalized, permissions)) {
+    return false;
   }
 
   if (normalizedPath === "/system-health" || normalizedPath.startsWith("/system-health/")) {
@@ -938,16 +1073,48 @@ export type MobileBottomNavItem = {
   href: string;
   icon: string;
   action?: "search";
+  /** "exact" keeps a home tab such as /maintenance from lighting up on /maintenance/jobs. */
+  activeMatch?: NavActiveMatch;
 };
+
+/** Short bottom-tab names for the nav item that is a role's login home. */
+const MOBILE_HOME_TAB_LABELS: Record<string, string> = {
+  "my-jobs": "My Jobs",
+  "spare-parts": "Parts",
+  "maintenance-dashboard": "Dashboard",
+  "all-jobs": "Jobs",
+  fleet: "Vehicles",
+  assets: "Assets",
+  reports: "Reports",
+  admin: "Admin",
+  requests: "Requests",
+  notifications: "Alerts"
+};
+
+const JOB_NAV_IDS = new Set(["work-orders", "all-jobs", "my-jobs"]);
+
+function mobileHomeTab(
+  roleName: string | null | undefined,
+  visible: readonly NavigationItem[]
+): MobileBottomNavItem | null {
+  const landing = getPostLoginRedirect(roleName ?? null).split("?")[0];
+  const item = visible.find((entry) => entry.href.split("?")[0] === landing);
+  if (!item) return null;
+  return {
+    id: item.id,
+    label: MOBILE_HOME_TAB_LABELS[item.id] ?? item.label,
+    href: item.href,
+    icon: item.icon,
+    activeMatch: item.activeMatch
+  };
+}
 
 export function getMobileBottomNavItems(
   roleName: string | null | undefined,
   options?: { permissions?: readonly string[] }
 ): MobileBottomNavItem[] {
   const visible = getVisibleNavigationItems(roleName, { permissions: options?.permissions });
-  const hasWorkOrders = visible.some(
-    (item) => item.id === "work-orders" || item.id === "all-jobs" || item.id === "my-jobs"
-  );
+  const hasWorkOrders = visible.some((item) => JOB_NAV_IDS.has(item.id));
   const hasRequests = visible.some((item) => item.id === "requests");
   const hasAssets = visible.some((item) => item.id === "assets");
   const hasFleet = visible.some((item) => item.id === "fleet");
@@ -964,14 +1131,22 @@ export function getMobileBottomNavItems(
 
   const items: MobileBottomNavItem[] = [];
 
-  if (hasRequests && !hasWorkOrders) {
+  // First tab is the page this role lands on after login (My Jobs, Inventory, Requests, ...).
+  const home = mobileHomeTab(roleName, visible);
+  if (home) {
+    items.push(home);
+    // Keep a jobs tab for roles whose home is not a job list (managers, stores).
+    if (hasWorkOrders && !JOB_NAV_IDS.has(home.id)) {
+      items.push({ id: "work-orders", label: "Jobs", href: jobsHref, icon: "ClipboardList" });
+    }
+  } else if (hasRequests && !hasWorkOrders) {
     items.push({ id: "requests", label: "Requests", href: requestsHref, icon: "AlertTriangle" });
   } else if (hasWorkOrders) {
-    items.push({ id: "work-orders", label: "Work Orders", href: jobsHref, icon: "ClipboardList" });
+    items.push({ id: "work-orders", label: "Jobs", href: jobsHref, icon: "ClipboardList" });
   } else if (hasAssets) {
     items.push({ id: "assets", label: "Assets", href: "/assets", icon: "Boxes" });
   } else if (hasFleet) {
-    items.push({ id: "fleet", label: "Fleet", href: "/fleet", icon: "Truck" });
+    items.push({ id: "fleet", label: "Vehicles", href: "/fleet", icon: "Truck" });
   } else if (hasParts) {
     items.push({ id: "spare-parts", label: "Parts", href: "/inventory", icon: "Layers" });
   } else if (hasReports) {
@@ -1016,7 +1191,8 @@ export function isNavItemActive(pathname: string, item: NavigationItem, search =
     return pathname === itemPath;
   }
 
-  if (itemPath === "/requests" && (pathname === "/requests/mine" || pathname.startsWith("/requests/mine/"))) {
+  // Report issue has its own entry; keep Requests from lighting up beside it.
+  if (itemPath === "/requests" && pathname === "/requests/new") {
     return false;
   }
 
@@ -1036,17 +1212,60 @@ export function hasPrimaryHomeNavItem(items: readonly NavigationItem[]): boolean
 }
 
 /**
- * Safe return path when this role can open it; otherwise the role landing.
- * Never returns login, splash, or Action Center.
+ * Permission-led landings tried after the role's own preferences, so custom roles (role names
+ * are free text) still land on a dashboard they can open instead of the notifications list.
+ */
+const PERMISSION_LANDING_CANDIDATES = [
+  "/maintenance",
+  "/work-orders/my",
+  "/maintenance/jobs",
+  "/inventory",
+  "/fleet",
+  "/assets",
+  "/requests",
+  "/reports"
+] as const;
+
+/**
+ * The dashboard this person opens after signing in: the first landing for their role that their
+ * role and permissions can actually open, then a permission-based dashboard, then notifications.
+ */
+export function roleLandingPath(user: PostLoginUserLike, permissions: readonly string[] = []): string {
+  const role = extractRoleName(user);
+  const preferred = role ? ROLE_POST_LOGIN_PREFERENCES[role] ?? [] : [];
+  const roleLanding = getPostLoginRedirect(user);
+  const candidates = [...preferred, roleLanding, ...PERMISSION_LANDING_CANDIDATES];
+  for (const path of candidates) {
+    if (!EXISTING_POST_LOGIN_ROUTES.has(path) || isRetiredActionCenterPath(path) || isRetiredSplashPath(path)) continue;
+    if (path === DEFAULT_POST_LOGIN_REDIRECT) continue;
+    if (canAccessNavigationPath(path, role, permissions)) return path;
+  }
+  return DEFAULT_POST_LOGIN_REDIRECT;
+}
+
+/**
+ * A link to one specific record (a request, a job, a vehicle...) that brought the person to the
+ * sign-in page. Only these are honoured after sign-in; anything else goes to the role dashboard.
+ */
+export function isRecordDeepLink(target: string): boolean {
+  const [pathname, query = ""] = target.split("#")[0].split("?");
+  const params = new URLSearchParams(query);
+  if (params.get("wo") || params.get("open")) return true;
+  return /^\/(requests|vehicles|assets|utilities\/meters)\/(?!new$|mine$)[A-Za-z0-9_-]{6,}$/.test(pathname);
+}
+
+/**
+ * Where to go after sign-in: always the role dashboard, except a link to a specific record that
+ * this role can open (for example a job link from a notification email).
  */
 export function resolveAuthorizedDestination(
   user: PostLoginUserLike,
   returnTo: string | null | undefined,
   permissions: readonly string[] = []
 ): string {
-  const landing = getPostLoginRedirect(user);
+  const landing = roleLandingPath(user, permissions);
   const safe = safeInternalReturnPath(returnTo);
-  if (!safe) return landing;
+  if (!safe || !isRecordDeepLink(safe)) return landing;
   const path = safe.split("?")[0]?.split("#")[0] ?? "";
   if (!canAccessNavigationPath(path, extractRoleName(user), permissions)) {
     return landing;

@@ -142,7 +142,7 @@ export function ManagementIntelligencePage() {
                       <th className="px-3 py-2">Total</th>
                       <th className="px-3 py-2">Parts</th>
                       <th className="px-3 py-2">Vendor</th>
-                      <th className="px-3 py-2">Work orders</th>
+                      <th className="px-3 py-2">Jobs</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -252,7 +252,7 @@ function EntityTable({ title, rows }: { title: string; rows: CostEntityRow[] }) 
                 <th className="px-2 py-2">#</th>
                 <th className="px-2 py-2">Name</th>
                 <th className="px-2 py-2">Total cost</th>
-                <th className="px-2 py-2">WOs</th>
+                <th className="px-2 py-2">Jobs</th>
                 <th className="px-2 py-2">Action</th>
               </tr>
             </thead>
@@ -296,7 +296,7 @@ function GroupedTable({
               <tr>
                 <th className="px-2 py-2">Item</th>
                 <th className="px-2 py-2">Total cost</th>
-                <th className="px-2 py-2">Work orders</th>
+                <th className="px-2 py-2">Jobs</th>
                 <th className="px-2 py-2">Repeated</th>
               </tr>
             </thead>

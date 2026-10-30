@@ -126,16 +126,6 @@ function sanitizeAnalytics(raw: unknown): UtilityAnalytics {
   };
 }
 
-function parseImageUrls(input?: string): string[] {
-  if (!input) {
-    return [];
-  }
-
-  return input
-    .split(/\r?\n|,/)
-    .map((chunk) => chunk.trim())
-    .filter((chunk) => chunk.length > 0);
-}
 
 export async function fetchUtilityMeters(): Promise<UtilityMeter[]> {
   const response = await apiClient.get<ApiEnvelope<unknown[]>>("/utilities/meters");
@@ -161,9 +151,14 @@ export async function updateUtilityMeter(
   return sanitizeMeter(unwrapData(response.data));
 }
 
+/** Readings are bounded to the last year; the dashboards and trends never look further back. */
+export const UTILITY_READINGS_WINDOW_DAYS = 366;
+
 export async function fetchUtilityReadings(): Promise<MeterReading[]> {
   try {
-    const response = await apiClient.get<ApiEnvelope<unknown[]>>("/utilities/readings");
+    const response = await apiClient.get<ApiEnvelope<unknown[]>>("/utilities/readings", {
+      params: { days: UTILITY_READINGS_WINDOW_DAYS }
+    });
     const rows = unwrapData<unknown[]>(response.data);
 
     if (!Array.isArray(rows)) {
@@ -204,13 +199,13 @@ export async function fetchUtilityReadings(): Promise<MeterReading[]> {
 }
 
 export async function createUtilityReading(payload: ReadingFormValues): Promise<MeterReading> {
-  const requestPayload = {
-    meterId: payload.meterId,
-    readingDate: payload.readingDate,
-    readingValue: payload.readingValue,
-    notes: payload.notes,
-    images: parseImageUrls(payload.images)
-  };
+  // Multipart so the meter photo goes with the reading (typed image links are no longer accepted).
+  const requestPayload = new FormData();
+  requestPayload.append("meterId", payload.meterId);
+  requestPayload.append("readingDate", payload.readingDate);
+  requestPayload.append("readingValue", String(payload.readingValue));
+  if (payload.notes) requestPayload.append("notes", payload.notes);
+  if (payload.photo) requestPayload.append("photo", payload.photo);
 
   try {
     const response = await apiClient.post<ApiEnvelope<unknown>>("/utilities/readings", requestPayload);
@@ -222,12 +217,8 @@ export async function createUtilityReading(payload: ReadingFormValues): Promise<
       throw error;
     }
 
-    const response = await apiClient.post<ApiEnvelope<unknown>>(`/utilities/meters/${payload.meterId}/readings`, {
-      readingDate: payload.readingDate,
-      readingValue: payload.readingValue,
-      notes: payload.notes,
-      images: parseImageUrls(payload.images)
-    });
+    requestPayload.delete("meterId");
+    const response = await apiClient.post<ApiEnvelope<unknown>>(`/utilities/meters/${payload.meterId}/readings`, requestPayload);
 
     return sanitizeReading(unwrapData(response.data));
   }

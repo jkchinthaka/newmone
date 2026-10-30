@@ -15,7 +15,7 @@ test("manager action cards open distinct filtered work-order views", () => {
     [
       ["Overdue", "/work-orders?filter=overdue"],
       ["Unassigned", "/work-orders?filter=unassigned"],
-      ["Verification Required", "/work-orders?filter=verification-required"],
+      ["Supervisor check needed", "/work-orders?filter=verification-required"],
       ["Waiting for Parts", "/work-orders?filter=waiting-parts"]
     ]
   );

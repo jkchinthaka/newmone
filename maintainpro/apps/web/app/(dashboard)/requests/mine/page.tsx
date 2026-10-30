@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
+import { Plus } from "lucide-react";
 
 import { getApiErrorMessage } from "@/lib/api-client";
+import { useLiveRefresh } from "@/lib/live-data";
 import {
   listMaintenanceRequests,
   type MaintenanceRequestListItem
@@ -20,14 +22,17 @@ export default function MyRequestsPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = useCallback((options: { silent?: boolean } = {}) => {
     let cancelled = false;
     listMaintenanceRequests({ mine: true, limit: 50 })
       .then((result) => {
-        if (!cancelled) setItems(result.items);
+        if (cancelled) return;
+        setItems(result.items);
+        setError("");
       })
       .catch((cause: unknown) => {
-        if (!cancelled) setError(getApiErrorMessage(cause, "Couldn't load your requests."));
+        // A failed background refresh keeps the list already on screen.
+        if (!cancelled && !options.silent) setError(getApiErrorMessage(cause, "Couldn't load your requests."));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -37,11 +42,24 @@ export default function MyRequestsPage() {
     };
   }, []);
 
+  useEffect(() => load(), [load]);
+  useLiveRefresh(() => {
+    load({ silent: true });
+  });
+
   return (
     <div className="space-y-4 p-4">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">My requests</h1>
-        <p className="text-sm text-slate-600">Requests you submitted. This page is read-only.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">My requests</h1>
+          <p className="text-sm text-slate-600">Problems you reported and where they are now.</p>
+        </div>
+        <Link
+          href={"/requests/new" as Route}
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
+        >
+          <Plus size={16} aria-hidden /> Report a problem
+        </Link>
       </div>
       {loading ? <p className="text-sm text-slate-600">Loading requests...</p> : null}
       {error ? (
@@ -50,7 +68,12 @@ export default function MyRequestsPage() {
         </p>
       ) : null}
       {!loading && !error && items.length === 0 ? (
-        <p className="text-sm text-slate-600">No requests yet.</p>
+        <div className="rounded-card border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600">
+          <p>No requests yet.</p>
+          <Link href={"/requests/new" as Route} className="mt-2 inline-flex min-h-11 items-center font-semibold text-brand-700">
+            Report a problem
+          </Link>
+        </div>
       ) : null}
       <ul className="space-y-3">
         {items.map((item) => {
@@ -61,7 +84,7 @@ export default function MyRequestsPage() {
                 <Link href={`/requests/${item.id}` as Route} className="font-medium text-brand-700">
                   {item.requestNumber}
                 </Link>
-                <span className="text-sm text-slate-600">{item.workOrder?.woNumber ?? "No work order yet"}</span>
+                <span className="text-sm text-slate-600">{item.workOrder?.woNumber ?? "No job yet"}</span>
               </div>
               <p className="mt-1 text-sm text-slate-700">{item.description}</p>
               <p className="mt-2 text-xs text-slate-500">

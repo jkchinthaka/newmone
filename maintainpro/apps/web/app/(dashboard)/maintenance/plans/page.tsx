@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -121,7 +122,7 @@ export default function PreventiveMaintenancePage() {
         setTotalPages(result.meta.totalPages);
       })
       .catch((err) => {
-        if (!cancelled) setError(getApiErrorMessage(err, "We couldn't load preventive maintenance plans."));
+        if (!cancelled) setError(getApiErrorMessage(err, "We couldn't load scheduled service plans."));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -159,7 +160,7 @@ export default function PreventiveMaintenancePage() {
     <div className="min-w-0 space-y-3 p-4 md:p-6">
       <PageBreadcrumbs />
       <OperationalPageHeader
-        title="Preventive Maintenance"
+        title="Scheduled Service"
         description="Recurring plans, triggers, and the next due date."
         actions={
           canManage ? (
@@ -171,13 +172,13 @@ export default function PreventiveMaintenancePage() {
                 setWizard(true);
               }}
             >
-              <Plus size={16} aria-hidden /> Create PM Plan
+              <Plus size={16} aria-hidden /> Create scheduled service plan
             </button>
           ) : null
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="PM summary">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Scheduled service summary">
         {(
           [
             {
@@ -237,45 +238,9 @@ export default function PreventiveMaintenancePage() {
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Search plan, code, or asset"
-            aria-label="Search preventive maintenance plans"
+            aria-label="Search scheduled service plans"
             className="h-10 min-w-[12rem] flex-1 rounded-md border border-slate-300 px-3 text-sm"
           />
-          <select
-            aria-label="Status"
-            className="h-10 rounded-md border px-2 text-sm"
-            value={state.status ?? ""}
-            onChange={(event) => write({ status: event.target.value || null })}
-          >
-            <option value="">Status</option>
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Paused</option>
-            <option value="DRAFT">Draft</option>
-          </select>
-          <select
-            aria-label="Trigger type"
-            className="h-10 rounded-md border px-2 text-sm"
-            value={state.trigger ?? ""}
-            onChange={(event) => write({ trigger: event.target.value || null })}
-          >
-            <option value="">Trigger</option>
-            <option value="CALENDAR">Calendar</option>
-            <option value="METER">Meter</option>
-          </select>
-          <select
-            aria-label="Due window"
-            className="h-10 rounded-md border px-2 text-sm"
-            value={state.attention ? "attention" : state.due ?? ""}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (value === "attention") write({ attention: "true", due: null });
-              else write({ due: value || null, attention: null });
-            }}
-          >
-            <option value="">Due window</option>
-            <option value="soon">Due soon</option>
-            <option value="overdue">Overdue</option>
-            <option value="attention">Needs attention</option>
-          </select>
           <button type="button" className="h-10 px-2 text-sm font-medium" aria-expanded={moreFilters} onClick={() => setMoreFilters((open) => !open)}>
             More filters
           </button>
@@ -286,11 +251,56 @@ export default function PreventiveMaintenancePage() {
           ) : null}
         </div>
         {moreFilters ? (
-          <div className="mt-2 grid gap-2 border-t border-slate-100 pt-2 sm:grid-cols-2">
+          <div className="mt-2 grid gap-2 border-t border-slate-100 pt-2 sm:grid-cols-2 lg:grid-cols-4">
             <label className="text-sm text-slate-700">
-              Auto work order
+              Status
               <select
-                aria-label="Auto work order"
+                aria-label="Status"
+                className="mt-1 h-10 w-full rounded-md border px-2"
+                value={state.status ?? ""}
+                onChange={(event) => write({ status: event.target.value || null })}
+              >
+                <option value="">Any</option>
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Paused</option>
+                <option value="DRAFT">Draft</option>
+              </select>
+            </label>
+            <label className="text-sm text-slate-700">
+              Trigger
+              <select
+                aria-label="Trigger type"
+                className="mt-1 h-10 w-full rounded-md border px-2"
+                value={state.trigger ?? ""}
+                onChange={(event) => write({ trigger: event.target.value || null })}
+              >
+                <option value="">Any</option>
+                <option value="CALENDAR">Calendar</option>
+                <option value="METER">Meter</option>
+              </select>
+            </label>
+            <label className="text-sm text-slate-700">
+              Due window
+              <select
+                aria-label="Due window"
+                className="mt-1 h-10 w-full rounded-md border px-2"
+                value={state.attention ? "attention" : state.due ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === "attention") write({ attention: "true", due: null });
+                  else write({ due: value || null, attention: null });
+                }}
+              >
+                <option value="">Any</option>
+                <option value="soon">Due soon</option>
+                <option value="overdue">Overdue</option>
+                <option value="attention">Needs attention</option>
+              </select>
+            </label>
+            <label className="text-sm text-slate-700">
+              Auto job
+              <select
+                aria-label="Auto job"
                 className="mt-1 h-10 w-full rounded-md border px-2"
                 value={params.get("autoWo") ?? ""}
                 onChange={(event) => write({ autoWo: event.target.value || null })}
@@ -318,7 +328,7 @@ export default function PreventiveMaintenancePage() {
       </section>
 
       {error ? (
-        <ErrorState message={`We couldn't load preventive maintenance plans. ${error}`} onRetry={() => write({ retry: String(Date.now()) }, false)} />
+        <ErrorState message={`We couldn't load scheduled service plans. ${error}`} onRetry={() => write({ retry: String(Date.now()) }, false)} />
       ) : null}
       {loading ? (
         <div className="grid gap-3 sm:grid-cols-2" aria-busy="true" aria-label="Loading plans">
@@ -329,7 +339,7 @@ export default function PreventiveMaintenancePage() {
 
       {!loading && !error && items.length === 0 ? (
         <EmptyState
-          title="No preventive maintenance plans match these filters."
+          title="No scheduled service plans match these filters."
           description="Clear the filters or create a plan when you are allowed to."
           action={
             <div className="flex items-center justify-center gap-3">
@@ -340,7 +350,7 @@ export default function PreventiveMaintenancePage() {
               ) : null}
               {canManage ? (
                 <button type="button" className="text-sm font-medium text-slate-700" onClick={() => setWizard(true)}>
-                  Create PM Plan
+                  Create scheduled service plan
                 </button>
               ) : null}
             </div>
@@ -363,7 +373,7 @@ export default function PreventiveMaintenancePage() {
                   {dueNext.length === 0 ? <li className="text-sm text-slate-600">No dated plans in this list.</li> : dueNext.map((plan) => (
                     <li key={plan.id} className="border-b border-slate-100 pb-2 text-sm last:border-0">
                       <p className="font-medium text-slate-900">{plan.name}</p>
-                      <p className="text-xs text-slate-500">{scopeLabel(plan)} · {plan.nextDueAt ? new Date(plan.nextDueAt).toLocaleDateString() : ""}</p>
+                      <p className="text-xs text-slate-500">{scopeLabel(plan)} · {plan.nextDueAt ? lkDate(plan.nextDueAt) : ""}</p>
                     </li>
                   ))}
                 </ul>
@@ -380,7 +390,7 @@ export default function PreventiveMaintenancePage() {
                   <th className="px-3 py-2 font-medium">Trigger</th>
                   <th className="px-3 py-2 font-medium">Next due</th>
                   <th className="px-3 py-2 font-medium">Status</th>
-                  <th className="hidden px-3 py-2 font-medium xl:table-cell">Auto WO</th>
+                  <th className="hidden px-3 py-2 font-medium xl:table-cell">Auto job</th>
                   <th className="px-3 py-2 font-medium">Next action</th>
                   <th className="px-3 py-2 font-medium"><span className="sr-only">Actions</span></th>
                 </tr>
@@ -435,7 +445,7 @@ export default function PreventiveMaintenancePage() {
                                     toast.success(String((result as { reason?: string })?.reason ?? "Evaluated"));
                                     write({ refresh: String(Date.now()) }, false);
                                   } catch (err) {
-                                    toast.error(getApiErrorMessage(err, "Auto work order failed"));
+                                    toast.error(getApiErrorMessage(err, "Auto job failed"));
                                   }
                                 }}
                               >

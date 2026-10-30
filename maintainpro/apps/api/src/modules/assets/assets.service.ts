@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { join } from "path";
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
   AssetCategory,
@@ -29,7 +29,14 @@ import type {
 import { ASSET_TAG_FORMAT_MESSAGE, isValidAssetTag, normalizeAssetTag } from "./dto/asset-tag";
 import { PrismaService } from "../../database/prisma.service";
 import { normalizeDepartmentName } from "../departments/department-master-list";
+import { assetTagTypeCode } from "./asset-tag-type-code";
 import { AssetRegistryService } from "./asset-registry.service";
+import { EvidenceStorageProviderService } from "../evidence/evidence-storage-provider.service";
+import {
+  buildServerObjectKey,
+  evidenceExtensionForMime,
+  isConfiguredLocalDisk
+} from "../evidence/evidence-storage.mapper";
 
 interface AssetDocumentRecord {
   id: string;
@@ -39,6 +46,8 @@ interface AssetDocumentRecord {
   size?: number;
   uploadedAt: string;
   externalUrl?: string;
+  storageKey?: string;
+  storageProvider?: "local";
 }
 
 export interface ParsedAssetDocument extends AssetDocumentRecord {
@@ -63,6 +72,7 @@ interface AssetMutationInput {
   manufacturer?: string | null;
   model?: string | null;
   serialNumber?: string | null;
+  fixedAssetCode?: string | null;
   meterReading?: number | null;
   lastServiceDate?: Date | null;
   nextServiceDate?: Date | null;
@@ -79,7 +89,10 @@ export class AssetsService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ConfigService) private readonly configService: ConfigService,
     @Inject(QrCodeService) private readonly qrCodeService: QrCodeService,
-    @Inject(AssetRegistryService) private readonly registry: AssetRegistryService
+    @Inject(AssetRegistryService) private readonly registry: AssetRegistryService,
+    @Optional()
+    @Inject(EvidenceStorageProviderService)
+    private readonly evidenceStorage?: EvidenceStorageProviderService
   ) {}
 
   async findAll(tenantId: string | null | undefined, query: AssetListQueryDto) {
@@ -624,7 +637,7 @@ export class AssetsService {
     await this.ensureNoOpenWorkOrders(id);
 
     if (permanent) {
-      await this.cleanupDocumentFiles(this.parseDocuments(toStringArray(currentRecord.documents), id));
+      await this.cleanupDocumentFiles(this.readStoredDocuments(toStringArray(currentRecord.documents), id));
       await this.prisma.asset.delete({ where: { id } });
       await this.recordAudit({
         tenantId: current.tenantId,
@@ -876,6 +889,26 @@ export class AssetsService {
     };
   }
 
+  /** QR label sheet: tag, name, site and an SVG QR code for each asset (max 200 per call). */
+  async qrLabels(tenantId: string | null | undefined, ids: string[]) {
+    const tid = requireTenantId(tenantId);
+    const unique = Array.from(new Set(ids.filter((id) => typeof id === "string" && id))).slice(0, 200);
+    if (!unique.length) return [];
+    const assets = await this.prisma.asset.findMany({
+      where: { tenantId: tid, id: { in: unique } },
+      select: { id: true, assetTag: true, name: true, site: { select: { name: true } } }
+    });
+    const byId = new Map(assets.map((asset) => [asset.id, asset]));
+    const labels = [];
+    for (const id of unique) {
+      const asset = byId.get(id);
+      if (!asset) continue;
+      const svg = await QRCode.toString(this.getAssetScanUrl(asset.id), { errorCorrectionLevel: "M", margin: 0, type: "svg" });
+      labels.push({ id: asset.id, assetTag: asset.assetTag, name: asset.name, site: asset.site?.name ?? null, svg });
+    }
+    return labels;
+  }
+
   async getQrCodeFile(id: string, tenantId?: string | null, format: "png" | "svg" = "png") {
     const asset = await this.findOne(id, tenantId);
     if (format === "svg") {
@@ -1081,15 +1114,12 @@ export class AssetsService {
 
     const current = await this.findOne(id, tenantId);
     const currentRecord = await this.requireAssetRecord(id, tenantId);
-    const uploadDirectory = this.getDocumentDirectory();
-    await mkdir(uploadDirectory, { recursive: true });
-
     const documentId = randomUUID();
     const originalName = this.sanitizeFilename(file.originalname || `asset-document-${documentId}`);
-    const cloudinaryRecord = await this.uploadDocumentToCloudinary(id, documentId, originalName, file);
-    const documentRecord =
-      cloudinaryRecord ??
-      (await this.storeDocumentLocally(id, documentId, originalName, file, uploadDirectory));
+    const documentRecord = isConfiguredLocalDisk(this.evidenceStorage)
+      ? await this.storeDocumentOnPrivateDisk(id, tenantId, documentId, originalName, file)
+      : ((await this.uploadDocumentToCloudinary(id, documentId, originalName, file)) ??
+        (await this.storeDocumentLocally(id, documentId, originalName, file)));
 
     const updated = await this.prisma.asset.update({
       where: { id },
@@ -1112,7 +1142,7 @@ export class AssetsService {
 
   async downloadDocument(id: string, tenantId: string | null | undefined, documentId: string) {
     const asset = await this.requireAssetRecord(id, tenantId);
-    const document = this.parseDocuments(toStringArray(asset.documents), id).find((item) => item.id === documentId);
+    const document = this.readStoredDocuments(toStringArray(asset.documents), id).find((item) => item.id === documentId);
 
     if (!document) {
       throw new NotFoundException("Document not found");
@@ -1120,6 +1150,19 @@ export class AssetsService {
 
     if (document.externalUrl) {
       throw new BadRequestException("External documents must be opened from their source URL");
+    }
+
+    if (document.storageProvider === "local" && document.storageKey) {
+      this.assertPrivateAssetKey(tenantId, id, document.storageKey);
+      if (!this.evidenceStorage) {
+        throw new NotFoundException("Stored file is not available for this document");
+      }
+      const buffer = await this.evidenceStorage.readObject(document.storageKey);
+      return {
+        buffer,
+        filename: document.name,
+        mimeType: document.mimeType ?? "application/octet-stream"
+      };
     }
 
     if (!document.storedName) {
@@ -1143,20 +1186,14 @@ export class AssetsService {
   ) {
     const current = await this.findOne(id, tenantId);
     const currentRecord = await this.requireAssetRecord(id, tenantId);
-    const parsedDocuments = this.parseDocuments(toStringArray(currentRecord.documents), id);
+    const parsedDocuments = this.readStoredDocuments(toStringArray(currentRecord.documents), id);
     const document = parsedDocuments.find((item) => item.id === documentId);
 
     if (!document) {
       throw new NotFoundException("Document not found");
     }
 
-    if (document.storedName) {
-      try {
-        await unlink(join(this.getDocumentDirectory(), document.storedName));
-      } catch {
-        // Ignore missing files; the source of truth is the database entry.
-      }
-    }
+    await this.removeStoredDocumentFile(document);
 
     const updated = await this.prisma.asset.update({
       where: { id },
@@ -1282,6 +1319,7 @@ export class AssetsService {
         { manufacturer: { contains: query.search } },
         { model: { contains: query.search } },
         { serialNumber: { contains: query.search } },
+        { fixedAssetCode: { contains: query.search } },
         { supplier: { contains: query.search } },
         { department: { contains: query.search } },
         { ownerName: { contains: query.search } }
@@ -1333,6 +1371,7 @@ export class AssetsService {
       manufacturer: this.toNullableString(data.manufacturer),
       model: this.toNullableString(data.model),
       serialNumber: this.toNullableString(data.serialNumber),
+      fixedAssetCode: this.toNullableString(data.fixedAssetCode),
       meterReading: this.toNullableNumber(data.meterReading),
       lastServiceDate: this.toNullableDate(data.lastServiceDate),
       nextServiceDate: this.toNullableDate(data.nextServiceDate),
@@ -1365,6 +1404,7 @@ export class AssetsService {
       manufacturer: this.toNullableString(data.manufacturer) ?? null,
       model: this.toNullableString(data.model) ?? null,
       serialNumber: this.toNullableString(data.serialNumber) ?? null,
+      fixedAssetCode: this.toNullableString(data.fixedAssetCode) ?? null,
       meterReading: this.toNullableNumber(data.meterReading) ?? null,
       lastServiceDate: this.toNullableDate(data.lastServiceDate) ?? null,
       nextServiceDate: this.toNullableDate(data.nextServiceDate) ?? null,
@@ -1384,6 +1424,32 @@ export class AssetsService {
       throw new BadRequestException(ASSET_TAG_FORMAT_MESSAGE);
     }
     return normalized;
+  }
+
+  /**
+   * Next free tag for the register wizard, e.g. AST-MCH0007 (AST- + type code + 4-digit number).
+   * Only a suggestion: create() still checks the format and uniqueness.
+   */
+  async suggestNextAssetTag(tenantId: string | null | undefined, category?: string | null) {
+    const tid = requireTenantId(tenantId);
+    const prefix = `AST-${assetTagTypeCode(category)}`;
+    const rows = await this.prisma.asset.findMany({
+      where: { tenantId: tid, assetTag: { startsWith: prefix } },
+      select: { assetTag: true },
+      take: 5000
+    });
+    let next =
+      rows.reduce((max, row) => {
+        const match = row.assetTag.slice(prefix.length).match(/^(\d+)$/);
+        return match ? Math.max(max, Number(match[1])) : max;
+      }, 0) + 1;
+    const taken = new Set(rows.map((row) => row.assetTag));
+    let assetTag = `${prefix}${String(next).padStart(4, "0")}`;
+    while (taken.has(assetTag)) {
+      next += 1;
+      assetTag = `${prefix}${String(next).padStart(4, "0")}`;
+    }
+    return { assetTag };
   }
 
   /** MP-003: assetTag is tenant-scoped — see @@unique([tenantId, assetTag]). */
@@ -1533,6 +1599,13 @@ export class AssetsService {
   }
 
   private parseDocuments(entries: string[], assetId: string): ParsedAssetDocument[] {
+    return this.readStoredDocuments(entries, assetId).map((document) => {
+      const { storageKey: _storageKey, storageProvider: _storageProvider, ...publicDocument } = document;
+      return publicDocument;
+    });
+  }
+
+  private readStoredDocuments(entries: string[], assetId: string): Array<AssetDocumentRecord & { downloadUrl?: string }> {
     return entries.map((entry, index) => {
       try {
         const parsed = JSON.parse(entry) as AssetDocumentRecord;
@@ -1574,15 +1647,7 @@ export class AssetsService {
     }
   }
 
-  private toDocumentStorageRecord(document: {
-    id: string;
-    name: string;
-    storedName?: string;
-    mimeType?: string;
-    size?: number;
-    uploadedAt: string;
-    externalUrl?: string;
-  }): AssetDocumentRecord {
+  private toDocumentStorageRecord(document: AssetDocumentRecord): AssetDocumentRecord {
     return {
       id: document.id,
       name: document.name,
@@ -1590,31 +1655,67 @@ export class AssetsService {
       mimeType: document.mimeType,
       size: document.size,
       uploadedAt: document.uploadedAt,
-      externalUrl: document.externalUrl
+      externalUrl: document.externalUrl,
+      storageKey: document.storageKey,
+      storageProvider: document.storageProvider
     };
   }
 
-  private async cleanupDocumentFiles(entries: Array<{ storedName?: string } | string>) {
-    const documents = entries.map((entry) =>
-      typeof entry === "string" ? this.parseDocuments([entry], "temp")[0] : entry
-    );
-
+  private async cleanupDocumentFiles(documents: Array<Pick<AssetDocumentRecord, "storedName" | "storageKey" | "storageProvider">>) {
     for (const document of documents) {
-      if (!document?.storedName) {
-        continue;
-      }
-
-      try {
-        await unlink(join(this.getDocumentDirectory(), document.storedName));
-      } catch {
-        // Ignore cleanup failures for already-missing files.
-      }
+      await this.removeStoredDocumentFile(document);
     }
+  }
+
+  private async removeStoredDocumentFile(document: Pick<AssetDocumentRecord, "storedName" | "storageKey" | "storageProvider">) {
+    if (document.storageProvider === "local" && document.storageKey && this.evidenceStorage) {
+      await this.evidenceStorage.deleteObject(document.storageKey).catch(() => undefined);
+    }
+    if (!document.storedName) return;
+    try {
+      await unlink(join(this.getDocumentDirectory(), document.storedName));
+    } catch {
+      // Ignore missing files; the source of truth is the database entry.
+    }
+  }
+
+  private assertPrivateAssetKey(tenantId: string | null | undefined, assetId: string, storageKey: string) {
+    const normalized = storageKey.replace(/\\/g, "/");
+    const prefix = `assets/${requireTenantId(tenantId)}/${assetId}/`;
+    const segments = normalized.split("/");
+    if (!normalized.startsWith(prefix) || segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
+      throw new NotFoundException("Document not found");
+    }
+  }
+
+  private async storeDocumentOnPrivateDisk(
+    id: string,
+    tenantId: string | null | undefined,
+    documentId: string,
+    originalName: string,
+    file: Express.Multer.File
+  ): Promise<AssetDocumentRecord> {
+    const mimeType = String(file.mimetype ?? "").trim().toLowerCase();
+    const extension = evidenceExtensionForMime(mimeType);
+    if (!extension || !this.evidenceStorage) {
+      throw new BadRequestException("Evidence file contents or MIME type are not allowed.");
+    }
+    const storageKey = buildServerObjectKey(["assets", requireTenantId(tenantId), id], extension);
+    await this.evidenceStorage.putObject(storageKey, file.buffer);
+    return {
+      id: documentId,
+      name: originalName,
+      mimeType,
+      size: file.size,
+      uploadedAt: new Date().toISOString(),
+      storageKey,
+      storageProvider: "local"
+    };
   }
 
   private getAssetScanUrl(assetId: string) {
     const frontendBaseUrl = (
-      this.configService.get<string>("FRONTEND_URL") ?? "http://localhost:3001"
+      this.configService.get<string>("FRONTEND_URL") ?? "http://localhost:3041"
     ).replace(/\/$/, "");
     return `${frontendBaseUrl}/assets?assetId=${encodeURIComponent(assetId)}`;
   }
@@ -1627,9 +1728,10 @@ export class AssetsService {
     id: string,
     documentId: string,
     originalName: string,
-    file: Express.Multer.File,
-    uploadDirectory: string
+    file: Express.Multer.File
   ): Promise<AssetDocumentRecord> {
+    const uploadDirectory = this.getDocumentDirectory();
+    await mkdir(uploadDirectory, { recursive: true });
     const extension = originalName.includes(".")
       ? originalName.slice(originalName.lastIndexOf("."))
       : "";
@@ -1840,3 +1942,7 @@ export class AssetsService {
     return new Date().toISOString().replace(/[:.]/g, "-");
   }
 }
+
+/** Short type code used inside suggested asset tags (AST-MCH0001, AST-EQP0001, ...). */
+
+export { assetTagTypeCode };

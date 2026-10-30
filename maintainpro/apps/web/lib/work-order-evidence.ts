@@ -48,6 +48,8 @@ export type WorkOrderEvidenceRequirements = {
   completionNoteProvided: boolean;
   qrVerificationStatus: string;
   qrRequired: boolean;
+  /** Production only: photos are required but storage is off, so completion is blocked. */
+  storageUnavailableBlocking?: boolean;
 };
 
 export type WorkOrderEvidenceListResponse = {
@@ -74,7 +76,7 @@ export const EVIDENCE_TYPE_OPTIONS = [
   { value: "DAMAGE_PHOTO", label: "Damage photo" },
   { value: "PART_PHOTO", label: "Part photo" },
   { value: "INVOICE", label: "Invoice" },
-  { value: "QUOTATION", label: "Quotation" },
+  { value: "QUOTATION", label: "Price quote" },
   { value: "SIGNATURE", label: "Signature" },
   { value: "TECHNICIAN_NOTE", label: "Technician note" },
   { value: "OTHER_DOCUMENT", label: "Other document" }
@@ -165,7 +167,7 @@ export function evidencePayloadHasSecrets(value: unknown): boolean {
 
 export function evidenceUploadDisabledMessage(readiness: EvidenceStorageReadiness | null | undefined): string {
   if (!readiness) {
-    return "Evidence upload setup is unavailable.";
+    return "Photos upload setup is unavailable.";
   }
 
   if (!readiness.uploadsEnabled) {
@@ -186,11 +188,60 @@ export function evidenceTypeLabel(type: string): string {
 export function verificationStatusLabel(status: string): string {
   switch (status) {
     case "ACCEPTED":
-      return "Evidence accepted.";
+      return "Photos accepted.";
     case "REJECTED":
-      return "Evidence rejected. Rework required.";
+      return "Photos rejected. Needs to be fixed again.";
     case "PENDING":
     default:
       return "Pending review";
   }
+}
+
+/** Photo the technician most likely needs next: After once a Before photo exists. */
+export function defaultEvidenceType(items: Array<Pick<WorkOrderEvidenceItem, "evidenceType" | "status">>): string {
+  const hasBefore = items.some((item) => item.evidenceType === "BEFORE_PHOTO" && item.status === "UPLOADED");
+  return hasBefore ? "AFTER_PHOTO" : "BEFORE_PHOTO";
+}
+
+/** After a successful Before upload, move on to After. Other types stay as chosen. */
+export function evidenceTypeAfterUpload(uploadedType: string): string {
+  return uploadedType === "BEFORE_PHOTO" ? "AFTER_PHOTO" : uploadedType;
+}
+
+/**
+ * Roles that may confirm a job when the QR tag is missing or damaged. Must pass BOTH the API
+ * override list (QR_OVERRIDE_ROLES in work-order-evidence-rbac.ts) and the verify-qr endpoint
+ * @Roles (and the evidence upload roles checked first by verifyWorkOrderQr).
+ */
+const QR_OVERRIDE_UI_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "MANAGER", "ASSET_MANAGER"]);
+
+export function canOverrideQrMismatch(role?: string | null): boolean {
+  return role ? QR_OVERRIDE_UI_ROLES.has(role.trim()) : false;
+}
+
+export const QR_OVERRIDE_MIN_REASON = 3;
+
+export function isQrVerified(status?: string | null): boolean {
+  return status === "VERIFIED" || status === "OVERRIDDEN";
+}
+
+/** QR status in plain words for the Evidence tab. */
+export function qrStatusLabel(status?: string | null): string {
+  switch (status) {
+    case "VERIFIED":
+      return "Tag checked. This is the right asset.";
+    case "OVERRIDDEN":
+      return "Confirmed by a manager (tag missing or damaged).";
+    case "MISMATCH":
+      return "Wrong tag. Scan the tag on this job's asset or vehicle.";
+    case "NOT_REQUIRED":
+      return "Tag check not needed for this job.";
+    case "PENDING":
+    default:
+      return "Not checked yet. Scan the tag on the asset or vehicle.";
+  }
+}
+
+export function isQrMismatchMessage(message: string): boolean {
+  return /does not match/i.test(message);
 }

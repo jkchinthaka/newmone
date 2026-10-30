@@ -3,6 +3,7 @@ import { Prisma, Priority, WorkOrderStatus } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
+import { displayJobNumbers } from "../../common/job-number-display";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
@@ -170,7 +171,7 @@ export class WorkOrderCategoryReportsService {
     return {
       filename: `work-orders-category-summary-${Date.now()}.csv`,
       contentType: "text/csv; charset=utf-8",
-      content: Buffer.from(content, "utf8")
+      content: Buffer.from(displayJobNumbers(content), "utf8")
     };
   }
 

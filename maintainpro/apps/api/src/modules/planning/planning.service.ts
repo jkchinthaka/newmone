@@ -6,6 +6,8 @@ import {
   NotFoundException,
   Optional
 } from "@nestjs/common";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import {
   AssetMeterType,
   CalibrationResult,
@@ -19,7 +21,14 @@ import {
   WorkOrderType
 } from "@prisma/client";
 
-import { persistEvidenceFileBytes } from "../evidence/evidence-storage.mapper";
+import {
+  buildServerObjectKey,
+  evidenceExtensionForMime,
+  isConfiguredLocalDisk,
+  persistEvidenceFileBytes,
+  sanitizeEvidenceFileName
+} from "../evidence/evidence-storage.mapper";
+import { EvidenceStorageProviderService } from "../evidence/evidence-storage-provider.service";
 import { whitelistPmPlanPatch } from "./pm-plan-revise";
 import { evaluateInspectionChecklist } from "./inspection-checklist";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
@@ -29,6 +38,7 @@ import { ApprovalsService } from "../approvals/approvals.service";
 import { MaintenanceRequestsService } from "../maintenance-requests/maintenance-requests.service";
 import { ReliabilityService } from "../reliability/reliability.service";
 import { WorkOrdersService } from "../work-orders/work-orders.service";
+import { businessDayWindow } from "../work-orders/my-jobs.rules";
 import { evaluateComplianceStatus } from "./compliance-status";
 import { buildPmPlanListQuery } from "./pm-plan-query";
 import { validateAssetMeterReading } from "./meter-validation";
@@ -39,6 +49,7 @@ import {
   type TriggerContext,
   type TriggerDefinition
 } from "./trigger-engine";
+import { initialPmNextDueAt } from "./pm-baseline";
 
 type Actor = Pick<JwtPayload, "sub" | "tenantId" | "role" | "email"> & {
   permissions?: string[];
@@ -96,7 +107,10 @@ export class PlanningService {
     @Optional()
     @Inject(MaintenanceRequestsService)
     private readonly maintenanceRequestsService?: MaintenanceRequestsService,
-    @Optional() private readonly reliability?: ReliabilityService
+    @Optional() private readonly reliability?: ReliabilityService,
+    @Optional()
+    @Inject(EvidenceStorageProviderService)
+    private readonly evidenceStorage?: EvidenceStorageProviderService
   ) {}
 
   // ----- PM Plans -----
@@ -290,6 +304,7 @@ export class PlanningService {
         autoCreateWorkOrder: input.autoCreateWorkOrder ?? true,
         combineMode: input.combineMode ?? PmTriggerCombineMode.EARLIEST,
         effectiveFrom: input.effectiveFrom ?? new Date(),
+        nextDueAt: initialPmNextDueAt(input.effectiveFrom ?? new Date(), input.triggers) ?? undefined,
         currentRevision: 1,
         triggers: input.triggers?.length
           ? {
@@ -1188,13 +1203,11 @@ export class PlanningService {
       orderBy: [{ scheduledAt: "asc" }, { createdAt: "desc" }]
     });
 
+    // "Today" is the Asia/Colombo business day, not the server's local midnight.
     const now = new Date();
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setDate(endOfDay.getDate() + 1);
-    const weekStart = new Date(startOfDay);
-    weekStart.setDate(weekStart.getDate() - 6);
+    const startOfDay = businessDayWindow(now).start;
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+    const weekStart = new Date(startOfDay.getTime() - 6 * 24 * 60 * 60 * 1000);
 
     const decorated = rows.map((row) => {
       const due = row.scheduledAt ?? row.performedAt;
@@ -1496,6 +1509,9 @@ export class PlanningService {
     if (inspection.status === "COMPLETED") {
       throw new BadRequestException("Completed inspections are read-only.");
     }
+    if (isConfiguredLocalDisk(this.evidenceStorage)) {
+      return this.storeInspectionEvidenceOnPrivateDisk(actor, tenantId, inspectionId, input);
+    }
     const stored = await persistEvidenceFileBytes({
       tenantId,
       inspectionId,
@@ -1524,6 +1540,95 @@ export class PlanningService {
       },
       select: { id: true, fileName: true, mimeType: true, sizeBytes: true, status: true, checklistItemKey: true }
     });
+  }
+
+  async readInspectionEvidence(actor: Actor, inspectionId: string, evidenceId: string) {
+    const tenantId = requireTenantId(actor.tenantId);
+    const row = await this.prisma.evidenceAttachment.findFirst({
+      where: { id: evidenceId, inspectionId, tenantId, deletedAt: null },
+      select: { id: true, fileName: true, mimeType: true, storageKey: true, status: true }
+    });
+    if (!row?.storageKey || row.status === "DELETED") {
+      throw new NotFoundException("Evidence not found");
+    }
+    const normalized = row.storageKey.replace(/\\/g, "/");
+    const prefix = `evidence/${tenantId}/inspections/${inspectionId}/`;
+    if (
+      !normalized.startsWith(prefix) ||
+      normalized.split("/").some((segment) => segment === "" || segment === "." || segment === "..")
+    ) {
+      throw new NotFoundException("Evidence not found");
+    }
+    const bytes = await this.readStoredEvidenceBytes(normalized);
+    return { bytes, fileName: row.fileName, mimeType: row.mimeType };
+  }
+
+  private async storeInspectionEvidenceOnPrivateDisk(
+    actor: Actor,
+    tenantId: string,
+    inspectionId: string,
+    input: { checklistItemKey: string; fileName: string; mimeType: string; contentBase64: string }
+  ) {
+    const mimeType = input.mimeType.trim().toLowerCase();
+    const extension = evidenceExtensionForMime(mimeType);
+    const bytes = Buffer.from(input.contentBase64, "base64");
+    if (!extension || !this.evidenceStorage) {
+      throw new BadRequestException(`MIME type ${mimeType || "unknown"} is not allowed.`);
+    }
+    const itemKey = input.checklistItemKey.replace(/[^\w-]+/g, "").slice(0, 80) || "item";
+    let storageKey: string;
+    try {
+      storageKey = buildServerObjectKey(["evidence", tenantId, "inspections", inspectionId, itemKey], extension);
+    } catch {
+      throw new BadRequestException("Evidence path is not allowed.");
+    }
+    await this.evidenceStorage.putObject(storageKey, bytes);
+    return this.prisma.evidenceAttachment.create({
+      data: {
+        tenantId,
+        inspectionId,
+        checklistItemKey: input.checklistItemKey,
+        evidenceType: "PHOTO",
+        fileName: sanitizeEvidenceFileName(input.fileName),
+        mimeType,
+        sizeBytes: bytes.length,
+        storageProvider: "LOCAL",
+        storageKey,
+        status: "READY",
+        uploadedById: actor.sub,
+        source: "WEB"
+      },
+      select: { id: true, fileName: true, mimeType: true, sizeBytes: true, status: true, checklistItemKey: true }
+    });
+  }
+
+  private async readStoredEvidenceBytes(storageKey: string): Promise<Buffer> {
+    if (isConfiguredLocalDisk(this.evidenceStorage) && this.evidenceStorage) {
+      try {
+        return await this.evidenceStorage.readObject(storageKey);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+    }
+    return this.readLegacyEvidenceFile(storageKey);
+  }
+
+  private async readLegacyEvidenceFile(storageKey: string): Promise<Buffer> {
+    const normalized = storageKey.replace(/\\/g, "/");
+    const root = path.resolve(process.cwd(), "var", "evidence");
+    const absolute = path.resolve(process.cwd(), "var", normalized);
+    const relative = path.relative(root, absolute);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+      throw new NotFoundException("Evidence not found");
+    }
+    try {
+      return await readFile(absolute);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new NotFoundException("Evidence not found");
+      }
+      throw error;
+    }
   }
 
   async createReinspection(actor: Actor, id: string) {

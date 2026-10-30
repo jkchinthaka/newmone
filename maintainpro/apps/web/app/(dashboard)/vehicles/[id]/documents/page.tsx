@@ -1,5 +1,9 @@
 "use client";
 
+import { ButtonSpinner, TableLoadingRows } from "@/components/ui/loading";
+import { formatEnumLabel } from "@/lib/display-labels";
+import { formatDate } from "@/lib/localization";
+import { ErrorState } from "@/components/ui/page-state";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { DateField } from "@/components/forms/date-fields";
@@ -8,7 +12,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   FileText,
-  Loader2,
   Plus,
   RefreshCw,
   ShieldX,
@@ -21,7 +24,6 @@ import {
   COMPLIANCE_BADGE,
   DOCUMENT_STATUS_BADGE,
   VEHICLE_DOCUMENT_TYPES,
-  formatDate,
   p4Delete,
   p4Get,
   p4Post,
@@ -79,7 +81,8 @@ export default function VehicleDocumentsPage({
   const [docs, setDocs] = useState<VehicleDocument[]>([]);
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [compliance, setCompliance] = useState<ComplianceDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [showCreate, setShowCreate] = useState(false);
 
   const permissions = useMemo(() => new Set(getStoredPermissions()), []);
@@ -97,8 +100,9 @@ export default function VehicleDocumentsPage({
       setDocs(list);
       setVehicle(vehicleRes);
       setCompliance(comp);
+      setLoadError(null);
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to load vehicle documents"));
+      setLoadError(err);
     } finally {
       setLoading(false);
     }
@@ -248,16 +252,22 @@ export default function VehicleDocumentsPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {docs.length === 0 ? (
+              {loadError ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-500">
-                    {loading ? "Loading..." : "No documents uploaded yet."}
+                  <td colSpan={7} className="p-3">
+                    <ErrorState title="Couldn't load vehicle documents" error={loadError} onRetry={() => void refresh()} />
+                  </td>
+                </tr>
+              ) : docs.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className={loading ? "" : "px-4 py-6 text-center text-sm text-slate-500"}>
+                    {loading ? <TableLoadingRows label="Loading documents" /> : "No documents uploaded yet."}
                   </td>
                 </tr>
               ) : (
                 docs.map((doc) => (
                   <tr key={doc.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-2 font-medium text-slate-900">{doc.documentType}</td>
+                    <td className="px-4 py-2 font-medium text-slate-900">{formatEnumLabel(doc.documentType)}</td>
                     <td className="px-4 py-2 text-slate-700">{doc.documentNumber ?? "—"}</td>
                     <td className="px-4 py-2 text-slate-700">{formatDate(doc.issuedDate)}</td>
                     <td className="px-4 py-2 text-slate-700">{formatDate(doc.expiryDate)}</td>
@@ -458,7 +468,7 @@ function CreateDocumentDialog({
             disabled={saving}
             className="inline-flex items-center gap-2 rounded bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
           >
-            {saving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Upload
+            {saving ? <ButtonSpinner className="h-3 w-3" /> : <Plus size={12} />} Upload
           </button>
         </div>
       </form>

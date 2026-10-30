@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import { resolveJobDomain } from "../../common/utils/job-domain.util";
 import { InjectQueue } from "@nestjs/bull";
 import {
   AppSettingScope,
@@ -11,6 +12,7 @@ import {
 import { Queue } from "bull";
 
 import { requestContext } from "../../common/context/request-context";
+import { hasCompatiblePermission } from "../../common/guards/permissions.guard";
 import { PrismaService } from "../../database/prisma.service";
 import { QueueHealthService } from "../queues/queue-health.service";
 import { EmailDispatchService } from "./email-dispatch.service";
@@ -18,6 +20,7 @@ import { notificationContextHref, notificationListPage, notificationListWhere, t
 import { NotificationsGateway } from "./notifications.gateway";
 import { PushDeviceRegistration, PushDispatchService } from "./push-dispatch.service";
 import { SmsDispatchService } from "./sms-dispatch.service";
+import { displayJobNumbers } from "../../common/job-number-display";
 
 export interface NotificationPreference {
   inApp: boolean;
@@ -115,6 +118,17 @@ const DEFAULT_RULES: NotificationRuleSet = {
   mutedTypes: [],
   onlyCritical: false,
   emailOnlyOverdue: false
+};
+
+/**
+ * Notification buttons that change jobs are not self-service: they need the same role and
+ * permission as the Jobs page (create / change = work_orders.manage, assign = work_orders.assign).
+ */
+const NOTIFICATION_ACTION_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER"]);
+const NOTIFICATION_ACTION_PERMISSION: Record<string, string> = {
+  SCHEDULE_TASK: "work_orders.manage",
+  CREATE_WORK_ORDER: "work_orders.manage",
+  ASSIGN_USER: "work_orders.assign"
 };
 
 @Injectable()
@@ -225,9 +239,11 @@ export class NotificationsService {
     userId: string,
     id: string,
     actorId: string,
-    actionRequest: NotificationAction
+    actionRequest: NotificationAction,
+    actorRole?: string | null
   ) {
     const notification = await this.requireNotification(userId, id);
+    await this.assertCanRunAction(actorId, actorRole, actionRequest.action);
 
     let result: unknown;
 
@@ -447,6 +463,8 @@ export class NotificationsService {
   }
 
   async createNotification(input: NotificationInput) {
+    // Job order numbers are shown as JO-… in the bell, push, email and SMS alike.
+    input = { ...input, title: displayJobNumbers(input.title), message: displayJobNumbers(input.message) };
     const preferences = await this.getPreferences(input.userId);
     const rules = await this.getRules(input.userId);
 
@@ -1226,6 +1244,45 @@ export class NotificationsService {
     return diffMs >= 0 ? `in ${days}d` : `${days}d ago`;
   }
 
+  private async assertCanRunAction(actorId: string, actorRole: string | null | undefined, action: string) {
+    const required = NOTIFICATION_ACTION_PERMISSION[action];
+    if (!required) return; // ACKNOWLEDGE only touches the user's own notification
+    const role = String(actorRole ?? "").toUpperCase();
+    if (!NOTIFICATION_ACTION_ROLES.has(role)) {
+      throw new ForbiddenException("Your role cannot change jobs from a notification. Open the job instead.");
+    }
+    if (role === "SUPER_ADMIN" || role === "ADMIN") return;
+    const dbUser = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: { role: { select: { permissionLinks: { select: { permission: { select: { key: true } } } } } } }
+    });
+    const keys = new Set((dbUser?.role?.permissionLinks ?? []).map((link) => link.permission.key));
+    if (!hasCompatiblePermission(keys, required, role)) {
+      throw new ForbiddenException("You do not have permission to do this from a notification.");
+    }
+  }
+
+  /** Ids typed into a notification action must belong to the caller's company. */
+  private async assertPayloadTenantAccess(ids: { assetId?: string; vehicleId?: string; userId?: string }) {
+    const tenantId = requestContext.get()?.tenantId ?? null;
+    if (!tenantId) return;
+    if (ids.assetId && !(await this.prisma.asset.findFirst({ where: { id: ids.assetId, tenantId }, select: { id: true } }))) {
+      throw new NotFoundException("Asset not found");
+    }
+    if (ids.vehicleId && !(await this.prisma.vehicle.findFirst({ where: { id: ids.vehicleId, tenantId }, select: { id: true } }))) {
+      throw new NotFoundException("Vehicle not found");
+    }
+    if (
+      ids.userId &&
+      !(await this.prisma.user.findFirst({
+        where: { id: ids.userId, isActive: true, OR: [{ tenantId }, { memberships: { some: { tenantId } } }] },
+        select: { id: true }
+      }))
+    ) {
+      throw new NotFoundException("User not found");
+    }
+  }
+
   private async createWorkOrderFromNotification(
     notification: Prisma.NotificationGetPayload<Record<string, never>>,
     actorId: string,
@@ -1236,6 +1293,23 @@ export class NotificationsService {
     const priority = this.toWorkOrderPriority(payload.priority, notification.priority);
     const tenantId = requestContext.get()?.tenantId ?? null;
 
+    const followUpAssetId =
+      typeof payload.assetId === "string"
+        ? payload.assetId
+        : notification.referenceType === "Asset"
+          ? notification.referenceId ?? undefined
+          : undefined;
+    const followUpVehicleId =
+      typeof payload.vehicleId === "string"
+        ? payload.vehicleId
+        : notification.referenceType === "Vehicle"
+          ? notification.referenceId ?? undefined
+          : undefined;
+    await this.assertPayloadTenantAccess({
+      assetId: followUpAssetId,
+      vehicleId: followUpVehicleId,
+      userId: typeof payload.technicianId === "string" && payload.technicianId ? payload.technicianId : undefined
+    });
     const created = await this.prisma.workOrder.create({
       data: {
         woNumber,
@@ -1255,18 +1329,9 @@ export class NotificationsService {
           typeof payload.dueDate === "string"
             ? new Date(payload.dueDate)
             : notification.dueAt ?? undefined,
-        assetId:
-          typeof payload.assetId === "string"
-            ? payload.assetId
-            : notification.referenceType === "Asset"
-              ? notification.referenceId ?? undefined
-              : undefined,
-        vehicleId:
-          typeof payload.vehicleId === "string"
-            ? payload.vehicleId
-            : notification.referenceType === "Vehicle"
-              ? notification.referenceId ?? undefined
-              : undefined
+        assetId: followUpAssetId,
+        vehicleId: followUpVehicleId,
+        jobDomain: resolveJobDomain({ assetId: followUpAssetId, vehicleId: followUpVehicleId })
       }
     });
 
@@ -1330,6 +1395,7 @@ export class NotificationsService {
     if (!targetUserId) {
       throw new BadRequestException("userId is required for ASSIGN_USER action");
     }
+    await this.assertPayloadTenantAccess({ userId: targetUserId });
 
     if (notification.referenceType === "WorkOrder" && notification.referenceId) {
       await this.assertReferenceTenantAccess(notification.referenceType, notification.referenceId);

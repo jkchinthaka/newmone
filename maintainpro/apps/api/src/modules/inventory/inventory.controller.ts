@@ -15,7 +15,8 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
-  BadRequestException
+  BadRequestException,
+  Inject
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiConsumes, ApiOkResponse, ApiTags } from "@nestjs/swagger";
@@ -24,14 +25,18 @@ import { memoryStorage } from "multer";
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { PROOF_PHOTO_MAX_BYTES, ProofPhotoService, type ProofPhotoUpload } from "../evidence/proof-photo.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { InventoryService } from "./inventory.service";
+import { GoodsInService, type GoodsInLineInput } from "./goods-in.service";
 import { ErpStockSyncService } from "./erp-stock-sync.service";
 import { InventoryExcelImportService } from "./inventory-excel-import.service";
 import { InventoryDailyService } from "./inventory-daily.service";
 import { StockCountService } from "./stock-count.service";
 import { ErpExcelImportService } from "./erp-excel-import.service";
 import { ERP_EXCEL_MAX_BYTES } from "./erp-excel-stock.parser";
+import { PART_REQUEST_ISSUE_ROLES } from "../work-orders/part-request-access";
 import {
   ApprovePurchaseOrderDto,
   CreatePurchaseOrderDto,
@@ -67,7 +72,9 @@ export class InventoryController {
     private readonly excelImportService: InventoryExcelImportService,
     private readonly dailyService: InventoryDailyService,
     private readonly stockCountService: StockCountService,
-    private readonly erpExcelImportService: ErpExcelImportService
+    private readonly erpExcelImportService: ErpExcelImportService,
+    private readonly goodsIn: GoodsInService,
+    @Inject(ProofPhotoService) private readonly proofPhotos: ProofPhotoService
   ) {}
 
   @Get("parts")
@@ -84,7 +91,9 @@ export class InventoryController {
     @Query("mapped") mapped?: string,
     @Query("stock") stock?: string,
     @Query("sortBy") sortBy?: string,
-    @Query("sortDir") sortDir?: string
+    @Query("sortDir") sortDir?: string,
+    @Query("take") takeRaw?: string,
+    @Query("skip") skipRaw?: string
   ) {
     if (pageRaw != null && pageRaw !== "") {
       const data = await this.inventoryService.partsPage(req.user, {
@@ -101,8 +110,8 @@ export class InventoryController {
       });
       return { data, message: "Parts fetched" };
     }
-    const data = await this.inventoryService.parts(req.user);
-    return { data, message: "Parts fetched" };
+    const { items, meta } = await this.inventoryService.parts(req.user, { take: Number(takeRaw), skip: Number(skipRaw) });
+    return { data: items, meta, message: "Parts fetched" };
   }
 
   @Post("parts")
@@ -160,12 +169,82 @@ export class InventoryController {
     return { data, message: "Part deleted" };
   }
 
+  /** Goods in (GRN) preview: checks lines from the form or an Excel file without saving. */
+  @Post("goods-in/preview")
+  @Roles("SUPER_ADMIN", "ADMIN", "INVENTORY_KEEPER")
+  @Permissions("inventory.manage")
+  async previewGoodsIn(@Req() req: AuthedRequest, @Body() body: { lines: GoodsInLineInput[] }) {
+    const data = await this.goodsIn.preview(req.user, body?.lines ?? []);
+    return { data, message: "Goods in checked" };
+  }
+
+  /** Goods in (GRN): raises on-hand in the MaintainPro store; new part codes become parts. */
+  @Post("goods-in")
+  @Roles("SUPER_ADMIN", "ADMIN", "INVENTORY_KEEPER")
+  @Permissions("inventory.manage")
+  @UseInterceptors(FileInterceptor("grnPhoto", { storage: memoryStorage(), limits: { fileSize: PROOF_PHOTO_MAX_BYTES } }))
+  async receiveGoodsIn(
+    @Req() req: AuthedRequest,
+    @UploadedFile() grnPhoto: ProofPhotoUpload,
+    @Body()
+    raw: {
+      /** Multipart: the delivery as JSON text next to the GRN photo. */
+      payload?: string;
+      lines?: GoodsInLineInput[];
+      referenceNo?: string;
+      supplierName?: string;
+      receivedDate?: string;
+      notes?: string;
+      warehouseId?: string;
+      idempotencyKey?: string;
+    }
+  ) {
+    let body = raw ?? {};
+    if (typeof raw?.payload === "string") {
+      try {
+        body = JSON.parse(raw.payload) as typeof body;
+      } catch {
+        throw new BadRequestException("The delivery could not be read. Try again.");
+      }
+    }
+    const tenantId = requireTenantId(req.user?.tenantId);
+    const data = await this.goodsIn.receive(req.user, { ...body, lines: body?.lines ?? [] }, () =>
+      this.proofPhotos.requireAndSave(tenantId, "goods-in", grnPhoto, "GRN / invoice")
+    );
+    return { data, message: `Goods received: ${data.totalQuantity} item(s) on ${data.lines} line(s)` };
+  }
+
   @Post("parts/:id/stock-in")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC")
   @Permissions("inventory.manage")
   async stockIn(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { quantity: number; notes?: string }) {
     const data = await this.inventoryService.stockIn(id, body.quantity, body.notes, req.user);
     return { data, message: "Stock added" };
+  }
+
+  @Get("unverified-issues")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "MANAGER")
+  @Permissions("inventory.manage")
+  async unverifiedIssues(
+    @Req() req: AuthedRequest,
+    @Query("view") view?: string,
+    @Query("take") take?: string
+  ) {
+    const data = await this.inventoryService.listUnverifiedIssues(req.user, { view, take: take ? Number(take) : undefined });
+    return { data, message: "Parts issued without verified ERP stock" };
+  }
+
+  @Post("unverified-issues/:id/review")
+  @HttpCode(HttpStatus.OK)
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER")
+  @Permissions("inventory.manage")
+  async reviewUnverifiedIssue(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { outcome?: string; note?: string }
+  ) {
+    const data = await this.inventoryService.reviewUnverifiedIssue(req.user, id, body ?? {});
+    return { data, message: "Part issue checked" };
   }
 
   @Post("parts/:id/stock-out")
@@ -264,9 +343,12 @@ export class InventoryController {
     "FINANCE"
   )
   @Permissions("purchase_orders.view")
-  async purchaseOrders(@Req() req: AuthedRequest) {
-    const data = await this.inventoryService.purchaseOrders(req.user);
-    return { data, message: "Purchase orders fetched" };
+  async purchaseOrders(@Req() req: AuthedRequest, @Query("take") takeRaw?: string, @Query("skip") skipRaw?: string) {
+    const { items, meta } = await this.inventoryService.purchaseOrders(req.user, {
+      take: Number(takeRaw),
+      skip: Number(skipRaw)
+    });
+    return { data: items, meta, message: "Purchase orders fetched" };
   }
 
   @Get("purchase-orders/:id")
@@ -455,6 +537,15 @@ export class InventoryController {
   async dashboard(@Req() req: AuthedRequest) {
     const data = await this.inventoryService.dashboard(req.user);
     return { data, message: "Inventory dashboard fetched" };
+  }
+
+  /** Stores inbox: approved part requests still waiting to be issued (read-only). */
+  @Get("parts-to-issue")
+  @Roles(...PART_REQUEST_ISSUE_ROLES)
+  @Permissions("part_requests.view")
+  async partsToIssue(@Req() req: AuthedRequest, @Query("limit") limitRaw?: string) {
+    const data = await this.inventoryService.partsToIssue(req.user, limitRaw ? Number(limitRaw) : undefined);
+    return { data, message: "Parts to issue fetched" };
   }
 
   @Get("warehouses")

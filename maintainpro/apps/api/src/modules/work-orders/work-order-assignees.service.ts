@@ -16,6 +16,7 @@ import { requestContext } from "../../common/context/request-context";
 import { PrismaService } from "../../database/prisma.service";
 import { assertWorkOrderAcceptsFieldMutation } from "../../common/utils/work-order-terminal-lock";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { closeLabourSessionTimestamps } from "../../common/utils/work-order-labour.util";
 import type { JwtPayload } from "../auth/auth.types";
 import { WorkforceEmployeesService } from "../workforce/workforce-employees.service";
 import { WorkforcePlanningService } from "../workforce/workforce-planning.service";
@@ -398,7 +399,30 @@ export class WorkOrderAssigneesService {
       data: { assignmentStatus: WorkOrderAssigneeStatus.REMOVED }
     });
 
-    if (assignee.isPrimary) {
+    const removedUserId = assignee.employee?.linkedUserId ?? null;
+    const workOrderRow = await this.prisma.workOrder.findFirst({
+      where: { id: workOrderId, tenantId },
+      select: { technicianId: true }
+    });
+    // The first assignee is linked as technicianId even when not marked primary.
+    // Removing that person must also take the job off them, or they can still start it.
+    const removedIsLinkedTechnician = Boolean(removedUserId && workOrderRow?.technicianId === removedUserId);
+
+    if (removedUserId) {
+      // A removed person's running clock on this job stops now.
+      const openSessions = await this.prisma.workOrderLabourEntry.findMany({
+        where: { tenantId, workOrderId, technicianUserId: removedUserId, endedAt: null },
+        select: { id: true, startedAt: true }
+      });
+      for (const entry of openSessions) {
+        await this.prisma.workOrderLabourEntry.update({
+          where: { id: entry.id },
+          data: closeLabourSessionTimestamps(entry.startedAt)
+        });
+      }
+    }
+
+    if (assignee.isPrimary || removedIsLinkedTechnician) {
       const nextPrimary = await this.prisma.workOrderAssignee.findFirst({
         where: {
           workOrderId,

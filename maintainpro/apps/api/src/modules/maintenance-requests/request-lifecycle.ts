@@ -190,7 +190,8 @@ const REQUEST_TRANSITIONS: Record<MaintenanceRequestStatus, MaintenanceRequestSt
   REJECTED: [],
   CANCELLED: [],
   CLOSED: [],
-  CONVERTED_TO_WO: []
+  // Only exit: the linked work order was rejected or cancelled (reopenRequestAfterWorkOrderExit).
+  CONVERTED_TO_WO: [MaintenanceRequestStatus.UNDER_REVIEW]
 };
 
 export function assertValidTransition(

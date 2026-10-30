@@ -40,7 +40,7 @@ export function WorkOrderGovernanceBanner({ workOrder }: Props) {
     warnings.push(GOVERNANCE_MESSAGES.supervisorRequired);
   }
   if (verificationStatus === "REJECTED") {
-    warnings.push("Supervisor rejected this job. Rework is required before closing.");
+    warnings.push("Supervisor rejected this job. It must be fixed again before closing.");
   }
   if (workOrder.status === "IN_PROGRESS" || workOrder.status === "ON_HOLD") {
     warnings.push(GOVERNANCE_MESSAGES.lockedAfterStart);
@@ -60,7 +60,7 @@ export function WorkOrderGovernanceBanner({ workOrder }: Props) {
             <dd>{getApprovalStatusLabel(workOrder.approvalStatus)}</dd>
           </div>
           <div>
-            <dt className="font-medium text-brand-800">Verification</dt>
+            <dt className="font-medium text-brand-800">Supervisor check</dt>
             <dd>{getVerificationStatusLabel(verificationStatus)}</dd>
           </div>
           {riskScore && Number.isFinite(riskScore.score) ? (
@@ -74,8 +74,8 @@ export function WorkOrderGovernanceBanner({ workOrder }: Props) {
             </div>
           ) : null}
           <div className="sm:col-span-2">
-            <dt className="font-medium text-brand-800">Evidence requirement</dt>
-            <dd>Add before and after photos on the Evidence tab.</dd>
+            <dt className="font-medium text-brand-800">Photos requirement</dt>
+            <dd>Add before and after photos on the photos tab.</dd>
           </div>
         </dl>
       </div>

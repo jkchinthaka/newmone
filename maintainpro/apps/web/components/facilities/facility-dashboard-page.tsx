@@ -137,7 +137,7 @@ export function FacilityDashboardPage() {
             href={"/facilities/reports/aging" as Route}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            SLA / aging
+            Time limit / aging
           </Link>
           <Link
             href={"/cleaning/issues" as Route}
@@ -180,7 +180,7 @@ export function FacilityDashboardPage() {
           <FacilityKpiCard
             label="Overdue issues"
             value={formatFacilityDashboardCount(summary.issues.overdueIssueCount)}
-            hint="Based on SLA target dates for open/in-progress issues"
+            hint="Based on time limit target dates for open/in-progress issues"
             tone={summary.issues.overdueIssueCount > 0 ? "danger" : "neutral"}
           />
           <FacilityKpiCard
@@ -189,9 +189,9 @@ export function FacilityDashboardPage() {
             tone={summary.issues.criticalOpenIssueCount > 0 ? "danger" : "neutral"}
           />
           <FacilityKpiCard
-            label="Linked work orders"
+            label="Linked jobs"
             value={formatFacilityDashboardCount(summary.workOrderBridge.linkedWorkOrderCount)}
-            hint={`${formatFacilityDashboardCount(summary.workOrderBridge.unlinkedOpenIssueCount)} open without WO`}
+            hint={`${formatFacilityDashboardCount(summary.workOrderBridge.unlinkedOpenIssueCount)} open without job`}
             tone="info"
           />
         </div>
@@ -270,9 +270,9 @@ export function FacilityDashboardPage() {
       <section className="grid gap-4 xl:grid-cols-3">
         <FacilityAttentionList
           title="Overdue issues"
-          description="Open/in-progress issues past SLA target"
+          description="Open/in-progress issues past time limit target"
           items={summary.attention.overdueIssuesPreview}
-          emptyLabel="No overdue issues based on SLA targets."
+          emptyLabel="No overdue issues based on time limit targets."
         />
         <FacilityAttentionList
           title="Critical issues"
@@ -281,7 +281,7 @@ export function FacilityDashboardPage() {
         />
         <FacilityAttentionList
           title="Unlinked open issues"
-          description="Open/in-progress issues without a work order"
+          description="Open/in-progress issues without a job"
           items={summary.attention.unlinkedOpenIssuesPreview}
           emptyLabel="All open issues are linked or none are open."
         />

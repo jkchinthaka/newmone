@@ -178,6 +178,7 @@ model Tenant {
   domainEventOutbox            DomainEventOutbox[]
   budgetCommitments            BudgetCommitment[]
   stockCountSessions           StockCountSession[]
+  gateChecks                   GateCheck[]
   /// Phase 10 — fleet lifecycle: tyres, batteries, driver assignment history
   vehicleTyres                 VehicleTyre[]
   vehicleBatteries             VehicleBattery[]
@@ -360,6 +361,8 @@ model User {
   lastLogin                  DateTime?
   failedLoginAttempts        Int         @default(0)
   lockedUntil                DateTime?
+  /// Bumped to invalidate every issued access/refresh token (logout-all, password change, role change, deactivation)
+  sessionVersion             Int         @default(0)
   createdAt                  DateTime    @default(now())
   updatedAt                  DateTime    @updatedAt
 
@@ -368,6 +371,7 @@ model User {
   assignedWorkOrders          WorkOrder[]                 @relation("TechnicianWorkOrders")
   createdWorkOrders           WorkOrder[]                 @relation("CreatorWorkOrders")
   approvedWorkOrders          WorkOrder[]                 @relation("ApprovedWorkOrders")
+  gateChecks                  GateCheck[]                 @relation("GateCheckCheckedBy")
   verifiedWorkOrders          WorkOrder[]                 @relation("VerifiedWorkOrders")
   reopenedWorkOrders          WorkOrder[]                 @relation("ReopenedWorkOrders")
   qrVerifiedWorkOrders        WorkOrder[]                 @relation("QrVerifiedWorkOrders")
@@ -762,6 +766,8 @@ model Asset {
   manufacturer     String?
   model            String?
   serialNumber     String?
+  /// Finance fixed asset register / ERP asset code (matches the company asset register)
+  fixedAssetCode   String?     @db.NVarChar(64)
   /// Compatibility/summary meter only — Phase 8 owns multi-meter engine
   meterReading     Float?
   /// Compatibility service dates — Phase 8 owns PM plans
@@ -837,6 +843,7 @@ model Asset {
   @@index([tenantId, parentAssetId])
   @@index([tenantId, criticalityLevel])
   @@index([tenantId, serialNumber])
+  @@index([tenantId, fixedAssetCode])
   @@index([tenantId, isActive])
 }
 
@@ -1043,6 +1050,7 @@ model Vehicle {
   gpsLocations         GpsLocation[]
   meterLogs            VehicleMeterLog[]
   gateMovements        VehicleGateMovement[]
+  gateChecks           GateCheck[]
   documents            VehicleDocument[]
   accidents            AccidentReport[]
   insuranceClaims      InsuranceClaim[]
@@ -1387,6 +1395,23 @@ model MaintenanceLog {
   @@index([performedAt])
 }
 
+model GateCheck {
+  id          String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId    String   @db.NVarChar(36)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicleId   String   @db.NVarChar(36)
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  checkedById String   @db.NVarChar(36)
+  checkedBy   User     @relation("GateCheckCheckedBy", fields: [checkedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// READY | BLOCKED
+  result      String   @db.NVarChar(16)
+  reasons     String   @db.NVarChar(Max)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, vehicleId])
+}
+
 model WorkOrder {
   id                          String               @id @default(cuid()) @db.NVarChar(36)
   /// MP-003: required — see Asset.tenantId comment for rationale.
@@ -1636,6 +1661,9 @@ model WorkOrder {
   @@index([tenantId, jobDomain, status])
   @@index([tenantId, jobCategoryId])
   @@index([tenantId, maintenanceTemplateId])
+  @@index([tenantId, vehicleId])
+  @@index([tenantId, departmentId])
+  @@index([tenantId, createdById])
   @@index([status])
   @@index([priority])
   @@index([technicianId])
@@ -1965,6 +1993,9 @@ model Warehouse {
   /// Official Bileeta/ERP warehouse code when mapped.
   erpWarehouseCode   String?
   lastErpValidatedAt DateTime?
+  /// ERP: on-hand comes from ERP snapshots. MAINTAINPRO: on-hand comes from goods-in recorded in
+  /// MaintainPro, and job issues reduce it directly.
+  stockSource        String    @default("ERP") @db.NVarChar(16)
   isDefault          Boolean   @default(false)
   isActive           Boolean   @default(true)
   createdAt          DateTime  @default(now())
@@ -2945,6 +2976,11 @@ model Site {
   description      String?
   address          String?
   contactPhone     String?
+  /// Site centre for the "photo taken far from the site" check (optional).
+  latitude         Float?
+  longitude        Float?
+  /// How far from the centre a job photo may be taken before it is flagged (default 500 m).
+  geoRadiusMeters  Int?
   isActive         Boolean  @default(true)
   /// Traceability to legacy Property during migration (do not delete Property yet)
   legacyPropertyId String?  @db.NVarChar(36)
@@ -3842,6 +3878,12 @@ model EvidenceAttachment {
   isRequired           Boolean             @default(false)
   capturedAt           DateTime?
   source               String              @default("") @db.NVarChar(64)
+  /// sha256 of the stored bytes; the same photo cannot be reused on another record.
+  contentSha256        String?             @db.NVarChar(64)
+  /// Optional phone location when the photo was taken (only if the user allowed it).
+  captureLatitude      Float?
+  captureLongitude     Float?
+  captureAccuracyMeters Float?
   clientGeneratedId    String?
   offlineCreatedAt     DateTime?
   syncedAt             DateTime?
@@ -3861,6 +3903,7 @@ model EvidenceAttachment {
   @@index([tenantId, inspectionId, checklistItemKey])
   @@index([tenantId, status])
   @@index([tenantId, clientGeneratedId])
+  @@index([tenantId, contentSha256])
 }
 
 // ============================================================

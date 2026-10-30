@@ -6,6 +6,7 @@ import { PanelLeft } from "lucide-react";
 import { AppBrandLockup } from "@/components/brand/app-brand-lockup";
 import { NelnaLogo } from "@/components/brand/nelna-logo";
 import { NavLinks } from "@/components/layout/nav-links";
+import { InlineLoadingState } from "@/components/ui/page-state";
 
 export function Sidebar({ collapsed = false, onToggleCollapsed }: { collapsed?: boolean; onToggleCollapsed?: () => void }) {
   return (
@@ -26,7 +27,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: { collapsed?: 
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-3">
-        <Suspense fallback={<p className="px-2 text-sm text-slate-500">Loading navigation...</p>}>
+        <Suspense fallback={<InlineLoadingState label="Loading menu…" />}>
           <NavLinks compact={collapsed} tone="inverse" />
         </Suspense>
       </div>

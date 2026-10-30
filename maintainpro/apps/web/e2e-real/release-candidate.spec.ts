@@ -39,7 +39,7 @@ test.describe("Release candidate behavior @full-stack @smoke", () => {
   test("work order search keeps the latest text across back and forward", async ({ page }) => {
     await loginViaUi(page, "admin-a");
     await page.goto("/work-orders");
-    const search = page.getByPlaceholder("Search work orders...");
+    const search = page.getByPlaceholder("Search jobs...");
     await expect(search).toBeVisible();
 
     await search.fill("pump");
@@ -48,9 +48,9 @@ test.describe("Release candidate behavior @full-stack @smoke", () => {
     await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe("pump motor");
 
     await page.goBack();
-    await expect(page.getByPlaceholder("Search work orders...")).toHaveValue("pump");
+    await expect(page.getByPlaceholder("Search jobs...")).toHaveValue("pump");
     await page.goForward();
-    await expect(page.getByPlaceholder("Search work orders...")).toHaveValue("pump motor");
+    await expect(page.getByPlaceholder("Search jobs...")).toHaveValue("pump motor");
   });
 
   test("work order overview stays view-first until edit", async ({ page }) => {

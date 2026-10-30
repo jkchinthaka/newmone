@@ -27,18 +27,18 @@ export function DeliverySignOffPage() {
         notes: notes.trim() || undefined,
         department: department.trim() || undefined,
         acceptedRisks: acceptedRisks.trim() || undefined,
-        reason: notes.trim() || "Client delivery sign-off recorded after readiness review."
+        reason: notes.trim() || "Client delivery supervisor approval recorded after readiness review."
       }),
     onSuccess: () => {
-      toast.success("Delivery sign-off recorded");
+      toast.success("Delivery supervisor approval recorded");
       void queryClient.invalidateQueries({ queryKey: ["delivery"] });
     },
     onError: (err: unknown) => {
       const message =
         err && typeof err === "object" && "response" in err
           ? String((err as { response?: { data?: { message?: string } } }).response?.data?.message)
-          : "Sign-off blocked — resolve critical blockers first";
-      toast.error(message || "Sign-off failed");
+          : "Supervisor approval blocked — resolve critical blockers first";
+      toast.error(message || "Supervisor approval failed");
     }
   });
 
@@ -49,7 +49,7 @@ export function DeliverySignOffPage() {
       <PageBreadcrumbs />
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="page-title">Client Sign-off</h2>
+          <h2 className="page-title">Client supervisor approval</h2>
           <p className="mt-1 text-sm text-slate-500">
             Formal delivery acceptance. Blocked while critical items fail or open QA critical issues exist.
           </p>
@@ -60,7 +60,7 @@ export function DeliverySignOffPage() {
       </header>
 
       {dashboardQuery.isLoading ? (
-        <InlineLoadingState label="Loading sign-off status…" />
+        <InlineLoadingState label="Loading supervisor approval status…" />
       ) : (
         <div className="max-w-2xl space-y-4 rounded-xl border bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-600">
@@ -78,7 +78,7 @@ export function DeliverySignOffPage() {
           </label>
 
           <label className="block text-sm">
-            <span className="font-medium text-slate-700">Sign-off notes</span>
+            <span className="font-medium text-slate-700">Supervisor approval notes</span>
             <textarea
               className="mt-1 w-full rounded-lg border px-3 py-2"
               rows={4}
@@ -105,7 +105,7 @@ export function DeliverySignOffPage() {
             disabled={signOffMutation.isPending}
             onClick={() => signOffMutation.mutate()}
           >
-            Record delivery sign-off
+            Record delivery supervisor approval
           </button>
         </div>
       )}

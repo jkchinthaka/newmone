@@ -8,10 +8,13 @@ import {
   PartRequestStatus,
   VendorInvoiceStatus,
   VendorQuotationStatus,
-  VendorRepairStatus
+  VendorRepairStatus,
+  WorkOrderApprovalStatus,
+  WorkOrderStatus
 } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
+import { businessDayBound } from "../reports/report-timezone.util";
 import { ApprovalsService } from "./approvals.service";
 import {
   ageLabel,
@@ -73,6 +76,21 @@ export type InboxRow = {
   history: Array<{ at: string; label: string; reason?: string | null }>;
 };
 
+/**
+ * Safety ceiling per source. The inbox merges six sources, so it pages after merging; the
+ * ceiling only guards against runaway backlogs and is reported as meta.truncated, never silent.
+ */
+const INBOX_SOURCE_CEILING = 2000;
+
+function inboxDayBound(dateOnly: string, bound: "start" | "end"): number {
+  const day = dateOnly.trim().slice(0, 10);
+  try {
+    return businessDayBound(day, bound).getTime();
+  } catch {
+    throw new BadRequestException(`${bound === "start" ? "from" : "to"} must be a date (YYYY-MM-DD).`);
+  }
+}
+
 const OPERATIONS_ROLES = new Set([
   "SUPER_ADMIN",
   "ADMIN",
@@ -83,6 +101,14 @@ const OPERATIONS_ROLES = new Set([
   "FACILITY_MANAGER",
   "FINANCE"
 ]);
+
+/** Same roles as PATCH /work-orders/:id/approve and /reject. */
+const WORK_ORDER_APPROVER_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER"]);
+const FINISHED_WORK_ORDER_STATUSES = [
+  WorkOrderStatus.CLOSED,
+  WorkOrderStatus.COMPLETED,
+  WorkOrderStatus.CANCELLED
+];
 
 @Injectable()
 export class ApprovalInboxService {
@@ -103,7 +129,7 @@ export class ApprovalInboxService {
     pageSize?: number;
   }) {
     const tenantId = this.tenant(actor);
-    const rows = await this.collect(actor, tenantId);
+    const { rows, truncated } = await this.collect(actor, tenantId);
     const counts = {
       all: rows.length,
       requests: 0,
@@ -116,8 +142,9 @@ export class ApprovalInboxService {
     for (const row of rows) counts[row.tab] += 1;
 
     const search = query.search?.trim().toLowerCase();
-    const from = query.from ? new Date(query.from).getTime() : null;
-    const to = query.to ? new Date(`${query.to}T23:59:59.999`).getTime() : null;
+    // Date-only filters are Asia/Colombo business days, independent of the server time zone.
+    const from = query.from ? inboxDayBound(query.from, "start") : null;
+    const to = query.to ? inboxDayBound(query.to, "end") : null;
     const filtered = rows.filter((row) => {
       if (query.tab && query.tab !== "all" && row.tab !== query.tab) return false;
       if (query.priority && row.priority !== query.priority) return false;
@@ -136,7 +163,15 @@ export class ApprovalInboxService {
     const start = (page - 1) * pageSize;
     return {
       items: filtered.slice(start, start + pageSize),
-      meta: { page, pageSize, total: filtered.length, counts }
+      meta: {
+        page,
+        pageSize,
+        total: filtered.length,
+        totalPages: Math.max(1, Math.ceil(filtered.length / pageSize)),
+        counts,
+        // Only true past the per-source safety ceiling; totals are otherwise exact.
+        truncated
+      }
     };
   }
 
@@ -197,7 +232,9 @@ export class ApprovalInboxService {
   }
 
   private async amountFor(actor: Actor, item: { id: string; kind: InboxKind }) {
-    const rows = await this.collect(actor, this.tenant(actor));
+    // A job's estimate is information, not a spend limit (vendor limits apply to vendor documents).
+    if (item.kind === "work_order") return null;
+    const { rows } = await this.collect(actor, this.tenant(actor));
     return rows.find((row) => row.id === item.id && row.kind === item.kind)?.amount ?? null;
   }
 
@@ -217,11 +254,36 @@ export class ApprovalInboxService {
       assertNotOwnRequest(current.reportedById, input.actor.sub);
       assertExpectedVersion(versionFromDate(current.updatedAt), input.expectedVersion);
       const requests = await this.requests();
-      if (input.decision === "APPROVED") return requests.approve(tenantId, input.id, input.actor);
+      // The inbox lists NEW requests too; deciding one reviews it first (NEW → UNDER_REVIEW → …).
+      if (input.decision === "APPROVED") return requests.approve(tenantId, input.id, input.actor, { reviewFirst: true });
       if (input.decision === "RETURNED") {
-        return requests.requestInformation(tenantId, input.id, input.actor, { question: input.reason!.trim() });
+        return requests.requestInformation(
+          tenantId,
+          input.id,
+          input.actor,
+          { question: input.reason!.trim() },
+          { reviewFirst: true }
+        );
       }
       return requests.reject(tenantId, input.id, input.actor, { reasonType: "OTHER", reason: input.reason!.trim() });
+    }
+
+    if (input.kind === "work_order") {
+      // A job waiting for manager approval (submitted for approval, no approval rule request).
+      const current = await this.prisma.workOrder.findFirst({ where: { id: input.id, tenantId } });
+      if (!current) throw new BadRequestException("Job not found");
+      if (!WORK_ORDER_APPROVER_ROLES.has(String(input.actor.role ?? ""))) {
+        throw new BadRequestException("Only an Admin, Manager or Operations Manager can approve a job");
+      }
+      assertNotOwnRequest(current.createdById, input.actor.sub);
+      assertExpectedVersion(versionFromDate(current.updatedAt), input.expectedVersion);
+      if (input.decision === "RETURNED") {
+        throw new BadRequestException("Return for information is only available for approval requests and maintenance requests");
+      }
+      const workOrders = await this.workOrders();
+      return input.decision === "APPROVED"
+        ? workOrders.approveWorkOrder(input.id, input.reason, withEmail(input.actor) as never)
+        : workOrders.rejectWorkOrder(input.id, input.reason!.trim(), withEmail(input.actor) as never);
     }
 
     const workOrderId = input.workOrderId;
@@ -275,7 +337,7 @@ export class ApprovalInboxService {
     throw new BadRequestException("Review this emergency closure on the work order");
   }
 
-  private async collect(actor: Actor, tenantId: string): Promise<InboxRow[]> {
+  private async collect(actor: Actor, tenantId: string): Promise<{ rows: InboxRow[]; truncated: boolean }> {
     const viewAll =
       actor.role === "SUPER_ADMIN" ||
       actor.role === "ADMIN" ||
@@ -298,7 +360,7 @@ export class ApprovalInboxService {
           })
     };
 
-    const [approvals, requests, parts, quotations, invoices, emergencies] = await Promise.all([
+    const [approvalsRaw, requestsRaw, partsRaw, quotationsRaw, invoicesRaw, emergenciesRaw, pendingJobsRaw] = await Promise.all([
       this.prisma.approvalRequest.findMany({
         where: approvalWhere,
         include: {
@@ -306,7 +368,7 @@ export class ApprovalInboxService {
           steps: { orderBy: { level: "asc" } },
           decisions: { orderBy: { decidedAt: "asc" }, take: 8 }
         },
-        take: 100,
+        take: INBOX_SOURCE_CEILING + 1,
         orderBy: { requestedAt: "asc" }
       }),
       seeOperations
@@ -317,7 +379,7 @@ export class ApprovalInboxService {
               asset: { select: { name: true } },
               vehicle: { select: { registrationNo: true } }
             },
-            take: 100,
+            take: INBOX_SOURCE_CEILING + 1,
             orderBy: { reportedAt: "asc" }
           })
         : [],
@@ -341,21 +403,21 @@ export class ApprovalInboxService {
                 }
               }
             },
-            take: 100,
+            take: INBOX_SOURCE_CEILING + 1,
             orderBy: { createdAt: "asc" }
           })
         : [],
       seeOperations
         ? this.prisma.vendorQuotation.findMany({
             where: { tenantId, status: VendorQuotationStatus.SUBMITTED },
-            take: 100,
+            take: INBOX_SOURCE_CEILING + 1,
             orderBy: { createdAt: "asc" }
           })
         : [],
       seeOperations
         ? this.prisma.vendorInvoice.findMany({
             where: { tenantId, status: { in: [VendorInvoiceStatus.SUBMITTED, VendorInvoiceStatus.UNDER_REVIEW] } },
-            take: 100,
+            take: INBOX_SOURCE_CEILING + 1,
             orderBy: { createdAt: "asc" }
           })
         : [],
@@ -363,10 +425,46 @@ export class ApprovalInboxService {
         ? this.prisma.vendorRepairCase.findMany({
             where: { tenantId, status: VendorRepairStatus.EMERGENCY_VENDOR_REPAIR },
             include: { workOrder: { select: { woNumber: true, title: true, priority: true, siteId: true } } },
-            take: 50
+            take: INBOX_SOURCE_CEILING + 1,
+            orderBy: { createdAt: "asc" }
+          })
+        : [],
+      // Jobs submitted for manager approval. Jobs held by an approval rule already appear as
+      // that rule's approval request and are skipped below.
+      seeOperations
+        ? this.prisma.workOrder.findMany({
+            where: {
+              tenantId,
+              approvalStatus: WorkOrderApprovalStatus.PENDING,
+              status: { notIn: FINISHED_WORK_ORDER_STATUSES }
+            },
+            select: {
+              id: true,
+              woNumber: true,
+              title: true,
+              priority: true,
+              siteId: true,
+              createdById: true,
+              createdAt: true,
+              updatedAt: true,
+              estimatedCost: true,
+              createdBy: { select: { firstName: true, lastName: true } },
+              asset: { select: { name: true } },
+              vehicle: { select: { registrationNo: true } }
+            },
+            take: INBOX_SOURCE_CEILING + 1,
+            orderBy: { createdAt: "asc" }
           })
         : []
     ]);
+    const sources = [approvalsRaw, requestsRaw, partsRaw, quotationsRaw, invoicesRaw, emergenciesRaw, pendingJobsRaw] as unknown[][];
+    const truncated = sources.some((rows) => rows.length > INBOX_SOURCE_CEILING);
+    const approvals = approvalsRaw.slice(0, INBOX_SOURCE_CEILING);
+    const requests = requestsRaw.slice(0, INBOX_SOURCE_CEILING);
+    const parts = partsRaw.slice(0, INBOX_SOURCE_CEILING);
+    const quotations = quotationsRaw.slice(0, INBOX_SOURCE_CEILING);
+    const invoices = invoicesRaw.slice(0, INBOX_SOURCE_CEILING);
+    const emergencies = emergenciesRaw.slice(0, INBOX_SOURCE_CEILING);
 
     const workOrderIds = approvals
       .filter((item) => item.subjectEntityType === "WorkOrder")
@@ -411,7 +509,7 @@ export class ApprovalInboxService {
         age: ageLabel(requestedAt, now.getTime()),
         sla: slaTone(requestedAt, current?.dueAt ?? null, now.getTime()),
         version: versionFromDate(item.updatedAt),
-        canDecide: true,
+        canDecide: Boolean(current) && item.requesterId !== actor.sub && (viewAll || this.approvals.isStepApprover(current!, actor.sub)),
         canReturn: true,
         workOrderId: item.subjectEntityType === "WorkOrder" ? item.subjectEntityId : null,
         partStage: null,
@@ -445,8 +543,8 @@ export class ApprovalInboxService {
           requestedAt: item.reportedAt,
           dueAt: null,
           version: versionFromDate(item.updatedAt),
-          canDecide: true,
-          canReturn: true,
+          canDecide: item.reportedById !== actor.sub,
+          canReturn: item.reportedById !== actor.sub,
           workOrderId: null,
           partStage: null,
           status: item.status,
@@ -539,6 +637,37 @@ export class ApprovalInboxService {
       );
     }
 
+    const jobsWithApprovalRequest = new Set(
+      approvals.filter((item) => item.subjectEntityType === "WorkOrder").map((item) => item.subjectEntityId)
+    );
+    for (const item of pendingJobsRaw.slice(0, INBOX_SOURCE_CEILING)) {
+      if (jobsWithApprovalRequest.has(item.id)) continue;
+      rows.push(
+        this.row({
+          id: item.id,
+          kind: "work_order",
+          reference: item.woNumber,
+          title: item.title,
+          requesterName: person(item.createdBy),
+          requesterId: item.createdById,
+          assetLabel: item.asset?.name ?? item.vehicle?.registrationNo ?? null,
+          amount: numberOrNull(item.estimatedCost),
+          taxRatePercent: null,
+          priority: item.priority,
+          siteId: item.siteId,
+          requestedAt: item.updatedAt ?? item.createdAt,
+          dueAt: null,
+          version: versionFromDate(item.updatedAt),
+          canDecide: WORK_ORDER_APPROVER_ROLES.has(String(actor.role ?? "")) && item.createdById !== actor.sub,
+          canReturn: false,
+          workOrderId: item.id,
+          partStage: null,
+          status: "PENDING",
+          now
+        })
+      );
+    }
+
     for (const item of emergencies) {
       rows.push(
         this.row({
@@ -566,7 +695,7 @@ export class ApprovalInboxService {
       );
     }
 
-    return rows;
+    return { rows, truncated };
   }
 
   private row(input: {
@@ -627,20 +756,30 @@ export class ApprovalInboxService {
     return actor.tenantId;
   }
 
+  // Loaded lazily to avoid a module cycle. `require` resolves the same way under ts-node (local
+  // dev), ts-jest and the compiled build; `import("...js")` only worked in the compiled build, so
+  // every request / part / vendor decision failed with "Cannot find module" in local dev.
   private async workOrders() {
-    const loaded = await import("../work-orders/work-orders.service.js");
+    const loaded = lazyModule<typeof import("../work-orders/work-orders.service")>("../work-orders/work-orders.service");
     return this.moduleRef.get(loaded.WorkOrdersService, { strict: false });
   }
 
   private async vendorRepair() {
-    const loaded = await import("../work-orders/vendor-repair.service.js");
+    const loaded = lazyModule<typeof import("../work-orders/vendor-repair.service")>("../work-orders/vendor-repair.service");
     return this.moduleRef.get(loaded.VendorRepairService, { strict: false });
   }
 
   private async requests() {
-    const loaded = await import("../maintenance-requests/maintenance-requests.service.js");
+    const loaded = lazyModule<typeof import("../maintenance-requests/maintenance-requests.service")>(
+      "../maintenance-requests/maintenance-requests.service"
+    );
     return this.moduleRef.get(loaded.MaintenanceRequestsService, { strict: false });
   }
+}
+
+function lazyModule<T>(path: string): T {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require(path) as T;
 }
 
 function person(user?: { firstName?: string | null; lastName?: string | null } | null) {

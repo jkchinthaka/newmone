@@ -16,21 +16,27 @@ import {
   CircleAlert,
   ClipboardList,
   Fuel,
-  Loader2,
   Route,
   Save,
   Trash2,
   Wrench,
   type LucideIcon
 } from "lucide-react";
+import { ProofPhotoInput } from "@/components/ui/proof-photo-input";
+import { isProofPhotoKey, openProofPhoto } from "@/lib/proof-photo";
 import Link from "next/link";
 import type { Route as NextRoute } from "next";
 import { toast } from "sonner";
 
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { ButtonSpinner, LoadingState, TableLoadingRows } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/page-state";
 
 import { apiClient } from "@/lib/api-client";
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
+import { formatEnumLabel } from "@/lib/display-labels";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/localization";
 import { useCurrentUser } from "@/lib/use-current-user";
 import {
   getStoredRole,
@@ -108,6 +114,7 @@ interface FuelLog {
   totalCost: number | string;
   mileageAtFuel: number | string;
   fuelStation?: string | null;
+  receiptUrl?: string | null;
   notes?: string | null;
 }
 
@@ -204,12 +211,15 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
   const [statusSaving, setStatusSaving] = useState(false);
   const [maintenanceSaving, setMaintenanceSaving] = useState(false);
   const [fuelSaving, setFuelSaving] = useState(false);
+  const [fuelReceipt, setFuelReceipt] = useState<File | null>(null);
+  const [fuelPriceReason, setFuelPriceReason] = useState("");
+  const [fuelNeedsReason, setFuelNeedsReason] = useState(false);
 
   const [maintenanceForm, setMaintenanceForm] = useState({
     serviceType: "GENERAL" as ServiceType,
     description: "",
     performedBy: "",
-    performedAt: new Date().toISOString().slice(0, 10),
+    performedAt: colomboTodayYmd(),
     cost: 0,
     notes: "",
     attachmentsText: "",
@@ -226,6 +236,16 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
 
   useEffect(() => {
     setRole(getStoredRole());
+  }, []);
+
+  // A failed section load shows an error with Retry, never "No ... yet".
+  const [sectionErrors, setSectionErrors] = useState<Record<"maintenance" | "fuel" | "trips", string | null>>({
+    maintenance: null,
+    fuel: null,
+    trips: null
+  });
+  const setSectionError = useCallback((key: "maintenance" | "fuel" | "trips", message: string | null) => {
+    setSectionErrors((current) => (current[key] === message ? current : { ...current, [key]: message }));
   }, []);
 
   const loadVehicle = useCallback(async () => {
@@ -297,13 +317,14 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
             hasNextPage: Boolean(nextPagination?.hasNextPage)
           });
         }
+        setSectionError("maintenance", null);
       } catch (err: any) {
-        toast.error(buildErrorMessage(err, "Failed to load maintenance logs."));
+        setSectionError("maintenance", buildErrorMessage(err, "Failed to load maintenance logs."));
       } finally {
         setMaintenanceLoading(false);
       }
     },
-    [vehicleId, maintenancePagination.pageSize]
+    [vehicleId, maintenancePagination.pageSize, setSectionError]
   );
 
   const loadFuel = useCallback(async () => {
@@ -330,12 +351,13 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
             }
           : DEFAULT_FUEL_ANALYTICS
       );
+      setSectionError("fuel", null);
     } catch (err: any) {
-      toast.error(buildErrorMessage(err, "Failed to load fuel logs."));
+      setSectionError("fuel", buildErrorMessage(err, "Failed to load fuel logs."));
     } finally {
       setFuelLoading(false);
     }
-  }, [vehicleId]);
+  }, [vehicleId, setSectionError]);
 
   const loadTrips = useCallback(async () => {
     setTripsLoading(true);
@@ -343,12 +365,13 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
       const res = await apiClient.get(`/vehicles/${vehicleId}/trips`);
       const payload = res.data?.data ?? res.data;
       setTrips(Array.isArray(payload) ? payload : []);
+      setSectionError("trips", null);
     } catch (err: any) {
-      toast.error(buildErrorMessage(err, "Failed to load trips."));
+      setSectionError("trips", buildErrorMessage(err, "Failed to load trips."));
     } finally {
       setTripsLoading(false);
     }
-  }, [vehicleId]);
+  }, [vehicleId, setSectionError]);
 
   useEffect(() => {
     void Promise.all([loadVehicle(), loadAlerts()]);
@@ -397,7 +420,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
       return {
         tone: "critical" as const,
         title: "Maintenance overdue",
-        description: `Service due ${Math.abs(daysRemaining)} day(s) ago (${due.toLocaleDateString()}).`
+        description: `Service due ${Math.abs(daysRemaining)} day(s) ago (${formatDate(due)}).`
       };
     }
 
@@ -405,14 +428,14 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
       return {
         tone: "warning" as const,
         title: "Service due soon",
-        description: `Service is due in ${daysRemaining} day(s) (${due.toLocaleDateString()}).`
+        description: `Service is due in ${daysRemaining} day(s) (${formatDate(due)}).`
       };
     }
 
     return {
       tone: "healthy" as const,
       title: "Service schedule healthy",
-      description: `Next service is scheduled for ${due.toLocaleDateString()}.`
+      description: `Next service is scheduled for ${formatDate(due)}.`
     };
   }, [vehicle?.nextServiceDate]);
 
@@ -519,7 +542,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
         serviceType: "GENERAL",
         description: "",
         performedBy: "",
-        performedAt: new Date().toISOString().slice(0, 10),
+        performedAt: colomboTodayYmd(),
         cost: 0,
         notes: "",
         attachmentsText: "",
@@ -554,13 +577,19 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
     setFuelSaving(true);
 
     try {
-      await apiClient.post(`/vehicles/${vehicle.id}/fuel-log`, {
-        liters: Number(fuelForm.liters),
-        costPerLiter: Number(fuelForm.costPerLiter),
-        mileageAtFuel: Number(fuelForm.mileageAtFuel),
-        fuelStation: fuelForm.fuelStation.trim() || undefined,
-        notes: fuelForm.notes.trim() || undefined
-      });
+      // Multipart so the receipt photo goes with the entry (the server checks tank size and price).
+      const form = new FormData();
+      form.append("liters", String(Number(fuelForm.liters)));
+      form.append("costPerLiter", String(Number(fuelForm.costPerLiter)));
+      form.append("mileageAtFuel", String(Number(fuelForm.mileageAtFuel)));
+      if (fuelForm.fuelStation.trim()) form.append("fuelStation", fuelForm.fuelStation.trim());
+      if (fuelForm.notes.trim()) form.append("notes", fuelForm.notes.trim());
+      if (fuelPriceReason.trim()) form.append("priceReason", fuelPriceReason.trim());
+      if (fuelReceipt) form.append("receipt", fuelReceipt);
+      await apiClient.post(`/vehicles/${vehicle.id}/fuel-log`, form);
+      setFuelReceipt(null);
+      setFuelPriceReason("");
+      setFuelNeedsReason(false);
 
       toast.success("Fuel log saved.");
       setFuelForm({
@@ -573,6 +602,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
 
       await Promise.all([loadFuel(), loadVehicle()]);
     } catch (err: any) {
+      if (err?.response?.data?.error?.code === "FUEL_PRICE_REASON_REQUIRED") setFuelNeedsReason(true);
       toast.error(buildErrorMessage(err, "Failed to save fuel log."));
     } finally {
       setFuelSaving(false);
@@ -581,9 +611,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
 
   if (loadingVehicle) {
     return (
-      <div className="card flex items-center gap-2 py-8 text-sm text-slate-500">
-        <Loader2 size={16} className="animate-spin" /> Loading vehicle details...
-      </div>
+      <LoadingState title="Loading vehicle" description="Fetching the vehicle record." />
     );
   }
 
@@ -674,15 +702,15 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
               <OverviewItem label="Registration" value={vehicle.registrationNo} icon={CarFront} />
               <OverviewItem label="Vehicle Type" value={humanizeEnum(vehicle.type)} icon={CarFront} />
               <OverviewItem label="Fuel Type" value={humanizeEnum(vehicle.fuelType)} icon={Fuel} />
-              <OverviewItem label="Current Mileage" value={`${Number(vehicle.currentMileage).toLocaleString()} km`} icon={Route} />
+              <OverviewItem label="Current Mileage" value={`${Number(vehicle.currentMileage).toLocaleString("en-LK")} km`} icon={Route} />
               <OverviewItem
                 label="Next Service Date"
-                value={vehicle.nextServiceDate ? new Date(vehicle.nextServiceDate).toLocaleDateString() : "Not set"}
+                value={vehicle.nextServiceDate ? formatDate(vehicle.nextServiceDate) : "Not set"}
                 icon={CalendarClock}
               />
               <OverviewItem
                 label="Next Service Mileage"
-                value={vehicle.nextServiceMileage ? `${Number(vehicle.nextServiceMileage).toLocaleString()} km` : "Not set"}
+                value={vehicle.nextServiceMileage ? `${Number(vehicle.nextServiceMileage).toLocaleString("en-LK")} km` : "Not set"}
                 icon={Wrench}
               />
             </div>
@@ -712,7 +740,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                     </option>
                   ))}
                 </select>
-                {statusSaving && <Loader2 size={14} className="animate-spin text-slate-500" />}
+                {statusSaving && <ButtonSpinner className="h-3.5 w-3.5 text-slate-500" />}
               </div>
             </div>
           </article>
@@ -886,7 +914,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                     : "cursor-not-allowed bg-slate-300 text-slate-500"
                 }`}
               >
-                {maintenanceSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                {maintenanceSaving ? <ButtonSpinner className="h-3.5 w-3.5" /> : <Save size={14} />}
                 Save Maintenance Record
               </button>
             </form>
@@ -901,9 +929,9 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
             </div>
 
             {maintenanceLoading ? (
-              <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">
-                <Loader2 size={14} className="animate-spin" /> Loading maintenance logs...
-              </div>
+              <TableLoadingRows rows={3} label="Loading maintenance logs" />
+            ) : sectionErrors.maintenance ? (
+              <ErrorState title="Couldn't load maintenance logs" description={sectionErrors.maintenance} onRetry={() => void loadMaintenance(maintenancePagination.page)} />
             ) : maintenanceLogs.length === 0 ? (
               <p className="mt-3 text-sm text-slate-500">No maintenance records yet.</p>
             ) : (
@@ -919,7 +947,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                           </p>
                           <p className="text-sm font-semibold text-slate-900">{parsed.description}</p>
                           <p className="mt-1 text-xs text-slate-500">
-                            {new Date(log.performedAt).toLocaleDateString()} • {log.performedBy}
+                            {formatDate(log.performedAt)} • {log.performedBy}
                           </p>
                           {log.notes && <p className="mt-1 text-xs text-slate-600">{log.notes}</p>}
                           {Array.isArray(log.attachments) && log.attachments.length > 0 && (
@@ -939,12 +967,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                           )}
                         </div>
                         <span className="text-xs font-semibold text-slate-700">
-                          {Number(log.cost ?? 0).toLocaleString(undefined, {
-                            style: "currency",
-                            currency: "INR",
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 2
-                          })}
+                          {formatCurrency(log.cost ?? 0, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                         </span>
                       </div>
                     </li>
@@ -982,7 +1005,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
         <section className="space-y-4">
           <div className="grid gap-3 md:grid-cols-3">
             <MetricCard
-              label="Average Consumption"
+              label="Average Usage"
               value={`${fuelAnalytics.averageConsumptionLPer100Km.toFixed(2)} L/100km`}
               tone="bg-emerald-50 text-emerald-800"
             />
@@ -991,7 +1014,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
               value={
                 fuelAnalytics.costPerKm == null
                   ? "Insufficient data"
-                  : `${fuelAnalytics.costPerKm.toFixed(2)} INR/km`
+                  : `${formatCurrency(fuelAnalytics.costPerKm)}/km`
               }
               tone="bg-sky-50 text-sky-800"
             />
@@ -1067,6 +1090,21 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                 </Field>
 
                 <div className="md:col-span-2">
+                  <ProofPhotoInput
+                    label="Fuel receipt photo"
+                    hint="Needed to save. The litres and price must match the receipt."
+                    file={fuelReceipt}
+                    onChange={setFuelReceipt}
+                    disabled={!canEdit || fuelSaving}
+                  />
+                </div>
+                {fuelNeedsReason ? (
+                  <Field label="Why is the price different? (required)" className="md:col-span-2">
+                    <input value={fuelPriceReason} onChange={(event) => setFuelPriceReason(event.target.value)} className={inputCls} maxLength={200} />
+                  </Field>
+                ) : null}
+
+                <div className="md:col-span-2">
                   <button
                     type="submit"
                     disabled={!canEdit || fuelSaving}
@@ -1076,7 +1114,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                         : "cursor-not-allowed bg-slate-300 text-slate-500"
                     }`}
                   >
-                    {fuelSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                    {fuelSaving ? <ButtonSpinner className="h-3.5 w-3.5" /> : <Save size={14} />}
                     Save Fuel Log
                   </button>
                 </div>
@@ -1097,9 +1135,9 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
               </div>
 
               {fuelLoading ? (
-                <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">
-                  <Loader2 size={14} className="animate-spin" /> Loading fuel logs...
-                </div>
+                <TableLoadingRows rows={3} label="Loading fuel logs" />
+              ) : sectionErrors.fuel ? (
+                <ErrorState title="Couldn't load fuel logs" description={sectionErrors.fuel} onRetry={() => void loadFuel()} />
               ) : fuelLogs.length === 0 ? (
                 <p className="mt-3 text-sm text-slate-500">No fuel logs recorded yet.</p>
               ) : (
@@ -1110,18 +1148,22 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                         {Number(log.liters).toFixed(2)} L @ {Number(log.costPerLiter).toFixed(2)}
                       </p>
                       <p className="mt-0.5 text-xs text-slate-500">
-                        {new Date(log.date).toLocaleDateString()} • Mileage {Number(log.mileageAtFuel).toLocaleString()} km
+                        {formatDate(log.date)} • Mileage {Number(log.mileageAtFuel).toLocaleString("en-LK")} km
                       </p>
                       <p className="mt-0.5 text-xs text-slate-600">
-                        Total: {Number(log.totalCost).toLocaleString(undefined, {
-                          style: "currency",
-                          currency: "INR",
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 2
-                        })}
+                        Total: {formatCurrency(log.totalCost, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                       </p>
                       {log.fuelStation && <p className="mt-0.5 text-xs text-slate-500">Station: {log.fuelStation}</p>}
                       {log.notes && <p className="mt-0.5 text-xs text-slate-600">{log.notes}</p>}
+                      {isProofPhotoKey(log.receiptUrl) ? (
+                        <button
+                          type="button"
+                          className="mt-1 text-xs font-medium text-brand-700 underline"
+                          onClick={() => void openProofPhoto(log.receiptUrl as string).catch(() => toast.error("The receipt could not be opened."))}
+                        >
+                          View receipt
+                        </button>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -1151,9 +1193,9 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
             </p>
 
             {tripsLoading ? (
-              <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">
-                <Loader2 size={14} className="animate-spin" /> Loading trips...
-              </div>
+              <TableLoadingRows rows={3} label="Loading trips" />
+            ) : sectionErrors.trips ? (
+              <ErrorState title="Couldn't load trips" description={sectionErrors.trips} onRetry={() => void loadTrips()} />
             ) : trips.length === 0 ? (
               <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
                 No trips recorded yet.
@@ -1166,10 +1208,10 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                       {trip.startLocation} to {trip.endLocation}
                     </p>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      {new Date(trip.startTime).toLocaleString()} • {trip.status}
+                      {formatDateTime(trip.startTime)} • {formatEnumLabel(trip.status)}
                     </p>
                     <p className="mt-0.5 text-xs text-slate-600">
-                      Distance: {Number(trip.distance).toLocaleString()} km • Mileage: {Number(trip.startMileage).toLocaleString()} to {Number(trip.endMileage).toLocaleString()} km
+                      Distance: {Number(trip.distance).toLocaleString("en-LK")} km • Mileage: {Number(trip.startMileage).toLocaleString("en-LK")} to {Number(trip.endMileage).toLocaleString("en-LK")} km
                     </p>
                     {trip.purpose && <p className="mt-0.5 text-xs text-slate-500">Purpose: {trip.purpose}</p>}
                     {trip.notes && <p className="mt-0.5 text-xs text-slate-600">{trip.notes}</p>}
@@ -1183,7 +1225,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
             <h3 className="text-sm font-semibold text-slate-800">Roadmap: BI, Audit, Integrations</h3>
             <ul className="mt-2 grid gap-2 text-sm text-slate-600 md:grid-cols-2">
               <li className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                Maintenance cost, downtime, and cost-per-vehicle metrics
+                Maintenance cost, machine stopped time, and cost-per-vehicle metrics
               </li>
               <li className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                 Predictive maintenance and behavior-based smart alerts

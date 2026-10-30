@@ -1,5 +1,7 @@
 "use client";
 
+import { parseJobDomain, type JobDomain } from "@/lib/job-domain";
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -14,6 +16,8 @@ import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard";
 import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { clampPage, createRequestSequencer, isAbortError, totalPagesFor } from "@/lib/list-query-state";
+import { useLiveRefresh } from "@/lib/live-data";
 import {
   approveRequest,
   cancelRequest,
@@ -31,12 +35,20 @@ import {
   REQUEST_STAGE_LABELS,
   requestResultCountLabel,
   requestStageCards,
+  requestListStatusLabel,
   requestStatusLabel,
   requestTriageExplanation,
   requestValueLabel,
   requesterFacingStatus,
   resolveRequestMenuActivation
 } from "@/lib/maintenance-request-ui";
+
+const REQUEST_TYPE_FILTER_LABELS: Record<JobDomain, string> = {
+  MACHINERY: "Machinery",
+  VEHICLE: "Vehicle",
+  SERVICE: "Service (building)"
+};
+const REQUEST_TYPE_FILTER_ORDER: JobDomain[] = ["MACHINERY", "VEHICLE", "SERVICE"];
 
 type View = "all" | "mine" | "triage";
 
@@ -65,7 +77,7 @@ function formatReported(value: string) {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.round(hours / 24);
   if (days < 14) return `${days} day${days === 1 ? "" : "s"} ago`;
-  return date.toLocaleDateString();
+  return lkDate(date);
 }
 
 function subject(item: MaintenanceRequestListItem) {
@@ -99,7 +111,7 @@ function PriorityBadge({ priority }: { priority: string }) {
 function StatusBadge({ status, workOrderStatus, ownOnly }: { status: string; workOrderStatus?: string | null; ownOnly?: boolean }) {
   return (
     <span className="inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-800">
-      {ownOnly ? requesterFacingStatus(status, workOrderStatus) : requestStatusLabel(status)}
+      {ownOnly ? requesterFacingStatus(status, workOrderStatus) : requestListStatusLabel(status, workOrderStatus)}
     </span>
   );
 }
@@ -230,6 +242,8 @@ export default function RequestsPage() {
   const stage = isRequestStage(rawStage) ? rawStage : null;
   const status = searchParams.get("status") ?? "";
   const priority = searchParams.get("priority") ?? "";
+  // Machinery / Vehicle / Service (building); the API filters on MaintenanceRequest.jobDomain.
+  const jobDomain = parseJobDomain(searchParams.get("type")) ?? "";
   const assetQuery = searchParams.get("asset") ?? "";
   const queryText = searchParams.get("q") ?? "";
   const sortBy = searchParams.get("sort") ?? "reportedAt";
@@ -240,7 +254,7 @@ export default function RequestsPage() {
   const converted = searchParams.get("converted") ?? "";
 
   const [draftQuery, setDraftQuery] = useState(queryText);
-  const [advanced, setAdvanced] = useState(Boolean(reporter || from || converted));
+  const [advanced, setAdvanced] = useState(Boolean(reporter || from || converted || priority || jobDomain));
   const [items, setItems] = useState<MaintenanceRequestListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<MaintenanceRequestSummary>(EMPTY_SUMMARY);
@@ -286,19 +300,27 @@ export default function RequestsPage() {
     return () => window.clearTimeout(handle);
   }, [draftQuery, queryText, writeQuery]);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const sequencer = useRef(createRequestSequencer());
+
+  // Scope is enforced by the API (non-managers only ever get their own requests, triage needs
+  // permission), so the request does not wait on capabilities. Depending on canViewAll made admins
+  // fetch twice: once before and once after the first summary arrived.
+  const refresh = useCallback(async (options: { silent?: boolean } = {}) => {
+    const request = sequencer.current.begin();
+    if (!options.silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      const ownScope = capabilities != null && !canViewAll;
-      const triage = view === "triage" && !ownScope;
+      const triage = view === "triage";
       const [result, counts] = await Promise.all([
         listMaintenanceRequests({
-          mine: view === "mine" || ownScope || undefined,
+          mine: view === "mine" || undefined,
           triageQueue: triage || undefined,
           stage: triage ? undefined : stage ?? undefined,
           status: triage || stage ? undefined : status || undefined,
           priority: priority || undefined,
+          jobDomain: jobDomain || undefined,
           assetQuery: assetQuery || undefined,
           search: queryText || undefined,
           sortBy: triage ? undefined : sortBy,
@@ -309,12 +331,17 @@ export default function RequestsPage() {
           page,
           limit
         }),
-        getMaintenanceRequestSummary({ mine: view === "mine" || ownScope })
+        getMaintenanceRequestSummary({ mine: view === "mine" })
       ]);
+      // An older, slower response must not overwrite the latest filters' results.
+      if (!sequencer.current.isLatest(request.id)) return;
       setItems(result.items);
       setTotal(Number(result.meta?.total ?? result.items.length));
       setSummary(counts);
     } catch (err) {
+      if (!sequencer.current.isLatest(request.id) || isAbortError(err)) return;
+      // A failed background refresh keeps the rows already on screen.
+      if (options.silent) return;
       const message = getApiErrorMessage(err, "We couldn't load maintenance requests.");
       if (view === "triage" && /triage permission/i.test(message)) {
         writeQuery({ view: "mine", stage: null, status: null });
@@ -322,15 +349,29 @@ export default function RequestsPage() {
       }
       setError(message);
     } finally {
-      setLoading(false);
+      if (sequencer.current.isLatest(request.id)) setLoading(false);
     }
-  }, [assetQuery, canViewAll, converted, from, page, priority, queryText, reporter, sortBy, sortDirection, stage, status, view, writeQuery]);
+  }, [assetQuery, converted, from, jobDomain, page, priority, queryText, reporter, sortBy, sortDirection, stage, status, view, writeQuery]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  const totalPages = Math.max(1, Math.ceil(total / limit));
+  useLiveRefresh(() => refresh({ silent: true }));
+
+  useEffect(() => {
+    const sequence = sequencer.current;
+    return () => sequence.cancel();
+  }, []);
+
+  const totalPages = totalPagesFor(total, limit);
+
+  // ?page= past the last page (old link, rows converted away) jumps back to the last real page.
+  useEffect(() => {
+    if (loading || error) return;
+    const clamped = clampPage(page, total, limit);
+    if (clamped !== page) writeQuery({ page: clamped > 1 ? String(clamped) : null }, false);
+  }, [error, loading, page, total, writeQuery]);
   const fromRow = total === 0 ? 0 : (page - 1) * limit + 1;
   const toRow = Math.min(page * limit, total);
 
@@ -338,6 +379,7 @@ export default function RequestsPage() {
   if (stage && view !== "triage") activeFilters.push({ key: "stage", label: REQUEST_STAGE_LABELS[stage], clear: { stage: null } });
   if (status && !stage && view !== "triage") activeFilters.push({ key: "status", label: `Status: ${requestStatusLabel(status)}`, clear: { status: null } });
   if (priority) activeFilters.push({ key: "priority", label: `Priority: ${requestValueLabel(priority)}`, clear: { priority: null } });
+  if (jobDomain) activeFilters.push({ key: "type", label: `Type: ${REQUEST_TYPE_FILTER_LABELS[jobDomain]}`, clear: { type: null } });
   if (assetQuery) activeFilters.push({ key: "asset", label: `Asset: ${assetQuery}`, clear: { asset: null } });
   if (queryText) activeFilters.push({ key: "q", label: `Search: ${queryText}`, clear: { q: null } });
   if (reporter) activeFilters.push({ key: "reporter", label: `Reported by: ${reporter}`, clear: { reporter: null } });
@@ -351,7 +393,7 @@ export default function RequestsPage() {
     if (item.workOrder?.id && canViewAll) {
       actions.push({
         id: "wo",
-        label: `Open work order ${item.workOrder.woNumber}`,
+        label: `Open job ${item.workOrder.woNumber}`,
         href: `/work-orders?wo=${item.workOrder.id}`
       });
     }
@@ -386,14 +428,14 @@ export default function RequestsPage() {
     if (isActionAllowed(allowed, "convert")) {
       actions.push({
         id: "convert",
-        label: "Create work order",
+        label: "Create job",
         run: async () => {
           const result = await convertRequestToWorkOrder(item.id);
           if (result.workOrder?.woNumber) {
             toast.message(
               result.alreadyConverted
                 ? `Already linked to ${result.workOrder.woNumber}`
-                : `Created work order ${result.workOrder.woNumber}`
+                : `Created job ${result.workOrder.woNumber}`
             );
           }
           return true;
@@ -442,7 +484,7 @@ export default function RequestsPage() {
     ? [
         ["all", "All requests"],
         ["mine", "My requests"],
-        ...(canTriage ? [["triage", "Triage queue"] as [View, string]] : [])
+        ...(canTriage ? [["triage", "Requests to review"] as [View, string]] : [])
       ]
     : [];
 
@@ -457,7 +499,7 @@ export default function RequestsPage() {
           <p className="mt-1 text-sm text-slate-600">
             {ownOnly
               ? "Report a maintenance issue and follow your own requests."
-              : "Report issues, then triage and accept them before a work order is created."}
+              : "Report issues, then review and accept them before a job is created."}
           </p>
         </div>
         {canReport ? (
@@ -465,7 +507,7 @@ export default function RequestsPage() {
             href={"/requests/new" as Route}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
           >
-            <Plus size={16} aria-hidden /> Report issue
+            <Plus size={16} aria-hidden /> Report a problem
           </Link>
         ) : null}
       </header>
@@ -520,31 +562,10 @@ export default function RequestsPage() {
         ))}
       </div>
       ) : null}
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Status filters">
-        <button
-          type="button"
-          aria-pressed={!status && !stage}
-          className={`min-h-11 rounded-full border px-3 text-sm ${!status && !stage ? "border-brand-600 bg-brand-50 text-brand-800" : "border-slate-200 bg-white text-slate-700"}`}
-          onClick={() => writeQuery({ status: null, stage: null })}
-        >
-          All
-        </button>
-        {STATUS_OPTIONS.map((value) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={status === value}
-            className={`min-h-11 rounded-full border px-3 text-sm ${status === value ? "border-brand-600 bg-brand-50 text-brand-800" : "border-slate-200 bg-white text-slate-700"}`}
-            onClick={() => writeQuery({ status: value, stage: null })}
-          >
-            {requestStatusLabel(value)}
-          </button>
-        ))}
-      </div>
       {view === "triage" ? <p className="text-sm text-slate-600">{requestTriageExplanation()}</p> : null}
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-3" aria-label="Filters">
-        <div className="grid gap-2 lg:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,0.7fr))_auto]">
+        <div className="grid gap-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto]">
           <label className="relative block">
             <span className="sr-only">Search requests</span>
             <Search aria-hidden size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -560,7 +581,7 @@ export default function RequestsPage() {
             className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
             value={stage || view === "triage" ? "" : status}
             disabled={view === "triage"}
-            title={view === "triage" ? "The triage queue always shows New, Under Review and Needs Information." : undefined}
+            title={view === "triage" ? "Requests to review always shows New, Under Review and Needs Information." : undefined}
             onChange={(event) => writeQuery({ status: event.target.value || null, stage: null })}
           >
             <option value="">{stage ? REQUEST_STAGE_LABELS[stage] : "Any status"}</option>
@@ -569,18 +590,6 @@ export default function RequestsPage() {
                 {requestStatusLabel(value)}
               </option>
             ))}
-          </select>
-          <select
-            aria-label="Priority"
-            className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
-            value={priority}
-            onChange={(event) => writeQuery({ priority: event.target.value || null })}
-          >
-            <option value="">Any priority</option>
-            <option value="CRITICAL">Critical</option>
-            <option value="HIGH">High</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LOW">Low</option>
           </select>
           <input
             aria-label="Asset, vehicle or location"
@@ -600,6 +609,31 @@ export default function RequestsPage() {
         </div>
         {advanced ? (
           <div className="grid gap-2 md:grid-cols-3">
+            <select
+                aria-label="Priority"
+              className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
+              value={priority}
+              onChange={(event) => writeQuery({ priority: event.target.value || null })}
+            >
+              <option value="">Any priority</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+            </select>
+            <select
+                aria-label="Type"
+              className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
+              value={jobDomain}
+              onChange={(event) => writeQuery({ type: event.target.value || null })}
+            >
+              <option value="">Any type</option>
+              {REQUEST_TYPE_FILTER_ORDER.map((value) => (
+                <option key={value} value={value}>
+                  {REQUEST_TYPE_FILTER_LABELS[value]}
+                </option>
+              ))}
+            </select>
             <input
               aria-label="Reported by"
               value={reporter}
@@ -612,14 +646,14 @@ export default function RequestsPage() {
               <DateField bare label="Reported from" value={from} onChange={(value) => writeQuery({ from: value || null })} />
             </label>
             <select
-              aria-label="Work order link"
+              aria-label="Job link"
               className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
               value={converted}
               onChange={(event) => writeQuery({ converted: event.target.value || null })}
             >
-              <option value="">With or without a work order</option>
-              <option value="yes">Has a work order</option>
-              <option value="no">No work order yet</option>
+              <option value="">With or without a job</option>
+              <option value="yes">Has a job</option>
+              <option value="no">No job yet</option>
             </select>
           </div>
         ) : null}
@@ -695,14 +729,14 @@ export default function RequestsPage() {
 
       {!loading && !error && items.length === 0 ? (
         <EmptyState
-          title={filtered ? "No requests match these filters." : view === "triage" ? "Nothing is waiting for triage." : "No maintenance requests yet."}
+          title={filtered ? "No requests match these filters." : view === "triage" ? "Nothing is waiting for review." : "No maintenance requests yet."}
           description={
             filtered
               ? "Try a different search or clear the filters."
               : view === "triage"
                 ? "New requests appear here as soon as they are reported."
                 : canReport
-                  ? "Report an issue to start the maintenance workflow."
+                  ? "Report a problem to start the maintenance workflow."
                   : "Requests you are allowed to see will appear here."
           }
           action={
@@ -712,7 +746,7 @@ export default function RequestsPage() {
               </button>
             ) : canReport && view !== "triage" ? (
               <Link href={"/requests/new" as Route} className="inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white">
-                Report issue
+                Report a problem
               </Link>
             ) : null
           }
@@ -740,7 +774,7 @@ export default function RequestsPage() {
                     </div>
                   </Link>
                   <div className="mt-2 flex items-center justify-between gap-2">
-                    <span className="text-xs text-slate-500" title={new Date(item.reportedAt).toLocaleString()}>
+                    <span className="text-xs text-slate-500" title={lkDateTime(item.reportedAt)}>
                       Reported {formatReported(item.reportedAt)}
                       {item.reportedBy?.name ? ` by ${item.reportedBy.name}` : ""}
                     </span>
@@ -809,7 +843,7 @@ export default function RequestsPage() {
                         ) : null}
                       </td>
                       <td className="px-3 py-3">{item.reportedBy?.name || "—"}</td>
-                      <td className="px-3 py-3 text-slate-600" title={new Date(item.reportedAt).toLocaleString()}>
+                      <td className="px-3 py-3 text-slate-600" title={lkDateTime(item.reportedAt)}>
                         {formatReported(item.reportedAt)}
                       </td>
                       <td className="px-3 py-3 text-right" onClick={(event) => event.stopPropagation()}>

@@ -8,6 +8,7 @@
  * Accident repairs are linked via Phase 6 Work Orders (ACCIDENT_REPAIR type).
  * Compliance/docs use Phase 8 ComplianceRequirement model.
  */
+import { resolveJobDomain } from "../../common/utils/job-domain.util";
 import {
   BadRequestException,
   Injectable,
@@ -633,6 +634,7 @@ export class FleetLifecycleService {
           description: "Repair work order created from accident report",
           type: WorkOrderType.ACCIDENT_REPAIR,
           vehicleId: accident.vehicleId,
+          jobDomain: resolveJobDomain({ vehicleId: accident.vehicleId }),
           accidentId: accident.id,
           createdById: actor.sub
         }

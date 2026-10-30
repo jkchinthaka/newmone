@@ -88,7 +88,7 @@ export default function AdminConfigHistoryPage() {
             className="mt-1 block rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
           >
             <option value="">All</option>
-            <option value="PrioritySlaRule">Priority SLA</option>
+            <option value="PrioritySlaRule">Response time</option>
             <option value="MaintenanceJobCategory">Job Category</option>
             <option value="MaintenanceAnalysisCode">Analysis Code</option>
             <option value="MaintenanceReasonCode">Reason Code</option>

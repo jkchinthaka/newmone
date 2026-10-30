@@ -123,8 +123,9 @@ export type ApprovalInboxCounts = {
   emergency: number;
 };
 
-export async function fetchApprovalInbox(params?: ApprovalInboxQuery) {
-  const response = await apiClient.get("/approvals/inbox", { params });
+/** `signal` lets a page drop the old request when filters change or the page closes. */
+export async function fetchApprovalInbox(params?: ApprovalInboxQuery, options: { signal?: AbortSignal } = {}) {
+  const response = await apiClient.get("/approvals/inbox", { params, signal: options.signal });
   const payload = response.data as {
     data: { items: ApprovalInboxItem[]; meta: { total: number; counts?: ApprovalInboxCounts } };
   };

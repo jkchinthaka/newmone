@@ -88,8 +88,8 @@ function sanitizeWorkOrder(raw: unknown): WorkOrder {
   return {
     id: String(candidate.id ?? ""),
     version: Number.isFinite(Number(candidate.version)) ? Number(candidate.version) : undefined,
-    woNumber: String(candidate.woNumber ?? "WO-UNKNOWN"),
-    title: String(candidate.title ?? "Untitled work order"),
+    woNumber: String(candidate.woNumber ?? "JO-UNKNOWN"),
+    title: String(candidate.title ?? "Untitled job"),
     description: String(candidate.description ?? ""),
     priority,
     status,
@@ -167,6 +167,8 @@ export async function fetchWorkOrdersPaginated(params: {
   dueDateTo?: string;
   smartView?: string;
   jobDomain?: string;
+  /** User id, or "UNASSIGNED". Filtered server-side so totals and pages cover every match. */
+  technicianId?: string;
 }): Promise<{
   data: WorkOrder[];
   total: number;
@@ -197,8 +199,13 @@ export async function fetchWorkOrdersPaginated(params: {
   if (params.dueDateTo) q.set("dueTo", params.dueDateTo);
   if (params.smartView) q.set("smartView", params.smartView);
   if (params.jobDomain) q.set("jobDomain", params.jobDomain);
+  if (params.technicianId === "UNASSIGNED") q.set("unassigned", "true");
+  else if (params.technicianId && params.technicianId !== "ALL") q.set("technicianId", params.technicianId);
 
-  const response = await apiClient.get<ApiEnvelope<Record<string, unknown>>>(`/work-orders?${q.toString()}`);
+  // GET /work-orders drops technicianId/unassigned; the queue route applies every filter server-side
+  // (same list/summary/pagination shape), so totals and pages cover all matching rows.
+  const queue = encodeURIComponent(params.queue || "all");
+  const response = await apiClient.get<ApiEnvelope<Record<string, unknown>>>(`/work-orders/queues/${queue}?${q.toString()}`);
   const payload = unwrapData<Record<string, unknown>>(response.data);
   const rows = Array.isArray(payload.data) ? payload.data : [];
 
@@ -221,11 +228,6 @@ export async function fetchWorkOrdersPaginated(params: {
       | undefined,
     lastUpdated: typeof payload.lastUpdated === "string" ? payload.lastUpdated : undefined
   };
-}
-
-export async function fetchWorkOrders(): Promise<WorkOrder[]> {
-  const result = await fetchWorkOrdersPaginated({ page: 1, pageSize: 25, queue: "all" });
-  return result.data;
 }
 
 export async function fetchWorkOrderById(id: string): Promise<WorkOrder> {
@@ -255,7 +257,7 @@ export async function updateWorkOrderStatus(id: string, payload: UpdateWorkOrder
 export async function assignWorkOrder(
   id: string,
   technicianId: string,
-  options?: { plannedStartAt?: string; plannedEndAt?: string; expectedVersion?: number }
+  options?: { plannedStartAt?: string; plannedEndAt?: string; expectedVersion?: number; reason?: string }
 ): Promise<WorkOrder> {
   const response = await apiClient.post<ApiEnvelope<WorkOrder>>(`/work-orders/${id}/assign`, {
     technicianId,

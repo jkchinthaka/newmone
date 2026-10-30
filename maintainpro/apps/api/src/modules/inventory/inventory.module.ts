@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 
+import { EvidenceModule } from "../evidence/evidence.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import {
   DisabledInventoryErpAdapter,
@@ -10,6 +11,7 @@ import { BileetaInventoryErpAdapter } from "./bileeta-inventory-erp.adapter";
 import { ErpStockSyncService } from "./erp-stock-sync.service";
 import { ErpExcelImportService } from "./erp-excel-import.service";
 import { InventoryController } from "./inventory.controller";
+import { GoodsInService } from "./goods-in.service";
 import { InventoryService } from "./inventory.service";
 import { InventoryTransactionEngine } from "./inventory-transaction.engine";
 import { InventoryExcelImportService } from "./inventory-excel-import.service";
@@ -17,10 +19,11 @@ import { InventoryDailyService } from "./inventory-daily.service";
 import { StockCountService } from "./stock-count.service";
 
 @Module({
-  imports: [NotificationsModule],
+  imports: [NotificationsModule, EvidenceModule],
   controllers: [InventoryController],
   providers: [
     InventoryService,
+    GoodsInService,
     InventoryTransactionEngine,
     InventoryExcelImportService,
     InventoryDailyService,

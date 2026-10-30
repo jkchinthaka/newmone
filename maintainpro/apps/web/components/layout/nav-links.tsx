@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -258,31 +258,40 @@ function NavItemLink({
 }) {
   const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
 
+  const pinTone =
+    tone === "inverse"
+      ? active
+        ? "text-brand-900/70 hover:bg-brand-900/10 hover:text-brand-900"
+        : "text-white/60 hover:bg-white/10 hover:text-white"
+      : "text-slate-400 hover:bg-slate-100 hover:text-brand-700";
+
   return (
-    <div className="group flex items-center gap-1">
+    <div className="group relative">
       <Link
         href={item.href as Route}
         onClick={onNavigate}
         aria-current={toNavAriaCurrent(active)}
         title={item.label}
-        className={`flex min-h-11 flex-1 items-center gap-2.5 rounded-lg px-2.5 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
-          compact ? "justify-center px-0" : ""
+        className={`flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
+          compact ? "justify-center px-0" : "pr-11"
         } ${active ? activeClass : idleClass}`}
       >
-        <Icon aria-hidden size={18} />
-        {compact ? <span className="sr-only">{item.label}</span> : <span className="truncate">{item.label}</span>}
+        <Icon aria-hidden size={18} className="shrink-0" />
+        {compact ? <span className="sr-only">{item.label}</span> : <span className="min-w-0 flex-1 truncate">{item.label}</span>}
         {!compact && badgeCount != null ? <NavBadge count={badgeCount} /> : null}
       </Link>
       {compact ? null : (
+        // Sits inside the row on the right, vertically centred, so every pin lines up in one column.
+        // Mouse users see it on hover/focus (or when pinned); touch screens always show it.
         <button
           type="button"
           onClick={onToggleFavorite}
-          className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md opacity-100 transition focus-visible:opacity-100 xl:opacity-0 xl:group-hover:opacity-100 xl:focus-visible:opacity-100 ${
-            tone === "inverse" ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-slate-400 hover:bg-slate-100 hover:text-brand-700"
-          }`}
+          className={`absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md transition focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600 [@media(pointer:coarse)]:h-10 [@media(pointer:coarse)]:w-10 ${
+            isFavorite ? "opacity-100" : "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+          } ${pinTone}`}
           aria-label={isFavorite ? `Unpin ${item.label}` : `Pin ${item.label}`}
         >
-          {isFavorite ? <PinOff size={14} /> : <Pin size={14} />}
+          {isFavorite ? <PinOff aria-hidden size={14} /> : <Pin aria-hidden size={14} />}
         </button>
       )}
     </div>
@@ -337,8 +346,22 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
   const showBadgeFetch = allItems.some((item) => item.badgeKey);
   const { badges } = useNavBadges(showBadgeFetch, roleName, user.permissions);
 
+  // The group holding the current page always starts open, so the active item is visible.
+  const activeCategory = useMemo(
+    () => groups.find((group) => group.items.some((item) => isNavItemActive(pathname, item, search)))?.category ?? null,
+    [groups, pathname, search]
+  );
+  const isGroupCollapsed = (category: NavCategory) =>
+    collapsedGroups[category] ?? (category !== "workspace" && category !== activeCategory);
+
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const active = navRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    active?.scrollIntoView({ block: "nearest" });
+  }, [pathname, activeCategory]);
+
   const toggleGroup = (category: NavCategory) => {
-    const currentlyCollapsed = collapsedGroups[category] ?? category !== "workspace";
+    const currentlyCollapsed = isGroupCollapsed(category);
     const next = {
       ...collapsedGroups,
       [category]: !currentlyCollapsed
@@ -353,7 +376,7 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
   };
 
   return (
-    <nav aria-label="Main navigation" className={`space-y-4 ${className}`.trim()}>
+    <nav ref={navRef} aria-label="Main navigation" className={`space-y-4 ${className}`.trim()}>
       {favoriteItems.length > 0 ? (
         <div>
           <p className={`px-2 text-xs font-semibold uppercase tracking-[0.14em] ${tone === "inverse" ? "text-accent-500" : "text-slate-500"} ${compact ? "sr-only" : ""}`}>Favorites</p>
@@ -386,7 +409,7 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
               idle: "text-white/90 hover:bg-white/10"
             }
           : GROUP_SURFACE[group.category];
-        const collapsed = compact ? false : collapsedGroups[group.category] ?? group.category !== "workspace";
+        const collapsed = compact ? false : isGroupCollapsed(group.category);
 
         return (
           <div key={group.category} className={compact ? "" : surface.container}>
@@ -396,11 +419,11 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
             <button
               type="button"
               onClick={() => toggleGroup(group.category)}
-              className={`flex min-h-11 w-full items-center justify-between px-2 ${surface.heading}`}
+              className={`flex min-h-11 w-full items-center justify-between gap-2 px-2 text-left ${surface.heading}`}
               aria-expanded={!collapsed}
             >
-              <span>{group.label}</span>
-              <ChevronDown aria-hidden size={14} className={`transition ${collapsed ? "" : "rotate-180"}`} />
+              <span className="min-w-0 truncate">{group.label}</span>
+              <ChevronDown aria-hidden size={14} className={`shrink-0 transition ${collapsed ? "" : "rotate-180"}`} />
             </button>
             )}
             {!collapsed ? (

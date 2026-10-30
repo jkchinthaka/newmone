@@ -5,7 +5,7 @@ import { resolveAuthorizedDestination } from "../navigation";
 import { getPostLoginRedirect, safeInternalReturnPath } from "../role-redirect";
 
 describe("authorized landing", () => {
-  it("sends a technician to My Jobs", () => {
+  it("sends a technician to My jobs", () => {
     assert.equal(getPostLoginRedirect("TECHNICIAN"), "/work-orders/my");
     assert.equal(getPostLoginRedirect("MECHANIC"), "/work-orders/my");
   });
@@ -26,17 +26,24 @@ describe("authorized landing", () => {
     assert.equal(getPostLoginRedirect("MANAGER"), "/maintenance");
   });
 
-  it("sends fleet and gate roles to their fleet workspace", () => {
+  it("sends fleet managers to fleet and security officers to Requests", () => {
     assert.equal(getPostLoginRedirect("FLEET_MANAGER"), "/fleet");
-    assert.equal(getPostLoginRedirect("SECURITY_OFFICER"), "/fleet/gate");
+    assert.equal(getPostLoginRedirect("SECURITY_OFFICER"), "/requests");
   });
 
-  it("keeps an authorized return path", () => {
-    assert.equal(
-      resolveAuthorizedDestination({ role: "TECHNICIAN" }, "/work-orders/my?filter=overdue"),
-      "/work-orders/my?filter=overdue"
-    );
-    assert.equal(resolveAuthorizedDestination({ role: "ADMIN" }, "/requests"), "/requests");
+  it("always opens the role dashboard after sign-in, except a link to one record", () => {
+    assert.equal(resolveAuthorizedDestination({ role: "TECHNICIAN" }, "/work-orders/my?filter=overdue"), "/work-orders/my");
+    assert.equal(resolveAuthorizedDestination({ role: "ADMIN" }, "/requests"), "/admin");
+    assert.equal(resolveAuthorizedDestination({ role: "MANAGER" }, "/inventory"), "/maintenance");
+    // A notification / email link to a specific record is kept when the role can open it.
+    assert.equal(resolveAuthorizedDestination({ role: "MANAGER" }, "/work-orders?wo=cm123456789"), "/work-orders?wo=cm123456789");
+    assert.equal(resolveAuthorizedDestination({ role: "ADMIN" }, "/requests/cm123456789"), "/requests/cm123456789");
+    assert.equal(resolveAuthorizedDestination({ role: "ADMIN" }, "/requests/new"), "/admin");
+  });
+
+  it("lands a custom role on a dashboard its permissions open", () => {
+    assert.equal(resolveAuthorizedDestination({ role: "STORES_CLERK" }, null, ["maintenance_requests.create"]), "/requests");
+    assert.equal(resolveAuthorizedDestination({ role: "STORES_CLERK" }, null, []), "/notifications");
   });
 
   it("rejects an external return path and an unauthorized dashboard", () => {

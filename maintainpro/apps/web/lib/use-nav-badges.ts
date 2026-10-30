@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { isDatabaseUnavailableError } from "@/lib/api-client";
+import { LIVE_REFRESH_INTERVAL_MS } from "@/lib/live-data";
 import { fetchApprovalInbox } from "@/lib/approvals-api";
 import { fetchWorkOrderQueueSummary } from "@/lib/work-order-queues-api";
 import type { NavBadgeKey } from "@/lib/navigation";
@@ -56,7 +57,7 @@ function mapQueueSummaryToBadges(summary: Awaited<ReturnType<typeof fetchWorkOrd
 export function useNavBadges(enabled: boolean, roleName?: string | null, permissions?: readonly string[] | null) {
   const approvals = useQuery({
     queryKey: withTenantScope(["approvals", "inbox-count"]),
-    queryFn: () => fetchApprovalInbox({ page: 1, pageSize: 1 }),
+    queryFn: ({ signal }) => fetchApprovalInbox({ page: 1, pageSize: 1 }, { signal }),
     select: (data) => data.meta.counts?.all ?? data.meta.total ?? 0,
     enabled: enabled && canFetchApprovalBadge(roleName, permissions),
     staleTime: 30_000,
@@ -75,7 +76,7 @@ export function useNavBadges(enabled: boolean, roleName?: string | null, permiss
       }
       return failureCount < 1;
     },
-    refetchInterval: (q) => (q.state.error ? false : 120_000)
+    refetchInterval: (q) => (q.state.error ? false : LIVE_REFRESH_INTERVAL_MS)
   });
 
   return {

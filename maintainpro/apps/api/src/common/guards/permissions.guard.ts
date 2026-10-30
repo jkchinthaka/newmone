@@ -12,6 +12,11 @@ import { PrismaService } from "../../database/prisma.service";
 import { loadEffectivePermissionKeys } from "../auth/effective-permissions";
 import { rolePermissionKeys } from "../utils/role-permissions.util";
 import { PERMISSIONS_KEY } from "../decorators/permissions.decorator";
+import {
+  TENANT_EFFECTIVE_ROLE_KEY,
+  type RequestWithTenantRole,
+  loadRolePermissionKeysForTenant
+} from "../../modules/tenancy/tenant-effective-role";
 
 type RequestUser = {
   sub?: string;
@@ -20,6 +25,8 @@ type RequestUser = {
 };
 
 const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
+  // Anyone who can manage assets can view them.
+  "assets.view": ["assets.manage"],
   "gate.out.create": ["vehicles.operate"],
   "gate.in.create": ["vehicles.operate"],
   // Phase 3 organization/locations reuse established facilities permissions.
@@ -36,7 +43,9 @@ const COMPATIBLE_PERMISSION_ALIASES: Record<string, string[]> = {
     "cleaning.report_issue",
     "cleaning.manage"
   ],
-  "maintenance_requests.view_own": ["facility_issues.view", "facility_issues.report"],
+  // Anyone who may raise a request may list and open their own (the service scopes the
+  // list and detail to reportedById unless the caller holds view_all or triage).
+  "maintenance_requests.view_own": ["facility_issues.view", "facility_issues.report", "maintenance_requests.create"],
   "maintenance_requests.view_all": ["facility_issues.view", "facility_issues.manage"],
   "maintenance_requests.triage": ["facility_issues.manage"],
   "maintenance_requests.approve": ["facility_issues.manage"],
@@ -138,10 +147,12 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<{
-      user?: RequestUser;
-      headers?: Record<string, unknown>;
-    }>();
+    const request = context.switchToHttp().getRequest<
+      {
+        user?: RequestUser;
+        headers?: Record<string, unknown>;
+      } & RequestWithTenantRole
+    >();
     const user = request.user;
 
     if (!user?.sub) {
@@ -179,17 +190,25 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const roleKeys = rolePermissionKeys(dbUser.role);
+    // Outside the home tenant, permissions come from the membership-derived role there
+    // (TenantContextGuard), never from the global role.
+    const tenantRole = request[TENANT_EFFECTIVE_ROLE_KEY];
+    const useMembershipRole = Boolean(tenantRole && !tenantRole.usesGlobalRole);
+    const roleName = useMembershipRole ? tenantRole!.roleName : dbUser.role.name;
+    const overrideTenantId = useMembershipRole ? tenantRole!.tenantId : dbUser.tenantId ?? null;
+    const roleKeys = useMembershipRole
+      ? await loadRolePermissionKeysForTenant(this.prisma, roleName, overrideTenantId)
+      : rolePermissionKeys(dbUser.role);
     const effectiveKeys = await loadEffectivePermissionKeys(
       this.prisma,
-      { id: dbUser.id, tenantId: dbUser.tenantId ?? null },
+      { id: dbUser.id, tenantId: overrideTenantId },
       roleKeys
     );
 
     return this.assertHasPermissions(
       this.toPermissionSet(effectiveKeys),
       requiredPermissions,
-      dbUser.role.name
+      roleName
     );
   }
 

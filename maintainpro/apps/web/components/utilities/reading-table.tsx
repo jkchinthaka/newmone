@@ -88,7 +88,7 @@ export function ReadingTable({
       {filteredReadings.length === 0 ? (
         <EmptyState
           title="No readings found"
-          description="Add a reading to start tracking per-meter utility consumption trends."
+          description="Add a reading to start tracking per-meter utility usage trends."
         />
       ) : (
         <DataTable minWidthClass="min-w-[960px]">
@@ -98,7 +98,7 @@ export function ReadingTable({
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Reading Date</th>
               <th className="px-4 py-3">Reading Value</th>
-              <th className="px-4 py-3">Consumption</th>
+              <th className="px-4 py-3">Usage</th>
               <th className="px-4 py-3">Notes</th>
               <th className="px-4 py-3 text-right">Detail</th>
             </tr>

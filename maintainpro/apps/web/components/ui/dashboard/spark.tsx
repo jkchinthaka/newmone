@@ -1,15 +1,27 @@
 "use client";
 
-import { Line, LineChart, ResponsiveContainer } from "recharts";
+import { sparklineBox } from "@/lib/meter-readings-display";
 
 export function Spark({ points }: { points: Array<{ value: number }> }) {
+  const box = sparklineBox(points);
+  if (!box) return null;
   return (
-    <div className="h-10 w-full" role="img" aria-label="Sparkline">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={points}>
-          <Line type="monotone" dataKey="value" stroke="#176B3A" strokeWidth={2} dot={false} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
+    <svg
+      width={box.width}
+      height={box.height}
+      viewBox={`0 0 ${box.width} ${box.height}`}
+      role="img"
+      aria-label="Sparkline"
+      className="block h-10 w-full max-w-full"
+    >
+      <polyline
+        fill="none"
+        stroke="#166534"
+        strokeWidth={2}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        points={box.points}
+      />
+    </svg>
   );
 }

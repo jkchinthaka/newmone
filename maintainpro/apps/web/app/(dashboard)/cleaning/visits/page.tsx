@@ -1,5 +1,7 @@
 "use client";
 
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
+import { formatDateTime } from "@/lib/localization";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 
@@ -58,7 +60,7 @@ export default function CleaningVisitsPage() {
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [filters, setFilters] = useState({
-    date: new Date().toISOString().slice(0, 10),
+    date: colomboTodayYmd(),
     locationId: "",
     cleanedBy: "",
     status: ""
@@ -133,7 +135,7 @@ export default function CleaningVisitsPage() {
       const url = window.URL.createObjectURL(response.data as Blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `cleaning-visits-${appliedFilters.date || new Date().toISOString().slice(0, 10)}.xlsx`;
+      anchor.download = `cleaning-visits-${appliedFilters.date || colomboTodayYmd()}.xlsx`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -209,7 +211,7 @@ export default function CleaningVisitsPage() {
             >
               <option value="">All statuses</option>
               <option value="COMPLETED">Completed</option>
-              <option value="PENDING_VERIFICATION">Pending Verification</option>
+              <option value="PENDING_VERIFICATION">Waiting for supervisor check</option>
               <option value="SUBMITTED">Submitted</option>
               <option value="APPROVED">Approved</option>
               <option value="REJECTED">Rejected</option>
@@ -233,7 +235,7 @@ export default function CleaningVisitsPage() {
             type="button"
             onClick={() => {
               const reset = {
-                date: new Date().toISOString().slice(0, 10),
+                date: colomboTodayYmd(),
                 locationId: "",
                 cleanedBy: "",
                 status: ""
@@ -298,7 +300,7 @@ export default function CleaningVisitsPage() {
                       </div>
                       <div className="mt-1 text-xs text-slate-500">{row.cleaner.email}</div>
                     </td>
-                    <td className="px-4 py-4 text-slate-700">{new Date(row.scannedAt).toLocaleString()}</td>
+                    <td className="px-4 py-4 text-slate-700">{formatDateTime(row.scannedAt)}</td>
                     <td className="px-4 py-4 text-slate-700">{row.method}</td>
                     <td className="px-4 py-4">
                       <span

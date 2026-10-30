@@ -33,6 +33,50 @@ export function lastOpenReleaseDecision(otherOpenCount: number, currentStatus: s
   return "unchanged" as const;
 }
 
+/**
+ * Status a machine or vehicle goes back to when its last open job is closed.
+ * Same rules as Return to service: a temporary repair or an operating restriction keeps it
+ * out of service, and a vehicle that is not compliant (insurance, licence, ...) is not AVAILABLE.
+ */
+export function closeReleaseStatus(input: {
+  target: "asset" | "vehicle";
+  temporaryRepair?: boolean | null;
+  operatingRestriction?: string | null;
+  vehicleComplianceStatus?: string | null;
+}): string {
+  const restricted = Boolean(input.temporaryRepair || input.operatingRestriction?.trim());
+  if (restricted) return input.target === "asset" ? AssetStatus.OUT_OF_SERVICE : VehicleStatus.OUT_OF_SERVICE;
+  if (input.target === "asset") return AssetStatus.ACTIVE;
+  const nonCompliant = String(input.vehicleComplianceStatus ?? "").toUpperCase().includes("NON_COMPLIANT");
+  return nonCompliant ? VehicleStatus.OUT_OF_SERVICE : VehicleStatus.AVAILABLE;
+}
+
+/**
+ * Status to restore when a started job is cancelled: whatever the target had before this job
+ * moved it to UNDER_MAINTENANCE (read from the start audit row), else ACTIVE / AVAILABLE.
+ * Nothing was repaired, so restrictions are not applied here.
+ */
+export function cancelReleaseStatus(target: "asset" | "vehicle", before: string | null | undefined): string {
+  const value = String(before ?? "").trim().toUpperCase();
+  const allowed: string[] =
+    target === "asset" ? Object.values(AssetStatus).map(String) : Object.values(VehicleStatus).map(String);
+  if (value && value !== "UNDER_MAINTENANCE" && allowed.includes(value)) return value;
+  return target === "asset" ? AssetStatus.ACTIVE : VehicleStatus.AVAILABLE;
+}
+
+/** Any of these on the same target keeps it under maintenance (close release and return-to-service). */
+const STILL_OPEN_STATUSES: WorkOrderStatus[] = [
+  WorkOrderStatus.OPEN,
+  WorkOrderStatus.PLANNED,
+  WorkOrderStatus.ASSIGNED,
+  WorkOrderStatus.IN_PROGRESS,
+  WorkOrderStatus.ON_HOLD,
+  WorkOrderStatus.TECHNICIAN_COMPLETED,
+  WorkOrderStatus.REWORK_REQUIRED,
+  WorkOrderStatus.OVERDUE,
+  WorkOrderStatus.VERIFIED
+];
+
 const OPEN_CRITICAL_STATUSES: WorkOrderStatus[] = [
   WorkOrderStatus.OPEN,
   WorkOrderStatus.PLANNED,
@@ -103,11 +147,9 @@ export class WorkOrderDomainService {
       if (vehicle.status === VehicleStatus.DISPOSED) {
         throw new BadRequestException("Cannot start work on a disposed vehicle.");
       }
-      if (
-        !raw ||
-        vehicle.status === VehicleStatus.AVAILABLE ||
-        vehicle.status === VehicleStatus.IN_USE
-      ) {
+      // An IN_USE vehicle is outside the gate. It stays IN_USE so security can gate it back in;
+      // gate-in then marks it UNDER_MAINTENANCE because this job is open.
+      if (!raw || vehicle.status === VehicleStatus.AVAILABLE) {
         await this.prisma.vehicle.update({
           where: { id: vehicle.id },
           data: { status: VehicleStatus.UNDER_MAINTENANCE }
@@ -253,93 +295,124 @@ export class WorkOrderDomainService {
   }
 
   /**
-   * After close: the last open job returns the asset or vehicle to service.
+   * After close: the last open job returns the asset or vehicle to service, using the same
+   * rules as Return to service (temporary repair, operating restriction, vehicle compliance).
    * Any other open job keeps it under maintenance.
    */
   async releaseTargetIfLastOpenWorkOrder(workOrderId: string, actor?: Actor) {
+    await this.releaseTarget(workOrderId, "close", actor);
+  }
+
+  /**
+   * After cancel: a job that was started put the machine / vehicle UNDER_MAINTENANCE. When no
+   * other job is open on it, it goes back to the status it had before this job started.
+   */
+  async releaseTargetAfterCancel(workOrderId: string, actor?: Actor) {
+    await this.releaseTarget(workOrderId, "cancel", actor);
+  }
+
+  private async releaseTarget(workOrderId: string, mode: "close" | "cancel", actor?: Actor) {
     const tenantId = this.tenantId(actor);
     const wo = await this.prisma.workOrder.findFirst({
       where: { id: workOrderId, tenantId },
       include: {
         asset: { select: { id: true, status: true } },
-        vehicle: { select: { id: true, status: true } }
+        vehicle: { select: { id: true, status: true, complianceStatus: true } }
       }
     });
     if (!wo) return;
+    const ext = wo as typeof wo & { operatingRestriction?: string | null; temporaryRepair?: boolean | null };
+    const stillOpen = STILL_OPEN_STATUSES;
+    const label = mode === "close" ? "closed" : "cancelled";
 
-    const stillOpen: WorkOrderStatus[] = [
-      WorkOrderStatus.OPEN,
-      WorkOrderStatus.PLANNED,
-      WorkOrderStatus.ASSIGNED,
-      WorkOrderStatus.IN_PROGRESS,
-      WorkOrderStatus.ON_HOLD,
-      WorkOrderStatus.TECHNICIAN_COMPLETED,
-      WorkOrderStatus.REWORK_REQUIRED,
-      WorkOrderStatus.OVERDUE,
-      WorkOrderStatus.VERIFIED
-    ];
+    const targets: Array<{
+      kind: "asset" | "vehicle";
+      entity: "Asset" | "Vehicle";
+      id: string;
+      status: string;
+    }> = [];
+    if (wo.assetId && wo.asset) targets.push({ kind: "asset", entity: "Asset", id: wo.assetId, status: String(wo.asset.status ?? "") });
+    if (wo.vehicleId && wo.vehicle) targets.push({ kind: "vehicle", entity: "Vehicle", id: wo.vehicleId, status: String(wo.vehicle.status ?? "") });
 
-    if (wo.assetId && wo.asset) {
+    for (const target of targets) {
       const others = await this.prisma.workOrder.count({
-        where: { tenantId, assetId: wo.assetId, id: { not: wo.id }, status: { in: stillOpen } }
+        where: {
+          tenantId,
+          ...(target.kind === "asset" ? { assetId: target.id } : { vehicleId: target.id }),
+          id: { not: wo.id },
+          status: { in: stillOpen }
+        }
       });
-      if (lastOpenReleaseDecision(others, wo.asset.status) === "return") {
-        await this.prisma.asset.update({ where: { id: wo.assetId }, data: { status: AssetStatus.ACTIVE } });
+      const decision = lastOpenReleaseDecision(others, target.status);
+      if (decision === "stay") {
         await this.auditTargetStatusChange({
           tenantId,
           workOrderId: wo.id,
-          entity: "Asset",
-          entityId: wo.assetId,
-          before: wo.asset.status,
-          after: AssetStatus.ACTIVE,
-          actor,
-          reason: `Returned to service after ${wo.woNumber} closed`
-        });
-      } else if (others > 0) {
-        await this.auditTargetStatusChange({
-          tenantId,
-          workOrderId: wo.id,
-          entity: "Asset",
-          entityId: wo.assetId,
-          before: wo.asset.status,
-          after: wo.asset.status,
+          entity: target.entity,
+          entityId: target.id,
+          before: target.status,
+          after: target.status,
           actor,
           reason: `Stays under maintenance. ${others} other open work order(s) remain.`
         });
+        continue;
       }
+      if (decision !== "return") continue;
+
+      const next =
+        mode === "close"
+          ? closeReleaseStatus({
+              target: target.kind,
+              temporaryRepair: ext.temporaryRepair,
+              operatingRestriction: ext.operatingRestriction,
+              vehicleComplianceStatus: wo.vehicle?.complianceStatus
+            })
+          : cancelReleaseStatus(target.kind, await this.statusBeforeStart(tenantId, target.entity, target.id, wo.id));
+
+      if (target.kind === "asset") {
+        await this.prisma.asset.update({ where: { id: target.id }, data: { status: next as AssetStatus } });
+      } else {
+        await this.prisma.vehicle.update({ where: { id: target.id }, data: { status: next as VehicleStatus } });
+      }
+      const restricted = next === "OUT_OF_SERVICE";
+      await this.auditTargetStatusChange({
+        tenantId,
+        workOrderId: wo.id,
+        entity: target.entity,
+        entityId: target.id,
+        before: target.status,
+        after: next,
+        actor,
+        reason: restricted
+          ? `Out of service after ${wo.woNumber} ${label} (temporary repair, restriction or compliance)`
+          : `Returned to service after ${wo.woNumber} ${label}`
+      });
     }
+  }
 
-    if (wo.vehicleId && wo.vehicle) {
-      const others = await this.prisma.workOrder.count({
-        where: { tenantId, vehicleId: wo.vehicleId, id: { not: wo.id }, status: { in: stillOpen } }
-      });
-      if (lastOpenReleaseDecision(others, wo.vehicle.status) === "return") {
-        await this.prisma.vehicle.update({
-          where: { id: wo.vehicleId },
-          data: { status: VehicleStatus.AVAILABLE }
-        });
-        await this.auditTargetStatusChange({
+  /** The status recorded when this job's Start moved the target to UNDER_MAINTENANCE. */
+  private async statusBeforeStart(tenantId: string, entity: string, entityId: string, workOrderId: string) {
+    const auditLog = (this.prisma as { auditLog?: { findFirst?: unknown } }).auditLog;
+    if (typeof auditLog?.findFirst !== "function") return null;
+    const row = await this.prisma.auditLog
+      .findFirst({
+        where: {
           tenantId,
-          workOrderId: wo.id,
-          entity: "Vehicle",
-          entityId: wo.vehicleId,
-          before: wo.vehicle.status,
-          after: VehicleStatus.AVAILABLE,
-          actor,
-          reason: `Returned to service after ${wo.woNumber} closed`
-        });
-      } else if (lastOpenReleaseDecision(others, wo.vehicle.status) === "stay") {
-        await this.auditTargetStatusChange({
-          tenantId,
-          workOrderId: wo.id,
-          entity: "Vehicle",
-          entityId: wo.vehicleId,
-          before: wo.vehicle.status,
-          after: wo.vehicle.status,
-          actor,
-          reason: `Stays under maintenance. ${others} other open work order(s) remain.`
-        });
-      }
+          entity,
+          entityId,
+          metadata: { contains: workOrderId },
+          afterData: { contains: "UNDER_MAINTENANCE" }
+        },
+        orderBy: { createdAt: "asc" },
+        select: { beforeData: true }
+      })
+      .catch(() => null);
+    if (!row?.beforeData) return null;
+    try {
+      const parsed = JSON.parse(String(row.beforeData)) as { status?: string };
+      return parsed.status ?? null;
+    } catch {
+      return null;
     }
   }
 
@@ -425,7 +498,30 @@ export class WorkOrderDomainService {
       }
     });
 
-    if (wo.assetId && wo.asset) {
+    // Same last-open rule as close: another open job (critical or not) keeps the target in maintenance.
+    const otherOpenOnAsset = wo.assetId
+      ? await this.prisma.workOrder.count({
+          where: { tenantId, assetId: wo.assetId, id: { not: wo.id }, status: { in: STILL_OPEN_STATUSES } }
+        })
+      : 0;
+    const otherOpenOnVehicle = wo.vehicleId
+      ? await this.prisma.workOrder.count({
+          where: { tenantId, vehicleId: wo.vehicleId, id: { not: wo.id }, status: { in: STILL_OPEN_STATUSES } }
+        })
+      : 0;
+
+    if (wo.assetId && wo.asset && otherOpenOnAsset > 0) {
+      await this.auditTargetStatusChange({
+        tenantId,
+        workOrderId: wo.id,
+        entity: "Asset",
+        entityId: wo.assetId,
+        before: wo.asset.status,
+        after: wo.asset.status,
+        actor,
+        reason: `Stays under maintenance. ${otherOpenOnAsset} other open work order(s) remain.`
+      });
+    } else if (wo.assetId && wo.asset) {
       if (
         wo.asset.status === AssetStatus.UNDER_MAINTENANCE ||
         wo.asset.status === AssetStatus.OUT_OF_SERVICE
@@ -450,7 +546,18 @@ export class WorkOrderDomainService {
       }
     }
 
-    if (wo.vehicleId && wo.vehicle) {
+    if (wo.vehicleId && wo.vehicle && otherOpenOnVehicle > 0 && !(wo.temporaryRepair || woExt.operatingRestriction?.trim())) {
+      await this.auditTargetStatusChange({
+        tenantId,
+        workOrderId: wo.id,
+        entity: "Vehicle",
+        entityId: wo.vehicleId,
+        before: wo.vehicle.status,
+        after: wo.vehicle.status,
+        actor,
+        reason: `Stays under maintenance. ${otherOpenOnVehicle} other open work order(s) remain.`
+      });
+    } else if (wo.vehicleId && wo.vehicle) {
       if (wo.temporaryRepair || woExt.operatingRestriction?.trim()) {
         // VehicleStatus has no RESTRICTED value — use OUT_OF_SERVICE + restriction text.
         await this.prisma.vehicle.update({

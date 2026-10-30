@@ -1,5 +1,6 @@
 "use client";
 
+import { formatEnumLabel } from "@/lib/display-labels";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -59,9 +60,7 @@ type WorkforceEmployee = {
 
 type AssignmentPreview = {
   onApprovedLeave: boolean;
-  exceedsDailyCapacity: boolean;
   todayAllocatedHours: number;
-  dailyCapacityHours: number;
   incomingHours: number;
 };
 
@@ -333,7 +332,7 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
 
       {!canSeeAssignees ? (
         <p className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
-          Your role does not have permission to view or manage work order assignments. Contact a manager or
+          Your role does not have permission to view or manage job assignments. Contact a manager or
           administrator.
         </p>
       ) : loadingAssignees ? (
@@ -485,7 +484,7 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
             <option value="">All designations</option>
             {designationOptions.map((designation) => (
               <option key={designation} value={designation}>
-                {designation.replaceAll("_", " ")}
+                {formatEnumLabel(designation)}
               </option>
             ))}
           </select>
@@ -592,14 +591,6 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
         {previewLoading ? (
           <p className="inline-flex items-center gap-2 text-xs text-slate-500 sm:col-span-2">
             <Loader2 size={12} className="animate-spin" /> Checking availability...
-          </p>
-        ) : null}
-
-        {assignmentPreview?.exceedsDailyCapacity ? (
-          <p className="inline-flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 sm:col-span-2">
-            <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden />
-            Daily capacity warning: {assignmentPreview.todayAllocatedHours + assignmentPreview.incomingHours}h planned /{" "}
-            {assignmentPreview.dailyCapacityHours}h capacity. Assignment may be blocked by the server.
           </p>
         ) : null}
 

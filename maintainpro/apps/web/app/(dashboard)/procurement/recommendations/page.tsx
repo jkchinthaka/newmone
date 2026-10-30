@@ -4,7 +4,7 @@ export default function ProcurementRecommendationsPage() {
   return (
     <EnterpriseQueuePage
       kind="procurement"
-      title="Procurement recommendations"
+      title="Buying recommendations"
       description="Suggested reorders from available stock, incoming POs, and upcoming maintenance demand. Nothing is purchased automatically."
     />
   );

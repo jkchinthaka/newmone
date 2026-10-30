@@ -8,7 +8,10 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
+import { USER_KEY } from "@/lib/auth-storage";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { withTenantScope } from "@/lib/tenant-query";
 
@@ -83,7 +86,7 @@ const LEVELS = ["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
 const ACTIONS = [
   ["FLAG_ONLY", "Flag only"],
   ["MANAGER_REVIEW", "Require manager review"],
-  ["REQUIRE_RCA", "Require RCA"]
+  ["REQUIRE_RCA", "Require why it broke"]
 ] as const;
 
 function toDraft(policy: ReliabilityPolicy): PolicyDraft {
@@ -100,7 +103,7 @@ function toDraft(policy: ReliabilityPolicy): PolicyDraft {
 }
 
 function actionLabel(action: PolicyDraft["repeatAction"]) {
-  if (action === "REQUIRE_RCA") return "RCA required";
+  if (action === "REQUIRE_RCA") return "Why it broke required";
   if (action === "MANAGER_REVIEW") return "manager review required";
   return "flag only";
 }
@@ -125,6 +128,18 @@ export function ReliabilityWorkbench() {
   const [bulkReason, setBulkReason] = useState("");
   const [confirmBulk, setConfirmBulk] = useState(false);
   const [rcaForm, setRcaForm] = useState({ problemStatement: "", failureCode: "", assetId: "" });
+  const [myUserId, setMyUserId] = useState("");
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(USER_KEY);
+      const id = raw ? (JSON.parse(raw) as { id?: unknown }).id : null;
+      setMyUserId(typeof id === "string" ? id : "");
+    } catch {
+      setMyUserId("");
+    }
+  }, []);
 
   const writeQuery = (next: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -219,14 +234,14 @@ export function ReliabilityWorkbench() {
       });
     },
     onSuccess: () => {
-      toast.success("Criticality updated");
+      toast.success("How important updated");
       setSelected([]);
       setBulkReason("");
       setConfirmBulk(false);
       void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "asset-criticality"]) });
       void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "reliability-summary"]) });
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, "We couldn't update asset criticality."))
+    onError: (error) => toast.error(getApiErrorMessage(error, "We couldn't update asset importance."))
   });
 
   const createRca = useMutation({
@@ -240,11 +255,11 @@ export function ReliabilityWorkbench() {
       return res.data.data;
     },
     onSuccess: (created) => {
-      toast.success("RCA case created");
+      toast.success("Why it broke case created");
       setRcaForm({ problemStatement: "", failureCode: "", assetId: "" });
       router.push(`/maintenance/reliability/rca/${created.id}` as Route);
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, "We couldn't create the RCA."))
+    onError: (error) => toast.error(getApiErrorMessage(error, "We couldn't create the why-it-broke review."))
   });
 
   const selectedAssets = useMemo(
@@ -263,28 +278,38 @@ export function ReliabilityWorkbench() {
     );
   }
 
-  const changeTab = (next: Tab) => {
-    if (dirty && !window.confirm("You have unsaved policy changes. Leave this tab?")) return;
+  const changeTab = async (next: Tab) => {
+    if (dirty) {
+      const leave = await confirm({
+        title: "Leave without saving?",
+        description: "You have unsaved policy changes. They will be lost if you leave this tab.",
+        confirmLabel: "Leave tab",
+        cancelLabel: "Stay",
+        variant: "destructive"
+      });
+      if (!leave) return;
+    }
     writeQuery({ tab: next === "policy" ? null : next, page: null });
   };
 
   return (
     <div className="space-y-6 p-4 md:p-6">
+      {confirmDialog}
       <PageBreadcrumbs
         items={
           underMaintenance
-            ? [{ label: "Maintenance", href: "/maintenance" }, { label: "Reliability" }]
+            ? [{ label: "Maintenance", href: "/maintenance" }, { label: "Breakdowns & Causes" }]
             : [
                 { label: "Admin", href: "/admin" },
                 { label: "Maintenance config", href: "/admin/maintenance-config" },
-                { label: "Reliability" }
+                { label: "Breakdowns & Causes" }
               ]
         }
       />
       <div>
-        <h1 className="page-title">Reliability</h1>
+        <h1 className="page-title">Breakdowns &amp; Causes</h1>
         <p className="mt-1 max-w-3xl text-sm text-slate-600">
-          Manage repeat-failure rules, asset criticality, RCA/CAPA, and safety gates for high-risk maintenance.
+          Manage repeat-failure rules, asset importance, why it broke / Fix and prevent plan, and safety gates for high-risk maintenance.
         </p>
       </div>
       <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -292,11 +317,11 @@ export function ReliabilityWorkbench() {
           [
             ["Repeat failures", summaryQuery.data?.repeatFailures ?? null, "repeats"],
             ["Open RCAs", summaryQuery.data?.openRcas ?? null, "rca"],
-            ["Overdue CAPAs", summaryQuery.data?.overdueCapas ?? null, "rca"],
+            ["Overdue fix and prevent plans", summaryQuery.data?.overdueCapas ?? null, "rca"],
             ["Critical assets", summaryQuery.data?.criticalAssets ?? null, "criticality"]
           ] as const
         ).map(([label, count, next]) => (
-          <button key={label} type="button" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left" onClick={() => changeTab(next)}>
+          <button key={label} type="button" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left" onClick={() => void changeTab(next)}>
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
             <p className="mt-1 page-title">{count ?? "—"}</p>
           </button>
@@ -307,8 +332,8 @@ export function ReliabilityWorkbench() {
           [
             ["policy", "Policy"],
             ["repeats", "Repeat failures"],
-            ["criticality", "Asset criticality"],
-            ["rca", "RCA / CAPA"]
+            ["criticality", "Asset importance"],
+            ["rca", "Why it broke / Fix and prevent plan"]
           ] as const
         ).map(([key, label]) => (
           <button
@@ -316,7 +341,7 @@ export function ReliabilityWorkbench() {
             type="button"
             role="tab"
             aria-selected={tab === key}
-            onClick={() => changeTab(key)}
+            onClick={() => void changeTab(key)}
             className={`min-h-11 rounded-md px-3 py-1.5 text-sm ${tab === key ? "bg-brand-600 text-white" : "border border-slate-200 bg-white"}`}
           >
             {label}
@@ -383,7 +408,7 @@ export function ReliabilityWorkbench() {
               Require work permit before work starts for selected criticalities
             </label>
             <fieldset className="space-y-2 text-sm">
-              <legend className="font-medium text-slate-700">Criticalities that require a permit</legend>
+              <legend className="font-medium text-slate-700">Criticalities that require a work permit</legend>
               <div className="flex flex-wrap gap-2">
                 {LEVELS.map((level) => {
                   const selectedLevel = activeDraft.permitRequiredCriticalities.includes(level);
@@ -408,14 +433,14 @@ export function ReliabilityWorkbench() {
             </fieldset>
           </section>
           <section className="space-y-2 border-t border-slate-200 pt-4">
-            <h2 className="text-sm font-semibold text-slate-900">LOTO / isolation controls</h2>
+            <h2 className="text-sm font-semibold text-slate-900">Lock and tag before work</h2>
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={activeDraft.requireLotoWhenPermitRequires}
                 onChange={(event) => setDraft({ ...activeDraft, requireLotoWhenPermitRequires: event.target.checked })}
               />
-              Require verified LOTO when the permit requires isolation
+              Require verified Lock and tag when the work permit requires isolation
             </label>
           </section>
           <div className="flex flex-wrap items-center gap-2">
@@ -460,7 +485,7 @@ export function ReliabilityWorkbench() {
               <input className="mt-1 block rounded border border-slate-300 px-3 py-2" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} onBlur={() => writeQuery({ search: searchInput || null, page: null })} />
             </label>
             <label className="text-sm">
-              Criticality
+              How important
               <select className="mt-1 block rounded border border-slate-300 px-3 py-2" value={criticality} onChange={(event) => writeQuery({ criticality: event.target.value || null, page: null })}>
                 <option value="">All</option>
                 {LEVELS.map((level) => (
@@ -469,7 +494,7 @@ export function ReliabilityWorkbench() {
               </select>
             </label>
             <label className="text-sm">
-              New criticality
+              New importance
               <select className="mt-1 block rounded border border-slate-300 px-3 py-2" value={bulkLevel} onChange={(event) => setBulkLevel(event.target.value)}>
                 {LEVELS.map((level) => (
                   <option key={level} value={level}>{level}</option>
@@ -484,11 +509,11 @@ export function ReliabilityWorkbench() {
               Review update
             </button>
           </div>
-          {assetsQuery.isLoading ? <LoadingState title="Loading asset criticality" description="Fetching the current page." /> : null}
+          {assetsQuery.isLoading ? <LoadingState title="Loading asset importance" description="Fetching the current page." /> : null}
           {assetsQuery.isError ? (
-            <ErrorState title="We couldn't load asset criticality." description={getApiErrorMessage(assetsQuery.error, "Request failed")} onRetry={() => assetsQuery.refetch()} />
+            <ErrorState title="We couldn't load asset importance." description={getApiErrorMessage(assetsQuery.error, "Request failed")} onRetry={() => assetsQuery.refetch()} />
           ) : null}
-          {assetsQuery.data && assetsQuery.data.items.length === 0 ? <p className="text-sm text-slate-600">No assets available for criticality classification.</p> : null}
+          {assetsQuery.data && assetsQuery.data.items.length === 0 ? <p className="text-sm text-slate-600">No assets available for importance classification.</p> : null}
           {assetsQuery.data && assetsQuery.data.items.length > 0 ? (
             <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
               <table className="min-w-full text-left text-sm">
@@ -498,7 +523,7 @@ export function ReliabilityWorkbench() {
                     <th className="px-3 py-2">Asset</th>
                     <th className="px-3 py-2">Type</th>
                     <th className="px-3 py-2">Location</th>
-                    <th className="px-3 py-2">Criticality</th>
+                    <th className="px-3 py-2">How important</th>
                     <th className="px-3 py-2">Last reviewed</th>
                   </tr>
                 </thead>
@@ -530,7 +555,7 @@ export function ReliabilityWorkbench() {
           <Pager meta={assetsQuery.data?.meta} onPage={(next) => writeQuery({ page: String(next) })} />
           {confirmBulk ? (
             <div className="rounded-lg border border-slate-200 bg-white p-4" role="dialog" aria-labelledby="bulk-criticality-title">
-              <h2 id="bulk-criticality-title" className="font-semibold text-slate-900">Confirm criticality update</h2>
+              <h2 id="bulk-criticality-title" className="font-semibold text-slate-900">Confirm importance update</h2>
               <p className="mt-1 text-sm text-slate-600">{selectedAssets.length} assets will become {bulkLevel}. Reason: {bulkReason}</p>
               <ul className="mt-2 space-y-1 text-sm">
                 {selectedAssets.map((row) => (
@@ -548,42 +573,60 @@ export function ReliabilityWorkbench() {
 
       {tab === "rca" ? (
         <section className="space-y-4">
-          <form className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-4" onSubmit={(event) => { event.preventDefault(); writeQuery({ search: searchInput || null, page: null }); }}>
-            <input className="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="Search RCA, asset, or fault" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
+          <form className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-2" onSubmit={(event) => { event.preventDefault(); writeQuery({ search: searchInput || null, page: null }); }}>
+            <input className="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="Search why it broke, asset, or fault" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
             <select className="rounded border border-slate-300 px-3 py-2 text-sm" value={status} onChange={(event) => writeQuery({ status: event.target.value || null, page: null })} aria-label="Status">
               <option value="">All statuses</option>
               <option value="OPEN">Open</option>
               <option value="IN_REVIEW">Under investigation</option>
-              <option value="COMPLETED">Verification pending</option>
+              <option value="COMPLETED">Supervisor check pending</option>
               <option value="CLOSED">Closed</option>
             </select>
-            <input className="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="Owner id" value={owner} onChange={(event) => writeQuery({ owner: event.target.value || null, page: null })} aria-label="Owner" />
+            <details className="md:col-span-2" open={Boolean(owner) || Boolean(sort)}>
+              <summary className="cursor-pointer text-sm text-slate-600">More filters</summary>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <select className="rounded border border-slate-300 px-3 py-2 text-sm" value={owner} onChange={(event) => writeQuery({ owner: event.target.value || null, page: null })} aria-label="Owner">
+              <option value="">All owners</option>
+              {myUserId ? <option value={myUserId}>Only mine</option> : null}
+              {owner && owner !== myUserId ? <option value={owner}>Selected owner</option> : null}
+            </select>
             <select className="rounded border border-slate-300 px-3 py-2 text-sm" value={sort} onChange={(event) => writeQuery({ sort: event.target.value || null })} aria-label="Sort">
               <option value="">Newest</option>
               <option value="due">Due date</option>
             </select>
+              </div>
+            </details>
           </form>
           <form className="grid max-w-2xl gap-2 rounded-lg border border-slate-200 bg-white p-4" onSubmit={(event) => { event.preventDefault(); createRca.mutate(); }}>
-            <h2 className="text-sm font-semibold">Open an RCA</h2>
-            <input className="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="Asset id (optional)" value={rcaForm.assetId} onChange={(event) => setRcaForm((form) => ({ ...form, assetId: event.target.value }))} />
+            <h2 className="text-sm font-semibold">Open a why-it-broke review</h2>
+            <EntityPicker<{ id: string; name: string; assetTag?: string }>
+              endpoint="/assets"
+              searchParam="search"
+              pageSizeParam="limit"
+              value={rcaForm.assetId || null}
+              onChange={(id) => setRcaForm((form) => ({ ...form, assetId: id ?? "" }))}
+              displayField="name"
+              secondaryField="assetTag"
+              placeholder="Machine (optional) - search by name or tag"
+            />
             <input className="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="Fault code" value={rcaForm.failureCode} onChange={(event) => setRcaForm((form) => ({ ...form, failureCode: event.target.value }))} />
             <textarea className="rounded border border-slate-300 px-3 py-2 text-sm" rows={3} placeholder="Problem statement" required value={rcaForm.problemStatement} onChange={(event) => setRcaForm((form) => ({ ...form, problemStatement: event.target.value }))} />
-            <button type="submit" className="w-fit rounded bg-brand-600 px-4 py-2 text-sm text-white disabled:opacity-50" disabled={createRca.isPending || !rcaForm.problemStatement.trim()}>Create RCA</button>
+            <button type="submit" className="w-fit rounded bg-brand-600 px-4 py-2 text-sm text-white disabled:opacity-50" disabled={createRca.isPending || !rcaForm.problemStatement.trim()}>Create why it broke</button>
           </form>
-          {rcaQuery.isLoading ? <LoadingState title="Loading RCA records" description="Fetching the current page." /> : null}
-          {rcaQuery.isError ? <ErrorState title="We couldn't load RCA records." description={getApiErrorMessage(rcaQuery.error, "Request failed")} onRetry={() => rcaQuery.refetch()} /> : null}
-          {rcaQuery.data && rcaQuery.data.items.length === 0 ? <p className="text-sm text-slate-600">No RCA records yet.</p> : null}
+          {rcaQuery.isLoading ? <LoadingState title="Loading Why-it-broke reviews" description="Fetching the current page." /> : null}
+          {rcaQuery.isError ? <ErrorState title="We couldn't load Why-it-broke reviews." description={getApiErrorMessage(rcaQuery.error, "Request failed")} onRetry={() => rcaQuery.refetch()} /> : null}
+          {rcaQuery.data && rcaQuery.data.items.length === 0 ? <p className="text-sm text-slate-600">No why-it-broke reviews yet.</p> : null}
           {rcaQuery.data && rcaQuery.data.items.length > 0 ? (
             <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
               <table className="min-w-full text-left text-sm">
                 <thead className="border-b bg-slate-50 text-slate-600">
                   <tr>
-                    <th className="px-3 py-2">RCA</th>
+                    <th className="px-3 py-2">Why it broke</th>
                     <th className="px-3 py-2">Failure</th>
                     <th className="px-3 py-2">Source</th>
                     <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2">Due</th>
-                    <th className="px-3 py-2">CAPA</th>
+                    <th className="px-3 py-2">Fix and prevent plan</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -646,9 +689,9 @@ function ClusterTable(props: {
                 <th className="px-3 py-2">Count</th>
                 <th className="px-3 py-2">Window</th>
                 <th className="px-3 py-2">Last failure</th>
-                <th className="px-3 py-2">Downtime</th>
+                <th className="px-3 py-2">Machine stopped time</th>
                 <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">RCA</th>
+                <th className="px-3 py-2">Why it broke</th>
               </tr>
             </thead>
             <tbody>

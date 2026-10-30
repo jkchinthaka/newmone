@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown, Filter, Search } from "lucide-react";
 
 import { DateField } from "@/components/forms/date-fields";
+import { DebouncedField } from "@/components/forms/debounced-field";
 import { toTitleCase, humanWorkOrderStatusLabel } from "./helpers";
 import { selectableWorkOrderStatuses } from "@/lib/work-order-next-action";
 import {
@@ -45,6 +46,8 @@ export function WorkOrderFiltersBar({
   onReset
 }: WorkOrderFiltersBarProps) {
   const hasActiveAdvancedFilters =
+    filters.priority !== "ALL" ||
+    filters.technicianId !== "ALL" ||
     Boolean(filters.dueDateFrom) ||
     Boolean(filters.dueDateTo) ||
     filters.sortBy !== DEFAULT_SORT_BY ||
@@ -55,20 +58,23 @@ export function WorkOrderFiltersBar({
     <section className="space-y-3">
       {showHeading ? (
         <div>
-          <h2 className="page-title">Work Orders</h2>
+          <h2 className="page-title">Jobs</h2>
           <p className="mt-1 text-sm text-slate-500">Production workflow for corrective and preventive tasks.</p>
         </div>
       ) : null}
       {view === "queues" ? null : (
         <>
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <label className="relative">
               <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
+              {/* Debounced: one request after typing pauses, not one per keystroke. */}
+              <DebouncedField
+                label="Search jobs"
+                type="search"
                 value={filters.query}
-                onChange={(event) => onChange({ query: event.target.value })}
-                placeholder="Search by title or WO number"
-                className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                onCommit={(query) => onChange({ query })}
+                placeholder="Search by title or job number"
+                className="min-h-11 w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
               />
             </label>
 
@@ -87,7 +93,23 @@ export function WorkOrderFiltersBar({
                 ))}
               </select>
             </label>
+          </div>
 
+          <button
+            type="button"
+            onClick={() => setShowMoreFilters((current) => !current)}
+            aria-expanded={showMoreFilters}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800"
+          >
+            <ChevronDown
+              size={14}
+              className={`transition-transform ${showMoreFilters ? "rotate-180" : ""}`}
+            />
+            {showMoreFilters ? "Fewer filters" : "More filters"}
+          </button>
+
+          {showMoreFilters ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <span>Priority</span>
               <select
@@ -105,13 +127,13 @@ export function WorkOrderFiltersBar({
             </label>
 
             <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <span>Technician</span>
+              <span>Assigned to</span>
               <select
                 value={filters.technicianId}
                 onChange={(event) => onChange({ technicianId: event.target.value })}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
               >
-                <option value="ALL">All Technicians</option>
+                <option value="ALL">Everyone</option>
                 <option value="UNASSIGNED">Unassigned</option>
                 {technicians.map((technician) => (
                   <option key={technician.id} value={technician.id}>
@@ -120,23 +142,6 @@ export function WorkOrderFiltersBar({
                 ))}
               </select>
             </label>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowMoreFilters((current) => !current)}
-            aria-expanded={showMoreFilters}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800"
-          >
-            <ChevronDown
-              size={14}
-              className={`transition-transform ${showMoreFilters ? "rotate-180" : ""}`}
-            />
-            {showMoreFilters ? "Hide due date & sort filters" : "More filters (due date, sort)"}
-          </button>
-
-          {showMoreFilters ? (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(2,minmax(0,1fr))_minmax(0,1fr)_minmax(0,1fr)]">
               <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <span>Due Date From</span>
                 <DateField
@@ -165,7 +170,7 @@ export function WorkOrderFiltersBar({
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
                 >
                   <option value="createdAt">Created Date</option>
-                  <option value="woNumber">WO Number</option>
+                  <option value="woNumber">Job Number</option>
                   <option value="title">Title</option>
                   <option value="asset">Asset</option>
                   <option value="status">Status</option>
@@ -192,7 +197,7 @@ export function WorkOrderFiltersBar({
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {view !== "queues" ? (
+        {view !== "queues" && (hasActiveAdvancedFilters || filters.status !== "ALL" || Boolean(filters.query)) ? (
           <button
             type="button"
             onClick={onReset}
