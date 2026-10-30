@@ -18,7 +18,6 @@ maintainpro/**/*.tsbuildinfo
 maintainpro/*.log
 
 # Sibling Django system mirrored via git subtree — not part of MaintainPro Node builds
-maintainpro/systems/
 
 # ---------------------------------------------------------------------------
 # Secrets — exclude real env/key files from the root Docker build context.
