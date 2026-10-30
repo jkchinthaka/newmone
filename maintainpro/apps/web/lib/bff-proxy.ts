@@ -7,6 +7,7 @@ import {
   stripAuthTokensFromBody
 } from "./bff-auth";
 import {
+  hasUnsafePathSegment,
   joinUpstreamPath,
   resolveBffUpstreamApiBase,
   sanitizeRequestId,
@@ -224,6 +225,12 @@ export async function proxyBffRequest(
 
   const method = request.method.toUpperCase();
   const requestId = resolveRequestId(request.headers.get("x-request-id"));
+  if (hasUnsafePathSegment(pathSegments)) {
+    return NextResponse.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "Invalid request path", requestId } },
+      { status: 400, headers: { "X-Request-Id": requestId } }
+    );
+  }
   const session = await readSessionCookies();
   const joinedPath = pathSegments.join("/");
   if (
