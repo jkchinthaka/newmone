@@ -497,6 +497,7 @@ export function WorkOrderEditorModal({
                 onChange={setActiveTab}
                 showAudit={showAuditTab}
                 showAssignment={currentUser.role !== "TECHNICIAN" && currentUser.role !== "MECHANIC"}
+                hideTabs={currentUser.role === "TECHNICIAN" || currentUser.role === "MECHANIC" ? ["safety", "vendor-repair"] : undefined}
                 counts={{
                   evidence: evidenceItems.some((item) => item.status === "UPLOADED")
                     ? evidenceItems.filter((item) => item.status === "UPLOADED").length

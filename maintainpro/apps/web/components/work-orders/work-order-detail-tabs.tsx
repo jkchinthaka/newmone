@@ -28,13 +28,16 @@ type Props = {
   onChange: (tab: WorkOrderDetailTab) => void;
   showAudit: boolean;
   showAssignment?: boolean;
+  /** Tabs folded away for this user (kept visible when it is the open tab, e.g. a deep link). */
+  hideTabs?: WorkOrderDetailTab[];
   counts?: Partial<Record<WorkOrderDetailTab, number>>;
 };
 
-export function WorkOrderDetailTabs({ activeTab, onChange, showAudit, showAssignment = true, counts }: Props) {
+export function WorkOrderDetailTabs({ activeTab, onChange, showAudit, showAssignment = true, hideTabs, counts }: Props) {
   const tabs = WORK_ORDER_DETAIL_TABS.filter((tab) => {
     if (tab.id === "audit") return showAudit;
     if (tab.id === "assignment") return showAssignment;
+    if (hideTabs?.includes(tab.id) && tab.id !== activeTab) return false;
     return true;
   });
 

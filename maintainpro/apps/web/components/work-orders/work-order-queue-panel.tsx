@@ -505,82 +505,82 @@ export function WorkOrderQueuePanel({
               ))}
             </select>
           </label>
-          <label className="min-w-[8rem]">
-            <span className="sr-only">Priority</span>
-            <select
-              value={filters.priority}
-              onChange={(event) => updateFilters({ priority: event.target.value as WorkOrderQueueFilters["priority"], page: 1 })}
-              className={`${fieldClass} w-full`}
-            >
-              <option value="ALL">All priorities</option>
-              <option value="CRITICAL">Critical</option>
-              <option value="HIGH">High</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="LOW">Low</option>
-            </select>
-          </label>
-          <label className="min-w-[9rem]">
-            <span className="sr-only">Assignee</span>
-            <select
-              value={filters.technicianId || ""}
-              onChange={(event) => updateFilters({ technicianId: event.target.value, page: 1 })}
-              className={`${fieldClass} w-full`}
-            >
-              <option value="">All assignees</option>
-              {technicians.map((technician) => (
-                <option key={technician.id} value={technician.id}>
-                  {technician.fullName}
-                </option>
-              ))}
-            </select>
-          </label>
-          {jobDomain ? null : (
-            <label className="min-w-[8rem]">
-              <span className="sr-only">Domain</span>
-              <select
-                value={filters.jobDomain || ""}
-                onChange={(event) => updateFilters({ jobDomain: event.target.value || undefined, page: 1 })}
-                className={`${fieldClass} w-full`}
-              >
-                <option value="">All domains</option>
-                {JOB_DOMAINS.map((domain) => (
-                  <option key={domain} value={domain}>
-                    {JOB_DOMAIN_LABELS[domain]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {distinctSmartViews.length ? (
-            <label className="min-w-[10rem]">
-              <span className="sr-only">Saved views</span>
-              <select
-                value={filters.smartView || ""}
-                onChange={(event) => {
-                  const view = distinctSmartViews.find((item) => item.key === event.target.value);
-                  updateFilters({
-                    smartView: view?.key,
-                    queue: view?.queueKey ?? filters.queue,
-                    page: 1
-                  });
-                }}
-                className={`${fieldClass} w-full`}
-              >
-                <option value="">Saved views</option>
-                {distinctSmartViews.map((view) => (
-                  <option key={view.key} value={view.key}>
-                    {view.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
           <details className="relative">
             <summary className={`${fieldClass} flex cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden`}>
               More filters
               <ChevronDown size={14} aria-hidden />
             </summary>
             <div className="mt-2 w-full space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid sm:grid-cols-2 sm:gap-3 sm:space-y-0 lg:grid-cols-3">
+              <label className="block text-sm">
+                Priority
+                <select
+                  value={filters.priority}
+                  onChange={(event) => updateFilters({ priority: event.target.value as WorkOrderQueueFilters["priority"], page: 1 })}
+                  className={`${fieldClass} mt-1 w-full`}
+                >
+                  <option value="ALL">All priorities</option>
+                  <option value="CRITICAL">Critical</option>
+                  <option value="HIGH">High</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="LOW">Low</option>
+                </select>
+              </label>
+              <label className="block text-sm">
+                Assigned to
+                <select
+                  value={filters.technicianId || ""}
+                  onChange={(event) => updateFilters({ technicianId: event.target.value, page: 1 })}
+                  className={`${fieldClass} mt-1 w-full`}
+                >
+                  <option value="">Everyone</option>
+                  {technicians.map((technician) => (
+                    <option key={technician.id} value={technician.id}>
+                      {technician.fullName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {jobDomain ? null : (
+                <label className="block text-sm">
+                  Type of job
+                  <select
+                    value={filters.jobDomain || ""}
+                    onChange={(event) => updateFilters({ jobDomain: event.target.value || undefined, page: 1 })}
+                    className={`${fieldClass} mt-1 w-full`}
+                  >
+                    <option value="">All types</option>
+                    {JOB_DOMAINS.map((domain) => (
+                      <option key={domain} value={domain}>
+                        {JOB_DOMAIN_LABELS[domain]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {distinctSmartViews.length ? (
+                <label className="block text-sm">
+                  Saved views
+                  <select
+                    value={filters.smartView || ""}
+                    onChange={(event) => {
+                      const view = distinctSmartViews.find((item) => item.key === event.target.value);
+                      updateFilters({
+                        smartView: view?.key,
+                        queue: view?.queueKey ?? filters.queue,
+                        page: 1
+                      });
+                    }}
+                    className={`${fieldClass} mt-1 w-full`}
+                  >
+                    <option value="">None</option>
+                    {distinctSmartViews.map((view) => (
+                      <option key={view.key} value={view.key}>
+                        {view.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={filters.overdueOnly} onChange={(event) => updateFilters({ overdueOnly: event.target.checked, page: 1 })} />
                 Overdue only

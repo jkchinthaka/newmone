@@ -953,21 +953,14 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
       )}
 
       {view === "queues" ? null : (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Job counts">
-          {(
-            [
-              ["Open", workOrdersQuery.stats.open, "text-slate-900"],
-              ["In progress", workOrdersQuery.stats.inProgress, "text-slate-900"],
-              ["Overdue", workOrdersQuery.stats.overdue, workOrdersQuery.stats.overdue > 0 ? "text-red-700" : "text-slate-900"],
-              ["Completed", workOrdersQuery.stats.completed, "text-slate-900"]
-            ] as Array<[string, number, string]>
-          ).map(([label, value, tone]) => (
-            <article key={label} className="rounded-card border border-slate-200 bg-white p-4 shadow-card">
-              <p className="text-sm font-medium text-slate-600">{label}</p>
-              <p className={`mt-3 text-2xl font-semibold tabular-nums ${tone}`}>{value}</p>
-            </article>
-          ))}
-        </div>
+        <p className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-sm text-slate-600" aria-label="Job counts">
+          <span><strong className="tabular-nums text-slate-900">{workOrdersQuery.stats.open}</strong> open</span>
+          <span><strong className="tabular-nums text-slate-900">{workOrdersQuery.stats.inProgress}</strong> in progress</span>
+          <span className={workOrdersQuery.stats.overdue > 0 ? "font-semibold text-red-700" : ""}>
+            <strong className="tabular-nums">{workOrdersQuery.stats.overdue}</strong> late
+          </span>
+          <span><strong className="tabular-nums text-slate-900">{workOrdersQuery.stats.completed}</strong> done</span>
+        </p>
       )}
 
       <motion.section

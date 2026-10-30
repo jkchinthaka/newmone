@@ -46,6 +46,8 @@ export function WorkOrderFiltersBar({
   onReset
 }: WorkOrderFiltersBarProps) {
   const hasActiveAdvancedFilters =
+    filters.priority !== "ALL" ||
+    filters.technicianId !== "ALL" ||
     Boolean(filters.dueDateFrom) ||
     Boolean(filters.dueDateTo) ||
     filters.sortBy !== DEFAULT_SORT_BY ||
@@ -62,7 +64,7 @@ export function WorkOrderFiltersBar({
       ) : null}
       {view === "queues" ? null : (
         <>
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <label className="relative">
               <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               {/* Debounced: one request after typing pauses, not one per keystroke. */}
@@ -91,7 +93,23 @@ export function WorkOrderFiltersBar({
                 ))}
               </select>
             </label>
+          </div>
 
+          <button
+            type="button"
+            onClick={() => setShowMoreFilters((current) => !current)}
+            aria-expanded={showMoreFilters}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800"
+          >
+            <ChevronDown
+              size={14}
+              className={`transition-transform ${showMoreFilters ? "rotate-180" : ""}`}
+            />
+            {showMoreFilters ? "Fewer filters" : "More filters"}
+          </button>
+
+          {showMoreFilters ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <span>Priority</span>
               <select
@@ -109,13 +127,13 @@ export function WorkOrderFiltersBar({
             </label>
 
             <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <span>Technician</span>
+              <span>Assigned to</span>
               <select
                 value={filters.technicianId}
                 onChange={(event) => onChange({ technicianId: event.target.value })}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
               >
-                <option value="ALL">All Technicians</option>
+                <option value="ALL">Everyone</option>
                 <option value="UNASSIGNED">Unassigned</option>
                 {technicians.map((technician) => (
                   <option key={technician.id} value={technician.id}>
@@ -124,23 +142,6 @@ export function WorkOrderFiltersBar({
                 ))}
               </select>
             </label>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowMoreFilters((current) => !current)}
-            aria-expanded={showMoreFilters}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800"
-          >
-            <ChevronDown
-              size={14}
-              className={`transition-transform ${showMoreFilters ? "rotate-180" : ""}`}
-            />
-            {showMoreFilters ? "Hide due date & sort filters" : "More filters (due date, sort)"}
-          </button>
-
-          {showMoreFilters ? (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(2,minmax(0,1fr))_minmax(0,1fr)_minmax(0,1fr)]">
               <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <span>Due Date From</span>
                 <DateField
@@ -196,7 +197,7 @@ export function WorkOrderFiltersBar({
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {view !== "queues" ? (
+        {view !== "queues" && (hasActiveAdvancedFilters || filters.status !== "ALL" || Boolean(filters.query)) ? (
           <button
             type="button"
             onClick={onReset}
