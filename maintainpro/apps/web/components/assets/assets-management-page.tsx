@@ -1352,7 +1352,7 @@ export default function AssetsManagementPage() {
         <OperationalPageHeader
           eyebrow="Assets"
           title="Machines & Equipment"
-          description="Register of equipment, tools, and facilities."
+          description="Every machine, tool and facility. Use the counts below to see what is active or under maintenance."
           actions={
             <>
               <button
@@ -1473,19 +1473,6 @@ export default function AssetsManagementPage() {
               />
             </label>
             <label className="text-sm">
-              <span className="mb-1 block text-xs font-medium text-slate-600">Status</span>
-              <select
-                aria-label="Status"
-                value={filters.status}
-                onChange={(event) => setFilters({ status: event.target.value as AssetStatusFilter })}
-                className="h-10 rounded-md border border-slate-300 px-2 text-sm"
-              >
-                {STATUS_FILTER_OPTIONS.map((option) => (
-                  <option key={option.value || "ALL"} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="text-sm">
               <span className="mb-1 block text-xs font-medium text-slate-600">Category</span>
               <select
                 aria-label="Category"
@@ -1515,19 +1502,34 @@ export default function AssetsManagementPage() {
             <button type="button" className="h-10 rounded-md border border-slate-300 px-3 text-sm" aria-expanded={moreFilters} onClick={() => setMoreFilters((current) => !current)}>
               More filters
             </button>
-            <button
-              type="button"
-              className="h-10 px-2 text-sm font-medium text-brand-700"
-              onClick={() => {
-                clearFilters();
-                setSearchDraft("");
-              }}
-            >
-              Clear
-            </button>
+            {filters.status || filters.category || filters.location || filters.departmentId || filters.condition || filters.search || searchDraft ? (
+              <button
+                type="button"
+                className="h-10 px-2 text-sm font-medium text-brand-700"
+                onClick={() => {
+                  clearFilters();
+                  setSearchDraft("");
+                }}
+              >
+                Clear
+              </button>
+            ) : null}
           </div>
           {moreFilters ? (
             <div className="grid gap-2 border-t border-slate-200 p-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="text-sm">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Status</span>
+                <select
+                  aria-label="Status"
+                  value={filters.status}
+                  onChange={(event) => setFilters({ status: event.target.value as AssetStatusFilter })}
+                  className="h-10 w-full rounded-md border border-slate-300 px-2 text-sm"
+                >
+                  {STATUS_FILTER_OPTIONS.map((option) => (
+                    <option key={option.value || "ALL"} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
               <DepartmentSelect
                 label="Department"
                 value={filters.departmentId || null}
@@ -1712,7 +1714,7 @@ export default function AssetsManagementPage() {
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
             <div>
               <h3 className="text-lg font-semibold text-slate-900">Asset registry</h3>
-              <p className="text-sm text-slate-500">Server-side search, filtering, sorting, and pagination.</p>
+              <p className="text-sm text-slate-500">Tap a machine to see its details, jobs and QR tag.</p>
             </div>
             <div ref={columnPickerRef} className="relative">
               <button
