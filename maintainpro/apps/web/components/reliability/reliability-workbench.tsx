@@ -548,7 +548,7 @@ export function ReliabilityWorkbench() {
 
       {tab === "rca" ? (
         <section className="space-y-4">
-          <form className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-4" onSubmit={(event) => { event.preventDefault(); writeQuery({ search: searchInput || null, page: null }); }}>
+          <form className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-2" onSubmit={(event) => { event.preventDefault(); writeQuery({ search: searchInput || null, page: null }); }}>
             <input className="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="Search why it broke, asset, or fault" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
             <select className="rounded border border-slate-300 px-3 py-2 text-sm" value={status} onChange={(event) => writeQuery({ status: event.target.value || null, page: null })} aria-label="Status">
               <option value="">All statuses</option>
@@ -557,11 +557,16 @@ export function ReliabilityWorkbench() {
               <option value="COMPLETED">Supervisor check pending</option>
               <option value="CLOSED">Closed</option>
             </select>
+            <details className="md:col-span-2" open={Boolean(owner) || Boolean(sort)}>
+              <summary className="cursor-pointer text-sm text-slate-600">More filters</summary>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
             <input className="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="Owner id" value={owner} onChange={(event) => writeQuery({ owner: event.target.value || null, page: null })} aria-label="Owner" />
             <select className="rounded border border-slate-300 px-3 py-2 text-sm" value={sort} onChange={(event) => writeQuery({ sort: event.target.value || null })} aria-label="Sort">
               <option value="">Newest</option>
               <option value="due">Due date</option>
             </select>
+              </div>
+            </details>
           </form>
           <form className="grid max-w-2xl gap-2 rounded-lg border border-slate-200 bg-white p-4" onSubmit={(event) => { event.preventDefault(); createRca.mutate(); }}>
             <h2 className="text-sm font-semibold">Open a why-it-broke review</h2>
