@@ -1,6 +1,7 @@
 "use client";
 
 import { DateField } from "@/components/forms/date-fields";
+import { BulkImportButton } from "@/components/bulk-import/bulk-import-button";
 import Link from "next/link";
 import {
   useCallback,
@@ -629,6 +630,8 @@ export default function VehiclesPage() {
               Register in Admin
             </Link>
           ) : null}
+          {/* Many vehicles from Excel (existing bulk import; Super Admin only). */}
+          <BulkImportButton entity="vehicle" entityLabel="Vehicles" onImported={refreshAll} />
         </div>
       </header>
       {!canCreate && !canEdit ? (

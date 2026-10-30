@@ -29,6 +29,7 @@ export type AssetRegisterForm = {
   manufacturer: string;
   model: string;
   serialNumber: string;
+  fixedAssetCode: string;
   description: string;
   siteId: string;
   functionalLocationId: string;
@@ -50,6 +51,7 @@ export const EMPTY_ASSET_REGISTER_FORM: AssetRegisterForm = {
   manufacturer: "",
   model: "",
   serialNumber: "",
+  fixedAssetCode: "",
   description: "",
   siteId: "",
   functionalLocationId: "",
@@ -98,6 +100,7 @@ export function assetRegisterPayload(form: AssetRegisterForm): Record<string, un
     manufacturer: text(form.manufacturer),
     model: text(form.model),
     serialNumber: text(form.serialNumber),
+    fixedAssetCode: text(form.fixedAssetCode),
     description: text(form.description),
     siteId: form.siteId || undefined,
     functionalLocationId: form.functionalLocationId || undefined,

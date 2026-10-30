@@ -766,6 +766,8 @@ model Asset {
   manufacturer     String?
   model            String?
   serialNumber     String?
+  /// Finance fixed asset register / ERP asset code (matches the company asset register)
+  fixedAssetCode   String?     @db.NVarChar(64)
   /// Compatibility/summary meter only — Phase 8 owns multi-meter engine
   meterReading     Float?
   /// Compatibility service dates — Phase 8 owns PM plans
@@ -841,6 +843,7 @@ model Asset {
   @@index([tenantId, parentAssetId])
   @@index([tenantId, criticalityLevel])
   @@index([tenantId, serialNumber])
+  @@index([tenantId, fixedAssetCode])
   @@index([tenantId, isActive])
 }
 

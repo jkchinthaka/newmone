@@ -589,12 +589,12 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "admin-asset-register",
-    label: "Add Machine",
+    label: "Add Assets",
     href: "/admin/assets/new",
     icon: "Package",
     allowedRoles: ADMIN_ROLES,
     category: "admin",
-    description: "Add a new machine or equipment",
+    description: "Add one asset, or many from an Excel file",
     activeMatch: "exact"
   },
   {
@@ -609,12 +609,12 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "admin-asset-tags",
-    label: "Upload Asset Tags",
+    label: "Assign QR Tags",
     href: "/admin/asset-tags",
     icon: "QrCode",
     allowedRoles: ADMIN_ROLES,
     category: "admin",
-    description: "Upload and check asset tags",
+    description: "Give QR tags to assets already in the system",
     activeMatch: "exact"
   },
   {
