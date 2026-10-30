@@ -38,8 +38,10 @@ test("a verified job offers Close job to managers, with a reason prompt for earl
   assert.match(page, /if \(selected === "close"\)/);
 });
 
-test("My jobs Complete opens the full completion form", () => {
+test("My jobs Finish job opens the full completion form straight away", () => {
   const myJobs = readFileSync(path.resolve(__dirname, "../../app/(dashboard)/work-orders/my/page.tsx"), "utf8");
-  assert.match(myJobs, /router\.push\(`\/work-orders\?wo=\$\{encodeURIComponent\(job\.id\)\}`/);
+  assert.match(myJobs, /router\.push\(`\/work-orders\?wo=\$\{encodeURIComponent\(job\.id\)\}&action=complete`/);
+  const jobsPage = readFileSync(path.resolve(__dirname, "../../components/work-orders/work-orders-page.tsx"), "utf8");
+  assert.match(jobsPage, /searchParams\.get\("action"\) !== "complete"/);
   assert.doesNotMatch(myJobs, /complete-technician/);
 });

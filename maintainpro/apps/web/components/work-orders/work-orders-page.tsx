@@ -287,6 +287,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
     params.delete("wo");
     params.delete("open");
     params.delete("tab");
+    params.delete("action");
     params.delete("create");
     params.delete("assetId");
     params.delete("assetLabel");
@@ -307,6 +308,16 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
       setEditorState({ open: true, mode: "edit", workOrder: deepLinkQuery.data });
     }
   }, [deepLinkId, deepLinkQuery.data, editorState.workOrder?.id]);
+
+  // My Jobs "Finish job": /work-orders?wo=<id>&action=complete opens the finish form at once.
+  const completeOpenedFor = useRef<string | null>(null);
+  useEffect(() => {
+    const job = deepLinkQuery.data;
+    if (!deepLinkId || !job || searchParams.get("action") !== "complete" || completeOpenedFor.current === deepLinkId) return;
+    completeOpenedFor.current = deepLinkId;
+    if (job.status === "IN_PROGRESS") setCompletionTarget(job);
+    else toast.message(`${job.woNumber} cannot be finished now (${String(job.status).replace(/_/g, " ").toLowerCase()}).`);
+  }, [deepLinkId, deepLinkQuery.data, searchParams]);
 
   useEffect(() => {
     const preset = workOrderCreatePreset(searchParams);
