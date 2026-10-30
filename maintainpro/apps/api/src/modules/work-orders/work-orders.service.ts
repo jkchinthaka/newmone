@@ -28,6 +28,7 @@ import {
 } from "@prisma/client";
 
 import { assertRequestWithinVerifiedStock, assertVerifiedIssueAllowed } from "../inventory/verified-stock-availability";
+import { applyOwnedStockIssue } from "../inventory/owned-stock";
 import { requestContext } from "../../common/context/request-context";
 import { stringArrayToText, toStringArray } from "../../common/utils/json-text";
 import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
@@ -3876,7 +3877,7 @@ export class WorkOrdersService {
     const issuer = this.assertActor(actor);
 
     const createdPart = await this.prisma.$transaction(async (tx) => {
-      await assertVerifiedIssueAllowed(tx, {
+      const stockCheck = await assertVerifiedIssueAllowed(tx, {
         tenantId,
         partId: data.partId,
         quantity: data.quantity
@@ -3913,6 +3914,14 @@ export class WorkOrdersService {
           unitCost: data.unitCost,
           source: "DIRECT_ADD"
         })
+      });
+      await applyOwnedStockIssue(tx, this.prisma, stockCheck, {
+        actor: issuer,
+        partId: data.partId,
+        quantity: data.quantity,
+        workOrderId: id,
+        sourceType: "WORK_ORDER_ISSUE",
+        idempotencyKey: `owned-issue:wo-part:${line.id}`
       });
       return line;
     });
@@ -4486,7 +4495,7 @@ export class WorkOrdersService {
     const unitCost = Number(request.unitCostSnapshot ?? request.part.unitCost ?? 0);
 
     const result = await this.prisma.$transaction(async (tx) => {
-      await assertVerifiedIssueAllowed(tx, {
+      const stockCheck = await assertVerifiedIssueAllowed(tx, {
         tenantId,
         partId: request.partId,
         quantity: issueQuantity
@@ -4539,6 +4548,14 @@ export class WorkOrdersService {
           unitCost,
           issuedById: issuer.sub
         })
+      });
+      await applyOwnedStockIssue(tx, this.prisma, stockCheck, {
+        actor: issuer,
+        partId: request.partId,
+        quantity: issueQuantity,
+        workOrderId: request.workOrderId,
+        sourceType: "WORK_ORDER_ISSUE",
+        idempotencyKey: `owned-issue:part-issue:${issue.id}`
       });
 
       const issuedQuantity = fresh.issuedQuantity + issueQuantity;

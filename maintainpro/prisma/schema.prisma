@@ -1987,6 +1987,9 @@ model Warehouse {
   /// Official Bileeta/ERP warehouse code when mapped.
   erpWarehouseCode   String?
   lastErpValidatedAt DateTime?
+  /// ERP: on-hand comes from ERP snapshots. MAINTAINPRO: on-hand comes from goods-in recorded in
+  /// MaintainPro, and job issues reduce it directly.
+  stockSource        String    @default("ERP") @db.NVarChar(16)
   isDefault          Boolean   @default(false)
   isActive           Boolean   @default(true)
   createdAt          DateTime  @default(now())

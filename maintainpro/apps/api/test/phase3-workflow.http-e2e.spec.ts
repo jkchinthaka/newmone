@@ -16,6 +16,7 @@ import { InventoryExcelImportService } from "../src/modules/inventory/inventory-
 import { InventoryDailyService } from "../src/modules/inventory/inventory-daily.service";
 import { StockCountService } from "../src/modules/inventory/stock-count.service";
 import { ErpExcelImportService } from "../src/modules/inventory/erp-excel-import.service";
+import { GoodsInService } from "../src/modules/inventory/goods-in.service";
 import { EvidenceService } from "../src/modules/evidence/evidence.service";
 import { WorkOrdersController } from "../src/modules/work-orders/work-orders.controller";
 import { createWorkOrderTaxonomyServiceMock } from "./helpers/work-order-taxonomy-service.mock";
@@ -202,6 +203,7 @@ const prisma = {
     { provide: InventoryDailyService, useValue: dailyService },
     { provide: StockCountService, useValue: { list: jest.fn(), get: jest.fn(), create: jest.fn(), transition: jest.fn(), upsertLine: jest.fn(), post: jest.fn() } },
     { provide: ErpExcelImportService, useValue: erpExcelImportService },
+    { provide: GoodsInService, useValue: { preview: jest.fn(), receive: jest.fn() } },
     { provide: EvidenceService, useValue: evidenceService },
     { provide: PrismaService, useValue: prisma },
     { provide: APP_GUARD, useClass: PermissionsGuard }

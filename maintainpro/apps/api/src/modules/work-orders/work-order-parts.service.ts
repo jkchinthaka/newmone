@@ -22,6 +22,7 @@ import {
   requiresProcurement
 } from "../../common/utils/work-order-parts-governance";
 import { PrismaService } from "../../database/prisma.service";
+import { applyOwnedStockReturn } from "../inventory/owned-stock";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import type { JwtPayload } from "../auth/auth.types";
 import { buildWorkOrderPartReturnOutbox } from "./work-order-erp-consumption";
@@ -634,6 +635,18 @@ export class WorkOrderPartsService {
             workOrderId
           })
         });
+        // A MaintainPro-owned store gets the good parts back on its shelf straight away.
+        if (actorId) {
+          await applyOwnedStockReturn(tx, this.prisma, {
+            actor: { sub: actorId, tenantId: this.resolveTenantId(actor) },
+            tenantId: this.resolveTenantId(actor),
+            partId: line.partId,
+            quantity: data.confirmedQuantity,
+            workOrderId,
+            idempotencyKey: `owned-return:${line.id}:${line.returnedQuantity}:${data.confirmedQuantity}`,
+            notes: data.note
+          });
+        }
       }
 
       return tx.workOrderPart.update({

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Boxes, Database, Lock, Package, Upload, Wrench, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Boxes, Database, Lock, Package, PackagePlus, Upload, Wrench, type LucideIcon } from "lucide-react";
 
 import { ActiveFilterChips, JobsEmptyState, JobsLoadingSkeleton, JobsPagination, OperationalJobsHeader } from "@/components/operational";
 import { DebouncedField } from "@/components/forms/debounced-field";
@@ -20,6 +20,8 @@ import { formatEnumLabel, partRequestStatusLabel, priorityLabel } from "@/lib/di
 import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
 import type { StatusTone } from "@/lib/dashboard-status";
+import { canDoGoodsIn } from "@/lib/goods-in";
+import { GoodsInDialog } from "./goods-in-dialog";
 import { getTopUsedParts } from "./api";
 import type { TopUsedPartPoint } from "./types";
 import {
@@ -68,7 +70,7 @@ function canSeePartsToIssue(role: string | null, permissions: readonly string[])
 }
 
 /** Plain caption for the stock cards. */
-const STOCK_CAPTION = "On hand comes from the ERP. Available is on hand minus parts held for jobs.";
+const STOCK_CAPTION = "On hand = goods received (Goods in) minus parts issued to jobs. Available is on hand minus parts held for jobs.";
 
 type Dashboard = {
   totalItems?: number;
@@ -102,6 +104,7 @@ export function InventoryControlPage() {
   const [movements, setMovements] = useState<Array<{ id: string; type?: string; quantity?: number; createdAt?: string }> | null>(null);
   const [movementsError, setMovementsError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [goodsInOpen, setGoodsInOpen] = useState(false);
   const [topUsed, setTopUsed] = useState<TopUsedPartPoint[] | null>(null);
   const [topUsedError, setTopUsedError] = useState(false);
 
@@ -264,9 +267,18 @@ export function InventoryControlPage() {
       <OperationalJobsHeader
         eyebrow="Inventory"
         title="Spare Parts"
-        description="Stock comes from the ERP. Issue parts from the job's Parts tab."
+        description="Receive stock with Goods in. Issue parts from the job's Parts tab."
         actions={
           <>
+            {canDoGoodsIn(roleName) ? (
+              <button
+                type="button"
+                className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand-600 px-3 text-sm font-semibold text-white hover:bg-brand-700"
+                onClick={() => setGoodsInOpen(true)}
+              >
+                <PackagePlus size={16} aria-hidden /> Goods in
+              </button>
+            ) : null}
             <button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>Refresh</button>
             <button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm" onClick={exportPage}>Export page</button>
             <button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm" aria-expanded={more} onClick={() => setMore((value) => !value)}>More filters</button>
@@ -486,7 +498,7 @@ export function InventoryControlPage() {
         <section id="inventory-detail" className="rounded-lg border border-slate-200 bg-white p-4 text-sm" aria-live="polite">
           <h2 className="font-semibold">{selected.name}</h2>
           <p className="text-slate-600">{selected.partNumber} · {selected.erpCode?.trim() ? `ERP ${selected.erpCode}` : "Unmapped"} · {selected.supplier?.name || "No supplier"} · {selected.location || "No location"}</p>
-          <p className="mt-2">On hand {selected.quantityInStock ?? 0}. Reserved {selected.reservedQuantity ?? 0}. Available {selected.availableQuantity ?? 0}. On hand comes from the ERP; reserved parts are held for jobs.</p>
+          <p className="mt-2">On hand {selected.quantityInStock ?? 0}. Reserved {selected.reservedQuantity ?? 0}. Available {selected.availableQuantity ?? 0}. Reserved parts are held for jobs.</p>
           <p className="mt-1 text-slate-600">{inventoryFreshnessLabel({ updatedAt: selected.updatedAt, lastMovementAt: selected.stockMovements?.[0]?.createdAt ?? null })}</p>
           {movementsError ? (
             <div className="mt-2">
@@ -498,6 +510,15 @@ export function InventoryControlPage() {
             </ul>
           ) : null}
         </section>
+      ) : null}
+      {goodsInOpen ? (
+        <GoodsInDialog
+          onClose={() => setGoodsInOpen(false)}
+          onDone={() => {
+            setGoodsInOpen(false);
+            setReloadKey((value) => value + 1);
+          }}
+        />
       ) : null}
     </div>
   );

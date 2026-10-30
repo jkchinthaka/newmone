@@ -10,6 +10,7 @@ import { BileetaInventoryErpAdapter } from "./bileeta-inventory-erp.adapter";
 import { ErpStockSyncService } from "./erp-stock-sync.service";
 import { ErpExcelImportService } from "./erp-excel-import.service";
 import { InventoryController } from "./inventory.controller";
+import { GoodsInService } from "./goods-in.service";
 import { InventoryService } from "./inventory.service";
 import { InventoryTransactionEngine } from "./inventory-transaction.engine";
 import { InventoryExcelImportService } from "./inventory-excel-import.service";
@@ -21,6 +22,7 @@ import { StockCountService } from "./stock-count.service";
   controllers: [InventoryController],
   providers: [
     InventoryService,
+    GoodsInService,
     InventoryTransactionEngine,
     InventoryExcelImportService,
     InventoryDailyService,
