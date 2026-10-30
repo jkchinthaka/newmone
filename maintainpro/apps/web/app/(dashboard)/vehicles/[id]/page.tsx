@@ -22,6 +22,8 @@ import {
   Wrench,
   type LucideIcon
 } from "lucide-react";
+import { ProofPhotoInput } from "@/components/ui/proof-photo-input";
+import { isProofPhotoKey, openProofPhoto } from "@/lib/proof-photo";
 import Link from "next/link";
 import type { Route as NextRoute } from "next";
 import { toast } from "sonner";
@@ -112,6 +114,7 @@ interface FuelLog {
   totalCost: number | string;
   mileageAtFuel: number | string;
   fuelStation?: string | null;
+  receiptUrl?: string | null;
   notes?: string | null;
 }
 
@@ -208,6 +211,9 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
   const [statusSaving, setStatusSaving] = useState(false);
   const [maintenanceSaving, setMaintenanceSaving] = useState(false);
   const [fuelSaving, setFuelSaving] = useState(false);
+  const [fuelReceipt, setFuelReceipt] = useState<File | null>(null);
+  const [fuelPriceReason, setFuelPriceReason] = useState("");
+  const [fuelNeedsReason, setFuelNeedsReason] = useState(false);
 
   const [maintenanceForm, setMaintenanceForm] = useState({
     serviceType: "GENERAL" as ServiceType,
@@ -571,13 +577,19 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
     setFuelSaving(true);
 
     try {
-      await apiClient.post(`/vehicles/${vehicle.id}/fuel-log`, {
-        liters: Number(fuelForm.liters),
-        costPerLiter: Number(fuelForm.costPerLiter),
-        mileageAtFuel: Number(fuelForm.mileageAtFuel),
-        fuelStation: fuelForm.fuelStation.trim() || undefined,
-        notes: fuelForm.notes.trim() || undefined
-      });
+      // Multipart so the receipt photo goes with the entry (the server checks tank size and price).
+      const form = new FormData();
+      form.append("liters", String(Number(fuelForm.liters)));
+      form.append("costPerLiter", String(Number(fuelForm.costPerLiter)));
+      form.append("mileageAtFuel", String(Number(fuelForm.mileageAtFuel)));
+      if (fuelForm.fuelStation.trim()) form.append("fuelStation", fuelForm.fuelStation.trim());
+      if (fuelForm.notes.trim()) form.append("notes", fuelForm.notes.trim());
+      if (fuelPriceReason.trim()) form.append("priceReason", fuelPriceReason.trim());
+      if (fuelReceipt) form.append("receipt", fuelReceipt);
+      await apiClient.post(`/vehicles/${vehicle.id}/fuel-log`, form);
+      setFuelReceipt(null);
+      setFuelPriceReason("");
+      setFuelNeedsReason(false);
 
       toast.success("Fuel log saved.");
       setFuelForm({
@@ -590,6 +602,7 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
 
       await Promise.all([loadFuel(), loadVehicle()]);
     } catch (err: any) {
+      if (err?.response?.data?.error?.code === "FUEL_PRICE_REASON_REQUIRED") setFuelNeedsReason(true);
       toast.error(buildErrorMessage(err, "Failed to save fuel log."));
     } finally {
       setFuelSaving(false);
@@ -1077,6 +1090,21 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                 </Field>
 
                 <div className="md:col-span-2">
+                  <ProofPhotoInput
+                    label="Fuel receipt photo"
+                    hint="Needed to save. The litres and price must match the receipt."
+                    file={fuelReceipt}
+                    onChange={setFuelReceipt}
+                    disabled={!canEdit || fuelSaving}
+                  />
+                </div>
+                {fuelNeedsReason ? (
+                  <Field label="Why is the price different? (required)" className="md:col-span-2">
+                    <input value={fuelPriceReason} onChange={(event) => setFuelPriceReason(event.target.value)} className={inputCls} maxLength={200} />
+                  </Field>
+                ) : null}
+
+                <div className="md:col-span-2">
                   <button
                     type="submit"
                     disabled={!canEdit || fuelSaving}
@@ -1127,6 +1155,15 @@ export default function VehicleDetailsPage({ params }: { params: { id: string } 
                       </p>
                       {log.fuelStation && <p className="mt-0.5 text-xs text-slate-500">Station: {log.fuelStation}</p>}
                       {log.notes && <p className="mt-0.5 text-xs text-slate-600">{log.notes}</p>}
+                      {isProofPhotoKey(log.receiptUrl) ? (
+                        <button
+                          type="button"
+                          className="mt-1 text-xs font-medium text-brand-700 underline"
+                          onClick={() => void openProofPhoto(log.receiptUrl as string).catch(() => toast.error("The receipt could not be opened."))}
+                        >
+                          View receipt
+                        </button>
+                      ) : null}
                     </li>
                   ))}
                 </ul>

@@ -8,6 +8,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DateField } from "@/components/forms/date-fields";
 import { DebouncedField } from "@/components/forms/debounced-field";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { JobLaneTabs } from "@/components/maintenance/job-lane-tabs";
 import { ActiveFilterChips } from "@/components/operational/active-filter-chips";
 import { JobsPagination } from "@/components/operational/jobs-pagination";
 import { OperationalEmptyState, TableLoadingRows } from "@/components/operational/operational-list-states";
@@ -139,6 +140,7 @@ export default function MaintenanceHistoryPage() {
 
   return (
     <div className="min-w-0 space-y-3 p-4 md:p-6">
+      <JobLaneTabs />
       <PageBreadcrumbs
         items={[
           { label: "Maintenance", href: "/maintenance" },

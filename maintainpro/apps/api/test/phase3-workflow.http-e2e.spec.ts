@@ -1,3 +1,4 @@
+import { ProofPhotoService } from "../src/modules/evidence/proof-photo.service";
 import "reflect-metadata";
 
 import { INestApplication, Module } from "@nestjs/common";
@@ -204,6 +205,7 @@ const prisma = {
     { provide: StockCountService, useValue: { list: jest.fn(), get: jest.fn(), create: jest.fn(), transition: jest.fn(), upsertLine: jest.fn(), post: jest.fn() } },
     { provide: ErpExcelImportService, useValue: erpExcelImportService },
     { provide: GoodsInService, useValue: { preview: jest.fn(), receive: jest.fn() } },
+    { provide: ProofPhotoService, useValue: { requireAndSave: jest.fn().mockResolvedValue(null) } },
     { provide: EvidenceService, useValue: evidenceService },
     { provide: PrismaService, useValue: prisma },
     { provide: APP_GUARD, useClass: PermissionsGuard }

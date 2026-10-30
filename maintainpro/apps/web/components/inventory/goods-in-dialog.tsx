@@ -1,5 +1,6 @@
 "use client";
 
+import { ProofPhotoInput } from "@/components/ui/proof-photo-input";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, FileSpreadsheet, PackagePlus, X } from "lucide-react";
 import { toast } from "sonner";
@@ -40,6 +41,7 @@ export function GoodsInDialog({ onClose, onDone }: { onClose: () => void; onDone
   // Shared delivery details.
   const [supplierName, setSupplierName] = useState("");
   const [referenceNo, setReferenceNo] = useState("");
+  const [grnPhoto, setGrnPhoto] = useState<File | null>(null);
   const [receivedDate, setReceivedDate] = useState(today());
   // One item.
   const [query, setQuery] = useState("");
@@ -83,13 +85,20 @@ export function GoodsInDialog({ onClose, onDone }: { onClose: () => void; onDone
     setBusy(true);
     setError(null);
     try {
-      const result = await receiveGoodsIn({
-        lines,
-        supplierName: supplierName.trim() || undefined,
-        referenceNo: referenceNo.trim() || undefined,
-        receivedDate,
-        idempotencyKey: batchKey.current
-      });
+      if (!referenceNo.trim()) {
+        setError("Enter the GRN / invoice number of this delivery.");
+        return;
+      }
+      const result = await receiveGoodsIn(
+        {
+          lines,
+          supplierName: supplierName.trim() || undefined,
+          referenceNo: referenceNo.trim(),
+          receivedDate,
+          idempotencyKey: batchKey.current
+        },
+        grnPhoto
+      );
       toast.success(
         `Received ${result.totalQuantity} item(s) into ${result.store.name}${result.newParts ? ` · ${result.newParts} new part(s) added` : ""}.`
       );
@@ -190,13 +199,22 @@ export function GoodsInDialog({ onClose, onDone }: { onClose: () => void; onDone
               <input className={field} value={supplierName} onChange={(e) => setSupplierName(e.target.value)} maxLength={120} placeholder="Optional" />
             </label>
             <label className="text-sm">
-              <span className="mb-1 block font-medium text-slate-700">GRN / Invoice no</span>
-              <input className={field} value={referenceNo} onChange={(e) => setReferenceNo(e.target.value)} maxLength={64} placeholder="Optional" />
+              <span className="mb-1 block font-medium text-slate-700">GRN / Invoice no *</span>
+              <input className={field} value={referenceNo} onChange={(e) => setReferenceNo(e.target.value)} maxLength={64} placeholder="e.g. GRN-1001" required />
             </label>
             <label className="text-sm">
               <span className="mb-1 block font-medium text-slate-700">Received on</span>
               <input type="date" className={field} value={receivedDate} max={today()} onChange={(e) => setReceivedDate(e.target.value)} />
             </label>
+            <div className="sm:col-span-3">
+              <ProofPhotoInput
+                label="Photo of the GRN / invoice"
+                hint="Needed to save. Large deliveries (over LKR 500,000 or 1,000 of one item) must be received by an Admin."
+                file={grnPhoto}
+                onChange={setGrnPhoto}
+                disabled={busy}
+              />
+            </div>
           </fieldset>
 
           {mode === "item" ? (

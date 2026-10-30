@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { JobLaneTabs } from "@/components/maintenance/job-lane-tabs";
 import { VehicleJobsOverview } from "@/components/maintenance/vehicle-jobs-overview";
 import type { WorkOrderStatus } from "@/components/work-orders/types";
 import WorkOrdersPage from "@/components/work-orders/work-orders-page";
@@ -31,6 +32,8 @@ export function DomainJobsPage({ jobDomain, title, description }: DomainJobsPage
           : "All maintenance jobs across machinery, vehicles and services.");
 
   return (
+    <>
+    <JobLaneTabs />
     <WorkOrdersPage
       jobDomain={jobDomain}
       heading={heading}
@@ -42,6 +45,7 @@ export function DomainJobsPage({ jobDomain, title, description }: DomainJobsPage
         ) : null
       }
     />
+    </>
   );
 }
 

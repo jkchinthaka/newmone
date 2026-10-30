@@ -15,7 +15,8 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
-  BadRequestException
+  BadRequestException,
+  Inject
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiConsumes, ApiOkResponse, ApiTags } from "@nestjs/swagger";
@@ -24,6 +25,8 @@ import { memoryStorage } from "multer";
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { PROOF_PHOTO_MAX_BYTES, ProofPhotoService, type ProofPhotoUpload } from "../evidence/proof-photo.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { InventoryService } from "./inventory.service";
 import { GoodsInService, type GoodsInLineInput } from "./goods-in.service";
@@ -70,7 +73,8 @@ export class InventoryController {
     private readonly dailyService: InventoryDailyService,
     private readonly stockCountService: StockCountService,
     private readonly erpExcelImportService: ErpExcelImportService,
-    private readonly goodsIn: GoodsInService
+    private readonly goodsIn: GoodsInService,
+    @Inject(ProofPhotoService) private readonly proofPhotos: ProofPhotoService
   ) {}
 
   @Get("parts")
@@ -178,11 +182,15 @@ export class InventoryController {
   @Post("goods-in")
   @Roles("SUPER_ADMIN", "ADMIN", "INVENTORY_KEEPER")
   @Permissions("inventory.manage")
+  @UseInterceptors(FileInterceptor("grnPhoto", { storage: memoryStorage(), limits: { fileSize: PROOF_PHOTO_MAX_BYTES } }))
   async receiveGoodsIn(
     @Req() req: AuthedRequest,
+    @UploadedFile() grnPhoto: ProofPhotoUpload,
     @Body()
-    body: {
-      lines: GoodsInLineInput[];
+    raw: {
+      /** Multipart: the delivery as JSON text next to the GRN photo. */
+      payload?: string;
+      lines?: GoodsInLineInput[];
       referenceNo?: string;
       supplierName?: string;
       receivedDate?: string;
@@ -191,7 +199,18 @@ export class InventoryController {
       idempotencyKey?: string;
     }
   ) {
-    const data = await this.goodsIn.receive(req.user, { ...body, lines: body?.lines ?? [] });
+    let body = raw ?? {};
+    if (typeof raw?.payload === "string") {
+      try {
+        body = JSON.parse(raw.payload) as typeof body;
+      } catch {
+        throw new BadRequestException("The delivery could not be read. Try again.");
+      }
+    }
+    const tenantId = requireTenantId(req.user?.tenantId);
+    const data = await this.goodsIn.receive(req.user, { ...body, lines: body?.lines ?? [] }, () =>
+      this.proofPhotos.requireAndSave(tenantId, "goods-in", grnPhoto, "GRN / invoice")
+    );
     return { data, message: `Goods received: ${data.totalQuantity} item(s) on ${data.lines} line(s)` };
   }
 

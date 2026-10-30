@@ -347,7 +347,8 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
 
     expect(inventory?.items.some((item) => item.id === "spare-parts")).toBe(true);
     expect(inventory?.items.some((item) => item.id === "erp-integration" || item.id === "maintenance-supply")).toBe(false);
-    expect(admin?.items.map((item) => item.id)).toEqual(expect.arrayContaining(["erp-integration", "maintenance-supply"]));
+    // Short menus: ERP Sync and ERP Part Codes open from Admin Console (quick actions), not the side menu.
+    expect(admin?.items.map((item) => item.id)).toEqual(["admin"]);
     expect(canAccessNavigationPath("/erp", "ADMIN", [])).toBe(true);
     expect(canAccessNavigationPath("/maintenance-supply", "ADMIN", [])).toBe(true);
     expect(canAccessNavigationPath("/erp", "INVENTORY_KEEPER", [])).toBe(false);

@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 
+import { EvidenceModule } from "../evidence/evidence.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import {
   DisabledInventoryErpAdapter,
@@ -18,7 +19,7 @@ import { InventoryDailyService } from "./inventory-daily.service";
 import { StockCountService } from "./stock-count.service";
 
 @Module({
-  imports: [NotificationsModule],
+  imports: [NotificationsModule, EvidenceModule],
   controllers: [InventoryController],
   providers: [
     InventoryService,

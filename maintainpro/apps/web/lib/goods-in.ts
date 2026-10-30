@@ -57,15 +57,22 @@ export async function previewGoodsIn(lines: GoodsInLine[]): Promise<GoodsInPrevi
   return response.data?.data as GoodsInPreview;
 }
 
-export async function receiveGoodsIn(body: {
-  lines: GoodsInLine[];
-  referenceNo?: string;
-  supplierName?: string;
-  receivedDate?: string;
-  notes?: string;
-  idempotencyKey: string;
-}): Promise<GoodsInResult> {
-  const response = await apiClient.post("/inventory/goods-in", body);
+export async function receiveGoodsIn(
+  body: {
+    lines: GoodsInLine[];
+    referenceNo?: string;
+    supplierName?: string;
+    receivedDate?: string;
+    notes?: string;
+    idempotencyKey: string;
+  },
+  grnPhoto?: File | null
+): Promise<GoodsInResult> {
+  // Multipart: the delivery as JSON next to the GRN / invoice photo.
+  const form = new FormData();
+  form.append("payload", JSON.stringify(body));
+  if (grnPhoto) form.append("grnPhoto", grnPhoto);
+  const response = await apiClient.post("/inventory/goods-in", form);
   return response.data?.data as GoodsInResult;
 }
 

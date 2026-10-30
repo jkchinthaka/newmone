@@ -12,6 +12,10 @@ type Actor = Pick<JwtPayload, "sub" | "tenantId"> & Partial<Pick<JwtPayload, "em
 
 export const GOODS_IN_MAX_LINES = 500;
 export const GOODS_IN_MAX_QUANTITY = 1_000_000;
+/** A store keeper may receive up to this value (LKR) or this many of one item per GRN; more needs an Admin. */
+export const GOODS_IN_KEEPER_MAX_VALUE = 500_000;
+export const GOODS_IN_KEEPER_MAX_LINE_QUANTITY = 1_000;
+const GOODS_IN_ADMIN_ROLES = new Set(["SUPER_ADMIN", "ADMIN"]);
 const OWNED_STORE_CODE = "MAINT-STORE";
 const OWNED_STORE_NAME = "Maintenance store";
 
@@ -112,7 +116,9 @@ export class GoodsInService {
       notes?: string | null;
       warehouseId?: string | null;
       idempotencyKey?: string | null;
-    }
+    },
+    /** Stores the GRN / invoice photo once every check has passed; returns the stored key. */
+    saveGrnPhoto?: () => Promise<string | null>
   ) {
     if (!actor?.sub) throw new BadRequestException("Authenticated actor context is required");
     const tenantId = requireTenantId(actor.tenantId);
@@ -128,8 +134,22 @@ export class GoodsInService {
       });
     }
 
-    const store = await this.ownedStore(tenantId, actor, input.warehouseId);
     const referenceNo = text(input.referenceNo, 64) || null;
+    if (!referenceNo && checked.some((line) => !line.referenceNo)) {
+      throw new BadRequestException("Enter the GRN / invoice number of this delivery.");
+    }
+    // Large deliveries need an Admin: a store keeper cannot add a big value or quantity alone.
+    if (!GOODS_IN_ADMIN_ROLES.has(String(actor.role ?? "").toUpperCase())) {
+      const value = checked.reduce((sum, line) => sum + line.quantity * (line.unitCost ?? 0), 0);
+      const biggest = checked.reduce((max, line) => Math.max(max, line.quantity), 0);
+      if (value > GOODS_IN_KEEPER_MAX_VALUE || biggest > GOODS_IN_KEEPER_MAX_LINE_QUANTITY) {
+        throw new BadRequestException(
+          `This delivery is above the store keeper limit (LKR ${GOODS_IN_KEEPER_MAX_VALUE.toLocaleString("en-US")} or ${GOODS_IN_KEEPER_MAX_LINE_QUANTITY.toLocaleString("en-US")} of one item). Ask an Admin to receive it.`
+        );
+      }
+    }
+    const grnPhotoKey = saveGrnPhoto ? await saveGrnPhoto() : null;
+    const store = await this.ownedStore(tenantId, actor, input.warehouseId);
     const supplierName = text(input.supplierName, 120) || null;
     const receivedDate = text(input.receivedDate, 10) || new Date().toISOString().slice(0, 10);
     const notes = text(input.notes, 500) || null;
@@ -197,6 +217,7 @@ export class GoodsInService {
             referenceNo,
             supplierName,
             receivedDate,
+            grnPhotoKey,
             lines: checked.length,
             newParts,
             totalQuantity,

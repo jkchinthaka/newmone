@@ -292,7 +292,12 @@ export const ADMIN_QUICK_ACTIONS = [
   { id: "department", label: "Add Department", href: "/master-data/departments" },
   { id: "vendor", label: "Add Vendor", href: "/procurement/vendors" },
   { id: "role", label: "Create Role", href: "/admin/roles" },
-  { id: "location", label: "Add Location", href: "/admin/organization" }
+  { id: "location", label: "Add Location", href: "/admin/organization" },
+  // Kept off the side menu (short menus); opened from here.
+  { id: "assets", label: "Add Assets", href: "/admin/assets/new" },
+  { id: "vehicle", label: "Add Vehicle", href: "/admin/vehicles/new" },
+  { id: "qr-tags", label: "Assign QR Tags", href: "/admin/asset-tags" },
+  { id: "erp-part-codes", label: "ERP Part Codes", href: "/maintenance-supply" }
 ] as const;
 
 export function adminCommandGroups(roleName: string | null) {

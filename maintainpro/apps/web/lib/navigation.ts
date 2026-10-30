@@ -68,6 +68,11 @@ export interface NavigationItem {
   badgeKey?: NavBadgeKey;
   mobilePriority?: boolean;
   pinByDefaultForRoles?: readonly string[];
+  /**
+   * Kept off the side menu for these roles ("*" = everyone) but still allowed and searchable.
+   * Used to keep menus short: job lanes are tabs on Jobs, admin tools live in Admin Console.
+   */
+  menuHiddenFor?: readonly string[];
 }
 
 export interface NavigationGroup {
@@ -425,7 +430,8 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "all-jobs",
-    label: "All Jobs",
+    menuHiddenFor: ["TECHNICIAN", "MECHANIC"],
+    label: "Jobs",
     href: "/maintenance/jobs",
     icon: "ClipboardList",
     allowedRoles: WO_ROLES,
@@ -438,6 +444,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "machinery-jobs",
+    menuHiddenFor: ["*"],
     label: "Machinery Jobs",
     href: "/maintenance/jobs/machinery",
     icon: "HardDrive",
@@ -448,6 +455,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "service-jobs",
+    menuHiddenFor: ["*"],
     label: "Service Jobs",
     href: "/maintenance/jobs/service",
     icon: "Building2",
@@ -458,6 +466,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "vehicle-jobs",
+    menuHiddenFor: ["*"],
     label: "Vehicle Jobs",
     href: "/maintenance/jobs/vehicle",
     icon: "Truck",
@@ -468,6 +477,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "preventive-maintenance",
+    menuHiddenFor: ["TECHNICIAN", "MECHANIC"],
     label: "Scheduled Service",
     href: "/maintenance/plans",
     icon: "CalendarClock",
@@ -508,6 +518,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "maintenance-history",
+    menuHiddenFor: ["*"],
     label: "Job History",
     href: "/maintenance/history",
     icon: "Clock3",
@@ -518,6 +529,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "assets",
+    menuHiddenFor: ["TECHNICIAN", "MECHANIC"],
     label: "Machines & Equipment",
     href: "/assets",
     icon: "Boxes",
@@ -528,6 +540,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "fleet",
+    menuHiddenFor: ["TECHNICIAN", "MECHANIC"],
     label: "Vehicles",
     href: "/fleet",
     icon: "Truck",
@@ -589,6 +602,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "admin-asset-register",
+    menuHiddenFor: ["*"],
     label: "Add Assets",
     href: "/admin/assets/new",
     icon: "Package",
@@ -599,6 +613,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "admin-vehicle-register",
+    menuHiddenFor: ["*"],
     label: "Add Vehicle",
     href: "/admin/vehicles/new",
     icon: "Truck",
@@ -609,6 +624,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "admin-asset-tags",
+    menuHiddenFor: ["*"],
     label: "Assign QR Tags",
     href: "/admin/asset-tags",
     icon: "QrCode",
@@ -619,6 +635,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "erp-integration",
+    menuHiddenFor: ["*"],
     label: "ERP Sync",
     href: "/erp",
     icon: "Database",
@@ -629,6 +646,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "maintenance-supply",
+    menuHiddenFor: ["SUPER_ADMIN", "ADMIN"],
     label: "ERP Part Codes",
     href: "/maintenance-supply",
     icon: "Layers",
@@ -639,6 +657,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "system-health",
+    menuHiddenFor: ["*"],
     label: "System Health",
     href: "/system-health",
     icon: "Activity",
@@ -943,7 +962,11 @@ export function getNavigationGroups(
     enabledFeatures?: readonly string[];
   }
 ): NavigationGroup[] {
-  const visibleItems = getVisibleNavigationItems(roleName, options);
+  const role = normalizeNavigationRole(roleName) ?? "";
+  // Side menu only: hidden items stay reachable (links, search, route access).
+  const visibleItems = getVisibleNavigationItems(roleName, options).filter(
+    (item) => !item.menuHiddenFor?.some((entry) => entry === "*" || entry === role)
+  );
 
   return NAV_CATEGORY_ORDER.map((category) => ({
     category,

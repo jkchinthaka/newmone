@@ -74,7 +74,7 @@ describe("meter reading list limits", () => {
 
   it("rejects an oversized take and leaves the service call unused", async () => {
     const service = { allReadings: jest.fn() };
-    const controller = new UtilitiesController(service as never);
+    const controller = new UtilitiesController(service as never, {} as never);
     await expect(
       controller.allReadings({ user: { sub: "user-1", role: "TECHNICIAN", tenantId: TENANT_A } }, "true", "7", "5000")
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -83,7 +83,7 @@ describe("meter reading list limits", () => {
 
   it("passes mine, days, and take only when the query asks for them", async () => {
     const service = { allReadings: jest.fn().mockResolvedValue([]) };
-    const controller = new UtilitiesController(service as never);
+    const controller = new UtilitiesController(service as never, {} as never);
     const req = { user: { sub: "user-1", role: "TECHNICIAN", tenantId: TENANT_A } };
 
     await controller.allReadings(req);
@@ -110,7 +110,7 @@ describe("meter reading list limits", () => {
 
   it("validates the per-meter take", async () => {
     const service = { readings: jest.fn().mockResolvedValue([]) };
-    const controller = new UtilitiesController(service as never);
+    const controller = new UtilitiesController(service as never, {} as never);
     const req = { user: { sub: "user-1", role: "TECHNICIAN", tenantId: TENANT_A } };
 
     await controller.readings(req, "meter-a");

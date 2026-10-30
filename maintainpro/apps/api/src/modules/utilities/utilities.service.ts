@@ -61,7 +61,9 @@ export class UtilitiesService {
       resetReason?: string;
       idempotencyKey?: string;
       recordedBy?: string;
-    }
+    },
+    /** Stores the meter photo once the reading passes every check; returns the stored key. */
+    savePhoto?: () => Promise<string | null>
   ) {
     const meter = await this.meter(id, tenantId);
     const parsed = parseStrictReadingValue(data.readingValue, meterFractionDigits(meter.unit, meter.type));
@@ -111,6 +113,7 @@ export class UtilitiesService {
           resetReason: data.resetReason
         });
         if (!decision.ok) throw new BadRequestException(decision.message);
+        const photoKey = savePhoto ? await savePhoto() : null;
         const noteParts = [
           idempotencyKey ? `[idempotency:${idempotencyKey}]` : "",
           data.recordedBy ? `[by:${data.recordedBy}]` : "",
@@ -123,7 +126,7 @@ export class UtilitiesService {
             readingDate: readingAt,
             readingValue: parsed.value,
             consumption: decision.consumption,
-            images: toJsonText(data.images ?? []) ?? "[]",
+            images: toJsonText(photoKey ? [photoKey] : []) ?? "[]",
             notes: noteParts.join(" ") || null
           }
         });

@@ -44,6 +44,7 @@ import { canRecordFuel, canStartTrip } from "../policies/governance-policies";
 import { canVehicleGateOut } from "../policies/vehicle-policies";
 import { assertPolicy } from "../policies/policy-decision";
 import { evaluateVehicleEligibilityForNewFgRecord, fgFormAllowedVehicleTypes } from "./vehicle-eligibility";
+import { fuelEntryProblem } from "./fuel-checks";
 
 type VehicleListSortBy = "mileage" | "nextServiceDate" | "year" | "createdAt";
 
@@ -1460,7 +1461,18 @@ export class VehiclesService {
 
   async fuelLog(
     id: string,
-    data: { driverId?: string; liters: number; costPerLiter: number; mileageAtFuel: number; fuelStation?: string; notes?: string; clientActionId?: string }
+    data: {
+      driverId?: string;
+      liters: number;
+      costPerLiter: number;
+      mileageAtFuel: number;
+      fuelStation?: string;
+      notes?: string;
+      clientActionId?: string;
+      priceReason?: string;
+    },
+    /** Stores the receipt photo once the entry passes every check; returns the stored key. */
+    saveReceipt?: () => Promise<string | null>
   ) {
     const vehicle = await this.findOne(id);
     const tenantId = this.currentTenantId();
@@ -1490,6 +1502,26 @@ export class VehiclesService {
       })
     );
 
+    // Tank size and usual price for this fuel (last 20 fills in the company).
+    const recent = await this.prisma.fuelLog.findMany({
+      where: { vehicle: { fuelType: (vehicle as { fuelType?: string }).fuelType, tenantId: requireTenantId(tenantId) } },
+      orderBy: { date: "desc" },
+      take: 20,
+      select: { costPerLiter: true }
+    });
+    const problem = fuelEntryProblem({
+      liters: Number(data.liters),
+      costPerLiter: Number(data.costPerLiter),
+      tankCapacity: (vehicle as { fuelCapacity?: number | null }).fuelCapacity,
+      recentPrices: recent.map((row) => Number(row.costPerLiter)),
+      priceReason: data.priceReason
+    });
+    if (problem) {
+      throw new BadRequestException({ code: problem.needsPriceReason ? "FUEL_PRICE_REASON_REQUIRED" : "FUEL_ENTRY_INVALID", message: problem.message });
+    }
+    const receiptKey = saveReceipt ? await saveReceipt() : null;
+    const priceNote = data.priceReason?.trim() ? `[price-check: ${data.priceReason.trim().slice(0, 200)}]` : "";
+
     const totalCost = data.liters * data.costPerLiter;
     const resolvedDriverId = await this.resolveFuelDriverId(data.driverId ?? vehicle.driverId ?? undefined);
 
@@ -1508,7 +1540,8 @@ export class VehiclesService {
         totalCost,
         mileageAtFuel: data.mileageAtFuel,
         fuelStation: data.fuelStation,
-        notes: data.notes,
+        receiptUrl: receiptKey,
+        notes: [priceNote, data.notes?.trim() ?? ""].filter(Boolean).join(" ") || null,
         clientActionId: data.clientActionId
       }
     });
