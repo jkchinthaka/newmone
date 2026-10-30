@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -9,8 +10,10 @@ import { toast } from "sonner";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { ResponsivePageHeader } from "@/components/ui/responsive-page-header";
+import { ConfirmFixedCard } from "@/components/requests/confirm-fixed-card";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { canAnswerConfirmation, confirmationAnsweredLabel } from "@/lib/requester-confirmation";
 import { useCurrentUser } from "@/lib/use-current-user";
 import {
   approveRequest,
@@ -34,6 +37,7 @@ import {
   requestHistoryActionLabel,
   requestNextStep,
   requestResolutionLabel,
+  requestListStatusLabel,
   requestStatusLabel,
   requestValueLabel,
   requesterFacingStatus
@@ -104,6 +108,9 @@ function BlockedNote({ reason }: { reason: string | null }) {
   if (!reason) return null;
   return <p className="text-xs text-amber-800">{reason}</p>;
 }
+
+/** Reviewers who may answer "Is it fixed?" for a reporter (same rule as the API). */
+const CONFIRM_ON_BEHALF_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "MANAGER", "SUPERVISOR", "OPERATIONS_MANAGER"]);
 
 export default function RequestDetailPage() {
   const params = useParams<{ id: string }>();
@@ -249,7 +256,7 @@ export default function RequestDetailPage() {
       if (targetKind === "asset") body.siteId = null;
       body.targetUnresolved = false;
     }
-    void run(() => triageRequest(id, body), targetId ? "Triage saved and target confirmed" : "Triage saved");
+    void run(() => triageRequest(id, body), targetId ? "Review saved and target confirmed" : "Review saved");
   };
 
   const governancePanel =
@@ -280,7 +287,7 @@ export default function RequestDetailPage() {
               href={`/work-orders?wo=${detail.workOrder.id}` as Route}
               className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium"
             >
-              Open work order {detail.workOrder.woNumber}
+              Open job {detail.workOrder.woNumber}
             </Link>
           ) : null
         }
@@ -292,12 +299,30 @@ export default function RequestDetailPage() {
       >
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-current/20 bg-white/70 px-2 py-0.5 text-xs font-semibold">
-            {requestStatusLabel(detail.status)}
+            {requestListStatusLabel(detail.status, detail.workOrder?.status)}
           </span>
           <p className="font-semibold">{nextStep.title}</p>
         </div>
         {nextStep.detail ? <p className="mt-1 text-sm">{nextStep.detail}</p> : null}
       </section>
+
+      {detail.workOrder &&
+      canAnswerConfirmation({
+        workOrder: detail.workOrder,
+        isOwner,
+        canReview: CONFIRM_ON_BEHALF_ROLES.has(String(user.role ?? "").toUpperCase())
+      }) ? (
+        <ConfirmFixedCard
+          requestId={detail.id}
+          woNumber={detail.workOrder.woNumber}
+          onBehalf={!isOwner}
+          onDone={load}
+        />
+      ) : isOwner && confirmationAnsweredLabel(detail.workOrder) ? (
+        <p className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">
+          {confirmationAnsweredLabel(detail.workOrder)}
+        </p>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
@@ -420,7 +445,7 @@ export default function RequestDetailPage() {
                       ) : null}
                     </div>
                     <div className="text-xs text-slate-500">
-                      {new Date(h.createdAt).toLocaleString()}
+                      {lkDateTime(h.createdAt)}
                       {h.actorName ? ` · ${h.actorName}` : ""}
                       {h.toStatus ? ` · now ${requestStatusLabel(h.toStatus)}` : ""}
                     </div>
@@ -436,10 +461,10 @@ export default function RequestDetailPage() {
           <section className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
             <h2 className="mb-2 font-semibold">Reported by</h2>
             <p>{detail.reportedBy?.name || "—"}</p>
-            <p className="text-slate-500">{detail.reportedAt ? new Date(detail.reportedAt).toLocaleString() : "—"}</p>
+            <p className="text-slate-500">{detail.reportedAt ? lkDateTime(detail.reportedAt) : "—"}</p>
             {detail.workOrder && (!isOwner || governancePanel) ? (
               <Link href={`/work-orders?wo=${detail.workOrder.id}` as Route} className="mt-3 inline-flex min-h-11 items-center font-medium text-brand-700">
-                Open work order {detail.workOrder.woNumber}
+                Open job {detail.workOrder.woNumber}
               </Link>
             ) : detail.workOrder ? (
               <p className="mt-3 text-slate-700">
@@ -520,7 +545,9 @@ export default function RequestDetailPage() {
                     ) : (
                       <EntityPicker
                         key="location"
-                        endpoint="/organization/locations"
+                        // Request-scoped lookup: reviewers need not hold organization.view.
+                        endpoint="/maintenance-requests/location-lookup"
+                        searchParam="q"
                         value={targetId}
                         onChange={(value) => setTargetId(value)}
                         displayField="name"
@@ -554,7 +581,7 @@ export default function RequestDetailPage() {
                   ) : null}
                   <textarea
                     className="min-h-20 w-full rounded-lg border border-slate-300 p-2 text-sm"
-                    aria-label="Internal triage notes"
+                    aria-label="Internal review notes"
                     placeholder="Internal notes (not shown to the requester)"
                     value={triageNotes}
                     onChange={(e) => setTriageNotes(e.target.value)}
@@ -565,7 +592,7 @@ export default function RequestDetailPage() {
                     className="min-h-11 w-full rounded-lg border border-slate-300 bg-white text-sm font-medium disabled:opacity-40"
                     onClick={saveTriage}
                   >
-                    Save triage
+                    Save review
                   </button>
                 </div>
               ) : null}
@@ -597,13 +624,13 @@ export default function RequestDetailPage() {
                           toast.message(
                             result.alreadyConverted
                               ? `Already linked to ${result.workOrder.woNumber}`
-                              : `Created work order ${result.workOrder.woNumber}`
+                              : `Created job ${result.workOrder.woNumber}`
                           );
                         }
-                      }, "Work order created")
+                      }, "Job created")
                     }
                   >
-                    Create work order
+                    Create job
                   </button>
                   <BlockedNote reason={actionBlockedReason(actions, "convert")} />
                 </div>
@@ -703,7 +730,7 @@ export default function RequestDetailPage() {
               {allowed("close") ? (
                 <details className="border-t border-brand-100 pt-3">
                   <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-red-800">
-                    Close without a work order
+                    Close without a job
                   </summary>
                   <div className="mt-2 space-y-2">
                     <select
@@ -732,7 +759,7 @@ export default function RequestDetailPage() {
                       onClick={() =>
                         void run(
                           () => rejectRequest(id, { reasonType: closeType, reason: closeReason.trim() || undefined }),
-                          "Request closed without a work order"
+                          "Request closed without a job"
                         )
                       }
                     >

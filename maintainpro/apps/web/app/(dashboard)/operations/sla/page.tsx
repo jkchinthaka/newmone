@@ -4,8 +4,8 @@ export default function SlaPage() {
   return (
     <EnterpriseQueuePage
       kind="sla"
-      title="SLA risk"
-      description="Response and resolution clocks use the tenant business calendar. On-hold work does not consume SLA time."
+      title="Time limit risk"
+      description="Response and resolution clocks use the tenant business calendar. On-hold work does not count toward the time limit."
     />
   );
 }

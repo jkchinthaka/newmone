@@ -1,5 +1,7 @@
 "use client";
 
+import { RefreshErrorBanner } from "@/components/ui/refresh-error-banner";
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ClipboardCheck, Package, UserX, type LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -135,14 +137,14 @@ async function fetchMyJobCounts(): Promise<MyJobCounts> {
 
 function formatDue(value: string | null) {
   if (!value) return "No due date";
-  return new Date(value).toLocaleDateString();
+  return lkDate(value);
 }
 
 const priorityColumns: Array<DataTableColumn<PriorityWorkOrder>> = [
   {
     id: "work-order",
-    header: "Work order",
-    mobileLabel: "Work order",
+    header: "Job",
+    mobileLabel: "Job",
     cell: (wo) => (
       <>
         <Link
@@ -214,7 +216,8 @@ export function MaintenanceDashboardPage() {
     );
   }
 
-  if (query.isError || !query.data) {
+  // A failed background refresh keeps the dashboard on screen (banner below); full error only with no data.
+  if (!query.data) {
     const description = getApiErrorMessage(query.error, "Unable to load maintenance dashboard");
     const message = description.includes("Unable to load maintenance dashboard")
       ? description
@@ -229,8 +232,15 @@ export function MaintenanceDashboardPage() {
         subtitle={technicianView ? "Your jobs that need attention now." : "What needs attention now."}
         title="Maintenance Dashboard"
       >
+        {query.isError ? (
+          <RefreshErrorBanner
+            message="Could not refresh the dashboard. Showing the last loaded numbers."
+            onRetry={() => void query.refetch()}
+            retrying={query.isFetching}
+          />
+        ) : null}
         {!technicianView && dashboardQuery.data ? (
-          <p className="text-xs text-slate-500">Updated {new Date(dashboardQuery.data.generatedAt).toLocaleString()}</p>
+          <p className="text-xs text-slate-500">Updated {lkDateTime(dashboardQuery.data.generatedAt)}</p>
         ) : null}
         {technicianView && myJobsQuery.data ? <TechnicianDashboard counts={myJobsQuery.data} /> : null}
         {!technicianView && dashboardQuery.data ? (
@@ -287,12 +297,12 @@ function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: st
           </Link>
         }
         description="The five most urgent open jobs."
-        title="Priority work orders"
+        title="Priority jobs"
       >
         {priority.length === 0 ? (
-          <EmptyState description="No overdue or high-priority work orders right now." title="Nothing urgent" />
+          <EmptyState description="No overdue or high-priority jobs right now." title="Nothing urgent" />
         ) : (
-          <DataTable ariaLabel="Priority work orders" columns={priorityColumns} getRowId={(wo) => wo.id} minWidth="720px" rows={priority} />
+          <DataTable ariaLabel="Priority jobs" columns={priorityColumns} getRowId={(wo) => wo.id} minWidth="720px" rows={priority} />
         )}
       </SectionCard>
 
@@ -335,8 +345,8 @@ function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: st
       <SectionCard description="Requests, preventive work, and approvals that can unblock jobs." title="Pipeline">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <LinkedKpi compact href="/requests?stage=open" id="requests" label="Requests awaiting action" value={data.requestsOpen} />
-          <LinkedKpi compact href={PM_DUE_SOON_HREF} id="pm-due" label="PM due soon" value={data.pmDueSoon} />
-          <LinkedKpi compact href={PM_OVERDUE_HREF} id="pm-overdue" label="PM overdue" value={data.pmOverdue ?? 0} />
+          <LinkedKpi compact href={PM_DUE_SOON_HREF} id="pm-due" label="Scheduled service due soon" value={data.pmDueSoon} />
+          <LinkedKpi compact href={PM_OVERDUE_HREF} id="pm-overdue" label="Scheduled service overdue" value={data.pmOverdue ?? 0} />
           {data.availability.approvals && data.pendingApprovals != null ? (
             <LinkedKpi compact href="/approvals" id="approvals" label="Approvals pending" value={data.pendingApprovals} />
           ) : null}

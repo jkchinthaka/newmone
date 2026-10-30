@@ -3,11 +3,13 @@ import { isPrivateAbsoluteStorageRoot } from "./local-storage-root";
 
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid("development", "test", "production").default("development"),
-  PORT: Joi.number().default(3000),
+  HOST: Joi.string().allow("").optional(), // production defaults to 127.0.0.1 (see config/listen-host.ts); containers set 0.0.0.0
+  TRUST_PRIVATE_PROXY_PEERS: Joi.string().valid("true", "false", "").optional(),
+  PORT: Joi.number().default(3000), // Docker images and e2e stacks listen on 3000; the local launcher and the go-live service set 3040.
   HTTP_KEEP_ALIVE_TIMEOUT_MS: Joi.number().integer().min(1000).default(65000),
   HTTP_HEADERS_TIMEOUT_MS: Joi.number().integer().min(1000).default(66000),
-  CORS_ORIGIN: Joi.string().default("http://localhost:3001"),
-  FRONTEND_URL: Joi.string().uri().default("http://localhost:3001"),
+  CORS_ORIGIN: Joi.string().default("http://localhost:3041"),
+  FRONTEND_URL: Joi.string().uri().default("http://localhost:3041"),
   DATABASE_PROVIDER: Joi.string().valid("sqlserver", "mongodb").default("sqlserver"),
   PRIMARY_DATABASE_URL: Joi.string().allow(""),
   BACKUP_DATABASE_URL: Joi.string().allow(""),
@@ -41,6 +43,10 @@ export const envValidationSchema = Joi.object({
   QUEUE_RECONCILE_BATCH_SIZE: Joi.number().integer().min(1).max(200).default(50),
   OPERATIONAL_ALERT_EVALUATOR_ENABLED: Joi.boolean().default(true),
   OPERATIONAL_ALERT_EVALUATOR_INTERVAL_MS: Joi.number().integer().min(15000).default(60000),
+  PM_AUTO_SCHEDULER_ENABLED: Joi.boolean().default(true),
+  PM_AUTO_SCHEDULER_INTERVAL_MINUTES: Joi.number().integer().min(5).max(1440).default(60),
+  DAILY_REMINDERS_ENABLED: Joi.boolean().default(true),
+  DAILY_REMINDERS_INTERVAL_MINUTES: Joi.number().integer().min(5).max(1440).default(60),
   OPERATIONAL_ALERT_COOLDOWN_SECONDS: Joi.number().integer().min(30).default(300),
   OPERATIONAL_ALERT_NOTIFICATION_MODE: Joi.string().valid("disabled", "mock", "uat").default("disabled"),
   HEALTHCHECK_DEPENDENCY_TIMEOUT_MS: Joi.number().integer().min(500).default(5000),

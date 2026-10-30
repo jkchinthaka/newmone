@@ -47,7 +47,7 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
     roleKey: "TECHNICIAN",
     title: "My Work",
     cards: [
-      { id: "my-jobs", title: "My Jobs", href: myJobFilterHref("active"), description: "Work orders assigned to you" },
+      { id: "my-jobs", title: "My jobs", href: myJobFilterHref("active"), description: "Jobs assigned to you" },
       { id: "due-today", title: "Due Today", href: myJobFilterHref("due-today"), description: "Your jobs due today" },
       { id: "overdue", title: "Overdue", href: myJobFilterHref("overdue"), description: "Your past-due jobs" },
       { id: "waiting-parts", title: "Waiting Parts", href: myJobFilterHref("waiting-parts"), description: "Your jobs blocked on parts" }
@@ -57,12 +57,12 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
     roleKey: "SUPERVISOR",
     title: "Supervisor Home",
     cards: [
-      { id: "new-requests", title: "New Requests", href: "/requests", description: "Requests awaiting triage" },
+      { id: "new-requests", title: "New Requests", href: "/requests", description: "Requests awaiting review" },
       { id: "unassigned", title: "Unassigned", href: "/work-orders?unassigned=1", description: "Needs technician" },
       { id: "critical", title: "Critical", href: "/work-orders?priority=CRITICAL", description: "Critical priority" },
-      { id: "overdue", title: "Overdue", href: "/work-orders", description: "Past-due non-terminal WOs" },
+      { id: "overdue", title: "Overdue", href: "/work-orders", description: "Past-due non-terminal jobs" },
       { id: "approvals", title: "Approvals", href: "/approvals", description: "Pending approvals inbox" },
-      { id: "pm-due", title: "PM Due", href: "/maintenance/plans", description: "Preventive due list" }
+      { id: "pm-due", title: "Scheduled Service Due", href: "/maintenance/plans", description: "Scheduled service due list" }
     ]
   },
   {
@@ -72,7 +72,7 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       { id: "fleet-overview", title: "Fleet", href: "/fleet", description: "Fleet status" },
       { id: "service-due", title: "Service Due", href: "/vehicles", description: "Vehicles needing service" },
       { id: "doc-expiry", title: "Document Expiry", href: "/compliance", description: "Insurance/licence expiry" },
-      { id: "blocks", title: "Vehicle Blocks", href: "/fleet/gate", description: "Gate blocks / overrides" },
+      { id: "service-overdue", title: "Service Overdue", href: "/fleet?service=overdue", description: "Vehicles past their service date" },
       { id: "claims-fines", title: "Claims / Fines", href: "/insurance-claims", description: "Claims and fines" },
       { id: "accidents", title: "Accidents", href: "/accidents", description: "Reported accidents" }
     ]
@@ -81,11 +81,11 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
     roleKey: "MANAGER",
     title: "Manager Home",
     cards: [
-      { id: "kpi-reports", title: "KPI Reports", href: "/reports/operations", description: "Maintenance and fleet KPIs", kpiCodes: ["WO_OVERDUE", "PM_COMPLIANCE", "MTTR", "MTBF"] },
+      { id: "kpi-reports", title: "Key Numbers Reports", href: "/reports/operations", description: "Maintenance and fleet key numbers", kpiCodes: ["WO_OVERDUE", "PM_COMPLIANCE", "MTTR", "MTBF"] },
       { id: "backlog", title: "Backlog", href: "/work-orders", description: "Open backlog", kpiCodes: ["WO_BACKLOG"] },
-      { id: "pm-compliance", title: "PM Compliance", href: "/reports/operations?search=preventive", description: "PM compliance", kpiCodes: ["PM_COMPLIANCE"] },
-      { id: "downtime", title: "Downtime", href: "/reports/assets?search=downtime", description: "Asset downtime", kpiCodes: ["DOWNTIME", "AVAILABILITY"] },
-      { id: "cost", title: "Maintenance Cost", href: "/maintenance/jobs", description: "Labour, parts, and vendor cost on a work order", kpiCodes: ["MAINTENANCE_COST", "COST_PER_KM"] },
+      { id: "pm-compliance", title: "Scheduled Service Compliance", href: "/reports/operations?search=preventive", description: "Scheduled service compliance", kpiCodes: ["PM_COMPLIANCE"] },
+      { id: "downtime", title: "Machine stopped time", href: "/reports/assets?search=downtime", description: "Asset machine stopped time", kpiCodes: ["DOWNTIME", "AVAILABILITY"] },
+      { id: "cost", title: "Maintenance Cost", href: "/maintenance/jobs", description: "Labour, parts, and vendor cost on a job", kpiCodes: ["MAINTENANCE_COST", "COST_PER_KM"] },
       { id: "repeat-failures", title: "Repeat Failures", href: "/reports/maintenance-exceptions", description: "Recurring problems", kpiCodes: ["REPEAT_FAILURE"] },
       { id: "management-intel", title: "Management Intelligence", href: "/reports/management-intelligence", description: "Executive metrics" }
     ]
@@ -102,9 +102,9 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
   },
   {
     roleKey: "PROCUREMENT",
-    title: "Procurement Home",
+    title: "Buying Home",
     cards: [
-      { id: "procurement-queue", title: "Procurement", href: "/procurement", description: "Purchase requests and approvals queue" },
+      { id: "procurement-queue", title: "Buying", href: "/procurement", description: "Purchase requests and approvals queue" },
       { id: "procurement-vendors", title: "Vendors", href: "/procurement/vendors", description: "Vendor records and performance" },
       { id: "procurement-matching", title: "PO Matching", href: "/procurement/matching", description: "Purchase order / receipt / invoice matching" },
       { id: "inventory-overview", title: "Inventory", href: "/inventory", description: "Stock levels and low-stock alerts" }

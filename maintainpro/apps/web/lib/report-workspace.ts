@@ -10,7 +10,7 @@ export const REPORT_PIN_LIMIT = 4;
 
 /** Stable ids. Display labels are not stored. */
 export const RETAINED_REPORTS = [
-  { slug: "operations", label: "Operations", description: "Work order records for the selected dates." },
+  { slug: "operations", label: "Operations", description: "Job records for the selected dates." },
   { slug: "user-activity", label: "User Activity", description: "User accounts and the audit actions they performed." },
   { slug: "assets", label: "Assets & Equipment", description: "Asset and equipment maintenance records." },
   { slug: "inventory", label: "Inventory & Parts", description: "Parts and stock movement records." },

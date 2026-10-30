@@ -129,7 +129,7 @@ test("approval badge is not requested without approvals.view or its alias", () =
   assert.equal(canFetchApprovalBadge(null, ["approvals.view"]), false);
 });
 
-test("Action Center KPI visibility mirrors reporting overview RBAC", () => {
+test("Action Center key numbers visibility mirrors reporting overview RBAC", () => {
   assert.equal(actionCenterShowsKpis("ADMIN", ["reports.view"]), true);
   assert.equal(actionCenterShowsKpis("COMPLIANCE_MANAGER", ["reports.view"]), true);
   assert.equal(actionCenterShowsKpis("FACILITY_MANAGER", ["reports.view"]), false);
@@ -174,7 +174,7 @@ test("buildActionCenterSections: finance variant gets a finance section and no f
   assert.equal(financeSection.items[0].metricValue, "3");
 });
 
-test("buildActionCenterSections: procurement variant gets inventory but not finance", () => {
+test("buildActionCenterSections: buying variant gets inventory but not finance", () => {
   const snapshot = emptySnapshot({
     variant: "procurement",
     roleName: "PROCUREMENT_OFFICER",

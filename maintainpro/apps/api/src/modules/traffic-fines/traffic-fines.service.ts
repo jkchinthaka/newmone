@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { resolveJobDomain } from "../../common/utils/job-domain.util";
 import {
   AuditAction,
   FinePaymentStatus,
@@ -314,6 +315,7 @@ export class TrafficFinesService {
         status: WorkOrderStatus.OPEN,
         type: WorkOrderType.CORRECTIVE,
         vehicleId: fine.vehicleId,
+        jobDomain: resolveJobDomain({ vehicleId: fine.vehicleId }),
         createdById: a.sub,
         technicianId: body.technicianId,
         estimatedCost: body.estimatedCost,

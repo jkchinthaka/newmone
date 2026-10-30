@@ -13,7 +13,7 @@ const REPORT_MODULE_LABELS: Record<string, string> = {
   "user-activity": "User Activity",
   assets: "Assets & Equipment",
   inventory: "Inventory & Parts",
-  performance: "Performance KPIs",
+  performance: "Performance key numbers",
   "system-logs": "System Logs",
   "driver-intelligence": "Driver Intelligence",
   "fuel-analytics": "Fuel Analytics",
@@ -21,18 +21,18 @@ const REPORT_MODULE_LABELS: Record<string, string> = {
 };
 
 const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
-  "/work-orders": [{ label: "Work Orders" }],
-  "/maintenance/jobs": [{ label: "Work Orders" }],
+  "/work-orders": [{ label: "Jobs" }],
+  "/maintenance/jobs": [{ label: "Jobs" }],
   "/maintenance/jobs/machinery": [
-    { label: "Work Orders", href: "/maintenance/jobs" },
+    { label: "Jobs", href: "/maintenance/jobs" },
     { label: "Machinery" }
   ],
   "/maintenance/jobs/service": [
-    { label: "Work Orders", href: "/maintenance/jobs" },
+    { label: "Jobs", href: "/maintenance/jobs" },
     { label: "Service" }
   ],
   "/maintenance/jobs/vehicle": [
-    { label: "Work Orders", href: "/maintenance/jobs" },
+    { label: "Jobs", href: "/maintenance/jobs" },
     { label: "Vehicle" }
   ],
   "/assets": [{ label: "Assets" }],
@@ -47,6 +47,10 @@ const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
     { label: "Inventory", href: "/inventory" },
     { label: "Movements" }
   ],
+  "/inventory/unverified-issues": [
+    { label: "Inventory", href: "/inventory" },
+    { label: "Check part issues" }
+  ],
   "/inventory/daily": [
     { label: "Inventory", href: "/inventory" },
     { label: "Daily Inventory" }
@@ -60,10 +64,10 @@ const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
     { label: "Warranty" }
   ],
   "/operations/exceptions": [{ label: "Exceptions" }],
-  "/operations/sla": [{ label: "SLA risk" }],
+  "/operations/sla": [{ label: "Time limit risk" }],
   "/operations/budget": [{ label: "Budget commitments" }],
   "/procurement/matching": [
-    { label: "Procurement", href: "/procurement" },
+    { label: "Buying", href: "/procurement" },
     { label: "Matching" }
   ],
   "/assets/health": [
@@ -79,9 +83,9 @@ const STATIC_ROUTE_CRUMBS: Record<string, BreadcrumbItem[]> = {
     { label: "Vehicles", href: "/vehicles" },
     { label: "Costs" }
   ],
-  "/procurement": [{ label: "Procurement" }],
+  "/procurement": [{ label: "Buying" }],
   "/procurement/recommendations": [
-    { label: "Procurement", href: "/procurement" },
+    { label: "Buying", href: "/procurement" },
     { label: "Recommendations" }
   ],
   "/fleet": [{ label: "Fleet" }],

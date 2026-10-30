@@ -389,6 +389,19 @@ export class CancelMaintenanceRequestDto {
   reason!: string;
 }
 
+/** "Is it fixed?" answer from the person who reported the issue. */
+export class ConfirmFixedDto {
+  @ApiProperty()
+  @IsBoolean()
+  fixed!: boolean;
+
+  @ApiPropertyOptional({ description: "Required when fixed is false: what is still wrong." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+}
+
 export class MarkDuplicateDto {
   @ApiProperty()
   @IsString()
@@ -439,6 +452,20 @@ export class RequesterRespondDto {
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   evidenceIds?: string[];
+}
+
+export class LocationLookupQueryDto {
+  @ApiPropertyOptional({ description: "Site whose functional locations are listed" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(36)
+  siteId?: string;
+
+  @ApiPropertyOptional({ description: "Location code or name (reviewer target picker)" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  q?: string;
 }
 
 export class AssetLookupQueryDto {

@@ -1,4 +1,4 @@
-import { addCalendarDays, colomboNowTime, colomboTodayYmd } from "./colombo-datetime";
+import { addCalendarDays, colomboDateTimeToIso, colomboNowTime, colomboTodayYmd } from "./colombo-datetime";
 import { comparableConsumptions, consumptionWarning, readingFieldError } from "./meter-reading-input";
 
 export const HIGH_USAGE_COPY =
@@ -177,6 +177,30 @@ export function usagePreview(
     consumption,
     warning: liveUsageWarning(consumption, comparableConsumptions(historyNewestFirst))
   };
+}
+
+/**
+ * Inline warning before submit when the new value is below the last saved reading.
+ * The API rejects a lower reading unless "meter reset or replaced" has a reason
+ * (meter-reading-rules.ts), so the person should see it before pressing Save.
+ */
+export function lowerThanLastWarning(
+  value: string,
+  fractionDigits: number,
+  last: DisplayReading | undefined,
+  unit?: string | null
+): string | null {
+  if (!last || !value.trim() || readingFieldError(value, fractionDigits)) return null;
+  const next = Number(value);
+  const previous = Number(last.readingValue);
+  if (!Number.isFinite(next) || !Number.isFinite(previous) || next >= previous) return null;
+  const shown = formatMeterQuantity(previous, unit) ?? String(last.readingValue);
+  return `Lower than last reading (${shown}). Was the meter replaced or reset?`;
+}
+
+/** "Now" for the reading time field, in Colombo time. Used on meter pick, Scan next, and after save. */
+export function readingTimeNow(): string {
+  return colomboDateTimeToIso(colomboTodayYmd(), colomboNowTime());
 }
 
 export function readingListStatus(reading: DisplayReading, meterReadingsNewestFirst: readonly DisplayReading[]): "SAVED" | "HIGH_USAGE" {

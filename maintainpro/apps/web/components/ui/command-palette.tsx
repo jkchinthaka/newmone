@@ -125,7 +125,7 @@ export function CommandPalette({
               aria-controls={listboxId}
               aria-label="Search modules and pages"
               autoComplete="off"
-              placeholder="Search modules, work orders, or FG records..."
+              placeholder="Search modules, jobs, or FG records..."
               onChange={(event) => onQueryChange(event.target.value)}
               className="min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 focus-visible:outline-none"
             />

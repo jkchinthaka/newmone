@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { Bell, CreditCard, Menu, Search, UserCircle2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -62,8 +63,9 @@ export function Topbar({
   const queryClient = useQueryClient();
   const currentUser = useCurrentUser();
   const roleName = extractRoleName({ role: currentUser.role });
-  const canViewBilling = getVisibleNavigationItems(roleName, { permissions: currentUser.permissions }).some(
-    (item) => item.id === "billing"
+  const canViewBilling = useMemo(
+    () => getVisibleNavigationItems(roleName, { permissions: currentUser.permissions }).some((item) => item.id === "billing"),
+    [roleName, currentUser.permissions]
   );
 
   const unreadQuery = useQuery({
@@ -79,8 +81,9 @@ export function Topbar({
 
       return Number(response.data.meta?.total ?? response.data.data?.items?.length ?? 0);
     },
-    refetchInterval: 30_000,
-    staleTime: 10_000
+    // The notifications socket invalidates this count live; polling is only a slow fallback.
+    refetchInterval: 120_000,
+    staleTime: 30_000
   });
 
   useNotificationsSocket((payload) => {

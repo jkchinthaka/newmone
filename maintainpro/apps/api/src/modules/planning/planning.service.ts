@@ -38,6 +38,7 @@ import { ApprovalsService } from "../approvals/approvals.service";
 import { MaintenanceRequestsService } from "../maintenance-requests/maintenance-requests.service";
 import { ReliabilityService } from "../reliability/reliability.service";
 import { WorkOrdersService } from "../work-orders/work-orders.service";
+import { businessDayWindow } from "../work-orders/my-jobs.rules";
 import { evaluateComplianceStatus } from "./compliance-status";
 import { buildPmPlanListQuery } from "./pm-plan-query";
 import { validateAssetMeterReading } from "./meter-validation";
@@ -48,6 +49,7 @@ import {
   type TriggerContext,
   type TriggerDefinition
 } from "./trigger-engine";
+import { initialPmNextDueAt } from "./pm-baseline";
 
 type Actor = Pick<JwtPayload, "sub" | "tenantId" | "role" | "email"> & {
   permissions?: string[];
@@ -302,6 +304,7 @@ export class PlanningService {
         autoCreateWorkOrder: input.autoCreateWorkOrder ?? true,
         combineMode: input.combineMode ?? PmTriggerCombineMode.EARLIEST,
         effectiveFrom: input.effectiveFrom ?? new Date(),
+        nextDueAt: initialPmNextDueAt(input.effectiveFrom ?? new Date(), input.triggers) ?? undefined,
         currentRevision: 1,
         triggers: input.triggers?.length
           ? {
@@ -1200,13 +1203,11 @@ export class PlanningService {
       orderBy: [{ scheduledAt: "asc" }, { createdAt: "desc" }]
     });
 
+    // "Today" is the Asia/Colombo business day, not the server's local midnight.
     const now = new Date();
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setDate(endOfDay.getDate() + 1);
-    const weekStart = new Date(startOfDay);
-    weekStart.setDate(weekStart.getDate() - 6);
+    const startOfDay = businessDayWindow(now).start;
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+    const weekStart = new Date(startOfDay.getTime() - 6 * 24 * 60 * 60 * 1000);
 
     const decorated = rows.map((row) => {
       const due = row.scheduledAt ?? row.performedAt;

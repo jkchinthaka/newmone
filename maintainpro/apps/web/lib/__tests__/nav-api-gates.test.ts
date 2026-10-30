@@ -22,7 +22,8 @@ test("menu items whose page request the API refuses are hidden", () => {
 
   const security = hrefs("SECURITY_OFFICER", SECURITY_OFFICER);
   assert.equal(security.includes("/fleet"), false, "fleet overview excludes SECURITY_OFFICER");
-  assert.equal(security.includes("/fleet/gate"), true);
+  assert.equal(security.includes("/fleet/gate"), false, "gate screen retired from the UI");
+  assert.equal(security.includes("/requests"), true);
 });
 
 test("everyone who can raise a request can open My requests", () => {

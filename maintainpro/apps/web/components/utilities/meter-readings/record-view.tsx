@@ -46,6 +46,7 @@ export function RecordView({
   note,
   onNote,
   warning,
+  lowerWarning,
   message,
   error,
   saving,
@@ -80,6 +81,8 @@ export function RecordView({
   note: string;
   onNote: (value: string) => void;
   warning: string;
+  /** Shown before submit when the value is below the last reading. */
+  lowerWarning?: string | null;
   message: string;
   error: string;
   saving: boolean;
@@ -213,6 +216,19 @@ export function RecordView({
               <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
                 {warning}
               </p>
+            ) : null}
+
+            {lowerWarning ? (
+              <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="alert">
+                <p className="font-medium">{lowerWarning}</p>
+                {!reset ? (
+                  <button type="button" className="mt-2 min-h-11 rounded-lg border border-amber-400 bg-white px-3 font-semibold" onClick={() => onReset(true)}>
+                    Yes, meter was reset or replaced
+                  </button>
+                ) : (
+                  <p className="mt-1">Write the reason below, then save.</p>
+                )}
+              </div>
             ) : null}
 
             <div className="mt-4">

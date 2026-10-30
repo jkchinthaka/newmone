@@ -1,5 +1,9 @@
 "use client";
 
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
+import { formatDate } from "@/lib/localization";
+import { TableLoadingRows } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/page-state";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -31,7 +35,7 @@ export default function FarmAttendancePage() {
 
   const [form, setForm] = useState({
     workerId: "",
-    date: new Date().toISOString().slice(0, 10),
+    date: colomboTodayYmd(),
     status: "PRESENT",
     hoursWorked: "",
     taskArea: "",
@@ -160,7 +164,9 @@ export default function FarmAttendancePage() {
         {!tenantId ? (
           <p className="text-sm text-slate-500">Select an active tenant to view attendance.</p>
         ) : list.isLoading ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <TableLoadingRows rows={3} label="Loading" />
+        ) : list.isError ? (
+          <ErrorState error={list.error} onRetry={() => void list.refetch()} />
         ) : !list.data || list.data.length === 0 ? (
           <EmptyState title="No attendance logged" description="Mark your first attendance with the button above." />
         ) : (
@@ -179,7 +185,7 @@ export default function FarmAttendancePage() {
               <tbody className="divide-y divide-slate-100 bg-white">
                 {list.data.map((row) => (
                   <tr key={row.id}>
-                    <td className="px-3 py-2">{new Date(row.date).toLocaleDateString()}</td>
+                    <td className="px-3 py-2">{formatDate(row.date)}</td>
                     <td className="px-3 py-2">{row.worker?.name ?? "—"}</td>
                     <td className="px-3 py-2">{row.status}</td>
                     <td className="px-3 py-2">{row.hoursWorked ?? "—"}</td>

@@ -1,5 +1,7 @@
 "use client";
 
+import { TableLoadingRows } from "@/components/ui/loading";
+import { formatDateTime } from "@/lib/localization";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -175,13 +177,13 @@ export default function VendorEligibilityPage() {
         </label>
       </form>
       <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
-        <span>{loading ? "Loading results" : `${total} vendor${total === 1 ? "" : "s"}`}</span>
-        {evaluatedAt ? <span>Checked {new Date(evaluatedAt).toLocaleString()}</span> : null}
+        <span>{loading ? "Loading results" : error ? "" : `${total} vendor${total === 1 ? "" : "s"}`}</span>
+        {evaluatedAt ? <span>Checked {formatDateTime(evaluatedAt)}</span> : null}
         {filtersActive ? <button type="button" className="min-h-11 rounded border border-slate-300 px-3" onClick={() => { setSearchInput(""); writeQuery({ search: null, eligibility: null, availability: null, document: null }); }}>Clear filters</button> : null}
       </div>
       {notice ? <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm" role="alert">{notice}</p> : null}
       {error ? <ErrorState title="We couldn't load vendor eligibility." description={error} onRetry={() => void refresh()} /> : null}
-      {loading ? <div className="h-24 animate-pulse rounded-xl bg-slate-100" aria-busy="true" /> : null}
+      {loading && !error ? <div className="rounded-xl border border-slate-200 bg-white"><TableLoadingRows label="Loading vendors" /></div> : null}
       {!loading && !error && configured ? (
         <div className="rounded-xl border border-slate-200 bg-white p-6">
           <h2 className="font-semibold">No vendors configured</h2>

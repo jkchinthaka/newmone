@@ -361,6 +361,8 @@ model User {
   lastLogin                  DateTime?
   failedLoginAttempts        Int         @default(0)
   lockedUntil                DateTime?
+  /// Bumped to invalidate every issued access/refresh token (logout-all, password change, role change, deactivation)
+  sessionVersion             Int         @default(0)
   createdAt                  DateTime    @default(now())
   updatedAt                  DateTime    @updatedAt
 
@@ -2965,6 +2967,11 @@ model Site {
   description      String?
   address          String?
   contactPhone     String?
+  /// Site centre for the "photo taken far from the site" check (optional).
+  latitude         Float?
+  longitude        Float?
+  /// How far from the centre a job photo may be taken before it is flagged (default 500 m).
+  geoRadiusMeters  Int?
   isActive         Boolean  @default(true)
   /// Traceability to legacy Property during migration (do not delete Property yet)
   legacyPropertyId String?  @db.NVarChar(36)
@@ -3862,6 +3869,12 @@ model EvidenceAttachment {
   isRequired           Boolean             @default(false)
   capturedAt           DateTime?
   source               String              @default("") @db.NVarChar(64)
+  /// sha256 of the stored bytes; the same photo cannot be reused on another record.
+  contentSha256        String?             @db.NVarChar(64)
+  /// Optional phone location when the photo was taken (only if the user allowed it).
+  captureLatitude      Float?
+  captureLongitude     Float?
+  captureAccuracyMeters Float?
   clientGeneratedId    String?
   offlineCreatedAt     DateTime?
   syncedAt             DateTime?
@@ -3881,6 +3894,7 @@ model EvidenceAttachment {
   @@index([tenantId, inspectionId, checklistItemKey])
   @@index([tenantId, status])
   @@index([tenantId, clientGeneratedId])
+  @@index([tenantId, contentSha256])
 }
 
 // ============================================================

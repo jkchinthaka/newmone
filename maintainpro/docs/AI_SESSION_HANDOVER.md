@@ -8,6 +8,71 @@
 > 3. Keep unfinished work on the current feature branch. Never force-push, never discard or
 >    reset someone else's changes, never push unvalidated code to `main`.
 
+**CURRENT (2026-10-29) — browser-visible data hardening on `release/develop-20261022b` (on top of `4122713e`).** The job list (`GET /work-orders`, `work-order-queues.service.ts` listInclude) returned full User rows for `technician` and `createdBy`, including `passwordHash`; it now selects `PUBLIC_USER_SUMMARY_SELECT` plus role id/name. `ResponseInterceptor` also drops `passwordHash`, `tokenHash`, `replacedByTokenHash`, `secretHash`, `keyHash` at any depth as a last line of defence. Web: `poweredByHeader: false`; production CSP `script-src` no longer has `'unsafe-eval'` (dev keeps it). Checked: API tsc 0; API Jest 2352 passed plus 4 vm-module suites 40 (`response-secret-stripping.spec.ts` 2); web tsc 0; web unit 489; `next build` 0; built chunks have no `eval(`/`new Function(` beyond globalThis fallbacks; `next start` + Playwright on /login and /forgot-password: no CSP errors, no X-Powered-By. Signed-in pages not opened under the new CSP.
+
+**CURRENT (2026-10-29) — web cache fixes on `release/develop-20261022b` (on top of `90ec3cd8`).** Saved job filters no longer keep the page's job category (All Jobs showed only the last category page's jobs) and, like inventory filters, are stored per company and per user (`lib/user-scoped-storage.ts`). Reports saved while offline now carry the owner and company and are sent automatically when back online by that same person (`components/pwa/offline-request-replayer.tsx`, idempotency key reused); before, they were never sent. Job evidence no longer claims an offline file "will sync" (bytes were never kept); it says to upload again online. BFF replies carry `Cache-Control: no-store, private, max-age=0`. Service worker v4: `/_next/static` cache-first capped at 400 entries, `/_next/image` and public icons stale-while-revalidate (images capped at 150), v3 caches removed on activate. Checked: web tsc 0; web unit 489; `next build` exit 0; `next start` + fake upstream: BFF 200 with no-store; Playwright: v4 caches present, v3 removed, no `/api/` entry cached. Not changed: legacy `/home` demo job board (retired route) still keeps demo jobs in localStorage.
+
+**CURRENT (2026-10-29) — machinery / vehicle / service flow fixes on `release/develop-20261022b` (on top of `0c151c77`).** Cancel after start gives the machine/vehicle back the status it had before the job (from the start audit row) when no other job is open; close uses Return-to-service rules (temporary repair, operating restriction or non-compliant vehicle -> OUT_OF_SERVICE, else ACTIVE/AVAILABLE). `PmAutoSchedulerService` (planning) checks ACTIVE auto-create plans every `PM_AUTO_SCHEDULER_INTERVAL_MINUTES` (60) using vehicle `currentMileage` or the linked machine meter; creator is the tenant's first active Admin. Request target changes re-derive the category (`resolveTargetJobDomain`). Machinery downtime opens on start (ACTIVE_REPAIR), switches to WAITING_* on hold, ends on technician completion/close/cancel (`ReliabilityService.syncAutoDowntime`). `GET /work-orders/vehicle-overview` + Vehicle Jobs header (workshop counts that filter the list, Service due list with Create service job). Job list shows the place and flags "Place needed". "Is it fixed?": verify sets requester confirmation PENDING only when the job came from a request and notifies the reporter; `POST /maintenance-requests/:id/confirm-fixed` (reporter or triage); No needs a note and sends VERIFIED -> REWORK_REQUIRED; close refuses an UNRESOLVED answer. `DailyRemindersService` (notifications, `DAILY_REMINDERS_INTERVAL_MINUTES` 60, per-day dedupe): overdue jobs, requests waiting >1 day, permits expiring/expired, vehicle documents within 30 days. Notifications on Add assignee, bulk assign, rework and cancel. Cleaning `POST /cleaning/issues/:id/create-work-order` returns 410. No schema change. Gates: API tsc 0; API Jest 2350 passed plus 4 vm-module suites 40 passed (`flow-fixes-domains.spec.ts` 17); web tsc 0; web unit 485; `next build` exit 0; `audit:rbac` PASSED; `audit:tenant` OK. Not opened in a signed-in browser; no real-data run.
+
+**CURRENT (2026-10-29) — business-flow fixes on `release/develop-20261022b` (on top of `55a34485`).** Owner decisions: production without photo storage blocks Start as well as Complete (Admin/Super Admin override with a reason); only Admin/Super Admin approve a permit or resume a suspended one, and an admin may approve their own; a permit is needed for critical machines and for any job flagged hot work / confined space / height / electrical isolation or whose template names a permit (all job categories); open permits close automatically when the job is closed, completed or cancelled; permit raise and every transition write an audit row. Parts issued without ERP verification (PENDING) are listed on `/inventory/unverified-issues` for a second person to confirm or follow up. Converted requests show the job's progress ("Done" when closed). Fraud field checks on `/reports/fraud-control/field-checks`: labour sessions over the shift limit and job photos taken outside the site radius; Site has nullable `latitude`, `longitude`, `geoRadiusMeters` (migration `20261029090000_site_geo_location`, additive) set in the Add/Edit Site dialog. `GET /utilities/bills` is bounded (500 default, 1000 max); the approvals inbox passes its abort signal. Gates: API tsc 0; API Jest 2369 passed plus the 4 vm-module suites 40 passed; `business-flow-fixes.spec.ts` 16 passed; web tsc 0; web unit 481 passed; `next build` exit 0; `audit:rbac` PASSED; `audit:tenant` OK. New pages were not opened in a signed-in browser. Dashboards were checked in code only, not against real data. The user must run `db:migrate:deploy` for the Site GPS migration.
+
+**CURRENT (2026-10-28) — plain-English UI wording and task-based navigation on `release/develop-20261022b`.** Web UI text only. Database fields, API contracts, enums, stored statuses, routes, permission keys, nav ids and business logic are unchanged.
+- **Wording:**
+  - Work Order → Job; Triage → Review; Evidence → Photos; Verification → Supervisor check; Sign-off → Supervisor approval.
+  - Rework → Needs to be fixed again; Downtime → Machine stopped time; Quotation → Price quote; Consumption → Usage.
+  - SLA → Time limit / Response time; PM → Scheduled service; RCA → Why it broke; CAPA → Fix and prevent plan.
+  - KPI → Key numbers; Procurement → Buying; Stock count / Variance → Stock check / Difference; Permit → Work permit.
+  - Central fallbacks are in `lib/display-labels.ts`.
+- **Sidebar groups:** Daily Work, Jobs, Assets & Places, Parts & Stock, Reports & Analysis, Administration, Account.
+- **Kept on purpose:** API notification titles were not reworded, because web deep links match on them (`/verif/`).
+- **Tests:**
+  - Web tsc 0. Web unit 462/462. `next build` 0.
+  - API specs that import web libraries: 434/434.
+  - e2e label assertions updated.
+
+**CURRENT (2026-10-28) — production audit fix pass on `release/develop-20261022b` (on top of `403726d4`).** One commit covers the P0 security fixes, P1 data/list fixes, P2 cleanup, workflow defects, Gate Pass UI removal, and the loading/mobile/perf standard.
+- **Security:**
+  - The BFF refresh latch is keyed per refresh-token hash.
+  - Temporary passwords are enforced by a global guard returning 403 `PASSWORD_CHANGE_REQUIRED`; every password-change path clears the flag.
+  - The tenant role is per session: in a non-home tenant it comes from the membership.
+  - `User.sessionVersion` uses migration `20261027090000_user_session_version`. Run `db:migrate:deploy`.
+  - Settings email and password changes use DTOs and need the current password.
+  - X-Real-IP is trusted only from loopback, or from private ranges when `TRUST_PRIVATE_PROXY_PEERS=true` (set in Docker compose).
+  - In production the API binds to 127.0.0.1 unless `HOST` is set (the Dockerfiles set 0.0.0.0).
+  - Unknown users get a timing-equalised bcrypt compare.
+  - Decimals are returned as numbers.
+  - `assets.view` is in the catalog and aliased to `assets.manage`.
+- **Workflows:**
+  - The request is reopened when its work order is rejected or cancelled.
+  - Triagers are notified.
+  - The inbox approves NEW requests.
+  - Multi-level approval steps wait for earlier levels.
+  - A requester is never their own approver.
+  - Rejected part lines are closed, and reservations are released on close or cancel.
+  - Inventory stock-out checks verified stock and writes a work-order part line.
+  - ERP matches `erpCode` first, sums duplicate rows and rejects blank quantities.
+  - Return to service respects other open work orders.
+  - Gate override claims the current status, and the gate service check uses the entered meter.
+  - Backdated meter readings are checked against the readings on both sides.
+  - Colombo-day overdue rules apply.
+  - There is one evidence-type list.
+- **Web:**
+  - Gate screen removed (`/fleet/gate` redirects; backend gate APIs and checks unchanged; security officer lands on `/requests`).
+  - Server work-order counts, list/board pager, server technician filter.
+  - Approvals paging, debounced filters, kept rows during refresh with a small error banner.
+  - Asset selection clears, plus DRAFT and OUT_OF_SERVICE statuses.
+  - LKR and Colombo dates.
+  - One loading standard (`@/components/ui/loading`) and QueryClient defaults (`lib/query-client-defaults.ts`).
+  - 44px touch targets, portal row menus, mobile Menu tab.
+- **Tests:**
+  - API tsc 0. Web tsc 0. Web unit 462/462. `next build` exit 0.
+  - API jest (fast config): 277 suites pass, plus the 4 dynamic-import suites, 40/40, with `--experimental-vm-modules`. DB integration suites are skipped without SQL Server.
+- **Not done:**
+  - `GET /utilities/bills` is still unbounded.
+  - `fetchApprovalInbox` has no abort signal; stale responses are ignored.
+  - Custom tenant role names in `@Roles` (AUDITOR/VENDOR...) were left alone because Role.name is free text.
+  - No browser E2E against SQL Server was run from the cloud.
+
 **CURRENT (2026-10-22) — batch 3b page restyle on `ui/pages-batch-3b`.** Worktree `C:\Users\chint\AppData\Local\MaintainPro\worktrees\ui-batch-3b`, branched from `origin/develop` at `658ae0c2`. UI only: Work Orders, Approvals, Fleet, and Spare Parts. No API, RBAC, schema, or workflow changes. Web `tsc --noEmit` exit 0. Web unit 375 passed, 0 failed. Playwright on temporary ports 3052/3053 against `maintainpro_e2e_wo_verify`: `signed-in-responsive.spec.ts` 3 passed, `batch-3b-visual.spec.ts` 2 passed, horizontal overflow 0, no console errors after sign-in. Those processes were stopped. Ports 3040 and 3041 were left listening. Hidden for missing data: Closed this week; oldest-unassigned age unless that queue page is complete; vendor name and quotation lines; engine hours and revenue licence; fleet badges when the field is absent; part requests to issue (no tenant-wide list); most-used parts when the 30-day analytics response is empty or the role cannot call it. Manager `/approvals` still redirects to `/maintenance` because navigation requires `approvals.view` and that gate was not changed. Screenshots: `docs/handover/ui-redesign/batch-3b/`. Review: `docs/handover/review/ui-batch-3b.diff` and `ui-batch-3b.md`. The independent qa-reviewer did not start because Cursor billing blocked the subagent. That is not a FAIL verdict. Implementation commit `0d30072386f9b6933ab0f254e9c3fb594ec1cfb5`. Branch tip includes this note. Pull request https://github.com/jkchinthaka/newmone/pull/136 is open against `develop`. Do not merge it.
 **CURRENT (2026-10-22) — asset and inspection private disk on `fix/asset-inspection-storage` at `3e2cba16`.** Worktree `C:\Users\chint\AppData\Local\MaintainPro\worktrees\fixes`. Branched from `origin/fix/evidence-local-disk` (`8142a6f4`) because pull request #128 is still open. Pull request https://github.com/jkchinthaka/newmone/pull/132 targets `develop` and is stacked on #128. New asset documents and inspection evidence use that private local-disk provider when it is configured. Existing records stay readable. Non-local uploads are unchanged. API tsc 0. Web tsc 0. Web unit 367 passed. Jest storage 8 passed and related evidence/planning 70 passed. Tenant audit unapproved 0. RBAC 972 routes, violations 0. No schema change. No database writes. Docker and ports 3040/3041 were not used. Review export: `docs/handover/review/asset-inspection-storage.md`. Pull request #132 is open. Next on this worktree is meter-readings paging from `origin/develop`.
 **CURRENT (2026-10-22) — maintenance cost link on `fix/maintenance-cost-link`.** Worktree `C:\Users\chint\AppData\Local\MaintainPro\worktrees\fixes`. Branched from `origin/fix/broken-links` because pull request #129 is still open. Implementation `ab89fa34`. Pull request https://github.com/jkchinthaka/newmone/pull/134. The Maintenance Cost card opens `/maintenance/jobs`, where the work-order drawer shows the labour, parts, and vendor breakdown from pull request #119. `MAINTENANCE_MANAGER` and other roles that are not on `GET /work-orders/:id/insights` do not see the card. API tsc 0. Web tsc 0. Web unit 371 passed. Jest `reporting-kpis-phase13` 98 passed. Tenant audit unapproved 0. RBAC 971 routes, violations 0. Assumption: there is no separate insights index page, so the card opens the work-order list that hosts that breakdown. The page was not opened in a browser. Ports 3040/3041 were not used.

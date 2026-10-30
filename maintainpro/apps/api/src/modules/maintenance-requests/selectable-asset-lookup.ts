@@ -4,6 +4,8 @@ import { requireTenantId } from "../../common/utils/tenant-scope.util";
 
 /** Statuses a requester must not be able to select for a new maintenance request. */
 const NOT_SELECTABLE: AssetStatus[] = [
+  // Draft = registered but not yet approved by a manager; no jobs until it is Active.
+  AssetStatus.DRAFT,
   AssetStatus.RETIRED,
   AssetStatus.DISPOSED,
   AssetStatus.INACTIVE

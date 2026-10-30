@@ -162,8 +162,8 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       {
         id: "blocks",
         title: "Vehicle Blocks",
-        href: "/fleet/gate",
-        description: "Gate blocks and overrides"
+        href: "/fleet",
+        description: "Vehicle blocks and overrides"
       },
       {
         id: "claims-fines",

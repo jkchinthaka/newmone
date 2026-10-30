@@ -11,7 +11,7 @@ describe("selectable asset lookup", () => {
       isActive: true,
       archivedAt: null,
       status: {
-        notIn: [AssetStatus.RETIRED, AssetStatus.DISPOSED, AssetStatus.INACTIVE]
+        notIn: [AssetStatus.DRAFT, AssetStatus.RETIRED, AssetStatus.DISPOSED, AssetStatus.INACTIVE]
       },
       OR: [
         { assetTag: { contains: "SN-2026-00458" } },

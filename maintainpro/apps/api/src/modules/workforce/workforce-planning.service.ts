@@ -24,6 +24,41 @@ function endOfDayUtc(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999));
 }
 
+const DAY_MS = 86_400_000;
+// Sri Lanka is UTC+05:30 all year (no daylight saving), so a fixed offset gives the local calendar day.
+const COLOMBO_OFFSET_MS = 330 * 60 * 1000;
+const MAX_CAPACITY_CHECK_DAYS = 31;
+
+/** Start of the Asia/Colombo calendar day that contains this instant. */
+export function colomboDayStart(date: Date): Date {
+  const local = date.getTime() + COLOMBO_OFFSET_MS;
+  return new Date(Math.floor(local / DAY_MS) * DAY_MS - COLOMBO_OFFSET_MS);
+}
+
+function colomboDayEnd(date: Date): Date {
+  return new Date(colomboDayStart(date).getTime() + DAY_MS - 1);
+}
+
+/** Number of Colombo calendar days a planned window touches (at least 1). */
+export function colomboDaysSpanned(start: Date, end: Date): number {
+  const first = colomboDayStart(start).getTime();
+  const last = colomboDayStart(end.getTime() < start.getTime() ? start : end).getTime();
+  return Math.floor((last - first) / DAY_MS) + 1;
+}
+
+/** Once the technician has finished (or the job is closed or cancelled) the hours no longer use capacity. */
+const CAPACITY_RELEASED_STATUSES: WorkOrderStatus[] = [
+  WorkOrderStatus.TECHNICIAN_COMPLETED,
+  WorkOrderStatus.VERIFIED,
+  WorkOrderStatus.CLOSED,
+  WorkOrderStatus.COMPLETED,
+  WorkOrderStatus.CANCELLED
+];
+
+function formatHours(value: number): string {
+  return String(Math.round(value * 10) / 10);
+}
+
 @Injectable()
 export class WorkforcePlanningService {
   constructor(private readonly prisma: PrismaService) {}
@@ -47,14 +82,20 @@ export class WorkforcePlanningService {
     return Boolean(leave);
   }
 
+  /**
+   * Hours already booked for one employee on one Colombo calendar day.
+   * - A planned window spreads its hours evenly over the days it covers.
+   * - An assignment without a planned start counts on the day it was assigned, not on every day.
+   * - Jobs the technician finished, and closed or cancelled jobs, no longer count.
+   */
   async getAllocatedHoursForDay(input: {
     tenantId?: string | null;
     employeeId: string;
     day: Date;
     excludeAssigneeId?: string;
   }): Promise<number> {
-    const dayStart = startOfDayUtc(input.day);
-    const dayEnd = endOfDayUtc(input.day);
+    const dayStart = colomboDayStart(input.day);
+    const dayEnd = colomboDayEnd(input.day);
 
     const rows = await this.prisma.workOrderAssignee.findMany({
       where: {
@@ -62,22 +103,33 @@ export class WorkforcePlanningService {
         assignmentStatus: { in: [WorkOrderAssigneeStatus.ASSIGNED, WorkOrderAssigneeStatus.IN_PROGRESS] },
         ...(input.tenantId !== undefined && input.tenantId !== null ? { tenantId: input.tenantId } : {}),
         ...(input.excludeAssigneeId ? { id: { not: input.excludeAssigneeId } } : {}),
+        estimatedHours: { not: null },
+        workOrder: { status: { notIn: CAPACITY_RELEASED_STATUSES } },
         OR: [
           {
             plannedStartAt: { lte: dayEnd },
             plannedEndAt: { gte: dayStart }
           },
           {
+            plannedStartAt: { gte: dayStart, lte: dayEnd },
+            plannedEndAt: null
+          },
+          {
             plannedStartAt: null,
-            plannedEndAt: null,
-            estimatedHours: { not: null }
+            assignedAt: { gte: dayStart, lte: dayEnd }
           }
         ]
       },
       select: { estimatedHours: true, plannedStartAt: true, plannedEndAt: true }
     });
 
-    return rows.reduce((sum, row) => sum + (row.estimatedHours ?? 0), 0);
+    return rows.reduce((sum, row) => {
+      const hours = row.estimatedHours ?? 0;
+      if (row.plannedStartAt && row.plannedEndAt) {
+        return sum + hours / colomboDaysSpanned(row.plannedStartAt, row.plannedEndAt);
+      }
+      return sum + hours;
+    }, 0);
   }
 
   async assertAssignmentAvailability(input: {
@@ -133,18 +185,28 @@ export class WorkforcePlanningService {
     }
 
     const capacity = employee?.dailyCapacityHours ?? 8;
-    const checkDay = input.plannedStartAt ?? new Date();
-    const allocated = await this.getAllocatedHoursForDay({
-      tenantId: input.tenantId,
-      employeeId: input.employeeId,
-      day: checkDay
-    });
-    const incoming = input.estimatedHours ?? 0;
+    // Check each day of the planned window (or the assignment day when there is no window),
+    // with the new job's hours spread over those days.
+    const windowStart = input.plannedStartAt ?? new Date();
+    const windowEnd = input.plannedStartAt && input.plannedEndAt ? input.plannedEndAt : windowStart;
+    const days = Math.min(colomboDaysSpanned(windowStart, windowEnd), MAX_CAPACITY_CHECK_DAYS);
+    const incomingPerDay = (input.estimatedHours ?? 0) / days;
+    const firstDay = colomboDayStart(windowStart).getTime();
 
-    if (allocated + incoming > capacity) {
-      throw new BadRequestException(
-        `Assignment exceeds daily capacity (${allocated + incoming}h / ${capacity}h). Reduce hours or choose another employee.`
-      );
+    for (let index = 0; index < days; index += 1) {
+      const day = new Date(firstDay + index * DAY_MS);
+      const allocated = await this.getAllocatedHoursForDay({
+        tenantId: input.tenantId,
+        employeeId: input.employeeId,
+        day
+      });
+      const total = allocated + incomingPerDay;
+      if (total > capacity + 1e-9) {
+        const label = new Date(day.getTime() + COLOMBO_OFFSET_MS).toISOString().slice(0, 10);
+        throw new BadRequestException(
+          `Assignment exceeds daily capacity on ${label} (${formatHours(total)}h / ${capacity}h). Reduce hours or choose another employee.`
+        );
+      }
     }
   }
 

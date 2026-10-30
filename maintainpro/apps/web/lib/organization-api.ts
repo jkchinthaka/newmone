@@ -56,6 +56,9 @@ export type OrgSite = {
   description: string | null;
   address: string | null;
   contactPhone: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  geoRadiusMeters?: number | null;
   isActive: boolean;
   locationCount?: number;
 };
@@ -147,6 +150,9 @@ export async function createSite(payload: {
   description?: string;
   address?: string;
   contactPhone?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  geoRadiusMeters?: number | null;
 }): Promise<OrgSite> {
   const response = await apiClient.post<ApiEnvelope<OrgSite>>("/organization/sites", payload);
   return response.data.data;
@@ -161,6 +167,9 @@ export async function updateSite(
     description: string | null;
     address: string | null;
     contactPhone: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    geoRadiusMeters: number | null;
     isActive: boolean;
   }>
 ): Promise<OrgSite> {

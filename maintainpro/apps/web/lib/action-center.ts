@@ -273,13 +273,13 @@ export function getActionCenterTitle(variant: ActionCenterVariant): string {
 export function getActionCenterDescription(variant: ActionCenterVariant): string {
   switch (variant) {
     case "admin":
-      return "System readiness, work order pressure, inventory risks, and onboarding attention from live tenant data.";
+      return "System readiness, job pressure, inventory risks, and onboarding attention from live tenant data.";
     case "management":
       return "Overdue work, operational risks, and report shortcuts based on your current modules.";
     case "technician":
       return "Your assigned jobs, with due, overdue, and waiting-parts shortcuts.";
     case "inventory":
-      return "Low-stock alerts and procurement attention from live inventory records.";
+      return "Low-stock alerts and buying attention from live inventory records.";
     case "cleaner":
       return "Facility and cleaning issue workflows available to your role.";
     case "driver":
@@ -289,7 +289,7 @@ export function getActionCenterDescription(variant: ActionCenterVariant): string
     case "finance":
       return "Vendor invoice attention and financial reporting shortcuts. This view is read-only.";
     case "procurement":
-      return "Procurement, vendor, and inventory attention from live records.";
+      return "Buying, vendor, and inventory attention from live records.";
     default:
       return "Open available modules and report views for your account.";
   }
@@ -499,11 +499,11 @@ function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSec
     const state = describeUnavailable(
       snapshot.errors?.workOrders,
       "Not connected yet",
-      "Work order data is unavailable right now."
+      "Job data is unavailable right now."
     );
     return {
       id: "work-orders",
-      title: "Work order risks",
+      title: "Job risks",
       description: "Live maintenance queue signals.",
       items: [],
       emptyTitle: state.title,
@@ -517,15 +517,15 @@ function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSec
   if (snapshot.variant === "management" || snapshot.roleName === "SUPERVISOR" || snapshot.roleName === "MAINTENANCE_SUPERVISOR") {
     items.push({
       id: "supervisor-verification",
-      title: "Pending verification",
-      description: "Technician completed jobs awaiting supervisor sign-off.",
+      title: "Waiting for supervisor check",
+      description: "Finished jobs waiting for a supervisor check.",
       href: "/work-orders?queue=supervisor-verification",
       tone: "warning"
     });
     items.push({
       id: "team-triage",
-      title: "Triage queue",
-      description: "Work orders needing classification.",
+      title: "Requests to review",
+      description: "Jobs needing classification.",
       href: "/work-orders?queue=triage",
       tone: "info"
     });
@@ -533,10 +533,10 @@ function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSec
 
   if (snapshot.roleName === "SECURITY_OFFICER") {
     items.push({
-      id: "gate-dashboard",
-      title: "Gate dashboard",
-      description: "Vehicle gate-out checks and restrictions.",
-      href: "/fleet/gate",
+      id: "security-requests",
+      title: "Report a problem",
+      description: "Report a vehicle or site problem and follow your requests.",
+      href: "/requests",
       tone: "info"
     });
   }
@@ -544,8 +544,8 @@ function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSec
   if (stats.overdue > 0) {
     items.push({
       id: "overdue-work",
-      title: "Overdue work orders",
-      description: "Jobs past due or with SLA breach flags.",
+      title: "Overdue jobs",
+      description: "Jobs past due or with time limit breach flags.",
       href: "/work-orders?queue=overdue",
       tone: "danger",
       metricLabel: "Overdue",
@@ -568,7 +568,7 @@ function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSec
   items.push({
     id: "open-work",
     title: "Open maintenance queue",
-    description: "Review the full work order board.",
+    description: "Review the full job board.",
     href: "/work-orders",
     tone: stats.open + stats.inProgress > 0 ? "info" : "success",
     metricLabel: "Open / in progress",
@@ -577,7 +577,7 @@ function buildWorkOrdersSection(snapshot: ActionCenterSnapshot): ActionCenterSec
 
   return {
     id: "work-orders",
-    title: "Work order risks",
+    title: "Job risks",
     description: "Live maintenance queue signals.",
     items
   };
@@ -592,7 +592,7 @@ function buildInventorySection(snapshot: ActionCenterSnapshot): ActionCenterSect
     );
     return {
       id: "inventory",
-      title: "Inventory & procurement",
+      title: "Inventory & buying",
       description: "Stock and purchase order attention.",
       items: [],
       emptyTitle: state.title,
@@ -631,7 +631,7 @@ function buildInventorySection(snapshot: ActionCenterSnapshot): ActionCenterSect
     items.push({
       id: "pending-pos",
       title: "Pending purchase orders",
-      description: "Open procurement requests awaiting progress.",
+      description: "Open buying requests awaiting progress.",
       href: "/procurement",
       tone: "warning",
       metricLabel: "Pending POs",
@@ -652,7 +652,7 @@ function buildInventorySection(snapshot: ActionCenterSnapshot): ActionCenterSect
     items.push({
       id: "inventory-healthy",
       title: "Inventory looks stable",
-      description: "No low-stock or pending procurement alerts returned right now.",
+      description: "No low-stock or pending buying alerts returned right now.",
       href: "/inventory",
       tone: "success"
     });
@@ -660,7 +660,7 @@ function buildInventorySection(snapshot: ActionCenterSnapshot): ActionCenterSect
 
   return {
     id: "inventory",
-    title: "Inventory & procurement",
+    title: "Inventory & buying",
     description: "Stock and purchase order attention.",
     items
   };
@@ -745,14 +745,14 @@ function buildFacilitySection(snapshot: ActionCenterSnapshot): ActionCenterSecti
   const facilityReportsLink: ActionCenterItem = {
     id: "facility-reports",
     title: "Facility reports",
-    description: "Hierarchy counts, issue breakdowns, and work order linkage summary.",
+    description: "Hierarchy counts, issue breakdowns, and job linkage summary.",
     href: "/facilities/reports",
     tone: "info"
   };
   const facilityAgingLink: ActionCenterItem = {
     id: "facility-aging",
-    title: "SLA / aging report",
-    description: "Issue aging buckets, overdue SLA preview, and linked work order aging.",
+    title: "Time limit / aging report",
+    description: "Issue aging buckets, overdue time limit preview, and linked job aging.",
     href: "/facilities/reports/aging",
     tone: "info"
   };
@@ -956,7 +956,7 @@ export function buildMorningBriefingLines(snapshot: ActionCenterSnapshot): Morni
     const stats = snapshot.workOrders;
     lines.push({
       id: "wo-open",
-      label: "Open work orders",
+      label: "Open jobs",
       value: String(stats.open + stats.inProgress),
       tone: stats.open + stats.inProgress > 0 ? "info" : "success"
     });

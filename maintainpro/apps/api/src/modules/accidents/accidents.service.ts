@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { resolveJobDomain } from "../../common/utils/job-domain.util";
 import {
   AccidentEvidenceType,
   AccidentResponsibility,
@@ -29,6 +30,8 @@ export interface CreateAccidentInput {
   estimatedDamageCost?: number;
   notes?: string;
 }
+
+const ACCIDENT_UNPAGED_LIMIT = 200;
 
 @Injectable()
 export class AccidentsService {
@@ -96,17 +99,13 @@ export class AccidentsService {
       driver: { select: { id: true, licenseNumber: true } },
       workOrders: { select: { id: true, woNumber: true, status: true } }
     };
-    if (filters?.page == null) {
-      const rows = await this.prisma.accidentReport.findMany({
-        where,
-        orderBy: { occurredAt: "desc" },
-        include,
-        take: 200
-      });
-      return rows.map((row) => this.withPrimaryWorkOrder(row));
-    }
-    const page = Math.max(1, filters.page);
-    const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 25));
+    // Unpaged callers get the first 200 rows plus meta.total, so a longer register is visible, not cut silently.
+    const paged = filters?.page != null && Number.isFinite(filters.page);
+    const page = paged ? Math.max(1, Math.floor(filters!.page!)) : 1;
+    const requestedSize = Number(filters?.pageSize);
+    const pageSize = paged
+      ? Math.min(100, Math.max(1, Number.isFinite(requestedSize) ? Math.floor(requestedSize) : 25))
+      : ACCIDENT_UNPAGED_LIMIT;
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.accidentReport.count({ where }),
       this.prisma.accidentReport.findMany({
@@ -296,6 +295,8 @@ export class AccidentsService {
         status: WorkOrderStatus.OPEN,
         type: WorkOrderType.ACCIDENT_REPAIR,
         vehicleId: acc.vehicleId,
+        // Every job needs its category so it shows on Machinery / Service / Vehicle Jobs.
+        jobDomain: resolveJobDomain({ vehicleId: acc.vehicleId }),
         createdById: a.sub,
         technicianId: body.technicianId,
         estimatedCost: body.estimatedCost,

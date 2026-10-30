@@ -1,5 +1,7 @@
 "use client";
 
+import { TableLoadingRows } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/page-state";
 import Link from "next/link";
 import type { Route } from "next";
 import { useQuery } from "@tanstack/react-query";
@@ -52,7 +54,9 @@ export default function FarmDashboardPage() {
         {!tenantId ? (
           <p className="text-sm text-slate-500">Select an active tenant to view finance summary.</p>
         ) : finance.isLoading ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <TableLoadingRows rows={3} label="Loading" />
+        ) : finance.isError ? (
+          <ErrorState error={finance.error} onRetry={() => void finance.refetch()} />
         ) : finance.data ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <StatCard label="Income" value={formatLkr(finance.data.totalIncome)} />

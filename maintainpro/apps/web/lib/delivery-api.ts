@@ -126,7 +126,7 @@ export const CATEGORY_LABELS: Record<DeliveryCategory, string> = {
   BACKUP_RECOVERY: "Backup & Recovery",
   DOCUMENTATION: "Documentation",
   FINAL_DEMO: "Client Demo Flow",
-  CLIENT_SIGN_OFF: "Client Sign-off"
+  CLIENT_SIGN_OFF: "Client supervisor approval"
 };
 
 export const STATUS_STYLES: Record<DeliveryItemStatus, string> = {

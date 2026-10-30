@@ -18,14 +18,14 @@ export function OperationsDashboardPage() {
       <PageBreadcrumbs />
       <header>
         <h2 className="page-title">Post-Go-Live Operations</h2>
-        <p className="mt-1 text-sm text-slate-500">Support, SLA, training, change control, releases, and hypercare.</p>
+        <p className="mt-1 text-sm text-slate-500">Support, time limit, training, change control, releases, and hypercare.</p>
       </header>
 
       <nav className="flex flex-wrap gap-2 text-sm">
         {[
           ["/post-go-live/training", "Training"],
           ["/support/tickets", "Support Tickets"],
-          ["/support/sla", "SLA Monitor"],
+          ["/support/sla", "Time Limit Monitor"],
           ["/support/escalation", "Escalation"],
           ["/change-requests", "Change Requests"],
           ["/releases", "Releases"],
@@ -47,7 +47,7 @@ export function OperationsDashboardPage() {
           {[
             { label: "Open Tickets", value: data?.openTickets, icon: LifeBuoy },
             { label: "Critical Tickets", value: data?.openCriticalTickets, icon: AlertTriangle },
-            { label: "SLA Breaches", value: data?.slaBreaches, icon: Timer },
+            { label: "Time Limit Breaches", value: data?.slaBreaches, icon: Timer },
             { label: "Pending CRs", value: data?.pendingChangeRequests, icon: ClipboardList },
             { label: "Upcoming Releases", value: data?.upcomingReleases, icon: Rocket },
             { label: "Training Complete", value: `${data?.trainingCompletionPercentage ?? 0}%`, icon: ClipboardList }

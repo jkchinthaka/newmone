@@ -14,7 +14,7 @@ describe("command palette helpers (Phase 1 CMMS scope)", () => {
   it("offers the Asset Register to roles the asset API admits, not to facility managers", () => {
     const technician = getCommandPaletteItems("TECHNICIAN").find((item) => item.href === "/assets");
     expect(technician).toBeDefined();
-    expect(technician?.label).toBe("Asset Register");
+    expect(technician?.label).toBe("Machines & Equipment");
     // GET /assets @Roles has no FACILITY_MANAGER, so the palette must not open a 403 page.
     expect(getCommandPaletteItems("FACILITY_MANAGER").find((item) => item.href === "/assets")).toBeUndefined();
   });

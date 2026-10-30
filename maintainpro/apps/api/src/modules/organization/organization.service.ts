@@ -29,6 +29,19 @@ import type {
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
+/** Latitude and longitude go together: both set, or both cleared. */
+function siteGeoFields(dto: { latitude?: number | null; longitude?: number | null; geoRadiusMeters?: number | null }) {
+  const hasLat = dto.latitude !== undefined;
+  const hasLng = dto.longitude !== undefined;
+  if (hasLat !== hasLng || (hasLat && (dto.latitude === null) !== (dto.longitude === null))) {
+    throw new BadRequestException("Enter both latitude and longitude for the site, or clear both.");
+  }
+  return {
+    ...(hasLat ? { latitude: dto.latitude ?? null, longitude: dto.longitude ?? null } : {}),
+    ...(dto.geoRadiusMeters !== undefined ? { geoRadiusMeters: dto.geoRadiusMeters ?? null } : {})
+  };
+}
+
 @Injectable()
 export class OrganizationService {
   constructor(private readonly prisma: PrismaService) {}
@@ -136,7 +149,8 @@ export class OrganizationService {
           type: dto.type,
           description: dto.description?.trim() || null,
           address: dto.address?.trim() || null,
-          contactPhone: dto.contactPhone?.trim() || null
+          contactPhone: dto.contactPhone?.trim() || null,
+          ...siteGeoFields(dto)
         }
       });
       await writeAuditTrail(this.prisma, {
@@ -181,7 +195,8 @@ export class OrganizationService {
           description: dto.description === undefined ? undefined : dto.description?.trim() || null,
           address: dto.address === undefined ? undefined : dto.address?.trim() || null,
           contactPhone: dto.contactPhone === undefined ? undefined : dto.contactPhone?.trim() || null,
-          isActive: dto.isActive
+          isActive: dto.isActive,
+          ...siteGeoFields(dto)
         }
       });
       await writeAuditTrail(this.prisma, {
@@ -603,6 +618,9 @@ export class OrganizationService {
     legacyPropertyId?: string | null;
     createdAt: Date;
     updatedAt: Date;
+    latitude?: number | null;
+    longitude?: number | null;
+    geoRadiusMeters?: number | null;
     _count?: { locations: number };
   }) {
     return {
@@ -614,6 +632,9 @@ export class OrganizationService {
       description: site.description,
       address: site.address,
       contactPhone: site.contactPhone ?? null,
+      latitude: site.latitude ?? null,
+      longitude: site.longitude ?? null,
+      geoRadiusMeters: site.geoRadiusMeters ?? null,
       isActive: site.isActive,
       legacyPropertyId: site.legacyPropertyId ?? null,
       locationCount: site._count?.locations ?? undefined,

@@ -100,6 +100,13 @@ const DEFAULT_SERVICE_ALERT_DAYS = 14;
 const DEFAULT_SERVICE_ALERT_MILEAGE = 500;
 const MAX_METER_LOG_LIMIT = 500;
 
+/** Statuses an approved gate override may release from. */
+const GATE_OVERRIDE_CLAIMABLE_STATUSES: VehicleStatus[] = [
+  VehicleStatus.AVAILABLE,
+  VehicleStatus.UNDER_MAINTENANCE,
+  VehicleStatus.OUT_OF_SERVICE
+];
+
 @Injectable()
 export class VehiclesService {
   constructor(
@@ -762,7 +769,8 @@ export class VehiclesService {
       blockReasons.push("Vehicle is on a manual gate hold");
     }
 
-    const serviceEvaluation = this.evaluateServiceWindow(vehicle);
+    // Judge service due against the odometer reading presented at the gate, not the stored one.
+    const serviceEvaluation = this.evaluateServiceWindow({ ...vehicle, currentMileage: data.meterReading });
     if (serviceEvaluation.overdue) {
       blockReasons.push("Vehicle service is overdue");
     }
@@ -915,9 +923,16 @@ export class VehiclesService {
       serviceStatus: vehicle.serviceStatus
     });
 
+    // An approved override may release a vehicle held in maintenance/out of service, so claim the
+    // status it was evaluated in. IN_USE and DISPOSED are never claimable (active movement / retired).
+    const claimStatus =
+      movementStatus === GateMovementStatus.OVERRIDE_APPROVED && GATE_OVERRIDE_CLAIMABLE_STATUSES.includes(vehicle.status)
+        ? vehicle.status
+        : VehicleStatus.AVAILABLE;
+
     const result = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.vehicle.updateMany({
-        where: { id, tenantId, status: VehicleStatus.AVAILABLE },
+        where: { id, tenantId, status: claimStatus },
         data: {
           status: VehicleStatus.IN_USE,
           currentMileage: data.meterReading,
@@ -1052,10 +1067,29 @@ export class VehiclesService {
         });
       }
 
+      // A repair job can start while the vehicle is still out (status moves to UNDER_MAINTENANCE).
+      // It must still be able to come back in; it stays UNDER_MAINTENANCE until the job closes.
+      const lastMovement = await tx.vehicleGateMovement.findFirst({
+        where: {
+          vehicleId: id,
+          status: { in: [GateMovementStatus.ALLOWED, GateMovementStatus.OVERRIDE_APPROVED] }
+        },
+        orderBy: { occurredAt: "desc" },
+        select: { movementType: true }
+      });
+      const outForRepair =
+        vehicle.status === VehicleStatus.UNDER_MAINTENANCE && lastMovement?.movementType === GateMovementType.OUT;
+      // Work already started while it was out: it comes in to the workshop, not back to the pool.
+      const openRepairs = await tx.workOrder.count({
+        where: {
+          vehicleId: id,
+          status: { in: [WorkOrderStatus.IN_PROGRESS, WorkOrderStatus.ON_HOLD, WorkOrderStatus.REWORK_REQUIRED] }
+        }
+      });
       const claimed = await tx.vehicle.updateMany({
-        where: { id, status: VehicleStatus.IN_USE },
+        where: { id, status: outForRepair ? VehicleStatus.UNDER_MAINTENANCE : VehicleStatus.IN_USE },
         data: {
-          status: VehicleStatus.AVAILABLE,
+          status: outForRepair || openRepairs > 0 ? VehicleStatus.UNDER_MAINTENANCE : VehicleStatus.AVAILABLE,
           currentMileage: data.meterReading,
           serviceStatus
         }

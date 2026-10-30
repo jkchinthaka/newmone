@@ -226,6 +226,24 @@ export class WorkOrdersController {
     return { data, message: "Work order category summary fetched" };
   }
 
+  /** Vehicle Jobs page header: workshop counts and vehicles whose service is due or overdue. */
+  @Get("vehicle-overview")
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "OPERATIONS_MANAGER",
+    "ASSET_MANAGER",
+    "MECHANIC",
+    "TECHNICIAN",
+    "SUPERVISOR",
+    "INVENTORY_KEEPER"
+  )
+  async vehicleOverview(@Req() req: AuthedRequest) {
+    const data = await this.workOrdersService.vehicleJobsOverview(req.user);
+    return { data, message: "Vehicle jobs overview" };
+  }
+
   @Get("taxonomy/suggest")
   @Roles(
     "SUPER_ADMIN",
@@ -499,6 +517,9 @@ export class WorkOrdersController {
       capturedAt?: string;
       source?: string;
       clientGeneratedId?: string;
+      latitude?: number;
+      longitude?: number;
+      accuracyMeters?: number;
     }
   ) {
     const data = await this.evidenceService.createWorkOrderUploadRequest(id, body as never, req.user);
@@ -729,6 +750,9 @@ export class WorkOrdersController {
     }
   ) {
     const data = await this.workOrderAssigneesService.addAssignee(id, body, req.user);
+    // An approved OPEN job with its first technician moves to ASSIGNED, so the technician can start it.
+    await this.workOrdersService.promoteAssignedTechnician(id, req.user);
+    await this.workOrdersService.notifyEmployeesAssigned(id, [body.employeeId], req.user);
     return { data, message: "Work order assignee added" };
   }
 
@@ -846,11 +870,17 @@ export class WorkOrdersController {
   async startWorkOrder(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { expectedVersion?: number; idempotencyKey?: string }
+    // overrideReason: Admin/Super Admin only, to start without the before photo (audited).
+    @Body() body: { expectedVersion?: number; idempotencyKey?: string; overrideReason?: string }
   ) {
     const data = await this.workOrdersService.updateStatus(
       id,
-      { status: WorkOrderStatus.IN_PROGRESS, expectedVersion: body.expectedVersion, idempotencyKey: body.idempotencyKey },
+      {
+        status: WorkOrderStatus.IN_PROGRESS,
+        expectedVersion: body.expectedVersion,
+        idempotencyKey: body.idempotencyKey,
+        overrideReason: typeof body.overrideReason === "string" ? body.overrideReason.slice(0, 500) : undefined
+      },
       req.user
     );
     return { data, message: "Work order started" };

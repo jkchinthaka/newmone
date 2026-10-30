@@ -21,7 +21,7 @@ const WORK_ORDER_TONES: Record<string, StatusTone> = {
 const BADGE_LABELS: Record<string, string> = {
   IN_PROGRESS: "In progress",
   ON_HOLD: "On hold",
-  TECHNICIAN_COMPLETED: "Awaiting verification"
+  TECHNICIAN_COMPLETED: "Done, waiting for check"
 };
 
 const OTHER_LABELS: Record<string, string> = {

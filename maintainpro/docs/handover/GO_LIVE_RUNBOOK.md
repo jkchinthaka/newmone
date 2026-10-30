@@ -159,6 +159,8 @@ npx tsx scripts/ops/grant-v103-permissions.ts --apply --confirm-database=Maintai
 
 ```powershell
 # API service (already installed per DEPLOYMENT_RUNBOOK.md)
+# Bind to loopback only: Nginx/BFF are the only callers, and X-Real-IP is trusted from loopback peers only.
+nssm set MaintainProApi AppEnvironmentExtra "NODE_ENV=production PORT=3040 HOST=127.0.0.1"
 nssm start MaintainProApi
 
 # Verify API health

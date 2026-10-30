@@ -60,7 +60,7 @@ export function MorningBriefing() {
       }
     >
       {query.isLoading ? <InlineLoadingState label="Loading morning briefing…" /> : null}
-      {query.isError ? (
+      {query.isError && !query.data ? (
         <ErrorState title="Could not load briefing" error={query.error} onRetry={() => query.refetch()} />
       ) : null}
       {query.data ? (

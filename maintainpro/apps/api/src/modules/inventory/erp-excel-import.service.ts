@@ -311,8 +311,14 @@ export class ErpExcelImportService {
 
     const parts = await this.prisma.sparePart.findMany({
       where: { tenantId, isActive: true },
-      select: { id: true, partNumber: true, name: true, quantityInStock: true }
+      select: { id: true, partNumber: true, erpCode: true, name: true, quantityInStock: true }
     });
+    // Match the mapped ERP item code first, then fall back to partNumber.
+    const partsByErpCode = new Map(
+      parts
+        .filter((part) => normalizeErpItemCode(part.erpCode))
+        .map((part) => [normalizeErpItemCode(part.erpCode), part] as const)
+    );
     const partsByCode = new Map(
       parts.map((part) => [normalizeErpItemCode(part.partNumber), part] as const)
     );
@@ -348,11 +354,12 @@ export class ErpExcelImportService {
         duplicateRows += 1;
         message = "Duplicate item code in selected import scope";
       } else {
-        const part = partsByCode.get(row.itemCode);
+        const itemKey = normalizeErpItemCode(row.itemCode);
+        const part = partsByErpCode.get(itemKey) ?? partsByCode.get(itemKey);
         if (!part) {
           status = InventoryImportRowStatus.UNMAPPED;
           unmappedRows += 1;
-          message = "No matching MaintainPro partNumber";
+          message = "No MaintainPro part with this ERP code or partNumber";
         } else {
           partId = part.id;
           partNumber = part.partNumber;

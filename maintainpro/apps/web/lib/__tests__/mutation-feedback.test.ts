@@ -16,6 +16,6 @@ test("an unreachable server says the change was not saved", () => {
 });
 
 test("other errors keep the server message", () => {
-  const conflict = { response: { status: 409, data: { error: { message: "Work order was updated by someone else." } } } };
-  assert.equal(mutationErrorMessage(conflict, "fallback"), "Work order was updated by someone else.");
+  const conflict = { response: { status: 409, data: { error: { message: "Job was updated by someone else." } } } };
+  assert.equal(mutationErrorMessage(conflict, "fallback"), "Job was updated by someone else.");
 });

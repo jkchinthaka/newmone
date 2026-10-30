@@ -13,7 +13,9 @@ import { visibleWorkOrderTab, workOrderTabLoads } from "@/lib/operational-deep-l
 import { dialogTabTrapDecision, workOrderDrawerEscapeDecision } from "@/lib/overlay-dismiss";
 import { disableSubmitControl } from "@/lib/submit-lock";
 import { canViewAuditHistoryForUser, useCurrentUser } from "@/lib/use-current-user";
+import { canEditJobDetails } from "@/lib/work-order-edit-rights";
 import { canVerifyWorkOrder, isWorkOrderStarted } from "@/lib/work-order-governance";
+import { queueNextControl } from "@/lib/batch-3-presentation";
 import { isWorkOrderDrawerReadOnly } from "@/lib/work-order-drawer-display";
 import { overviewDraftDirty, overviewSaveDecision, type OverviewDraft } from "@/lib/work-order-overview-edit";
 import type { WorkOrderActivityTimelineResponse } from "@/lib/work-order-activity";
@@ -85,6 +87,10 @@ type WorkOrderEditorModalProps = {
   onClose: () => void;
   onCreate: (values: WorkOrderCreateFormValue) => void;
   onEdit: (values: WorkOrderEditFormValue) => void;
+  /** Role of the signed-in user. With onPrimaryAction it shows the next lifecycle step in the footer. */
+  actorRole?: string | null;
+  /** Runs the same next step as the list row button (Assign technician, Start job, Mark complete, Verify & close). */
+  onPrimaryAction?: (workOrder: WorkOrder, actionId: string) => void;
 };
 
 export function WorkOrderEditorModal({
@@ -98,7 +104,9 @@ export function WorkOrderEditorModal({
   presetAssetLabel,
   onClose,
   onCreate,
-  onEdit
+  onEdit,
+  actorRole,
+  onPrimaryAction
 }: WorkOrderEditorModalProps) {
   const isCreateMode = mode === "create";
   const reduceMotion = useReducedMotion();
@@ -330,6 +338,9 @@ export function WorkOrderEditorModal({
 
   const assetRequired = isCreateMode && requiresAssetOrVehicle(formState.type);
   const overviewEditable = isCreateMode || editingOverview;
+  // Job details (title, description, cost, hours) are Admin/Super Admin only after creation (API: JOB_DETAILS_ADMIN_ONLY);
+  // managers still edit the dates and technician.
+  const detailsEditable = overviewEditable && (isCreateMode || canEditJobDetails(currentUser.role));
   const scheduleLocked = !isCreateMode && Boolean(workOrder && isWorkOrderStarted(workOrder.status));
   const overviewBaseline: OverviewDraft = {
     title: initialState.title,
@@ -400,10 +411,10 @@ export function WorkOrderEditorModal({
             <header className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-brand-800">
-                  {isCreateMode ? "New work order" : workOrder?.woNumber || "Work order"}
+                  {isCreateMode ? "New job" : workOrder?.woNumber || "Job"}
                 </p>
                 <h3 id="work-order-editor-title" className="page-title break-words">
-                  {isCreateMode ? "Create an open job" : workOrder ? drawerTitle(workOrder) : "Work order"}
+                  {isCreateMode ? "Create an open job" : workOrder ? drawerTitle(workOrder) : "Job"}
                 </h3>
                 {!isCreateMode && workOrder ? (
                   <>
@@ -444,7 +455,7 @@ export function WorkOrderEditorModal({
                         {(
                           [
                             ["history", "Open history"],
-                            ["evidence", "Open evidence"],
+                            ["evidence", "Open photos"],
                             ...(currentUser.role === "TECHNICIAN" || currentUser.role === "MECHANIC"
                               ? []
                               : ([["assignment", "Open assignment"]] as const))
@@ -584,8 +595,10 @@ export function WorkOrderEditorModal({
 
                 setFormError(null);
                 onEdit({
-                  title: formState.title.trim(),
-                  description: formState.description.trim(),
+                  // Non-admins never send detail fields, so a planning save cannot trip JOB_DETAILS_ADMIN_ONLY.
+                  ...(detailsEditable
+                    ? { title: formState.title.trim(), description: formState.description.trim() }
+                    : {}),
                   dueDate:
                     scheduleLocked || !formState.dueDate
                       ? undefined
@@ -595,11 +608,11 @@ export function WorkOrderEditorModal({
                       ? undefined
                       : new Date(`${formState.expectedCompletionDate}T00:00:00.000Z`).toISOString(),
                   estimatedCost:
-                    formState.estimatedCost.trim() === ""
+                    !detailsEditable || formState.estimatedCost.trim() === ""
                       ? undefined
                       : Number(formState.estimatedCost),
                   estimatedHours:
-                    formState.estimatedHours.trim() === ""
+                    !detailsEditable || formState.estimatedHours.trim() === ""
                       ? undefined
                       : Number(formState.estimatedHours)
                 });
@@ -630,12 +643,17 @@ export function WorkOrderEditorModal({
                   </button>
                 ) : null}
                 </div>
+              {overviewEditable && !detailsEditable ? (
+                <p className="mb-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+                  Only an Admin can change the title, description, cost and hours after the job is created. You can change the dates and technician.
+                </p>
+              ) : null}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
                   <span className="font-medium">Title</span>
                   <input
                     required
-                    readOnly={!overviewEditable}
+                    readOnly={!detailsEditable}
                     value={formState.title}
                     onChange={(event) => setFormState((current) => ({ ...current, title: event.target.value }))}
                     className="field w-full"
@@ -646,7 +664,7 @@ export function WorkOrderEditorModal({
                   <span className="font-medium">Description</span>
                   <textarea
                     required
-                    readOnly={!overviewEditable}
+                    readOnly={!detailsEditable}
                     value={formState.description}
                     onChange={(event) => setFormState((current) => ({ ...current, description: event.target.value }))}
                     rows={3}
@@ -705,7 +723,7 @@ export function WorkOrderEditorModal({
                         min="0"
                         step="0.01"
                         value={formState.estimatedCost}
-                        readOnly={!overviewEditable}
+                        readOnly={!detailsEditable}
                         onChange={(event) =>
                           setFormState((current) => ({ ...current, estimatedCost: event.target.value }))
                         }
@@ -720,7 +738,7 @@ export function WorkOrderEditorModal({
                         min="0"
                         step="0.1"
                         value={formState.estimatedHours}
-                        readOnly={!overviewEditable}
+                        readOnly={!detailsEditable}
                         onChange={(event) =>
                           setFormState((current) => ({ ...current, estimatedHours: event.target.value }))
                         }
@@ -757,7 +775,7 @@ export function WorkOrderEditorModal({
                 </label>
                 {workOrder?.status === "CANCELLED" ? (
                   <p className="text-sm text-slate-700 sm:col-span-2">
-                    This work order is cancelled. Its approval record stays as history. This screen does not reopen it or change that approval.
+                    This job is cancelled. Its approval record stays as history. This screen does not reopen it or change that approval.
                   </p>
                 ) : null}
                 {scheduleLocked ? (
@@ -933,6 +951,24 @@ export function WorkOrderEditorModal({
                     Close
                   </button>
                 )}
+                {!isCreateMode && !editingOverview && workOrder && onPrimaryAction
+                  ? (() => {
+                      const next = queueNextControl({
+                        status: workOrder.status,
+                        role: actorRole,
+                        approvalStatus: workOrder.approvalStatus
+                      });
+                      return next.kind === "action" ? (
+                        <button
+                          type="button"
+                          onClick={() => onPrimaryAction(workOrder, next.actionId)}
+                          className="btn-primary w-full justify-center sm:w-auto"
+                        >
+                          {next.label}
+                        </button>
+                      ) : null;
+                    })()
+                  : null}
                 {saveDecision.showSave ? (
                   <button
                     type="submit"

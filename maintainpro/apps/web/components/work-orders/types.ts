@@ -107,6 +107,8 @@ export interface WorkOrder {
   updatedAt: string;
   asset?: WorkOrderAssetRef | null;
   vehicle?: WorkOrderVehicleRef | null;
+  functionalLocationId?: string | null;
+  functionalLocation?: { id?: string; code?: string | null; name: string } | null;
   technician?: UserReference | null;
   createdBy?: UserReference | null;
   taxonomyCategoryId?: string | null;

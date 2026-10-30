@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate as lkDate } from "@/lib/localization";
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -203,7 +204,7 @@ export default function MaintenanceInspectionsPage() {
                 <th className="px-3 py-2">Due</th>
                 <th className="px-3 py-2">Result</th>
                 <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Corrective action</th>
+                <th className="px-3 py-2">Repair action</th>
               </tr>
             </thead>
             <tbody>
@@ -224,14 +225,14 @@ export default function MaintenanceInspectionsPage() {
                       <div>{row.subjectName}</div>
                       <div className="text-xs text-slate-500">{row.subjectCode}</div>
                     </td>
-                    <td className="px-3 py-3">{row.scheduledAt ? new Date(row.scheduledAt).toLocaleDateString() : row.performedAt ? new Date(row.performedAt).toLocaleDateString() : "—"}</td>
+                    <td className="px-3 py-3">{lkDate(row.scheduledAt ?? row.performedAt)}</td>
                     <td className="px-3 py-3">
                       {resultLabel(row.result)}
                       {row.criticalFindings ? <div className="text-xs text-rose-800">{row.criticalFindings} critical/high</div> : null}
                     </td>
                     <td className="px-3 py-3">{statusLabel(row.status)}</td>
                     <td className="px-3 py-3">
-                      {actionId ? <Link className="text-brand-700" href={`/work-orders?wo=${actionId}` as Route}>Work order</Link> : null}
+                      {actionId ? <Link className="text-brand-700" href={`/work-orders?wo=${actionId}` as Route}>Job</Link> : null}
                       {requestId ? <Link className="block text-brand-700" href={`/requests/${requestId}` as Route}>Request</Link> : null}
                       {!actionId && !requestId ? "—" : null}
                     </td>

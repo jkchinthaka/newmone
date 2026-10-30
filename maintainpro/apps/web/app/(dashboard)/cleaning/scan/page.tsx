@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/localization";
 import { QrCode, ScanLine, Timer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -397,7 +398,7 @@ export default function CleaningScanPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-700">
           Smart Visit System
         </p>
-        <h1 className="mt-2 page-title">Proof-based cleaning verification</h1>
+        <h1 className="mt-2 page-title">Proof-based cleaning supervisor check</h1>
         <p className="mt-2 max-w-2xl text-sm text-slate-600">
           Choose quick scan for rapid logging, or full visit mode for checklist completion,
           before/after photos, and duration tracking.
@@ -442,7 +443,7 @@ export default function CleaningScanPage() {
               <p className="text-sm text-slate-600">
                 {mode === "QUICK"
                   ? "Timestamp, geofence and device checks are applied automatically."
-                  : "Begin a guided visit with checklist and photo evidence."}
+                  : "Begin a guided visit with checklist and photos."}
               </p>
             </div>
           </div>
@@ -548,7 +549,7 @@ export default function CleaningScanPage() {
                   {result.location.name} marked as cleaned by {result.cleaner.firstName} {result.cleaner.lastName}.
                 </p>
                 <p className="mt-2 text-xs text-emerald-700">
-                  {new Date(result.scannedAt).toLocaleString()} · Schedule {result.scheduleStatus ?? "ON_TIME"} · Geofence {result.geoValidated ? "validated" : "not configured"}
+                  {formatDateTime(result.scannedAt)} · Schedule {result.scheduleStatus ?? "ON_TIME"} · Geofence {result.geoValidated ? "validated" : "not configured"}
                 </p>
               </div>
             ) : (
@@ -638,7 +639,7 @@ export default function CleaningScanPage() {
                   disabled={submitting}
                   className="mt-3 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
                 >
-                  {submitting ? "Submitting..." : "Submit Visit for Sign-off"}
+                  {submitting ? "Submitting..." : "Submit Visit for supervisor approval"}
                 </button>
               </div>
             </div>

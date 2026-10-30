@@ -56,7 +56,7 @@ function mapQueueSummaryToBadges(summary: Awaited<ReturnType<typeof fetchWorkOrd
 export function useNavBadges(enabled: boolean, roleName?: string | null, permissions?: readonly string[] | null) {
   const approvals = useQuery({
     queryKey: withTenantScope(["approvals", "inbox-count"]),
-    queryFn: () => fetchApprovalInbox({ page: 1, pageSize: 1 }),
+    queryFn: ({ signal }) => fetchApprovalInbox({ page: 1, pageSize: 1 }, { signal }),
     select: (data) => data.meta.counts?.all ?? data.meta.total ?? 0,
     enabled: enabled && canFetchApprovalBadge(roleName, permissions),
     staleTime: 30_000,

@@ -45,7 +45,7 @@ test("fleet summary zeros render as 0", () => {
       onSelect: () => undefined
     })
   );
-  assert.equal(html.match(/>0</g)?.length, 6);
+  assert.equal(html.match(/>0</g)?.length, 5);
   assert.equal(html.includes("text-red-700"), false);
   assert.equal(html.includes("–"), false);
 });

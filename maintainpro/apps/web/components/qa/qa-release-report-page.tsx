@@ -19,7 +19,7 @@ export function QaReleaseReportPage() {
       <PageBreadcrumbs />
       <header>
         <h2 className="text-2xl font-semibold">Release Quality Report</h2>
-        <p className="text-sm text-slate-500">Readiness verdict based on open issues, security, and regression status.</p>
+        <p className="text-sm text-slate-500">Ready or not based on open issues, security, and regression status.</p>
       </header>
       {query.isLoading ? (
         <InlineLoadingState label="Generating report…" />

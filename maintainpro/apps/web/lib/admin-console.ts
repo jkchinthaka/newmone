@@ -100,7 +100,7 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     },
     {
       id: "priority-sla",
-      title: "Priority / SLA Rules",
+      title: "Priority & Response Time Rules",
       description: "Response and completion targets by priority.",
       status: "available",
       statusLabel: "Setup",
@@ -117,7 +117,7 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     {
       id: "reason-codes",
       title: "Hold / Delay Reasons",
-      description: "Structured pause reasons for work orders.",
+      description: "Structured pause reasons for jobs.",
       status: "available",
       statusLabel: "Setup",
       href: "/admin/reason-codes"

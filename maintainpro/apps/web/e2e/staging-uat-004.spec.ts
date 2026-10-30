@@ -19,29 +19,19 @@ async function loginAs(page: Page, email: string) {
 test.describe("UAT-004 production hardening browser checks", () => {
   test.skip(!configured, "Set MAINTAINPRO_WEB_URL and MAINTAINPRO_SMOKE_PASSWORD (min 12 chars)");
 
-  test("security officer can open fleet gate page", async ({ page }) => {
+  test("retired gate screen redirects security officer away", async ({ page }) => {
     await loginAs(page, "security@maintainpro.local");
     await page.goto(`${stagingWeb}/fleet/gate`);
-    await expect(page.getByRole("heading", { name: "Fleet gate operations" })).toBeVisible();
-    await expect(page.getByLabel("Vehicle list")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Gate action" })).toBeVisible();
-
-    const vehicleButtons = page.getByLabel("Vehicle list").getByRole("button");
-    if ((await vehicleButtons.count()) > 0) {
-      await vehicleButtons.first().click();
-      await expect(page.getByRole("button", { name: "Gate out" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Gate in" })).toBeVisible();
-    } else {
-      await expect(page.getByText("No vehicles match this search.")).toBeVisible();
-      await expect(page.getByText("Select a vehicle to attempt gate movement.")).toBeVisible();
-    }
+    await expect(page).not.toHaveURL(/\/fleet\/gate/);
+    await expect(page.getByText(/Minified React error/i)).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Fleet gate operations" })).toHaveCount(0);
   });
 
   test("technician cannot access fleet gate route", async ({ page }) => {
     await loginAs(page, "tech@maintainpro.local");
     await page.goto(`${stagingWeb}/fleet/gate`);
     await expect(page.getByText(/Minified React error/i)).toHaveCount(0);
-    await expect(page.getByText("Access restricted")).toBeVisible();
+    await expect(page).not.toHaveURL(/\/fleet\/gate/);
     await expect(page.getByRole("heading", { name: "Fleet gate operations" })).toHaveCount(0);
   });
 });

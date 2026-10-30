@@ -20,6 +20,12 @@ export const UTILITY_READINGS_QUERY_KEY = ["utilities", "readings"] as const;
 export const UTILITY_BILLS_QUERY_KEY = ["utilities", "bills"] as const;
 export const UTILITY_ANALYTICS_QUERY_KEY = ["utilities", "analytics"] as const;
 
+/**
+ * Meters, readings, and bills change only when someone records one, and every mutation below
+ * invalidates them. No background polling: it re-downloaded every reading and bill every 45s.
+ */
+export const UTILITY_STALE_TIME_MS = 5 * 60_000;
+
 function invalidateUtilityQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: UTILITY_METERS_QUERY_KEY });
   queryClient.invalidateQueries({ queryKey: UTILITY_READINGS_QUERY_KEY });
@@ -31,7 +37,7 @@ export function useUtilityMetersQuery() {
   return useQuery({
     queryKey: UTILITY_METERS_QUERY_KEY,
     queryFn: fetchUtilityMeters,
-    refetchInterval: 60_000
+    staleTime: UTILITY_STALE_TIME_MS
   });
 }
 
@@ -39,7 +45,7 @@ export function useUtilityReadingsQuery() {
   return useQuery({
     queryKey: UTILITY_READINGS_QUERY_KEY,
     queryFn: fetchUtilityReadings,
-    refetchInterval: 45_000,
+    staleTime: UTILITY_STALE_TIME_MS,
     select: (rows) => [...rows].sort((a, b) => b.readingDate.localeCompare(a.readingDate))
   });
 }
@@ -48,7 +54,7 @@ export function useUtilityBillsQuery() {
   return useQuery({
     queryKey: UTILITY_BILLS_QUERY_KEY,
     queryFn: fetchUtilityBills,
-    refetchInterval: 45_000,
+    staleTime: UTILITY_STALE_TIME_MS,
     select: (rows) => [...rows].sort((a, b) => b.billingPeriodStart.localeCompare(a.billingPeriodStart))
   });
 }
@@ -57,7 +63,7 @@ export function useUtilityAnalyticsQuery() {
   return useQuery({
     queryKey: UTILITY_ANALYTICS_QUERY_KEY,
     queryFn: fetchUtilityAnalytics,
-    refetchInterval: 90_000
+    staleTime: UTILITY_STALE_TIME_MS
   });
 }
 

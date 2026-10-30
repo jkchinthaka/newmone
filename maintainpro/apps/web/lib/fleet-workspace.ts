@@ -1,6 +1,7 @@
 export const FLEET_EMPTY = "No fleet records match these filters.";
 
-export const FLEET_VIEWS = ["vehicles", "gate", "accidents", "claims", "fines", "compliance"] as const;
+/** The gate view was retired from the UI; old `view=gate` links fall back to Vehicles. */
+export const FLEET_VIEWS = ["vehicles", "accidents", "claims", "fines", "compliance"] as const;
 
 export type FleetView = (typeof FLEET_VIEWS)[number];
 
@@ -13,7 +14,6 @@ export type FleetState = {
   q: string;
   status: string;
   service: FleetServiceFilter;
-  gate: "" | "blocked" | "ready";
   location: string;
   expiry: "" | "30d";
   repair: "" | "open";
@@ -29,7 +29,6 @@ const STATUSES = new Set(["AVAILABLE", "IN_USE", "UNDER_MAINTENANCE", "OUT_OF_SE
 export function fleetStateFromSearch(params: URLSearchParams): FleetState {
   const viewRaw = params.get("view") ?? "vehicles";
   const service = params.get("service") ?? "";
-  const gate = params.get("state") ?? "";
   const status = params.get("status") ?? "";
   const page = Number(params.get("page"));
   const pageSize = Number(params.get("pageSize"));
@@ -38,7 +37,6 @@ export function fleetStateFromSearch(params: URLSearchParams): FleetState {
     q: params.get("q") ?? "",
     status: STATUSES.has(status) ? status : "",
     service: SERVICES.has(service) ? (service as FleetServiceFilter) : "",
-    gate: gate === "blocked" || gate === "ready" ? gate : "",
     location: params.get("location") ?? "",
     expiry: params.get("expiry") === "30d" ? "30d" : "",
     repair: params.get("repair") === "open" ? "open" : "",
@@ -55,7 +53,6 @@ export function fleetSearch(state: FleetState): string {
   if (state.q) params.set("q", state.q);
   if (state.status) params.set("status", state.status);
   if (state.service) params.set("service", state.service);
-  if (state.gate) params.set("state", state.gate);
   if (state.location) params.set("location", state.location);
   if (state.expiry) params.set("expiry", state.expiry);
   if (state.repair) params.set("repair", state.repair);
@@ -66,8 +63,10 @@ export function fleetSearch(state: FleetState): string {
   return params.toString();
 }
 
+export type FleetKpiMetric = "overdue" | "due" | "docs" | "repairs" | "out";
+
 export function fleetKpiTarget(
-  metric: "overdue" | "due" | "docs" | "gate" | "repairs" | "out",
+  metric: FleetKpiMetric,
   pageSize = 25
 ): FleetState {
   const base = fleetStateFromSearch(new URLSearchParams());
@@ -75,7 +74,6 @@ export function fleetKpiTarget(
   if (metric === "overdue") return { ...base, view: "vehicles", service: "overdue", pageSize: size };
   if (metric === "due") return { ...base, view: "vehicles", service: "due-soon", pageSize: size };
   if (metric === "docs") return { ...base, view: "compliance", expiry: "30d", pageSize: size };
-  if (metric === "gate") return { ...base, view: "gate", gate: "blocked", pageSize: size };
   if (metric === "repairs") return { ...base, view: "accidents", repair: "open", pageSize: size };
   return { ...base, view: "vehicles", status: "OUT_OF_SERVICE", pageSize: size };
 }

@@ -80,6 +80,13 @@ export class AssetsController {
     return { data, message: "Asset filter options fetched" };
   }
 
+  @Get("next-tag")
+  @Roles(...ASSET_CREATE_ROLES)
+  async nextTag(@Req() req: AuthedRequest, @Query("category") category?: string) {
+    const data = await this.assetsService.suggestNextAssetTag(req.user?.tenantId ?? null, category);
+    return { data, message: "Next asset tag" };
+  }
+
   @Get("validate-tag")
   @Roles(...ASSET_READ_ROLES)
   async validateTag(@Req() req: AuthedRequest, @Query() query: AssetTagValidationQueryDto) {

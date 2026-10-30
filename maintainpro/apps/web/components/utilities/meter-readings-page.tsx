@@ -16,6 +16,7 @@ import { formatCompact, formatDate, formatQuantity, getErrorMessage, toNumber } 
 import { useCreateUtilityReadingMutation, useUtilityMetersQuery, useUtilityReadingsQuery } from "./hooks";
 import { DataTable, EmptyState, LoadingPanel, ModalShell } from "./shared-ui";
 import type { ReadingFormValues, UtilityRole } from "./types";
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
 
 const readingFormSchema = z.object({
   meterId: z.string().min(1, "Meter is required"),
@@ -42,7 +43,7 @@ export default function MeterReadingsPage() {
     resolver: zodResolver(readingFormSchema),
     defaultValues: {
       meterId,
-      readingDate: new Date().toISOString().slice(0, 10),
+      readingDate: colomboTodayYmd(),
       readingValue: 0,
       notes: "",
       images: ""
@@ -88,7 +89,7 @@ export default function MeterReadingsPage() {
   const openModal = () => {
     readingForm.reset({
       meterId,
-      readingDate: new Date().toISOString().slice(0, 10),
+      readingDate: colomboTodayYmd(),
       readingValue: 0,
       notes: "",
       images: ""
@@ -162,7 +163,7 @@ export default function MeterReadingsPage() {
       </header>
 
       <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-900">Consumption trend</h3>
+        <h3 className="text-sm font-semibold text-slate-900">Usage trend</h3>
         {chartData.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500">No readings yet for this meter.</p>
         ) : (
@@ -193,7 +194,7 @@ export default function MeterReadingsPage() {
               <tr>
                 <th className="px-4 py-3">Date</th>
                 <th className="px-4 py-3">Reading Value</th>
-                <th className="px-4 py-3">Consumption</th>
+                <th className="px-4 py-3">Usage</th>
                 <th className="px-4 py-3">Notes</th>
               </tr>
             </thead>

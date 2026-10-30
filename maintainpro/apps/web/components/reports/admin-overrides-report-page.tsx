@@ -115,7 +115,7 @@ export function AdminOverridesReportPage() {
               <th className="px-3 py-2">Action</th>
               <th className="px-3 py-2">Reason</th>
               <th className="px-3 py-2">Severity</th>
-              <th className="px-3 py-2">Work order</th>
+              <th className="px-3 py-2">Job</th>
             </tr>
           </thead>
           <tbody>

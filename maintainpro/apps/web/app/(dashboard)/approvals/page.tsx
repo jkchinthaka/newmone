@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PendingApprovalsInbox } from "@/components/approvals/pending-approvals-inbox";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ResponsivePageHeader } from "@/components/ui/responsive-page-header";
-import { ErrorState } from "@/components/ui/page-state";
 import {
   bulkApproveInbox,
   decideInboxItem,
@@ -16,6 +15,7 @@ import {
 } from "@/lib/approvals-api";
 import type { InboxTabId, InboxViewItem } from "@/lib/approval-inbox-view";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { clampPage, createRequestSequencer, isAbortError, readServerTotal } from "@/lib/list-query-state";
 
 function toView(item: ApprovalInboxItem): InboxViewItem {
   return {
@@ -41,9 +41,12 @@ function toView(item: ApprovalInboxItem): InboxViewItem {
   };
 }
 
+const DEFAULT_PAGE_SIZE = 25;
+
 export default function ApprovalsInboxPage() {
   const [items, setItems] = useState<InboxViewItem[]>([]);
   const [counts, setCounts] = useState<ApprovalInboxCounts | undefined>();
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<InboxTabId>("all");
@@ -52,39 +55,70 @@ export default function ApprovalsInboxPage() {
   const [site, setSite] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [busyIds, setBusyIds] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const sequencer = useRef(createRequestSequencer());
 
+  // Search and Site are committed by debounced inputs in the inbox, so typing does not fire per keystroke.
   const refresh = useCallback(async () => {
+    const request = sequencer.current.begin();
     setLoading(true);
     setError(null);
     try {
       const data = await fetchApprovalInbox({
-        page: 1,
-        pageSize: 50,
+        page,
+        pageSize,
         tab,
         search: search || undefined,
         priority: priority || undefined,
         siteId: site || undefined,
         from: from || undefined,
         to: to || undefined
-      });
-      setItems((data.items ?? []).map(toView));
-      setCounts(data.meta.counts);
+      }, { signal: request.signal });
+      // A slower, older request must not overwrite the newer filter's results.
+      if (!sequencer.current.isLatest(request.id)) return;
+      const rows = (data.items ?? []).map(toView);
+      setItems(rows);
+      setCounts(data.meta?.counts);
+      setTotal(readServerTotal(data, rows.length));
     } catch (err) {
+      if (!sequencer.current.isLatest(request.id) || isAbortError(err)) return;
       setError(getApiErrorMessage(err, "Request failed"));
     } finally {
-      setLoading(false);
+      if (sequencer.current.isLatest(request.id)) setLoading(false);
     }
-  }, [tab, search, priority, site, from, to]);
+  }, [page, pageSize, tab, search, priority, site, from, to]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const sequence = sequencer.current;
+    return () => sequence.cancel();
+  }, []);
+
+  // Clamp after a decision empties the last page.
+  useEffect(() => {
+    if (loading || error) return;
+    const clamped = clampPage(page, total, pageSize);
+    if (clamped !== page) setPage(clamped);
+  }, [error, loading, page, pageSize, total]);
+
+  const withFirstPage = <T,>(setter: (value: T) => void) => (value: T) => {
+    setter(value);
+    setPage(1);
+  };
 
   async function onDecide(item: InboxViewItem, decision: "APPROVED" | "REJECTED" | "RETURNED", reason?: string) {
     if (decision !== "APPROVED" && (reason?.trim().length ?? 0) < 3) {
       toast.error("A reason is required");
       return;
     }
+    if (busyIds.includes(item.id)) return;
+    setBusyIds((current) => [...current, item.id]);
     try {
       await decideInboxItem({
         id: item.id,
@@ -101,10 +135,14 @@ export default function ApprovalsInboxPage() {
       const message = getApiErrorMessage(err, "Request failed");
       toast.error(message.includes("Refresh") ? "This approval changed. Refresh and try again." : message);
       if (message.includes("Refresh")) await refresh();
+    } finally {
+      setBusyIds((current) => current.filter((id) => id !== item.id));
     }
   }
 
   async function onBulkApprove(selected: InboxViewItem[]) {
+    if (bulkBusy) return;
+    setBulkBusy(true);
     try {
       const result = await bulkApproveInbox(
         selected.map((item) => ({
@@ -121,6 +159,8 @@ export default function ApprovalsInboxPage() {
       await refresh();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Request failed"));
+    } finally {
+      setBulkBusy(false);
     }
   }
 
@@ -128,23 +168,31 @@ export default function ApprovalsInboxPage() {
     <div className="ops-page">
       <PageBreadcrumbs items={[{ label: "Approvals", href: "/approvals" }]} />
       <ResponsivePageHeader title="Approvals" description="Items waiting for your decision. You cannot approve your own requests." />
-      {error ? <ErrorState title="Could not load approvals" description={error} onRetry={() => void refresh()} /> : null}
       <PendingApprovalsInbox
         items={items}
         counts={counts}
         loading={loading}
+        error={error}
+        onRetry={() => void refresh()}
         tab={tab}
-        onTab={setTab}
+        onTab={withFirstPage(setTab)}
         search={search}
-        onSearch={setSearch}
+        onSearch={withFirstPage(setSearch)}
         priority={priority}
-        onPriority={setPriority}
+        onPriority={withFirstPage(setPriority)}
         site={site}
-        onSite={setSite}
+        onSite={withFirstPage(setSite)}
         from={from}
         to={to}
-        onFrom={setFrom}
-        onTo={setTo}
+        onFrom={withFirstPage(setFrom)}
+        onTo={withFirstPage(setTo)}
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPage={setPage}
+        onPageSize={withFirstPage(setPageSize)}
+        busyIds={busyIds}
+        bulkBusy={bulkBusy}
         onDecide={(item, decision, reason) => void onDecide(item, decision, reason)}
         onBulkApprove={(selected) => void onBulkApprove(selected)}
       />

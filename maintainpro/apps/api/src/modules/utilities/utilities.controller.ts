@@ -164,9 +164,20 @@ export class UtilitiesController {
 
   @Get("bills")
   @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR")
-  async bills(@Req() req: AuthedRequest) {
-    const data = await this.utilitiesService.bills(req.user?.tenantId ?? null);
+  async bills(@Req() req: AuthedRequest, @Query("take") take?: string, @Query("days") days?: string) {
+    const data = await this.utilitiesService.bills(req.user?.tenantId ?? null, {
+      take: take ? Number(take) : undefined,
+      days: days ? Number(days) : undefined
+    });
     return { data, message: "Bills fetched" };
+  }
+
+  // Declared before bills/:id so "overdue" is not read as a bill id.
+  @Get("bills/overdue")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
+  async overdue(@Req() req: AuthedRequest) {
+    const data = await this.utilitiesService.overdue(req.user?.tenantId ?? null);
+    return { data, message: "Overdue bills fetched" };
   }
 
   @Post("bills")
@@ -213,13 +224,6 @@ export class UtilitiesController {
 
     const data = await this.utilitiesService.payBill(body.id, req.user?.tenantId ?? null);
     return { data, message: "Bill paid" };
-  }
-
-  @Get("bills/overdue")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER")
-  async overdue(@Req() req: AuthedRequest) {
-    const data = await this.utilitiesService.overdue(req.user?.tenantId ?? null);
-    return { data, message: "Overdue bills fetched" };
   }
 
   @Get("analytics")

@@ -29,6 +29,7 @@ import {
 import { applyHttpServerTimeouts } from "./bootstrap/http-server-timeouts";
 import { docsJsonAllowed, healthBodyForEnvironment, minimalLiveness } from "./bootstrap/production-surface";
 import { requestContext } from "./common/context/request-context";
+import { resolveListenHost } from "./config/listen-host";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
@@ -43,7 +44,7 @@ async function bootstrap(): Promise<void> {
     .filter(Boolean);
 
   const allowedOrigins = Array.from(
-    new Set(["http://localhost:3001", "http://localhost:5173", ...configuredOrigins])
+    new Set(["http://localhost:3041", "http://127.0.0.1:3041", "http://localhost:3001", "http://localhost:5173", ...configuredOrigins])
   );
 
   app.use(helmet());
@@ -250,8 +251,9 @@ async function bootstrap(): Promise<void> {
     });
   });
 
+  // Docker images and e2e stacks listen on 3000; the local launcher and the go-live service set PORT=3040.
   const port = Number(process.env.PORT ?? 3000);
-  const host = process.env.HOST ?? "0.0.0.0";
+  const host = resolveListenHost(process.env);
   await app.listen(port, host);
   const timeouts = applyHttpServerTimeouts(app.getHttpServer());
   // eslint-disable-next-line no-console

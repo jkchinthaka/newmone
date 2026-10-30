@@ -7,6 +7,7 @@ import { ReliabilityModule } from "../reliability/reliability.module";
 import { WorkOrdersModule } from "../work-orders/work-orders.module";
 import { PlanningController } from "./planning.controller";
 import { PlanningService } from "./planning.service";
+import { PmAutoSchedulerService } from "./pm-auto-scheduler.service";
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { PlanningService } from "./planning.service";
     forwardRef(() => MaintenanceRequestsModule)
   ],
   controllers: [PlanningController],
-  providers: [PlanningService],
+  providers: [PlanningService, PmAutoSchedulerService],
   exports: [PlanningService]
 })
 export class PlanningModule {}

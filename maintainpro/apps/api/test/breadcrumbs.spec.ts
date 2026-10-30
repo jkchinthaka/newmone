@@ -8,7 +8,7 @@ import { LEGACY_FMS_HOME_PATH } from "../../web/lib/role-redirect";
 
 describe("breadcrumb helpers", () => {
   it("maps known list routes to static labels", () => {
-    expect(getBreadcrumbsForPath("/work-orders")).toEqual([{ label: "Work Orders" }]);
+    expect(getBreadcrumbsForPath("/work-orders")).toEqual([{ label: "Jobs" }]);
     expect(getBreadcrumbsForPath("/inventory")).toEqual([{ label: "Inventory" }]);
     expect(getBreadcrumbsForPath("/system-health")).toEqual([{ label: "System Health" }]);
     expect(getBreadcrumbsForPath("/admin")).toEqual([{ label: "Admin Console" }]);

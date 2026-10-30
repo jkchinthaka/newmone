@@ -12,14 +12,14 @@ export function SlaMonitorPage() {
   return (
     <div className="space-y-5">
       <PageBreadcrumbs />
-      <h2 className="text-2xl font-semibold">SLA Monitor</h2>
+      <h2 className="text-2xl font-semibold">Time Limit Monitor</h2>
       {query.isLoading ? (
-        <InlineLoadingState label="Loading SLA metrics…" />
+        <InlineLoadingState label="Loading time limit metrics…" />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {(
             [
-              ["Open SLA Breaches", query.data?.openSlaBreaches],
+              ["Open time limit Breaches", query.data?.openSlaBreaches],
               ["Near Breach", query.data?.ticketsNearBreach],
               ["Avg First Response (min)", query.data?.avgFirstResponseMinutes],
               ["Avg Resolution (min)", query.data?.avgResolutionMinutes]
@@ -42,7 +42,7 @@ export function EscalationMatrixPage() {
   return (
     <div className="space-y-5">
       <PageBreadcrumbs />
-      <h2 className="text-2xl font-semibold">Escalation Matrix</h2>
+      <h2 className="text-2xl font-semibold">Who to call when late</h2>
       {query.isLoading ? (
         <InlineLoadingState label="Loading escalation rules…" />
       ) : (

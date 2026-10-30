@@ -1,5 +1,6 @@
 "use client";
 
+import { TouchCheckbox } from "@/components/ui/touch-checkbox";
 import type { KeyboardEvent } from "react";
 
 import {
@@ -65,11 +66,10 @@ export function WorkOrderCompactTable({
             <tr>
               {canBulkSelect ? (
                 <th className="w-10 px-3 py-2">
-                  <input
-                    type="checkbox"
+                  <TouchCheckbox
                     checked={allSelected}
                     onChange={(event) => onToggleSelectAll(event.target.checked)}
-                    aria-label="Select all work orders"
+                    label="Select all jobs on this page"
                   />
                 </th>
               ) : null}
@@ -110,11 +110,10 @@ export function WorkOrderCompactTable({
                 >
                   {canBulkSelect ? (
                     <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
-                      <input
-                        type="checkbox"
+                      <TouchCheckbox
                         checked={selectedIds.includes(row.id)}
                         onChange={() => onToggleSelect(row.id)}
-                        aria-label={`Select ${row.woNumber}`}
+                        label={`Select ${row.woNumber}`}
                       />
                     </td>
                   ) : null}

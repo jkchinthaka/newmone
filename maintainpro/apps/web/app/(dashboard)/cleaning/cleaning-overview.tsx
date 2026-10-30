@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/localization";
 import { useMemo, type ReactNode } from "react";
 import { AlertTriangle, Building2, CheckCircle2, Clock3, ShieldCheck, Siren } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -193,7 +194,7 @@ export function CleaningOverview() {
         </div>
 
         <div className={cardClass}>
-          <p className="text-sm font-semibold text-slate-900">Weekly Throughput</p>
+          <p className="text-sm font-semibold text-slate-900">Jobs done this week</p>
           <p className="text-xs text-slate-500">Weekly cleaning output with risk indicators</p>
           <div className="mt-3 h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -265,7 +266,7 @@ export function CleaningOverview() {
               items={data.alerts.rejectedVisits.map((item) => ({
                 id: item.id,
                 primary: `${item.locationName} (${item.cleanerName})`,
-                secondary: item.rejectionReason || new Date(item.scannedAt).toLocaleString()
+                secondary: item.rejectionReason || formatDateTime(item.scannedAt)
               }))}
             />
 
