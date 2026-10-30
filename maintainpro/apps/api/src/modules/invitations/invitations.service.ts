@@ -300,7 +300,7 @@ export class InvitationsService {
           }
         });
 
-    const frontendBaseUrl = this.configService.get<string>("FRONTEND_URL") ?? "http://localhost:3001";
+    const frontendBaseUrl = this.configService.get<string>("FRONTEND_URL") ?? "http://localhost:3041";
     const invitationLink = `${frontendBaseUrl}/register?invitationToken=${encodeURIComponent(rawToken)}`;
 
     return this.toCreateTenantInvitationResponse(invitation, tenant.name, invitationLink);

@@ -4,7 +4,10 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { SelfService } from "../../common/decorators/self-service.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { AllowPendingPasswordChange } from "../../common/guards/password-change-required.guard";
 import type { JwtPayload } from "../auth/auth.types";
+import { ChangePasswordDto } from "./dto/change-password.dto";
+import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { SettingsService } from "./settings.service";
 
 type AuthedRequest = {
@@ -27,20 +30,18 @@ export class SettingsController {
 
   @Patch("profile")
   @SelfService()
-  async updateProfile(
-    @Req() req: AuthedRequest,
-    @Body()
-    body: Partial<{
-      firstName: string;
-      lastName: string;
-      email: string;
-      phone: string;
-      currentPassword: string;
-      newPassword: string;
-    }>
-  ) {
-    const data = await this.settingsService.updateProfile(req.user.sub, body);
+  async updateProfile(@Req() req: AuthedRequest, @Body() body: UpdateProfileDto) {
+    const data = await this.settingsService.updateProfile(req.user.sub, body, req.user.tenantId ?? null);
     return { data, message: "Profile settings updated" };
+  }
+
+  /** Self-service password change; the only business route open while a temporary password is pending. */
+  @Patch("password")
+  @SelfService()
+  @AllowPendingPasswordChange()
+  async changePassword(@Req() req: AuthedRequest, @Body() body: ChangePasswordDto) {
+    const data = await this.settingsService.changePassword(req.user.sub, body, req.user.tenantId ?? null);
+    return { data, message: "Password changed" };
   }
 
   @Get("organization")

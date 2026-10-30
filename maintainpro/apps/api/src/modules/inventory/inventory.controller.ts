@@ -32,6 +32,7 @@ import { InventoryDailyService } from "./inventory-daily.service";
 import { StockCountService } from "./stock-count.service";
 import { ErpExcelImportService } from "./erp-excel-import.service";
 import { ERP_EXCEL_MAX_BYTES } from "./erp-excel-stock.parser";
+import { PART_REQUEST_ISSUE_ROLES } from "../work-orders/part-request-access";
 import {
   ApprovePurchaseOrderDto,
   CreatePurchaseOrderDto,
@@ -84,7 +85,9 @@ export class InventoryController {
     @Query("mapped") mapped?: string,
     @Query("stock") stock?: string,
     @Query("sortBy") sortBy?: string,
-    @Query("sortDir") sortDir?: string
+    @Query("sortDir") sortDir?: string,
+    @Query("take") takeRaw?: string,
+    @Query("skip") skipRaw?: string
   ) {
     if (pageRaw != null && pageRaw !== "") {
       const data = await this.inventoryService.partsPage(req.user, {
@@ -101,8 +104,8 @@ export class InventoryController {
       });
       return { data, message: "Parts fetched" };
     }
-    const data = await this.inventoryService.parts(req.user);
-    return { data, message: "Parts fetched" };
+    const { items, meta } = await this.inventoryService.parts(req.user, { take: Number(takeRaw), skip: Number(skipRaw) });
+    return { data: items, meta, message: "Parts fetched" };
   }
 
   @Post("parts")
@@ -166,6 +169,31 @@ export class InventoryController {
   async stockIn(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { quantity: number; notes?: string }) {
     const data = await this.inventoryService.stockIn(id, body.quantity, body.notes, req.user);
     return { data, message: "Stock added" };
+  }
+
+  @Get("unverified-issues")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER", "MANAGER")
+  @Permissions("inventory.manage")
+  async unverifiedIssues(
+    @Req() req: AuthedRequest,
+    @Query("view") view?: string,
+    @Query("take") take?: string
+  ) {
+    const data = await this.inventoryService.listUnverifiedIssues(req.user, { view, take: take ? Number(take) : undefined });
+    return { data, message: "Parts issued without verified ERP stock" };
+  }
+
+  @Post("unverified-issues/:id/review")
+  @HttpCode(HttpStatus.OK)
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "INVENTORY_KEEPER")
+  @Permissions("inventory.manage")
+  async reviewUnverifiedIssue(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { outcome?: string; note?: string }
+  ) {
+    const data = await this.inventoryService.reviewUnverifiedIssue(req.user, id, body ?? {});
+    return { data, message: "Part issue checked" };
   }
 
   @Post("parts/:id/stock-out")
@@ -264,9 +292,12 @@ export class InventoryController {
     "FINANCE"
   )
   @Permissions("purchase_orders.view")
-  async purchaseOrders(@Req() req: AuthedRequest) {
-    const data = await this.inventoryService.purchaseOrders(req.user);
-    return { data, message: "Purchase orders fetched" };
+  async purchaseOrders(@Req() req: AuthedRequest, @Query("take") takeRaw?: string, @Query("skip") skipRaw?: string) {
+    const { items, meta } = await this.inventoryService.purchaseOrders(req.user, {
+      take: Number(takeRaw),
+      skip: Number(skipRaw)
+    });
+    return { data: items, meta, message: "Purchase orders fetched" };
   }
 
   @Get("purchase-orders/:id")
@@ -455,6 +486,15 @@ export class InventoryController {
   async dashboard(@Req() req: AuthedRequest) {
     const data = await this.inventoryService.dashboard(req.user);
     return { data, message: "Inventory dashboard fetched" };
+  }
+
+  /** Stores inbox: approved part requests still waiting to be issued (read-only). */
+  @Get("parts-to-issue")
+  @Roles(...PART_REQUEST_ISSUE_ROLES)
+  @Permissions("part_requests.view")
+  async partsToIssue(@Req() req: AuthedRequest, @Query("limit") limitRaw?: string) {
+    const data = await this.inventoryService.partsToIssue(req.user, limitRaw ? Number(limitRaw) : undefined);
+    return { data, message: "Parts to issue fetched" };
   }
 
   @Get("warehouses")

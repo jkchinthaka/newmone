@@ -142,8 +142,14 @@ export function notificationContextHref(input: {
   }
 
   if (input.referenceType === "Vehicle" && id) {
-    if (/gate/i.test(title) || /gate/i.test(type)) return `/fleet/gate?vehicle=${id}`;
     return `/vehicles/${id}`;
+  }
+
+  if (input.referenceType === "MaintenanceRequest" && id) {
+    return `/requests/${id}`;
+  }
+  if (input.referenceType === "WorkPermit") {
+    return "/admin/work-permits";
   }
 
   if (input.referenceType === "MaintenancePlan" && id) {
@@ -175,12 +181,13 @@ export function notificationNextAction(input: {
 }): string {
   const type = input.type ?? "";
   const title = input.title ?? "";
-  if (/gate/i.test(title) || /gate/i.test(type)) return "Open vehicle gate";
+  if (/gate/i.test(title) || /gate/i.test(type)) return "Open vehicle";
   if (/verif/i.test(title) || /verif/i.test(type)) return "Open work order verification";
   if (type === "LOW_STOCK") return "Open parts";
   if (type === "MAINTENANCE_DUE" || input.referenceType === "MaintenancePlan") return "Open PM plan";
   if (input.referenceType === "WorkOrder" || type.startsWith("WORK_ORDER")) return "Open work order";
   if (input.referenceType === "Vehicle") return "Open vehicle";
-  if (input.referenceType === "FacilityIssue") return "Open request";
+  if (input.referenceType === "FacilityIssue" || input.referenceType === "MaintenanceRequest") return "Open request";
+  if (input.referenceType === "WorkPermit") return "Open work permits";
   return "Open context";
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/localization";
 import { FarmListPage } from "@/components/farm/farm-list-page";
 
 type Irrigation = {
@@ -21,11 +22,11 @@ export default function FarmIrrigationPage() {
       endpoint="/farm/irrigation"
       queryKey="farm-irrigation"
       columns={[
-        { key: "startTime", label: "Start", render: (r) => new Date(r.startTime).toLocaleString() },
+        { key: "startTime", label: "Start", render: (r) => formatDateTime(r.startTime) },
         {
           key: "endTime",
           label: "End",
-          render: (r) => (r.endTime ? new Date(r.endTime).toLocaleString() : "—")
+          render: (r) => (r.endTime ? formatDateTime(r.endTime) : "—")
         },
         { key: "durationMinutes", label: "Duration (min)" },
         { key: "waterUsedLiters", label: "Water (L)" },

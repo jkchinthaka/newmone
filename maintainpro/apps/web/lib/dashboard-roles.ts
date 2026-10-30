@@ -146,7 +146,7 @@ export function getDashboardTitle(variant: DashboardVariant): string {
     case "finance":
       return "Finance Dashboard";
     case "procurement":
-      return "Procurement Dashboard";
+      return "Buying Dashboard";
     case "technician":
       return "My Work Dashboard";
     case "cleaner":
@@ -166,19 +166,19 @@ export function getDashboardTitle(variant: DashboardVariant): string {
 export function getDashboardDescription(variant: DashboardVariant): string {
   switch (variant) {
     case "admin":
-      return "Live fleet intelligence, work order pressure, inventory signals, and system health in one view.";
+      return "Live fleet intelligence, job pressure, inventory signals, and system health in one view.";
     case "management":
-      return "Operational work order status, report summaries, and quick links to your modules.";
+      return "Operational job status, report summaries, and quick links to your modules.";
     case "finance":
       return "Financial report summaries and consumed-maintenance cost visibility for your tenant.";
     case "procurement":
-      return "Procurement and inventory signals with report summaries tied to purchase activity.";
+      return "Buying and inventory signals with report summaries tied to purchase activity.";
     case "technician":
-      return "Assigned work orders, overdue priorities, and quick access to your jobs.";
+      return "Assigned jobs, overdue priorities, and quick access to your jobs.";
     case "cleaner":
       return "Quick access to cleaning tasks, issues, and visit workflows.";
     case "inventory":
-      return "Stock levels, low-stock alerts, and procurement activity from live inventory data.";
+      return "Stock levels, low-stock alerts, and buying activity from live inventory data.";
     case "driver":
       return "Quick access to vehicles, fleet, and trip-related modules.";
     case "viewer":

@@ -28,7 +28,7 @@ test("history search and filters become the server request and survive the URL",
   assert.equal(historyStateFromSearch(new URLSearchParams("pageSize=10")).pageSize, 25);
 });
 
-test("a history row opens that work order on the history tab", () => {
+test("a history row opens that job on the history tab", () => {
   assert.equal(historyRecordHref("wo-9"), "/work-orders?wo=wo-9&tab=history");
 });
 

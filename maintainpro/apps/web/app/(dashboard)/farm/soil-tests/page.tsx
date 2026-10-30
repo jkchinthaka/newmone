@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/localization";
 import { FarmListPage } from "@/components/farm/farm-list-page";
 
 type Soil = {
@@ -21,7 +22,7 @@ export default function FarmSoilTestsPage() {
       endpoint="/farm/soil-tests"
       queryKey="farm-soil-tests"
       columns={[
-        { key: "testDate", label: "Date", render: (r) => new Date(r.testDate).toLocaleDateString() },
+        { key: "testDate", label: "Date", render: (r) => formatDate(r.testDate) },
         { key: "field", label: "Field", render: (r) => r.field?.name ?? "—" },
         { key: "ph", label: "pH" },
         { key: "organicMatterPct", label: "OM %" },

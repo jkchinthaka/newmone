@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 
 import { AppBrandLockup } from "@/components/brand/app-brand-lockup";
 import { NavLinks } from "@/components/layout/nav-links";
+import { InlineLoadingState } from "@/components/ui/page-state";
 import { MOBILE_NAV_DRAWER_ID } from "@/lib/accessibility";
 import { useFocusTrap } from "@/lib/use-focus-trap";
 
@@ -51,7 +52,7 @@ export function MobileNav({ open, onClose, onEscape, id = MOBILE_NAV_DRAWER_ID }
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-4">
-          <Suspense fallback={<p className="px-2 text-sm text-slate-500">Loading navigation...</p>}>
+          <Suspense fallback={<InlineLoadingState label="Loading menu…" />}>
             <NavLinks onNavigate={onClose} />
           </Suspense>
         </div>

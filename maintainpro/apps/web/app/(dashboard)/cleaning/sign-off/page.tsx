@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/localization";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, MessageSquareText, Star, XCircle } from "lucide-react";
 
@@ -77,7 +78,7 @@ export default function SignOffPage() {
         });
       })
       .catch((err: { response?: { data?: { message?: string } } }) => {
-        setError(err?.response?.data?.message ?? "Failed to load sign-off queue");
+        setError(err?.response?.data?.message ?? "Failed to load supervisor approval queue");
       });
   }, []);
 
@@ -110,7 +111,7 @@ export default function SignOffPage() {
       load();
     } catch (err) {
       const typedError = err as { response?: { data?: { message?: string } } };
-      setError(typedError?.response?.data?.message ?? "Failed to submit sign-off decision");
+      setError(typedError?.response?.data?.message ?? "Failed to submit supervisor approval decision");
     } finally {
       setBusyId(null);
     }
@@ -132,9 +133,9 @@ export default function SignOffPage() {
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h1 className="text-xl font-semibold text-slate-900">Supervisor Sign-off</h1>
+        <h1 className="text-xl font-semibold text-slate-900">Supervisor approval</h1>
         <p className="text-sm text-slate-600">
-          Review photo evidence, checklist quality, and time spent before approving visits.
+          Review photos, checklist quality, and time spent before approving visits.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
           <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
@@ -152,7 +153,7 @@ export default function SignOffPage() {
 
       {rows.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-          No visits awaiting sign-off.
+          No visits awaiting supervisor approval.
         </div>
       ) : (
         <div className="space-y-3">
@@ -169,7 +170,7 @@ export default function SignOffPage() {
                   <div>
                     <div className="font-semibold text-slate-900">{visit.location.name}</div>
                     <div className="text-xs text-slate-500">
-                      {visit.location.area} · {new Date(visit.scannedAt).toLocaleString()}
+                      {visit.location.area} · {formatDateTime(visit.scannedAt)}
                     </div>
                     <div className="mt-1 text-xs text-slate-600">
                       Cleaner: {visit.cleaner.firstName} {visit.cleaner.lastName}

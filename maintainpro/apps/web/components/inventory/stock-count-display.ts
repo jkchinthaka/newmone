@@ -55,4 +55,4 @@ export function stockCountVarianceTone(value: number | null | undefined): string
 }
 
 export const STOCK_COUNT_SOURCE_HELP =
-  "MaintainPro Ledger Qty is the warehouse balance used for count variance and posting. ERP Snapshot Qty is the last imported ERP mirror and is shown for comparison only — it is never copied into Expected.";
+  "MaintainPro Ledger Qty is the warehouse balance used for count difference and posting. ERP Snapshot Qty is the last imported ERP mirror and is shown for comparison only — it is never copied into Expected.";

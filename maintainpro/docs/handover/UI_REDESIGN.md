@@ -43,3 +43,7 @@ Maintenance dashboard (`/maintenance`): KPI cards, priority table, workload chip
 e2e: run in CI later
 Checks: web lint (tsc) pass. Web unit tests pass after dashboard-ui.test.ts expected OVERDUE label "Overdue" (current humanWorkOrderStatusLabel; the imported test said "Overdue (Legacy)").
 Screenshots: `docs/handover/ui-redesign/batch-2/` captured with the OS theme dark. The app stays on the light theme (`darkMode: "class"`).
+
+## Batch 3
+
+Work orders, approvals, fleet, and spare parts. Presentational only. Screenshots in `docs/handover/ui-redesign/batch-3/` at 1440 and 390. Captured with a dark color scheme; the pages stay light.

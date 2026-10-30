@@ -12,8 +12,10 @@ import { ActiveFilterChips } from "@/components/operational/active-filter-chips"
 import { OperationalPageHeader } from "@/components/operational/operational-page-header";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { formatEnumLabel } from "@/lib/display-labels";
 import { isAdminConsoleRole } from "@/lib/admin-console";
 import { useCurrentUser } from "@/lib/use-current-user";
+import { EMPTY_SITE_GEO, siteGeoDraftFrom, siteGeoPayload, type SiteGeoDraft } from "@/lib/site-geo";
 import { extractRoleName } from "@/lib/role-redirect";
 import {
   FUNCTIONAL_LOCATION_TYPES,
@@ -135,6 +137,7 @@ export default function OrganizationAdminPage() {
 
   const [summary, setSummary] = useState<OrganizationSummary | null>(null);
   const [sites, setSites] = useState<OrgSite[]>([]);
+  const [locationSiteId, setLocationSiteId] = useState("");
   const [siteMeta, setSiteMeta] = useState({ page: 1, totalPages: 1, total: 0 });
   const [roots, setRoots] = useState<OrgLocation[]>([]);
   const [childrenById, setChildrenById] = useState<Record<string, OrgLocation[]>>({});
@@ -154,6 +157,8 @@ export default function OrganizationAdminPage() {
   const [locationSearch, setLocationSearch] = useState("");
   const [locationHits, setLocationHits] = useState<OrgLocation[] | null>(null);
   const [siteDraft, setSiteDraft] = useState({ code: "", name: "", type: "FACTORY" as SiteType });
+  const [siteGeo, setSiteGeo] = useState<SiteGeoDraft>(EMPTY_SITE_GEO);
+  const [locating, setLocating] = useState(false);
   const [locationDraft, setLocationDraft] = useState({ code: "", name: "", type: "AREA" as FunctionalLocationType });
   const [moveParentId, setMoveParentId] = useState("");
   const [moveReason, setMoveReason] = useState("");
@@ -163,10 +168,13 @@ export default function OrganizationAdminPage() {
 
   function openCreateSite() {
     setSiteDraft({ code: "", name: "", type: "FACTORY" });
+    setSiteGeo(EMPTY_SITE_GEO);
     setDialog({ kind: "site", site: null });
   }
 
   function openCreateLocation(parent: OrgLocation | null = null) {
+    // The site comes from the page selection, else the first site; the dialog lets the user change it.
+    setLocationSiteId(selectedSiteId ?? sites[0]?.id ?? "");
     setLocationDraft({ code: "", name: "", type: "AREA" });
     setMoveParentId("");
     setMoveReason("");
@@ -278,13 +286,41 @@ export default function OrganizationAdminPage() {
     }
   }
 
+  function useMyLocationForSite() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast.error("This browser cannot read the location.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocating(false);
+        setSiteGeo((current) => ({
+          ...current,
+          latitude: position.coords.latitude.toFixed(6),
+          longitude: position.coords.longitude.toFixed(6)
+        }));
+      },
+      () => {
+        setLocating(false);
+        toast.error("Could not read the location. Allow location for this site and try again, or type it in.");
+      },
+      { enableHighAccuracy: true, timeout: 10_000 }
+    );
+  }
+
   async function saveSite() {
+    const geo = siteGeoPayload(siteGeo);
+    if (!geo.ok) {
+      toast.error(geo.error);
+      return;
+    }
     try {
       if (dialog?.kind === "site" && dialog.site) {
-        await updateSite(dialog.site.id, siteDraft);
+        await updateSite(dialog.site.id, { ...siteDraft, ...geo.value });
         toast.success("Site updated");
       } else {
-        const created = await createSite(siteDraft);
+        const created = await createSite({ ...siteDraft, ...geo.value });
         toast.success("Site created");
         writeUrl(created.id, null);
       }
@@ -296,7 +332,12 @@ export default function OrganizationAdminPage() {
   }
 
   async function saveLocation() {
-    if (!selectedSiteId || dialog?.kind !== "location") return;
+    if (dialog?.kind !== "location") return;
+    const siteId = dialog.location || dialog.parent ? selectedSiteId : locationSiteId || selectedSiteId;
+    if (!siteId) {
+      toast.error("Choose a site for this location. Add a site first if there is none.");
+      return;
+    }
     try {
       if (dialog.location) {
         const reason = moveReason.trim();
@@ -315,7 +356,7 @@ export default function OrganizationAdminPage() {
         toast.success("Location updated");
       } else {
         await createFunctionalLocation({
-          siteId: selectedSiteId,
+          siteId,
           parentId: dialog.parent?.id ?? null,
           ...locationDraft
         });
@@ -323,7 +364,8 @@ export default function OrganizationAdminPage() {
       }
       setDialog(null);
       setChildrenById({});
-      await loadRoots(selectedSiteId);
+      if (siteId !== selectedSiteId) writeUrl(siteId, null);
+      else await loadRoots(siteId);
       await loadSites(page);
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Could not save the location."));
@@ -384,7 +426,6 @@ export default function OrganizationAdminPage() {
             <button
               type="button"
               className="h-10 rounded-lg bg-slate-900 px-3 text-sm font-medium text-white disabled:opacity-50"
-              disabled={!selectedSiteId}
               onClick={() => openCreateLocation(null)}
             >
               Add Location
@@ -568,7 +609,7 @@ export default function OrganizationAdminPage() {
         <div className="fixed inset-0 z-40" onClick={() => setMenuSite(null)}>
           <div role="menu" aria-label={`Actions for ${menuSite.name}`} className="absolute right-6 top-40 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-lg" onClick={(event) => event.stopPropagation()}>
             <button type="button" className="block h-9 w-full rounded px-2 text-left text-sm" onClick={() => { writeUrl(menuSite.id, null); setMenuSite(null); }}>Open</button>
-            <button type="button" className="block h-9 w-full rounded px-2 text-left text-sm" onClick={() => { setSiteDraft({ code: menuSite.code, name: menuSite.name, type: menuSite.type }); setDialog({ kind: "site", site: menuSite }); setMenuSite(null); }}>Edit</button>
+            <button type="button" className="block h-9 w-full rounded px-2 text-left text-sm" onClick={() => { setSiteDraft({ code: menuSite.code, name: menuSite.name, type: menuSite.type }); setSiteGeo(siteGeoDraftFrom(menuSite)); setDialog({ kind: "site", site: menuSite }); setMenuSite(null); }}>Edit</button>
             <button type="button" className="block h-9 w-full rounded px-2 text-left text-sm" onClick={() => { writeUrl(menuSite.id, null); openCreateLocation(null); setMenuSite(null); }}>Add Location</button>
             <button type="button" className="block h-9 w-full rounded px-2 text-left text-sm" onClick={() => void setSiteActive(menuSite, !menuSite.isActive)}>{menuSite.isActive ? "Deactivate" : "Activate"}</button>
           </div>
@@ -577,7 +618,7 @@ export default function OrganizationAdminPage() {
 
       {dialog?.kind === "site" ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" role="presentation">
-          <form role="dialog" aria-modal="true" aria-labelledby="site-dialog-title" className="w-full max-w-md space-y-3 rounded-xl bg-white p-4" onSubmit={(event) => { event.preventDefault(); void saveSite(); }}>
+          <form role="dialog" aria-modal="true" aria-labelledby="site-dialog-title" className="max-h-[90dvh] w-full max-w-md space-y-3 overflow-y-auto rounded-xl bg-white p-4" onSubmit={(event) => { event.preventDefault(); void saveSite(); }}>
             <h2 id="site-dialog-title" className="text-base font-semibold">{dialog.site ? "Edit site" : "Add site"}</h2>
             <label className="block text-sm">Code<input required value={siteDraft.code} onChange={(event) => setSiteDraft((current) => ({ ...current, code: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" /></label>
             <label className="block text-sm">Name<input required value={siteDraft.name} onChange={(event) => setSiteDraft((current) => ({ ...current, name: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" /></label>
@@ -586,6 +627,16 @@ export default function OrganizationAdminPage() {
                 {SITE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
               </select>
             </label>
+            <fieldset className="space-y-2 rounded-lg border border-slate-200 p-3">
+              <legend className="px-1 text-sm font-medium">Site location (optional)</legend>
+              <p className="text-xs text-slate-500">Used to flag job photos taken far from this site. Stand at the site and tap the button, or type it in.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block text-sm">Latitude<input inputMode="decimal" value={siteGeo.latitude} onChange={(event) => setSiteGeo((current) => ({ ...current, latitude: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" placeholder="6.8412" /></label>
+                <label className="block text-sm">Longitude<input inputMode="decimal" value={siteGeo.longitude} onChange={(event) => setSiteGeo((current) => ({ ...current, longitude: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" placeholder="80.0034" /></label>
+              </div>
+              <label className="block text-sm">Allowed distance (metres)<input inputMode="numeric" value={siteGeo.geoRadiusMeters} onChange={(event) => setSiteGeo((current) => ({ ...current, geoRadiusMeters: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" placeholder="500" /></label>
+              <button type="button" disabled={locating} onClick={useMyLocationForSite} className="h-10 rounded-lg border border-slate-300 px-3 text-sm disabled:opacity-60">{locating ? "Reading location…" : "Use my current location"}</button>
+            </fieldset>
             <div className="flex justify-end gap-2">
               <button type="button" className="h-10 px-3 text-sm" onClick={() => setDialog(null)}>Cancel</button>
               <button type="submit" className="h-10 rounded-lg bg-slate-900 px-3 text-sm text-white">Save</button>
@@ -598,11 +649,26 @@ export default function OrganizationAdminPage() {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" role="presentation">
           <form role="dialog" aria-modal="true" aria-labelledby="location-dialog-title" className="w-full max-w-md space-y-3 rounded-xl bg-white p-4" onSubmit={(event) => { event.preventDefault(); void saveLocation(); }}>
             <h2 id="location-dialog-title" className="text-base font-semibold">{dialog.location ? "Edit location" : dialog.parent ? `Add child under ${dialog.parent.name}` : "Add location"}</h2>
+            {!dialog.location && !dialog.parent ? (
+              sites.length > 0 ? (
+                <label className="block text-sm">Site
+                  <select required value={locationSiteId} onChange={(event) => setLocationSiteId(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2">
+                    <option value="" disabled>Choose a site</option>
+                    {sites.map((site) => <option key={site.id} value={site.id}>{site.name} ({site.code})</option>)}
+                  </select>
+                </label>
+              ) : (
+                <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-sm text-amber-900">
+                  Add a site first. Locations sit inside a site.{" "}
+                  <button type="button" className="font-medium underline" onClick={() => { setDialog(null); openCreateSite(); }}>Add Site</button>
+                </p>
+              )
+            ) : null}
             <label className="block text-sm">Code<input required value={locationDraft.code} onChange={(event) => setLocationDraft((current) => ({ ...current, code: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" /></label>
             <label className="block text-sm">Name<input required value={locationDraft.name} onChange={(event) => setLocationDraft((current) => ({ ...current, name: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" /></label>
             <label className="block text-sm">Type
               <select value={locationDraft.type} onChange={(event) => setLocationDraft((current) => ({ ...current, type: event.target.value as FunctionalLocationType }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2">
-                {FUNCTIONAL_LOCATION_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                {FUNCTIONAL_LOCATION_TYPES.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
               </select>
             </label>
             {dialog.location ? (

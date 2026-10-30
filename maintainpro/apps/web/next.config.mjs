@@ -23,7 +23,8 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  // 'unsafe-eval' is only needed by the dev server (Fast Refresh); production bundles do not eval.
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}`,
   `connect-src 'self' ${apiOrigin} wss: ws: https:`,
   "worker-src 'self' blob:"
 ].join("; ");
@@ -44,6 +45,8 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  // Do not advertise the framework in every response (X-Powered-By: Next.js).
+  poweredByHeader: false,
   distDir,
   typescript: { tsconfigPath },
   ...(isCpanelDeployment ? { output: "standalone" } : {}),

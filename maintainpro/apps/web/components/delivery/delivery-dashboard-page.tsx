@@ -24,7 +24,7 @@ export function DeliveryDashboardPage() {
       <header>
         <h2 className="page-title">Delivery Readiness</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Client handover checklist — requirements, QA, security, deployment, backup, and sign-off.
+          Client handover checklist — requirements, QA, security, deployment, backup, and supervisor approval.
         </p>
       </header>
 
@@ -36,7 +36,7 @@ export function DeliveryDashboardPage() {
           Final Handover Report
         </Link>
         <Link href={"/delivery-readiness/sign-off" as Route} className="rounded-lg border px-3 py-2 hover:bg-slate-50">
-          Sign-off
+          Supervisor approval
         </Link>
         <Link href={"/qa" as Route} className="rounded-lg border px-3 py-2 hover:bg-slate-50">
           QA & Incidents
@@ -90,7 +90,7 @@ export function DeliveryDashboardPage() {
           <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
             <div className="flex items-center gap-2 font-medium">
               <Signature className="h-4 w-4" />
-              Final sign-off requires all critical blockers resolved or formally accepted.
+              Final supervisor approval requires all critical blockers resolved or formally accepted.
             </div>
           </div>
         </>

@@ -191,6 +191,7 @@ const rolePermissions: Record<RoleName, string[]> = {
     "dashboard.view",
     "dashboard_analytics.view",
     "modules.view_all",
+    "assets.view",
     "assets.manage",
     "work_orders.manage",
     "work_orders.update_status",
@@ -275,6 +276,8 @@ const rolePermissions: Record<RoleName, string[]> = {
     "dashboard.view",
     "work_orders.update_status",
     "work_orders.view_own",
+    // Technicians report faults they find (existing databases: scripts/ops/grant-v103-permissions.ts).
+    "maintenance_requests.create",
     "part_requests.create",
     "part_requests.view",
     "inventory.manage",
@@ -301,6 +304,7 @@ const rolePermissions: Record<RoleName, string[]> = {
   ASSET_MANAGER: [
     "dashboard.view",
     "dashboard_analytics.view",
+    "assets.view",
     "assets.manage",
     "work_orders.manage",
     "work_orders.update_status",
@@ -426,6 +430,7 @@ const rolePermissions: Record<RoleName, string[]> = {
   FARM_MANAGER: [
     "dashboard.view",
     "modules.view_all",
+    "assets.view",
     "assets.manage",
     "work_orders.manage",
     "reports.view",
@@ -511,7 +516,10 @@ rolePermissions.TECHNICIAN = Array.from(
     "reports.operations.view",
     "reports.performance.view",
     "maintenance_requests.create",
-    "maintenance_requests.view_own"
+    "maintenance_requests.view_own",
+    // Owner decision 2026-10-22: technicians run inspections and checklists.
+    "planning.view",
+    "planning.manage"
   ])
 );
 rolePermissions.MECHANIC = Array.from(
@@ -528,7 +536,9 @@ rolePermissions.SUPERVISOR = Array.from(
     "reports.assets.view",
     "reports.inventory.view",
     "reports.performance.view",
-    "reports.driver_intelligence.view"
+    "reports.driver_intelligence.view",
+    // Owner decision 2026-10-22: supervisors can open inspections and PM plans.
+    "planning.view"
   ])
 );
 
@@ -1549,7 +1559,7 @@ async function main() {
   ];
 
   for (const location of cleaningLocations) {
-    const scanUrl = `${process.env.FRONTEND_URL ?? "http://localhost:3001"}/cleaning/scan?code=${location.qrCode}`;
+    const scanUrl = `${process.env.FRONTEND_URL ?? "http://localhost:3041"}/cleaning/scan?code=${location.qrCode}`;
 
     await prisma.cleaningLocation.upsert({
       where: { qrCode: location.qrCode },

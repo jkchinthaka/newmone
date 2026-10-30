@@ -36,9 +36,9 @@ describe("work-order-create-hci domain correctness", () => {
   });
 
   it("builds domain-specific modal titles", () => {
-    assert.equal(createFormTitle("MACHINERY"), "Create Machinery Work Order");
-    assert.equal(createFormTitle("VEHICLE"), "Create Vehicle Work Order");
-    assert.equal(createFormTitle("SERVICE"), "Create Service Work Order");
+    assert.equal(createFormTitle("MACHINERY"), "Create Machinery Job");
+    assert.equal(createFormTitle("VEHICLE"), "Create Vehicle Job");
+    assert.equal(createFormTitle("SERVICE"), "Create Service Job");
   });
 
   it("suggests titles from description without inventing entity names", () => {

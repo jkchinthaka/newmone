@@ -1,8 +1,12 @@
 # Backlog
 
-Recorded 2026-10-19. Neither item was coded in Block D. Each needs more than a one-hour safe change.
+Recorded 2026-10-19. Refreshed 2026-10-22. Items fixed by pull request #115 are marked below. The deferred audit outbox is still open.
 
 ## My Jobs SQL pagination
+
+Fixed by pull request #115 (`6d51f2b9`). `listMyJobs` pages in SQL with the same view filters and ordering, and the 500-row cap is gone.
+
+## My Jobs SQL pagination (original note)
 
 `listMyJobs` in `apps/api/src/modules/work-orders/work-order-queues.service.ts` loads at most 500 assigned rows, then filters, counts, and pages in memory. `assignedTotal` is a real SQL count. `capped` is true when the assignment count is above 500. Tab counts and `total` describe the capped set, so a technician with more than 500 jobs can miss rows and see short counts.
 
@@ -13,6 +17,7 @@ Plan:
 3. Compute the nine tab counts with SQL `count` queries, not from the page.
 4. Remove the 500 cap. Keep `assignedTotal` as the unfiltered assignment count.
 5. Add a disposable-SQL test with more than one page and a row that would have fallen past the old cap.
+Done on develop. `listMyJobs` counts in SQL and pages with `skip` / `take`. The old 500-row in-memory cap is gone.
 
 ## Deferred audit outbox
 
@@ -30,8 +35,8 @@ fleet 404: not reproduced
 Tenant switcher UI removed for phase 1. Restore from git history when a second company goes live.
 Restore archive/fix--ux-confirmed-defects and archive/test--playwright-qa-suite into develop after go-live (conflict review needed).
 
-Cleanup: `apps/api/test/nav-admin-remediation.integration.spec.ts` creates leftover "Nav admin" / "Nav other" tenants (`nav-admin-${stamp}` / `nav-other-${stamp}`) and does not delete them. Delete those fixtures after the spec, on disposable `maintainpro_e2e_*` databases only.
+Cleanup: `nav-admin-remediation.integration.spec.ts` deletes only the `nav-admin-*` and `nav-other-*` tenants it creates, through `deleteDisposableTenants`, on `maintainpro_e2e_*` databases.
 
-SQL deadlock/write conflict in WorkOrdersService.assign → auditLog.create seen once in Jest (maintenance-flow.integration). Add retry on SQL error 1205/3960 for audit writes; check under concurrent assign.
+SQL deadlock/write conflict in WorkOrdersService.assign: fixed by pull request #115. `assign()` retries SQL Server 1205, snapshot write conflict 3960, and Prisma P2034.
 
-`confirmWorkOrderUpload` has no closed/cancelled lock (upload started before close, confirmed after). Create, upload-request, and byte-store reject CLOSED and CANCELLED. Confirm does not.
+`confirmWorkOrderUpload` closed/cancelled lock: fixed by pull request #115. Evidence upload confirmation is rejected on closed and cancelled work orders.

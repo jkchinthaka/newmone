@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
@@ -94,35 +95,35 @@ export default function InventoryStockCountsPage() {
     },
     onSuccess: async (created) => {
       const id = (created as { id?: string } | null)?.id;
-      setMessage("Stock count session created as Draft. Enter counted quantities, then move through Review → Approved → Posted.");
+      setMessage("Stock check session created as Draft. Enter counted quantities, then move through Review → Approved → Posted.");
       await queryClient.invalidateQueries({ queryKey: ["inventory", "stock-counts"] });
       if (id) setSelectedId(id);
     },
-    onError: (error) => setMessage(toSafeApiErrorMessage(error, "Could not create stock count"))
+    onError: (error) => setMessage(toSafeApiErrorMessage(error, "Could not create stock check"))
   });
 
   const transitionMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => transitionStockCount(id, status),
     onSuccess: async () => {
-      setMessage("Stock count status updated.");
+      setMessage("Stock check status updated.");
       await queryClient.invalidateQueries({ queryKey: ["inventory", "stock-counts"] });
       if (selectedId) {
         await queryClient.invalidateQueries({ queryKey: ["inventory", "stock-counts", selectedId] });
       }
     },
-    onError: (error) => setMessage(toSafeApiErrorMessage(error, "Could not update stock count status"))
+    onError: (error) => setMessage(toSafeApiErrorMessage(error, "Could not update stock check status"))
   });
 
   const lineMutation = useMutation({
     mutationFn: () => {
-      if (!selectedId) throw new Error("Select a stock count session");
+      if (!selectedId) throw new Error("Select a stock check session");
       if (!partId) throw new Error("Select a part");
       const qty = Number(countedQuantity);
       if (!Number.isFinite(qty) || qty < 0) throw new Error("Enter a non-negative counted quantity");
       return upsertStockCountLine(selectedId, { partId, countedQuantity: qty });
     },
     onSuccess: async () => {
-      setMessage("Count line saved. Variances post only after approval through the inventory ledger.");
+      setMessage("Count line saved. Differences post only after approval through the inventory ledger.");
       setCountedQuantity("");
       await queryClient.invalidateQueries({ queryKey: ["inventory", "stock-counts"] });
       if (selectedId) {
@@ -152,7 +153,7 @@ export default function InventoryStockCountsPage() {
   if (sessionsQuery.isLoading && !sessionsQuery.data) {
     return (
       <LoadingState
-        title="Loading stock counts"
+        title="Loading stock checks"
         description="Fetching governed count sessions for your warehouses."
       />
     );
@@ -161,8 +162,8 @@ export default function InventoryStockCountsPage() {
   if (sessionsQuery.isError) {
     return (
       <ErrorState
-        title="Stock counts unavailable"
-        description={toSafeApiErrorMessage(sessionsQuery.error, "Unable to load stock count sessions.")}
+        title="Stock checks unavailable"
+        description={toSafeApiErrorMessage(sessionsQuery.error, "Unable to load stock check sessions.")}
       />
     );
   }
@@ -215,7 +216,7 @@ export default function InventoryStockCountsPage() {
       ) : null}
 
       {rows.length === 0 ? (
-        <p className="text-sm text-slate-600">No stock count sessions yet. Start a cycle count for a warehouse.</p>
+        <p className="text-sm text-slate-600">No stock check sessions yet. Start a cycle count for a warehouse.</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="min-w-full text-left text-sm">
@@ -241,7 +242,7 @@ export default function InventoryStockCountsPage() {
                     {row.blindCount ? <span className="ml-2 text-xs text-slate-500">Blind</span> : null}
                   </td>
                   <td className="px-3 py-2">{row._count?.lines ?? 0}</td>
-                  <td className="px-3 py-2">{new Date(row.createdAt).toLocaleString()}</td>
+                  <td className="px-3 py-2">{lkDateTime(row.createdAt)}</td>
                   <td className="px-3 py-2">
                     <button
                       type="button"
@@ -259,7 +260,7 @@ export default function InventoryStockCountsPage() {
       )}
 
       {selectedId ? (
-        <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4" aria-label="Stock count detail">
+        <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4" aria-label="Stock check detail">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Session detail</h2>
@@ -351,7 +352,7 @@ export default function InventoryStockCountsPage() {
                         </th>
                         <th className="px-3 py-2">Counted Qty</th>
                         <th className="px-3 py-2" title="Counted minus MaintainPro ledger qty">
-                          Count Variance
+                          Count Difference
                         </th>
                         <th className="px-3 py-2" title="ERP snapshot minus ledger (informational)">
                           ERP vs Ledger

@@ -37,11 +37,11 @@ const SHARED_TAIL: DomainJobsColumn[] = [
 
 export function domainJobsColumns(domain?: string | null): DomainJobsColumn[] {
   if (domain === "MACHINERY") {
-    return [{ key: "wo", label: "WO" }, { key: "work", label: "Work / Machine Asset" }, ...SHARED_TAIL];
+    return [{ key: "wo", label: "Job" }, { key: "work", label: "Work / Machine Asset" }, ...SHARED_TAIL];
   }
   if (domain === "SERVICE") {
     return [
-      { key: "wo", label: "WO" },
+      { key: "wo", label: "Job" },
       { key: "work", label: "Work / Service Location" },
       { key: "serviceType", label: "Service Type", hideUntilXl: true },
       ...SHARED_TAIL.map((column) =>
@@ -51,7 +51,7 @@ export function domainJobsColumns(domain?: string | null): DomainJobsColumn[] {
   }
   if (domain === "VEHICLE") {
     return [
-      { key: "wo", label: "WO" },
+      { key: "wo", label: "Job" },
       { key: "work", label: "Work / Vehicle" },
       { key: "registration", label: "Registration", hideUntilXl: true },
       ...SHARED_TAIL.map((column) =>
@@ -59,7 +59,7 @@ export function domainJobsColumns(domain?: string | null): DomainJobsColumn[] {
       )
     ];
   }
-  return [{ key: "wo", label: "WO" }, { key: "work", label: "Work / Asset" }, ...SHARED_TAIL];
+  return [{ key: "wo", label: "Job" }, { key: "work", label: "Work / Asset" }, ...SHARED_TAIL];
 }
 
 export function domainJobPaths(): Record<JobDomain, string> {

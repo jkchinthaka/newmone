@@ -211,6 +211,7 @@ describeIfDb("maintenance flow journey", () => {
     expect((await row(created.id)).status).toBe(WorkOrderStatus.IN_PROGRESS);
 
     process.env.STORAGE_UPLOADS_ENABLED = "true";
+    process.env.STORAGE_LOCAL_ROOT = process.env.STORAGE_LOCAL_ROOT || "/srv/maintainpro-evidence-test";
     expect(() =>
       assertEvidenceForTechnicianCompletion({
         workOrderType: WorkOrderType.CORRECTIVE,

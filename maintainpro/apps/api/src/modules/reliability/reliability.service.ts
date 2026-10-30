@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import { assertWorkOrderAcceptsFieldMutation } from "../../common/utils/work-order-terminal-lock";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
@@ -18,6 +18,17 @@ export const DOWNTIME_CATEGORIES = [
   "OPERATIONAL_DELAY",
   "OTHER"
 ] as const;
+
+/** Hold reason code -> downtime reason, so reports show why the machine was waiting. */
+export function downtimeCategoryForHold(code: string | null | undefined): string {
+  const value = String(code ?? "").toUpperCase();
+  if (value.includes("PART") || value.includes("SPARE") || value.includes("STOCK")) return "WAITING_PARTS";
+  if (value.includes("VENDOR") || value.includes("SUPPLIER") || value.includes("CONTRACT")) return "WAITING_VENDOR";
+  if (value.includes("APPROV")) return "WAITING_APPROVAL";
+  if (value.includes("TECHNIC") || value.includes("LABOUR") || value.includes("LABOR") || value.includes("STAFF")) return "WAITING_TECHNICIAN";
+  if (value.includes("SHUTDOWN") || value.includes("PRODUCTION")) return "AWAITING_SHUTDOWN";
+  return "OTHER";
+}
 
 export const PERMIT_TYPES = [
   "ELECTRICAL",
@@ -45,6 +56,18 @@ const PERMIT_TRANSITIONS: Record<string, string[]> = {
   CLOSED: [],
   EXPIRED: ["CLOSED"]
 };
+
+const OPEN_PERMIT_STATUSES = ["DRAFT", "APPROVED", "ACTIVE", "SUSPENDED"] as const;
+
+/** DRAFT → APPROVED is the approval; SUSPENDED → ACTIVE lets suspended work carry on. */
+export function permitTransitionNeedsAdmin(from: string, to: string): boolean {
+  return to === "APPROVED" || (from === "SUSPENDED" && to === "ACTIVE");
+}
+
+export function isPermitApproverRole(role: string | null | undefined): boolean {
+  const normalized = String(role ?? "").toUpperCase();
+  return normalized === "ADMIN" || normalized === "SUPER_ADMIN";
+}
 
 const RCA_STATUSES = ["OPEN", "IN_REVIEW", "COMPLETED", "CLOSED"] as const;
 const CAPA_KINDS = ["CORRECTIVE", "PREVENTIVE"] as const;
@@ -213,14 +236,18 @@ export class ReliabilityService {
     workOrderId: string;
     assetId?: string | null;
     allowEmergencyOverride?: boolean;
+    /**
+     * The job itself is marked high risk (hot work, confined space, work at height, electrical
+     * isolation, or its template names a permit). That needs a permit for any job category,
+     * including vehicle and service jobs that have no machine criticality.
+     */
+    jobRiskReasons?: string[];
   }): Promise<{ required: boolean; reasons: string[] }> {
     const policy = await this.getOrCreatePolicy(input.tenantId);
-    if (!policy.requirePermitForCriticalAssets) {
-      return { required: false, reasons: [] };
-    }
+    const jobRiskReasons = (input.jobRiskReasons ?? []).filter(Boolean);
 
     let criticality: string | null = null;
-    if (input.assetId) {
+    if (policy.requirePermitForCriticalAssets && input.assetId) {
       const asset = await this.prisma.asset.findFirst({
         where: { id: input.assetId, tenantId: input.tenantId },
         select: { criticalityLevel: true, criticality: true }
@@ -229,7 +256,10 @@ export class ReliabilityService {
     }
 
     const requiredLevels = this.parseRequiredCriticalities(policy.permitRequiredCriticalities);
-    if (!criticality || !requiredLevels.includes(criticality)) {
+    const criticalAsset = Boolean(
+      policy.requirePermitForCriticalAssets && criticality && requiredLevels.includes(criticality)
+    );
+    if (!criticalAsset && jobRiskReasons.length === 0) {
       return { required: false, reasons: [] };
     }
 
@@ -253,7 +283,10 @@ export class ReliabilityService {
     }
 
     const reasons = [
-      `Asset criticality ${criticality} requires an APPROVED or ACTIVE work permit before start`,
+      ...(criticalAsset
+        ? [`Asset criticality ${criticality} requires an APPROVED or ACTIVE work permit before start`]
+        : []),
+      ...jobRiskReasons.map((reason) => `${reason} requires an APPROVED or ACTIVE work permit before start`),
       ...(permits.length
         ? ["Existing permits are expired, not yet valid, or not approved"]
         : ["No work permit linked to this work order"])
@@ -598,6 +631,85 @@ export class ReliabilityService {
     }
 
     return updated;
+  }
+
+  /**
+   * Machine downtime follows the job without anyone pressing a button (machinery jobs only):
+   * Start / resume opens ACTIVE_REPAIR, Hold switches to the matching WAITING_* reason, and
+   * technician completion, close or cancel ends it. Manual segments still work alongside.
+   */
+  async syncAutoDowntime(input: {
+    tenantId: string;
+    workOrder: { id: string; assetId?: string | null; jobDomain?: string | null; type?: string | null };
+    targetStatus: string;
+    actorId?: string | null;
+    holdReasonCode?: string | null;
+  }): Promise<void> {
+    const segments = (this.prisma as { downtimeSegment?: { findMany?: unknown } }).downtimeSegment;
+    if (typeof segments?.findMany !== "function") return;
+    const { tenantId, workOrder } = input;
+    if (!workOrder.assetId || String(workOrder.jobDomain ?? "").toUpperCase() !== "MACHINERY") return;
+
+    const now = new Date();
+    const open = await this.prisma.downtimeSegment.findMany({
+      where: { tenantId, workOrderId: workOrder.id, endedAt: null },
+      select: { id: true, category: true }
+    });
+    const closeOpen = async (keepCategory?: string) => {
+      const toClose = open.filter((segment) => segment.category !== keepCategory);
+      if (toClose.length === 0) return;
+      await this.prisma.downtimeSegment.updateMany({
+        where: { tenantId, id: { in: toClose.map((segment) => segment.id) } },
+        data: { endedAt: now, closedById: input.actorId ?? null }
+      });
+    };
+    const openSegment = async (category: string, note: string) => {
+      await this.prisma.downtimeSegment.create({
+        data: {
+          tenantId,
+          workOrderId: workOrder.id,
+          assetId: workOrder.assetId,
+          category,
+          planned: String(workOrder.type ?? "").toUpperCase() === "PREVENTIVE",
+          reasonCode: "AUTO",
+          reasonNotes: note,
+          startedAt: now,
+          productionAffected: true,
+          openedById: input.actorId ?? null
+        }
+      });
+      await this.prisma.workOrder.update({
+        where: { id: workOrder.id },
+        data: { downtimeApplicable: true, downtimeEndedAt: null }
+      });
+      await this.prisma.workOrder.updateMany({
+        where: { id: workOrder.id, downtimeStartedAt: null },
+        data: { downtimeStartedAt: now }
+      });
+    };
+
+    const status = input.targetStatus.toUpperCase();
+    if (status === "IN_PROGRESS") {
+      await closeOpen("ACTIVE_REPAIR");
+      if (!open.some((segment) => segment.category === "ACTIVE_REPAIR")) {
+        await openSegment("ACTIVE_REPAIR", "Opened automatically when work started.");
+      }
+      return;
+    }
+    if (status === "ON_HOLD") {
+      const category = downtimeCategoryForHold(input.holdReasonCode);
+      await closeOpen(category);
+      if (!open.some((segment) => segment.category === category)) {
+        await openSegment(category, "Opened automatically when the job was put on hold.");
+      }
+      return;
+    }
+    if (["TECHNICIAN_COMPLETED", "COMPLETED", "CLOSED", "CANCELLED"].includes(status)) {
+      await closeOpen();
+      if (open.length > 0) {
+        await this.prisma.workOrder.update({ where: { id: workOrder.id }, data: { downtimeEndedAt: now } });
+      }
+    }
   }
 
   async summarizeDowntime(actor: Actor, workOrderId: string) {
@@ -1015,7 +1127,13 @@ export class ReliabilityService {
         ...(query.workOrderId ? { workOrderId: query.workOrderId } : {}),
         ...(query.status ? { status: query.status.toUpperCase() } : {})
       },
-      orderBy: { createdAt: "desc" }
+      include: {
+        workOrder: { select: { id: true, woNumber: true, title: true, status: true } },
+        issuedBy: { select: { id: true, firstName: true, lastName: true } },
+        approvedBy: { select: { id: true, firstName: true, lastName: true } }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 500
     });
   }
 
@@ -1032,7 +1150,17 @@ export class ReliabilityService {
     }
   ) {
     const tenantId = requireTenantId(actor.tenantId);
-    await this.assertWorkOrder(tenantId, input.workOrderId);
+    // People type the job number (WO-2026-0007); the id is accepted too.
+    const reference = input.workOrderId.trim();
+    const job = await this.prisma.workOrder.findFirst({
+      where: { tenantId, OR: [{ id: reference }, { woNumber: reference.toUpperCase() }] },
+      select: { id: true, status: true }
+    });
+    if (!job) throw new NotFoundException("Job not found. Check the job number.");
+    if (["CLOSED", "COMPLETED", "CANCELLED"].includes(String(job.status))) {
+      throw new BadRequestException("This job is finished, so a permit cannot be raised for it.");
+    }
+    input = { ...input, workOrderId: job.id };
     const permitType = input.permitType.trim().toUpperCase();
     if (!(PERMIT_TYPES as readonly string[]).includes(permitType)) {
       throw new BadRequestException(`Invalid permitType. Allowed: ${PERMIT_TYPES.join(", ")}`);
@@ -1041,7 +1169,7 @@ export class ReliabilityService {
     const count = await this.prisma.workPermit.count({ where: { tenantId } });
     const permitNumber = `PTW-${String(count + 1).padStart(6, "0")}`;
 
-    return this.prisma.workPermit.create({
+    const created = await this.prisma.workPermit.create({
       data: {
         tenantId,
         workOrderId: input.workOrderId,
@@ -1056,6 +1184,13 @@ export class ReliabilityService {
         issuedById: actor.sub
       }
     });
+    await this.writePermitAudit(tenantId, actor.sub, {
+      permitId: created.id,
+      event: "work_permit_raised",
+      after: { status: "DRAFT" },
+      metadata: { permitNumber, permitType, workOrderId: input.workOrderId }
+    });
+    return created;
   }
 
   async transitionPermit(actor: Actor, id: string, input: { status: string; notes?: string }) {
@@ -1069,19 +1204,108 @@ export class ReliabilityService {
       throw new BadRequestException(`Invalid permit transition ${existing.status} → ${next}`);
     }
 
+    // Business rule (owner decision): only Admin / Super Admin approve a permit, or let a
+    // suspended permit carry on. Managers and supervisors may raise, activate an approved permit
+    // on site, suspend and close.
+    if (permitTransitionNeedsAdmin(existing.status, next)) {
+      if (!isPermitApproverRole(actor.role)) {
+        throw new ForbiddenException({
+          code: "PERMIT_APPROVER_ADMIN_ONLY",
+          message: "Only an Admin or Super Admin can approve a work permit."
+        });
+      }
+      // Owner decision: an Admin / Super Admin may approve a permit they raised themselves
+      // (small sites often have one admin). The audit row records who raised and who approved.
+    }
+
     // Expire check when activating
     if (next === "ACTIVE" && existing.validTo && existing.validTo.getTime() < Date.now()) {
       throw new BadRequestException("Cannot activate an expired permit — extend validTo first");
     }
 
-    return this.prisma.workPermit.update({
+    const updated = await this.prisma.workPermit.update({
       where: { id },
       data: {
         status: next,
-        ...(next === "APPROVED" || next === "ACTIVE" ? { approvedById: actor.sub } : {}),
+        ...(next === "APPROVED" ? { approvedById: actor.sub } : {}),
         ...(input.notes != null ? { notes: input.notes } : {})
       }
     });
+    await this.writePermitAudit(tenantId, actor.sub, {
+      permitId: id,
+      event: `work_permit_${next.toLowerCase()}`,
+      reason: input.notes ?? null,
+      before: { status: existing.status },
+      after: { status: next },
+      metadata: { permitNumber: existing.permitNumber, workOrderId: existing.workOrderId }
+    });
+    return updated;
+  }
+
+  /**
+   * A permit only covers the job it was raised for. When the job is closed, completed or
+   * cancelled every permit still open on it is closed so it cannot be reused for other work.
+   */
+  async closePermitsForWorkOrder(input: {
+    tenantId: string;
+    workOrderId: string;
+    actorId?: string | null;
+    reason: string;
+  }): Promise<number> {
+    const workPermit = (this.prisma as { workPermit?: { findMany?: unknown } }).workPermit;
+    if (typeof workPermit?.findMany !== "function") return 0;
+    const open = await this.prisma.workPermit.findMany({
+      where: { tenantId: input.tenantId, workOrderId: input.workOrderId, status: { in: [...OPEN_PERMIT_STATUSES] } },
+      select: { id: true, status: true, permitNumber: true }
+    });
+    if (open.length === 0) return 0;
+    await this.prisma.workPermit.updateMany({
+      where: { tenantId: input.tenantId, id: { in: open.map((permit) => permit.id) } },
+      data: { status: "CLOSED" }
+    });
+    for (const permit of open) {
+      await this.writePermitAudit(input.tenantId, input.actorId ?? null, {
+        permitId: permit.id,
+        event: "work_permit_auto_closed",
+        reason: input.reason,
+        before: { status: permit.status },
+        after: { status: "CLOSED" },
+        metadata: { permitNumber: permit.permitNumber, workOrderId: input.workOrderId }
+      });
+    }
+    return open.length;
+  }
+
+  private async writePermitAudit(
+    tenantId: string,
+    actorId: string | null,
+    entry: {
+      permitId: string;
+      event: string;
+      reason?: string | null;
+      before?: Record<string, unknown>;
+      after?: Record<string, unknown>;
+      metadata?: Record<string, unknown>;
+    }
+  ) {
+    const auditLog = (this.prisma as { auditLog?: { create?: unknown } }).auditLog;
+    if (typeof auditLog?.create !== "function") return;
+    await this.prisma.auditLog
+      .create({
+        data: {
+          tenantId,
+          entity: "WorkPermit",
+          entityId: entry.permitId,
+          action: "UPDATE",
+          module: "safety",
+          actorId,
+          reason: entry.reason ?? null,
+          metadata: JSON.stringify({ event: entry.event, ...(entry.metadata ?? {}) }),
+          beforeData: entry.before ? JSON.stringify(entry.before) : null,
+          afterData: entry.after ? JSON.stringify(entry.after) : null
+        }
+      })
+      .catch(() => undefined);
   }
 
   async listAssetCriticality(

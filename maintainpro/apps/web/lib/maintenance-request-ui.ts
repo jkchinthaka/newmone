@@ -17,28 +17,30 @@ const STATUS_LABELS: Record<string, string> = {
   REJECTED: "Rejected",
   CLOSED: "Closed",
   CANCELLED: "Cancelled",
-  CONVERTED_TO_WO: "Converted to Work Order"
+  CONVERTED_TO_WO: "Job created"
 };
 
 const HISTORY_ACTION_LABELS: Record<string, string> = {
+  WORK_ORDER_REJECTED: "Job rejected — back for review",
+  WORK_ORDER_CANCELLED: "Job cancelled — back for review",
   CREATED: "Request reported",
   START_REVIEW: "Review started",
-  TRIAGE_UPDATE: "Triage updated",
+  TRIAGE_UPDATE: "Review updated",
   NEEDS_INFORMATION: "More information requested",
   REQUESTER_RESPONDED: "Requester responded",
   RESUME_REVIEW: "Review resumed",
   APPROVED: "Accepted for work",
-  CLOSED: "Closed without work order",
+  CLOSED: "Closed without job",
   MARKED_DUPLICATE: "Closed as duplicate",
   CANCELLED: "Cancelled",
-  CONVERTED_TO_WO: "Work order created"
+  CONVERTED_TO_WO: "Job created"
 };
 
 const RESOLUTION_LABELS: Record<string, string> = {
   DUPLICATE: "Duplicate of an existing request",
   NOT_MAINTENANCE: "Not a maintenance issue",
   INVALID: "Invalid request",
-  RESOLVED_WITHOUT_WO: "Resolved without a work order"
+  RESOLVED_WITHOUT_WO: "Resolved without a job"
 };
 
 const VALUE_LABELS: Record<string, string> = {
@@ -72,6 +74,32 @@ function titleCase(code: string) {
 export function requestStatusLabel(status: string | null | undefined) {
   if (!status) return "—";
   return STATUS_LABELS[status] ?? titleCase(status);
+}
+
+/**
+ * Status shown to reviewers and planners. A converted request follows its job, so a request whose
+ * job is closed reads "Done" instead of staying "Job created" forever.
+ */
+export function requestListStatusLabel(status: string | null | undefined, workOrderStatus?: string | null) {
+  if (status !== "CONVERTED_TO_WO") return requestStatusLabel(status);
+  switch ((workOrderStatus ?? "").toUpperCase()) {
+    case "IN_PROGRESS":
+    case "ON_HOLD":
+    case "OVERDUE":
+    case "REWORK_REQUIRED":
+      return "Job in progress";
+    case "TECHNICIAN_COMPLETED":
+      return "Job waiting for check";
+    case "VERIFIED":
+      return "Job checked — closing";
+    case "COMPLETED":
+    case "CLOSED":
+      return "Done";
+    case "CANCELLED":
+      return "Job cancelled";
+    default:
+      return "Job created";
+  }
 }
 
 /**
@@ -136,7 +164,7 @@ function convertedWorkProgress(workOrderStatus?: string | null) {
     case "REWORK_REQUIRED":
       return "Maintenance In Progress";
     case "TECHNICIAN_COMPLETED":
-      return "Work Done — Awaiting Verification";
+      return "Work done — waiting for supervisor check";
     case "VERIFIED":
     case "COMPLETED":
     case "CLOSED":
@@ -150,7 +178,7 @@ function convertedWorkProgress(workOrderStatus?: string | null) {
 
 /** Matches the API triage queue: New, Under Review, Needs Information. Accepted stays on All requests. */
 export function requestTriageExplanation() {
-  return "New, Under Review, and Needs Information. Accepted requests stay on All requests until a work order is created.";
+  return "New, Under Review, and Needs Information. Accepted requests stay on All requests until a job is created.";
 }
 
 export function requestHistoryActionLabel(action: string | null | undefined) {
@@ -192,7 +220,7 @@ export type RequestNextStep = {
 export function requestNextStep(request: {
   status: string;
   targetUnresolved?: boolean | null;
-  workOrder?: { woNumber: string; status?: string | null } | null;
+  workOrder?: { woNumber: string; status?: string | null; requesterConfirmationStatus?: string | null } | null;
   allowedActions?: RequestAllowedActions;
   isOwner: boolean;
 }): RequestNextStep {
@@ -200,10 +228,10 @@ export function requestNextStep(request: {
   switch (request.status) {
     case "NEW":
       return isActionAllowed(actions, "startReview")
-        ? { tone: "info", title: "Ready for triage", detail: "Start the review to confirm the target and priority." }
+        ? { tone: "info", title: "Ready for review", detail: "Start the review to confirm the target and priority." }
         : {
             tone: "waiting",
-            title: "Waiting for triage",
+            title: "Waiting for review",
             detail: request.isOwner
               ? "A maintenance reviewer will check your request. You can still cancel it while it is New."
               : "A maintenance reviewer needs to start the review."
@@ -225,27 +253,36 @@ export function requestNextStep(request: {
         : { tone: "waiting", title: "Waiting for the requester", detail: "The requester has been asked for more information." };
     case "APPROVED":
       return isActionAllowed(actions, "convert")
-        ? { tone: "info", title: "Ready to become a work order", detail: "Convert it to create the work order with the confirmed target." }
-        : { tone: "waiting", title: "Accepted", detail: "A planner will create the work order." };
+        ? { tone: "info", title: "Ready to become a job", detail: "Convert it to create the job with the confirmed target." }
+        : { tone: "waiting", title: "Accepted", detail: "A planner will create the job." };
     case "CONVERTED_TO_WO": {
       const progress = requesterFacingStatus(request.status, request.workOrder?.status);
+      const confirmation = request.workOrder?.requesterConfirmationStatus;
+      if (request.isOwner && request.workOrder?.status === "VERIFIED" && confirmation === "PENDING") {
+        return {
+          tone: "blocked",
+          title: "Please confirm it is fixed",
+          detail: `Job ${request.workOrder.woNumber} is done and checked. Answer "Is it fixed?" below.`
+        };
+      }
       if (request.isOwner) {
         return {
           tone: progress === "Resolved / Completed" ? "done" : "waiting",
           title: progress,
           detail: request.workOrder
-            ? `Linked work order ${request.workOrder.woNumber}. This is not a separate request.`
-            : "A work order was created. Progress is shown once its status is available."
+            ? `Linked job ${request.workOrder.woNumber}. This is not a separate request.`
+            : "A job was created. Progress is shown once its status is available."
         };
       }
+      const jobLabel = requestListStatusLabel(request.status, request.workOrder?.status);
       return {
-        tone: "done",
-        title: request.workOrder ? `Work order ${request.workOrder.woNumber}` : "Converted to a work order",
-        detail: "Progress continues on the work order."
+        tone: jobLabel === "Done" ? "done" : "waiting",
+        title: request.workOrder ? `Job ${request.workOrder.woNumber} — ${jobLabel}` : "Converted to a job",
+        detail: jobLabel === "Done" ? "The job is closed. Nothing more to do on this request." : "Progress continues on the job."
       };
     }
     case "CLOSED":
-      return { tone: "done", title: "Closed", detail: "No work order was created for this request." };
+      return { tone: "done", title: "Closed", detail: "No job was created for this request." };
     case "CANCELLED":
       return { tone: "done", title: "Cancelled", detail: "This request was withdrawn." };
     default:
@@ -266,17 +303,17 @@ export function requestStageCards(summary: Pick<
 >): RequestStageCard[] {
   return [
     { stage: "open", label: "Open", value: summary.open },
-    { stage: "awaiting_triage", label: "Awaiting triage", value: summary.awaitingTriage },
+    { stage: "awaiting_triage", label: "Awaiting review", value: summary.awaitingTriage },
     { stage: "urgent", label: "Open high / critical", value: summary.highCritical },
-    { stage: "converted", label: "Converted to work orders", value: summary.converted }
+    { stage: "converted", label: "Converted to jobs", value: summary.converted }
   ];
 }
 
 export const REQUEST_STAGE_LABELS: Record<RequestStage, string> = {
   open: "Open",
-  awaiting_triage: "Awaiting triage",
+  awaiting_triage: "Awaiting review",
   urgent: "Open high / critical",
-  converted: "Converted to work orders"
+  converted: "Converted to jobs"
 };
 
 /**

@@ -412,7 +412,7 @@ export class DeploymentReadinessService {
         status: "warning",
         required,
         message: "Object storage is in local mode; uploaded files will not survive multi-instance production.",
-        action: "Configure Cloudinary, MinIO, R2, or S3 before production file uploads."
+        action: "For approved single-server local storage, verify the private root, write/delete access, free space, and backups."
       };
     }
 

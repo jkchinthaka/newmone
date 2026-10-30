@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/localization";
 import { FarmListPage } from "@/components/farm/farm-list-page";
 import { formatLkr } from "@/lib/farm-api";
 
@@ -23,7 +24,7 @@ export default function FarmHarvestPage() {
       endpoint="/farm/harvest"
       queryKey="farm-harvest"
       columns={[
-        { key: "harvestDate", label: "Date", render: (r) => new Date(r.harvestDate).toLocaleDateString() },
+        { key: "harvestDate", label: "Date", render: (r) => formatDate(r.harvestDate) },
         { key: "quantityKg", label: "Qty (kg)" },
         { key: "qualityGrade", label: "Grade" },
         { key: "pricePerKgLkr", label: "Price/kg", render: (r) => formatLkr(r.pricePerKgLkr ?? null) },

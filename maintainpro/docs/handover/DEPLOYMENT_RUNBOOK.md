@@ -133,7 +133,7 @@ server {
 }
 ```
 
-`$remote_addr` is the address nginx accepted. Replace `web:3001` with the Next.js listen address (local go-live web is `127.0.0.1:3041`).
+`$remote_addr` is the address nginx accepted. `web:3001` is the Docker network name. The local Windows services listen on `127.0.0.1:3040` (API) and `127.0.0.1:3041` (web), which is the address the IIS rewrite below already uses.
 
 ### IIS ARR and URL Rewrite
 

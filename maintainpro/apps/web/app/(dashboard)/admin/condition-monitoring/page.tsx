@@ -85,7 +85,7 @@ export default function AdminConditionMonitoringPage() {
   });
 
   if (rulesQuery.isLoading) {
-    return <LoadingState title="Loading CBM rules" description="Condition monitoring." />;
+    return <LoadingState title="Loading meter alert limits" description="Condition monitoring." />;
   }
   if (rulesQuery.isError) {
     return (

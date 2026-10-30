@@ -3,20 +3,32 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { AlertTriangle, Clock, FileWarning, Truck, Wrench, type LucideIcon } from "lucide-react";
 
-import { ActiveFilterChips, JobsEmptyState, JobsLoadingSkeleton, JobsPagination, OperationalJobsHeader } from "@/components/operational";
-import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { STICKY_TABLE_CLASS } from "@/components/fleet/fleet-register";
+import { RowActionsMenu } from "@/components/fleet/row-actions-menu";
+import { ActiveFilterChips, JobsEmptyState, JobsPagination, OperationalJobsHeader } from "@/components/operational";
+import { KpiCard, StatusBadge } from "@/components/ui/dashboard";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { ButtonSpinner, RefreshingNote, TableLoadingRows } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/page-state";
+import { columnHasData, fleetDocumentBadge, fleetGateBadge, fleetServiceBadge, fleetUsageLabel } from "@/lib/batch-3-presentation";
+import type { StatusTone } from "@/lib/dashboard-status";
+import { apiClient } from "@/lib/api-client";
+import { formatEnumLabel } from "@/lib/display-labels";
+import { registerRecordHref } from "@/lib/fleet-register";
+import { formatCurrency, formatDate } from "@/lib/localization";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { getFleetOverview, type FleetOverviewSummary } from "@/lib/fleet-lifecycle-api";
 import {
   FLEET_EMPTY,
   FLEET_VIEWS,
   fleetKpiTarget,
-  fleetNextAction,
   fleetSearch,
-  fleetServiceLabel,
   fleetStateFromSearch,
   fleetVehicleHref,
+  type FleetKpiMetric,
   type FleetState,
   type FleetView
 } from "@/lib/fleet-workspace";
@@ -26,6 +38,9 @@ type VehicleRow = {
   registrationNo: string;
   make?: string | null;
   vehicleModel?: string | null;
+  year?: number | null;
+  type?: string | null;
+  fuelType?: string | null;
   status?: string | null;
   serviceStatus?: string | null;
   currentMileage?: number | string | null;
@@ -34,20 +49,24 @@ type VehicleRow = {
   roadTaxExpiry?: string | null;
   gateBlocked?: boolean | null;
   location?: string | null;
-  blocked?: boolean;
-  blockedReasons?: string[];
 };
+
+type RecordRow = Record<string, unknown>;
 
 type PageMeta = { page: number; pageSize: number; total: number; totalPages: number };
 
+type FleetListResult = { view: FleetView; vehicles: VehicleRow[]; records: RecordRow[]; meta: PageMeta };
+
 const VIEW_LABELS: Record<FleetView, string> = {
   vehicles: "Vehicles",
-  gate: "Gate",
   accidents: "Accidents",
   claims: "Claims",
   fines: "Traffic Fines",
   compliance: "Compliance"
 };
+
+const FILTER_INPUT_CLASS = "min-h-11 rounded-md border border-slate-300 px-2 text-sm sm:min-h-9";
+const TOOLBAR_BUTTON_CLASS = "inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm sm:min-h-9";
 
 function daysUntil(value?: string | null, now = new Date()) {
   if (!value) return null;
@@ -65,6 +84,51 @@ function soonestDoc(row: VehicleRow) {
   return options[0] ?? null;
 }
 
+function fallbackMeta(state: FleetState): PageMeta {
+  return { page: state.page, pageSize: state.pageSize, total: 0, totalPages: 1 };
+}
+
+async function fetchFleetList(state: FleetState, signal: AbortSignal): Promise<FleetListResult> {
+  if (state.view === "vehicles" || state.view === "compliance") {
+    const response = await apiClient.get("/vehicles", {
+      signal,
+      params: {
+        q: state.q || undefined,
+        status: state.view === "vehicles" ? state.status || undefined : undefined,
+        service: state.view === "vehicles" ? state.service || undefined : undefined,
+        location: state.location || undefined,
+        docs: state.view === "compliance" && state.expiry === "30d" ? "expiring" : undefined,
+        page: state.page,
+        pageSize: state.pageSize
+      }
+    });
+    const payload = response.data?.data ?? {};
+    return {
+      view: state.view,
+      vehicles: Array.isArray(payload.items) ? payload.items : [],
+      records: [],
+      meta: payload.pagination ?? fallbackMeta(state)
+    };
+  }
+  const path = state.view === "accidents" ? "/accidents" : state.view === "claims" ? "/insurance-claims" : "/traffic-fines";
+  const response = await apiClient.get(path, {
+    signal,
+    params: {
+      page: state.page,
+      pageSize: state.pageSize,
+      repair: state.view === "accidents" && state.repair === "open" ? "open" : undefined,
+      status: state.view === "claims" ? state.claimStatus || undefined : undefined,
+      paymentStatus: state.view === "fines" ? state.fineStatus || undefined : undefined
+    }
+  });
+  return {
+    view: state.view,
+    vehicles: [],
+    records: Array.isArray(response.data?.data) ? response.data.data : [],
+    meta: response.data?.meta ?? fallbackMeta(state)
+  };
+}
+
 export function FleetWorkspace() {
   const router = useRouter();
   const currentUser = useCurrentUser();
@@ -73,167 +137,92 @@ export function FleetWorkspace() {
   const searchParams = useSearchParams();
   const state = useMemo(() => fleetStateFromSearch(new URLSearchParams(searchParams.toString())), [searchParams]);
   const [draftQuery, setDraftQuery] = useState(state.q);
-  const [summary, setSummary] = useState<FleetOverviewSummary | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(true);
-  const [summaryFailed, setSummaryFailed] = useState(false);
-  const [summaryAttempt, setSummaryAttempt] = useState(0);
-  const [rows, setRows] = useState<VehicleRow[]>([]);
-  const [records, setRecords] = useState<Array<Record<string, unknown>>>([]);
-  const [meta, setMeta] = useState<PageMeta>({ page: 1, pageSize: state.pageSize, total: 0, totalPages: 1 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [more, setMore] = useState(false);
-  const [menuId, setMenuId] = useState<string | null>(null);
-  const [reasons, setReasons] = useState<Record<string, string[]>>({});
-  const [reloadKey, setReloadKey] = useState(0);
+  const [draftLocation, setDraftLocation] = useState(state.location);
+  const [more, setMore] = useState(Boolean(state.location));
+
+  function write(next: FleetState) {
+    const query = fleetSearch(next);
+    router.replace((query ? `${pathname}?${query}` : pathname) as never, { scroll: false });
+  }
 
   useEffect(() => {
     setDraftQuery(state.q);
   }, [state.q]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      if (draftQuery.trim() === state.q) return;
-      write({ ...state, q: draftQuery.trim(), page: 1 });
-    }, 400);
+    setDraftLocation(state.location);
+  }, [state.location]);
+
+  // Typing never fires a request per keystroke: search and location wait for a pause.
+  useEffect(() => {
+    const q = draftQuery.trim();
+    const location = draftLocation.trim();
+    if (q === state.q && location === state.location) return;
+    const timer = window.setTimeout(() => write({ ...state, q, location, page: 1 }), 400);
     return () => window.clearTimeout(timer);
-  }, [draftQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftQuery, draftLocation]);
 
-  function write(next: FleetState) {
-    const query = fleetSearch(next);
-    router.replace((query ? `${pathname}?${query}` : pathname) as never);
-  }
+  const summaryQuery = useQuery({
+    queryKey: ["fleet-lifecycle", "overview"],
+    queryFn: ({ signal }) => getFleetOverview(signal)
+  });
 
-  useEffect(() => {
-    const controller = new AbortController();
-    setSummaryLoading(true);
-    setSummaryFailed(false);
-    void getFleetOverview(controller.signal)
-      .then((overview) => {
-        if (controller.signal.aborted) return;
-        setSummary(overview);
-        setSummaryFailed(false);
-        setSummaryLoading(false);
-      })
-      .catch((cause: unknown) => {
-        if (controller.signal.aborted || isCanceledRequest(cause)) return;
-        setSummary(null);
-        setSummaryFailed(true);
-        setSummaryLoading(false);
-      });
-    return () => controller.abort();
-  }, [reloadKey, summaryAttempt]);
+  const listQuery = useQuery({
+    queryKey: ["fleet-workspace", "list", state],
+    queryFn: ({ signal }) => fetchFleetList(state, signal),
+    // Keep the current rows and pager on screen while the next page or filter loads,
+    // but never show one tab's rows under another tab.
+    placeholderData: (previous) => (previous?.view === state.view ? previous : undefined)
+  });
+
+  const list = listQuery.data?.view === state.view ? listQuery.data : undefined;
+  const meta = list?.meta ?? fallbackMeta(state);
 
   useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-    void (async () => {
-      try {
-        if (state.view === "gate" && state.gate) {
-          const response = await apiClient.get("/vehicles/gate-queue", {
-            signal: controller.signal,
-            params: { state: state.gate, q: state.q || undefined, page: state.page, pageSize: state.pageSize }
-          });
-          const payload = response.data?.data ?? {};
-          if (!controller.signal.aborted) {
-            setRows(Array.isArray(payload.items) ? payload.items : []);
-            setRecords([]);
-            setMeta(payload.pagination ?? { page: state.page, pageSize: state.pageSize, total: 0, totalPages: 1 });
-          }
-        } else if (state.view === "vehicles" || state.view === "gate" || state.view === "compliance") {
-          const response = await apiClient.get("/vehicles", {
-            signal: controller.signal,
-            params: {
-              q: state.q || undefined,
-              status: state.view === "vehicles" ? state.status || undefined : undefined,
-              service: state.view === "vehicles" ? state.service || undefined : undefined,
-              gate: state.view === "gate" ? state.gate || undefined : undefined,
-              location: state.location || undefined,
-              docs: state.view === "compliance" && state.expiry === "30d" ? "expiring" : undefined,
-              page: state.page,
-              pageSize: state.pageSize
-            }
-          });
-          const payload = response.data?.data ?? {};
-          if (!controller.signal.aborted) {
-            setRows(Array.isArray(payload.items) ? payload.items : []);
-            setRecords([]);
-            setMeta(payload.pagination ?? { page: state.page, pageSize: state.pageSize, total: 0, totalPages: 1 });
-          }
-        } else {
-          const path = state.view === "accidents" ? "/accidents" : state.view === "claims" ? "/insurance-claims" : "/traffic-fines";
-          const response = await apiClient.get(path, {
-            signal: controller.signal,
-            params: {
-              page: state.page,
-              pageSize: state.pageSize,
-              repair: state.view === "accidents" && state.repair === "open" ? "open" : undefined,
-              status: state.view === "claims" ? state.claimStatus || undefined : undefined,
-              paymentStatus: state.view === "fines" ? state.fineStatus || undefined : undefined,
-              q: undefined
-            }
-          });
-          if (!controller.signal.aborted) {
-            setRows([]);
-            setRecords(Array.isArray(response.data?.data) ? response.data.data : []);
-            setMeta(response.data?.meta ?? { page: state.page, pageSize: state.pageSize, total: 0, totalPages: 1 });
-          }
-        }
-      } catch (err) {
-        if (!controller.signal.aborted) setError(getApiErrorMessage(err, "Unable to load fleet records."));
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    })();
-    return () => controller.abort();
-  }, [state.view, state.q, state.status, state.service, state.gate, state.location, state.expiry, state.repair, state.claimStatus, state.fineStatus, state.page, state.pageSize, reloadKey]);
-
-  useEffect(() => {
-    if (state.service || state.gate || state.expiry || state.repair || state.status) {
+    if (state.service || state.expiry || state.repair || state.status) {
       document.getElementById("fleet-results")?.scrollIntoView({ block: "start" });
     }
-  }, [state.view, state.service, state.gate, state.expiry, state.repair, state.status]);
+  }, [state.view, state.service, state.expiry, state.repair, state.status]);
 
-  const vehicleSearch = state.view === "vehicles" || state.view === "gate" || state.view === "compliance";
+  const vehicleSearch = state.view === "vehicles" || state.view === "compliance";
   const chips = [
     vehicleSearch && state.q ? { key: "q", label: `Search: ${state.q}` } : null,
-    state.status ? { key: "status", label: state.status.replaceAll("_", " ") } : null,
+    state.status ? { key: "status", label: formatEnumLabel(state.status) } : null,
     state.service ? { key: "service", label: `Service: ${state.service}` } : null,
-    state.gate ? { key: "gate", label: state.gate === "blocked" ? "Blocked" : "Ready" } : null,
     state.location ? { key: "location", label: state.location } : null,
     state.expiry ? { key: "expiry", label: "Expiring in 30 days" } : null,
     state.repair ? { key: "repair", label: "Open repairs" } : null,
-    state.claimStatus ? { key: "claimStatus", label: state.claimStatus } : null,
-    state.fineStatus ? { key: "fineStatus", label: state.fineStatus } : null
+    state.claimStatus ? { key: "claimStatus", label: formatEnumLabel(state.claimStatus) } : null,
+    state.fineStatus ? { key: "fineStatus", label: formatEnumLabel(state.fineStatus) } : null
   ].filter(Boolean) as Array<{ key: string; label: string }>;
 
-  async function openReasons(id: string) {
-    if (reasons[id]) return;
-    try {
-      const response = await apiClient.get(`/vehicles/${id}/gate-block-reasons`);
-      const result = response.data?.data as { blocked?: boolean; blockedReasons?: string[] };
-      const next = result?.blockedReasons?.length ? result.blockedReasons : ["Ready to gate"];
-      setReasons((current) => ({ ...current, [id]: next }));
-    } catch (err) {
-      setReasons((current) => ({ ...current, [id]: [getApiErrorMessage(err, "Unable to load the gate reason.")] }));
-    }
-  }
+  const refreshing = listQuery.isFetching || summaryQuery.isFetching;
 
   return (
     <div className="min-w-0 space-y-4">
       <OperationalJobsHeader
         eyebrow="Fleet"
         title="Fleet"
-        description="Vehicles, service due dates, documents and gate readiness."
+        description="Vehicles, service due dates, documents, accidents and fines."
         actions={
           <>
-            <button type="button" className="h-9 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>
+            <button
+              type="button"
+              className={TOOLBAR_BUTTON_CLASS}
+              disabled={refreshing}
+              aria-busy={refreshing}
+              onClick={() => {
+                void listQuery.refetch();
+                void summaryQuery.refetch();
+              }}
+            >
+              {refreshing ? <ButtonSpinner /> : null}
               Refresh
             </button>
             {canRegisterVehicle ? (
-              <Link href={"/admin/vehicles/new" as never} className="inline-flex h-9 items-center rounded-md border border-slate-300 px-3 text-sm">
-                Register in Admin
+              <Link href={"/admin/vehicles/new" as never} className={TOOLBAR_BUTTON_CLASS}>
+                Register vehicle
               </Link>
             ) : null}
           </>
@@ -247,7 +236,7 @@ export function FleetWorkspace() {
             type="button"
             role="tab"
             aria-selected={state.view === view}
-            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${state.view === view ? "bg-brand-700 text-white" : "text-slate-700 hover:bg-slate-100"}`}
+            className={`min-h-11 whitespace-nowrap rounded-lg px-3 text-sm font-medium sm:min-h-9 ${state.view === view ? "bg-brand-700 text-white" : "text-slate-700 hover:bg-slate-100"}`}
             onClick={() => write({ ...fleetStateFromSearch(new URLSearchParams()), view, pageSize: state.pageSize, expiry: view === "compliance" ? "30d" : "" })}
           >
             {VIEW_LABELS[view]}
@@ -256,33 +245,34 @@ export function FleetWorkspace() {
       </div>
 
       <FleetSummaryChips
-        summary={summary}
-        loading={summaryLoading}
-        failed={summaryFailed}
-        onRetry={() => setSummaryAttempt((value) => value + 1)}
+        summary={summaryQuery.data ?? null}
+        loading={summaryQuery.isPending}
+        failed={summaryQuery.isError && !summaryQuery.data}
+        onRetry={() => void summaryQuery.refetch()}
         onSelect={(key) => write(fleetKpiTarget(key, state.pageSize))}
       />
 
-      <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="min-w-0 max-w-full rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
           <label className="sr-only" htmlFor="fleet-search">Search</label>
           <input
             id="fleet-search"
+            type="search"
             value={draftQuery}
             onChange={(event) => setDraftQuery(event.target.value)}
-            placeholder={vehicleSearch ? "Search registration, name, or code" : "Search applies on Vehicles, Gate, and Compliance"}
+            placeholder={vehicleSearch ? "Search registration, name, or code" : "Search applies on Vehicles and Compliance"}
             disabled={!vehicleSearch}
-            className="h-9 min-w-48 flex-1 rounded-md border border-slate-300 px-3 text-sm"
+            className={`${FILTER_INPUT_CLASS} min-w-48 flex-1 px-3`}
           />
           {state.view === "vehicles" ? (
             <>
-              <select aria-label="Status" value={state.status} onChange={(event) => write({ ...state, status: event.target.value, page: 1 })} className="h-9 rounded-md border border-slate-300 px-2 text-sm">
+              <select aria-label="Status" value={state.status} onChange={(event) => write({ ...state, status: event.target.value, page: 1 })} className={FILTER_INPUT_CLASS}>
                 <option value="">Status</option>
                 {["AVAILABLE", "IN_USE", "UNDER_MAINTENANCE", "OUT_OF_SERVICE", "DISPOSED"].map((status) => (
-                  <option key={status} value={status}>{status.replaceAll("_", " ")}</option>
+                  <option key={status} value={status}>{formatEnumLabel(status)}</option>
                 ))}
               </select>
-              <select aria-label="Service state" value={state.service} onChange={(event) => write({ ...state, service: event.target.value as FleetState["service"], page: 1 })} className="h-9 rounded-md border border-slate-300 px-2 text-sm">
+              <select aria-label="Service state" value={state.service} onChange={(event) => write({ ...state, service: event.target.value as FleetState["service"], page: 1 })} className={FILTER_INPUT_CLASS}>
                 <option value="">Service state</option>
                 <option value="overdue">Overdue</option>
                 <option value="due-soon">Due soon</option>
@@ -290,33 +280,29 @@ export function FleetWorkspace() {
               </select>
             </>
           ) : null}
-          {state.view === "gate" ? (
-            <select aria-label="Gate readiness" value={state.gate} onChange={(event) => write({ ...state, gate: event.target.value as FleetState["gate"], page: 1 })} className="h-9 rounded-md border border-slate-300 px-2 text-sm">
-              <option value="">Gate readiness</option>
-              <option value="ready">Ready</option>
-              <option value="blocked">Blocked</option>
-            </select>
-          ) : null}
           {state.view === "fines" ? (
-            <select aria-label="Fine status" value={state.fineStatus} onChange={(event) => write({ ...state, fineStatus: event.target.value, page: 1 })} className="h-9 rounded-md border border-slate-300 px-2 text-sm">
+            <select aria-label="Fine status" value={state.fineStatus} onChange={(event) => write({ ...state, fineStatus: event.target.value, page: 1 })} className={FILTER_INPUT_CLASS}>
               <option value="">Status</option>
               <option value="PENDING">Unpaid</option>
               <option value="OVERDUE">Overdue</option>
               <option value="PAID">Paid</option>
             </select>
           ) : null}
-          <button type="button" className="h-9 rounded-md border border-slate-300 px-3 text-sm" aria-expanded={more} onClick={() => setMore((value) => !value)}>
-            More filters
-          </button>
-          <button type="button" className="h-9 px-2 text-sm text-slate-700" onClick={() => write({ ...fleetStateFromSearch(new URLSearchParams()), view: state.view })}>
+          {vehicleSearch ? (
+            <button type="button" className={TOOLBAR_BUTTON_CLASS} aria-expanded={more} onClick={() => setMore((value) => !value)}>
+              More filters
+            </button>
+          ) : null}
+          <button type="button" className="min-h-11 px-2 text-sm text-slate-700 sm:min-h-9" onClick={() => write({ ...fleetStateFromSearch(new URLSearchParams()), view: state.view })}>
             Clear
           </button>
+          {list && listQuery.isFetching ? <RefreshingNote /> : null}
         </div>
-        {more ? (
+        {more && vehicleSearch ? (
           <div className="flex flex-wrap gap-2 border-b border-slate-200 px-3 py-2">
-            <label className="text-sm text-slate-600">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
               Location
-              <input value={state.location} onChange={(event) => write({ ...state, location: event.target.value, page: 1 })} className="ml-2 h-9 rounded-md border border-slate-300 px-2" />
+              <input value={draftLocation} onChange={(event) => setDraftLocation(event.target.value)} className={FILTER_INPUT_CLASS} />
             </label>
           </div>
         ) : null}
@@ -326,195 +312,192 @@ export function FleetWorkspace() {
           onClearAll={() => write({ ...fleetStateFromSearch(new URLSearchParams()), view: state.view })}
         />
 
-        <div id="fleet-results" className="max-w-full overflow-x-auto [contain:paint]">
-          {loading ? <JobsLoadingSkeleton label="Loading fleet records" /> : null}
-          {!loading && error ? (
-            <div className="px-4 py-8 text-center text-sm">
-              <p>{error}</p>
-              <button type="button" className="mt-2 font-medium text-brand-700" onClick={() => setReloadKey((value) => value + 1)}>Retry</button>
+        <div id="fleet-results" className="min-w-0 max-w-full">
+          {!list && listQuery.isError ? (
+            <div className="p-3">
+              <ErrorState title="Couldn't load fleet records" error={listQuery.error} onRetry={() => void listQuery.refetch()} />
             </div>
           ) : null}
-          {!loading && !error && state.view === "vehicles" ? <VehicleTable rows={rows} menuId={menuId} setMenuId={setMenuId} /> : null}
-          {!loading && !error && state.view === "gate" ? (
-            <GateTable rows={rows} reasons={reasons} checked={Boolean(state.gate)} onOpen={(id) => void openReasons(id)} />
+          {!list && !listQuery.isError ? <TableLoadingRows label="Loading fleet records" /> : null}
+          {list && listQuery.isError ? (
+            <div className="p-3">
+              <ErrorState title="Couldn't refresh fleet records" error={listQuery.error} onRetry={() => void listQuery.refetch()} />
+            </div>
           ) : null}
-          {!loading && !error && state.view === "compliance" ? <ComplianceTable rows={rows} /> : null}
-          {!loading && !error && (state.view === "accidents" || state.view === "claims" || state.view === "fines") ? (
-            <RecordTable view={state.view} rows={records} />
+          {list && !listQuery.isError ? (
+            <>
+              {state.view === "vehicles" ? <VehicleTable rows={list.vehicles} /> : null}
+              {state.view === "compliance" ? <ComplianceTable rows={list.vehicles} /> : null}
+              {state.view === "accidents" || state.view === "claims" || state.view === "fines" ? (
+                <RecordTable view={state.view} rows={list.records} />
+              ) : null}
+              {meta.total === 0 ? <JobsEmptyState title={FLEET_EMPTY} /> : null}
+            </>
           ) : null}
-          {!loading && !error && meta.total === 0 ? <JobsEmptyState title={FLEET_EMPTY} /> : null}
         </div>
-        <JobsPagination
-          page={meta.page}
-          totalPages={meta.totalPages}
-          total={meta.total}
-          pageSize={state.pageSize}
-          onPageChange={(page) => write({ ...state, page })}
-          onPageSizeChange={(pageSize) => write({ ...state, pageSize, page: 1 })}
-        />
+        {list && !listQuery.isError && meta.total > 0 ? (
+          <JobsPagination
+            page={meta.page}
+            totalPages={meta.totalPages}
+            total={meta.total}
+            pageSize={state.pageSize}
+            onPageChange={(page) => write({ ...state, page })}
+            onPageSizeChange={(pageSize) => write({ ...state, pageSize, page: 1 })}
+          />
+        ) : null}
       </div>
     </div>
   );
 }
 
-function VehicleTable({ rows, menuId, setMenuId }: { rows: VehicleRow[]; menuId: string | null; setMenuId: (id: string | null) => void }) {
-  if (!rows.length) return null;
-  return (
-    <div className="max-w-full overflow-x-auto [contain:paint]">
-      <table className="min-w-full text-sm">
-        <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
-          <tr>
-            <th className="px-3 py-2">Vehicle</th>
-            <th className="px-3 py-2">Status</th>
-            <th className="px-3 py-2">Service</th>
-            <th className="hidden px-3 py-2 lg:table-cell">Odometer</th>
-            <th className="px-3 py-2">Gate</th>
-            <th className="px-3 py-2">Next action</th>
-            <th className="px-3 py-2"><span className="sr-only">Actions</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const action = fleetNextAction(row);
-            const urgent = action === "Service overdue" || row.gateBlocked;
-            return (
-              <tr key={row.id} className="border-t border-slate-100">
-                <td className="px-3 py-2">
-                  <Link href={fleetVehicleHref(row.id) as never} className="font-medium text-slate-900">{row.make} {row.vehicleModel}</Link>
-                  <p className="text-xs text-slate-500">{row.registrationNo}</p>
-                </td>
-                <td className="px-3 py-2">{row.status?.replaceAll("_", " ") || "—"}</td>
-                <td className={`px-3 py-2 ${fleetServiceLabel(row.serviceStatus, row.nextServiceDate) === "Overdue" ? "font-medium text-red-700" : ""}`}>
-                  {fleetServiceLabel(row.serviceStatus, row.nextServiceDate)}
-                </td>
-                <td className="hidden px-3 py-2 lg:table-cell">{row.currentMileage ?? "—"}</td>
-                <td className={`px-3 py-2 ${row.gateBlocked ? "font-medium text-red-700" : "text-slate-600"}`}>{row.gateBlocked ? "Blocked" : "Ready"}</td>
-                <td className={`px-3 py-2 ${urgent ? "font-medium text-red-700" : "text-slate-600"}`}>{action}</td>
-                <td className="relative px-3 py-2">
-                  <button type="button" aria-label={`Actions for ${row.registrationNo}`} aria-expanded={menuId === row.id} onClick={() => setMenuId(menuId === row.id ? null : row.id)} className="h-8 w-8 rounded-md hover:bg-slate-100">⋯</button>
-                  {menuId === row.id ? (
-                    <div className="absolute right-2 z-10 w-44 rounded-md border border-slate-200 bg-white py-1 text-sm shadow">
-                      <Link className="block px-3 py-1.5 hover:bg-slate-50" href={fleetVehicleHref(row.id) as never}>Open</Link>
-                      <Link className="block px-3 py-1.5 hover:bg-slate-50" href={fleetVehicleHref(row.id) as never}>Edit</Link>
-                      <Link className="block px-3 py-1.5 hover:bg-slate-50" href={"/maintenance/jobs/vehicle" as never}>Create Work Order</Link>
-                    </div>
-                  ) : null}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
+const BARE_TABLE_CLASS = `!rounded-none !border-0 !shadow-none ${STICKY_TABLE_CLASS}`;
+
+function badge(value: { label: string; tone: StatusTone } | null) {
+  return value ? <StatusBadge status={value.label} label={value.label} tone={value.tone} /> : <span className="text-slate-400">—</span>;
 }
 
-function GateTable({
-  rows,
-  reasons,
-  checked,
-  onOpen
-}: {
-  rows: VehicleRow[];
-  reasons: Record<string, string[]>;
-  checked: boolean;
-  onOpen: (id: string) => void;
-}) {
+function VehicleTable({ rows }: { rows: VehicleRow[] }) {
   if (!rows.length) return null;
-  return (
-    <div className="divide-y divide-slate-100">
-      {rows.map((row) => {
-        const listed = checked ? row.blockedReasons ?? [] : reasons[row.id];
-        const blocked = checked ? row.blocked === true : listed ? listed.some((reason) => reason !== "Ready to gate") : false;
-        const label = listed ? (blocked ? "Blocked" : "Ready") : "Not checked";
+  const documentBadgeFor = (row: VehicleRow) =>
+    fleetDocumentBadge([
+      { label: "Insurance", at: row.insuranceExpiry },
+      { label: "Road tax", at: row.roadTaxExpiry }
+    ]);
+  const showService = columnHasData(rows, (row) => fleetServiceBadge(row.nextServiceDate));
+  const showDocuments = columnHasData(rows, documentBadgeFor);
+  const showGate = columnHasData(rows, (row) => fleetGateBadge(row.gateBlocked));
+  const columns: DataTableColumn<VehicleRow>[] = [
+    {
+      id: "vehicle",
+      header: "Vehicle",
+      cell: (row) => {
+        const identity = [row.make, row.vehicleModel, row.year].filter(Boolean).join(" ");
         return (
-          <div key={row.id} className="px-3 py-2 text-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <Link href={fleetVehicleHref(row.id) as never} className="font-medium">{row.registrationNo}</Link>
-                <p className="text-xs text-slate-500">{row.make} {row.vehicleModel}</p>
-              </div>
-              <p className={blocked ? "font-medium text-red-700" : "text-slate-600"}>{label}</p>
-              {listed ? null : (
-                <button type="button" className="text-sm font-medium text-brand-700" onClick={() => onOpen(row.id)}>
-                  Check readiness
-                </button>
-              )}
-            </div>
-            {listed?.length ? <ul className="mt-1 list-disc pl-5 text-slate-700">{listed.map((reason) => <li key={reason}>{reason}</li>)}</ul> : null}
-          </div>
+          <>
+            <Link href={fleetVehicleHref(row.id) as never} className="font-medium text-slate-900 underline-offset-2 hover:underline">{row.registrationNo}</Link>
+            {identity ? <p className="text-xs text-slate-500">{identity}</p> : null}
+          </>
         );
-      })}
-    </div>
+      }
+    },
+    { id: "type", header: "Type", cell: (row) => formatEnumLabel(row.type) },
+    { id: "fuel", header: "Fuel", cell: (row) => formatEnumLabel(row.fuelType), hideOnMobile: true },
+    { id: "mileage", header: "Mileage", cell: (row) => fleetUsageLabel(row.currentMileage) ?? "—" },
+    ...(showService ? [{ id: "service", header: "Next service", cell: (row: VehicleRow) => badge(fleetServiceBadge(row.nextServiceDate)) }] : []),
+    ...(showDocuments ? [{ id: "documents", header: "Documents", cell: (row: VehicleRow) => badge(documentBadgeFor(row)) }] : []),
+    ...(showGate ? [{ id: "gate", header: "Gate", cell: (row: VehicleRow) => badge(fleetGateBadge(row.gateBlocked)), hideOnMobile: true }] : [])
+  ];
+  return (
+    <DataTable
+      rows={rows}
+      columns={columns}
+      getRowId={(row) => row.id}
+      ariaLabel="Vehicles"
+      minWidth="720px"
+      className={BARE_TABLE_CLASS}
+      actionsHeader={<span className="sr-only">Actions</span>}
+      renderActions={(row) => (
+        <RowActionsMenu
+          label={`Actions for ${row.registrationNo}`}
+          actions={[
+            { label: "Open", href: fleetVehicleHref(row.id) },
+            { label: "Edit", href: fleetVehicleHref(row.id) },
+            { label: "Create job", href: "/maintenance/jobs/vehicle" }
+          ]}
+        />
+      )}
+    />
   );
 }
 
 function ComplianceTable({ rows }: { rows: VehicleRow[] }) {
   if (!rows.length) return null;
-  return (
-    <table className="min-w-full text-sm">
-      <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
-        <tr>
-          <th className="px-3 py-2">Vehicle</th>
-          <th className="px-3 py-2">Document</th>
-          <th className="px-3 py-2">Expiry</th>
-          <th className="px-3 py-2">Status</th>
-          <th className="px-3 py-2">Days</th>
-          <th className="px-3 py-2">Next action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => {
-          const doc = soonestDoc(row);
-          const days = daysUntil(doc?.at);
-          return (
-            <tr key={row.id} className="border-t border-slate-100">
-              <td className="px-3 py-2"><Link href={fleetVehicleHref(row.id) as never}>{row.registrationNo}</Link></td>
-              <td className="px-3 py-2">{doc?.type ?? "—"}</td>
-              <td className="px-3 py-2">{doc?.at ? new Date(doc.at).toLocaleDateString() : "—"}</td>
-              <td className="px-3 py-2 font-medium text-amber-800">{doc ? "Expiring soon" : "—"}</td>
-              <td className="px-3 py-2">{days ?? "—"}</td>
-              <td className="px-3 py-2">Document expiry</td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  );
+  const columns: DataTableColumn<VehicleRow>[] = [
+    {
+      id: "vehicle",
+      header: "Vehicle",
+      cell: (row) => <Link href={fleetVehicleHref(row.id) as never} className="font-medium text-slate-900 underline-offset-2 hover:underline">{row.registrationNo}</Link>
+    },
+    { id: "document", header: "Document", cell: (row) => soonestDoc(row)?.type ?? "—" },
+    { id: "expiry", header: "Expiry", cell: (row) => formatDate(soonestDoc(row)?.at) },
+    { id: "status", header: "Status", cell: (row) => (soonestDoc(row) ? <span className="font-medium text-amber-800">Expiring soon</span> : "—") },
+    { id: "days", header: "Days left", cell: (row) => daysUntil(soonestDoc(row)?.at) ?? "—" },
+    { id: "next", header: "Next action", cell: () => "Renew document", hideOnMobile: true }
+  ];
+  return <DataTable rows={rows} columns={columns} getRowId={(row) => row.id} ariaLabel="Compliance" minWidth="720px" className={BARE_TABLE_CLASS} />;
 }
 
-function RecordTable({ view, rows }: { view: FleetView; rows: Array<Record<string, unknown>> }) {
+const RECORD_REGISTERS = {
+  accidents: "/accidents",
+  claims: "/insurance-claims",
+  fines: "/traffic-fines"
+} as const;
+
+function recordAmount(view: FleetView, row: RecordRow): string {
+  const raw =
+    view === "accidents"
+      ? row.actualDamageCost ?? row.estimatedDamageCost
+      : view === "claims"
+        ? row.claimAmount
+        : row.fineAmount;
+  return formatCurrency(raw as number | string | null | undefined, { maximumFractionDigits: 0, minimumFractionDigits: 0 });
+}
+
+function RecordTable({ view, rows }: { view: "accidents" | "claims" | "fines"; rows: RecordRow[] }) {
   if (!rows.length) return null;
+  const register = RECORD_REGISTERS[view];
+  const titleOf = (row: RecordRow) => String(row.reportNumber ?? row.claimNumber ?? row.fineNumber ?? row.id ?? "");
+  const dateOf = (row: RecordRow) => (row.occurredAt ?? row.filedAt ?? row.fineDate ?? row.createdAt) as string | null | undefined;
+  const statusOf = (row: RecordRow) => String((view === "fines" ? row.paymentStatus : row.status) ?? "");
+  const columns: DataTableColumn<RecordRow>[] = [
+    {
+      id: "record",
+      header: view === "accidents" ? "Report" : view === "claims" ? "Claim" : "Fine",
+      cell: (row) => (
+        <Link href={registerRecordHref(register, String(row.id ?? "")) as never} className="font-medium text-slate-900 underline-offset-2 hover:underline">
+          {titleOf(row)}
+        </Link>
+      )
+    },
+    {
+      id: "vehicle",
+      header: "Vehicle",
+      cell: (row) => {
+        const vehicle = row.vehicle as { id?: string; registrationNo?: string } | undefined;
+        const vehicleId = vehicle?.id ?? (row.vehicleId as string | undefined);
+        return vehicleId && vehicle?.registrationNo ? (
+          <Link href={fleetVehicleHref(String(vehicleId)) as never} className="underline-offset-2 hover:underline">{vehicle.registrationNo}</Link>
+        ) : (
+          vehicle?.registrationNo ?? "—"
+        );
+      }
+    },
+    { id: "date", header: view === "accidents" ? "Occurred" : view === "claims" ? "Filed" : "Fine date", cell: (row) => formatDate(dateOf(row)) },
+    ...(view === "accidents"
+      ? [{ id: "severity", header: "Severity", cell: (row: RecordRow) => formatEnumLabel(row.severity as string | undefined) }]
+      : []),
+    { id: "status", header: view === "fines" ? "Payment" : "Status", cell: (row) => formatEnumLabel(statusOf(row)) },
+    { id: "amount", header: "Amount", cell: (row) => recordAmount(view, row), className: "text-right", headerClassName: "text-right" }
+  ];
   return (
-    <table className="min-w-full text-sm">
-      <tbody>
-        {rows.map((row) => {
-          const id = String(row.id ?? "");
-          const vehicle = row.vehicle as { id?: string; registrationNo?: string } | undefined;
-          const title = String(row.reportNumber ?? row.claimNumber ?? row.fineNumber ?? id);
-          const register = view === "accidents" ? "/accidents" : view === "claims" ? "/insurance-claims" : "/traffic-fines";
-          return (
-            <tr key={id} className="border-t border-slate-100">
-              <td className="px-3 py-2 font-medium"><Link href={register as never}>{title}</Link></td>
-              <td className="px-3 py-2">{vehicle?.id ? <Link href={fleetVehicleHref(String(vehicle.id)) as never}>{vehicle.registrationNo}</Link> : vehicle?.registrationNo ?? "—"}</td>
-              <td className="px-3 py-2">{String(row.severity ?? row.status ?? row.paymentStatus ?? "")}</td>
-              <td className="px-3 py-2 text-slate-600"><Link href={register as never}>Open register</Link></td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <DataTable
+      rows={rows}
+      columns={columns}
+      getRowId={(row) => String(row.id ?? titleOf(row))}
+      ariaLabel={VIEW_LABELS[view]}
+      minWidth="720px"
+      className={BARE_TABLE_CLASS}
+    />
   );
 }
 
 const FLEET_SUMMARY_METRICS = [
-  ["overdue", "Service overdue", "overdueService"],
-  ["due", "Due soon", "dueService"],
-  ["docs", "Docs expiring", "expiringDocs"],
-  ["gate", "Gate blocked", "blockedVehicles"],
-  ["repairs", "Open repairs", "openRepairs"],
-  ["out", "Out of service", "outOfService"]
-] as const;
+  ["overdue", "Service overdue", "overdueService", AlertTriangle, "red"],
+  ["due", "Due soon", "dueService", Clock, "amber"],
+  ["docs", "Docs expiring", "expiringDocs", FileWarning, "amber"],
+  ["repairs", "Open repairs", "openRepairs", Wrench, "sky"],
+  ["out", "Out of service", "outOfService", Truck, "neutral"]
+] as const satisfies ReadonlyArray<readonly [FleetKpiMetric, string, keyof FleetOverviewSummary, LucideIcon, StatusTone]>;
 
 export function FleetSummaryChips({
   summary,
@@ -527,13 +510,13 @@ export function FleetSummaryChips({
   loading: boolean;
   failed: boolean;
   onRetry: () => void;
-  onSelect: (metric: (typeof FLEET_SUMMARY_METRICS)[number][0]) => void;
+  onSelect: (metric: FleetKpiMetric) => void;
 }) {
   if (failed) {
     return (
       <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
         <p className="text-sm text-rose-800">{"Couldn't load fleet summary"}</p>
-        <button type="button" className="h-9 rounded-md border border-rose-300 bg-white px-3 text-sm" onClick={onRetry}>
+        <button type="button" className="min-h-11 rounded-md border border-rose-300 bg-white px-3 text-sm sm:min-h-9" onClick={onRetry}>
           Retry
         </button>
       </div>
@@ -541,29 +524,22 @@ export function FleetSummaryChips({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6" aria-label="Fleet summary">
-      {FLEET_SUMMARY_METRICS.map(([key, label, field]) => {
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" aria-label="Fleet summary" aria-busy={loading}>
+      {FLEET_SUMMARY_METRICS.map(([key, label, field, Icon, tone]) => {
         const count = summary ? summary[field] : null;
         const shown = loading || count == null ? "–" : String(count);
-        const alert = typeof count === "number" && count > 0 && (key === "overdue" || key === "gate");
+        const alert = typeof count === "number" && count > 0;
         return (
           <button
             key={key}
             type="button"
-            className="rounded-card border border-slate-200 bg-white p-4 text-left shadow-card"
+            className="rounded-card text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
             onClick={() => onSelect(key)}
           >
-            <span className="block text-sm font-medium text-slate-600">{label}</span>
-            <span className={`mt-3 block text-2xl font-semibold leading-none ${alert ? "text-red-700" : "text-slate-900"}`}>{shown}</span>
+            <KpiCard compact icon={Icon} label={label} tone={alert ? tone : "neutral"} value={shown} />
           </button>
         );
       })}
     </div>
   );
-}
-
-function isCanceledRequest(error: unknown) {
-  if (!error || typeof error !== "object") return false;
-  const candidate = error as { code?: string; name?: string };
-  return candidate.code === "ERR_CANCELED" || candidate.name === "CanceledError" || candidate.name === "AbortError";
 }

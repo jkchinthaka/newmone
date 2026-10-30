@@ -1,5 +1,8 @@
 "use client";
 
+import { formatDate } from "@/lib/localization";
+import { TableLoadingRows } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/page-state";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -250,7 +253,9 @@ export default function FarmFinancePage() {
 
       <Section title="Recent expenses">
         {expenses.isLoading ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <TableLoadingRows rows={3} label="Loading" />
+        ) : expenses.isError ? (
+          <ErrorState error={expenses.error} onRetry={() => void expenses.refetch()} />
         ) : !expenses.data?.length ? (
           <EmptyState title="No expenses yet" />
         ) : (
@@ -267,7 +272,7 @@ export default function FarmFinancePage() {
               <tbody className="divide-y divide-slate-100 bg-white">
                 {expenses.data.map((e) => (
                   <tr key={e.id}>
-                    <td className="px-3 py-2">{new Date(e.date).toLocaleDateString()}</td>
+                    <td className="px-3 py-2">{formatDate(e.date)}</td>
                     <td className="px-3 py-2">{e.category}</td>
                     <td className="px-3 py-2">{e.description}</td>
                     <td className="px-3 py-2">{formatLkr(e.amountLkr)}</td>
@@ -281,7 +286,9 @@ export default function FarmFinancePage() {
 
       <Section title="Recent income">
         {income.isLoading ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <TableLoadingRows rows={3} label="Loading" />
+        ) : income.isError ? (
+          <ErrorState error={income.error} onRetry={() => void income.refetch()} />
         ) : !income.data?.length ? (
           <EmptyState title="No income yet" />
         ) : (
@@ -299,7 +306,7 @@ export default function FarmFinancePage() {
               <tbody className="divide-y divide-slate-100 bg-white">
                 {income.data.map((i) => (
                   <tr key={i.id}>
-                    <td className="px-3 py-2">{new Date(i.date).toLocaleDateString()}</td>
+                    <td className="px-3 py-2">{formatDate(i.date)}</td>
                     <td className="px-3 py-2">{i.source}</td>
                     <td className="px-3 py-2">{i.cropType ?? "—"}</td>
                     <td className="px-3 py-2">{i.buyerName ?? "—"}</td>

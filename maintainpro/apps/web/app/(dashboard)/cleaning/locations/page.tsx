@@ -1,5 +1,6 @@
 "use client";
 
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
 import QRCode from "react-qr-code";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Download, Plus, RefreshCw } from "lucide-react";
@@ -64,7 +65,7 @@ interface CalendarEvent {
 }
 
 function toIsoDate(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return colomboTodayYmd(date);
 }
 
 function nextDays(days: number) {
@@ -371,7 +372,7 @@ export default function CleaningLocationsPage() {
             </label>
             <label className="flex items-center gap-2 text-sm text-slate-700">
               <input type="checkbox" name="requirePhotoEvidence" />
-              Require photo evidence
+              Require photos
             </label>
             <textarea
               name="description"

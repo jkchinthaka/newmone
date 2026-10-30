@@ -1,5 +1,7 @@
 # MaintainPro handover — 2026-10-21
 
+Updated 2026-10-22 from develop `0a652598`. This is not a new production tag. `main` and `v1.0.4` are unchanged. See `docs/handover/RELEASE_V1_2_0_NOTES.md`.
+
 This note is for the server team and the next developer. It does not assume the previous owner or an assistant is available. No passwords, tokens, or connection strings belong in this file or in git.
 
 ## 1. Status

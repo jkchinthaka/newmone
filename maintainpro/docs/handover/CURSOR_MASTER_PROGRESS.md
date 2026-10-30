@@ -133,7 +133,7 @@ Status: RE-RUN 2026-10-19. No commit. Database reset is waiting for "OK reset".
 - Playwright chromium, workers=1. Release-candidate twice: 6 passed, 6 passed. Screen smoke: 6 passed. Compose project `maintainpro-e2e-blockd20261019` was stopped.
 - `test:release` failed at `EXP-SAFE-004`. API `npm run build` failed because the running API locks the Prisma engine DLL. `tsc -p tsconfig.build.json` passed after the enum patch. Web build passed with `NEXT_DIST_DIR`.
 - Backup: `C:\MaintainProData\backups\MaintainProDev_before_reset_20261019.bak` (72,474,624 bytes), verify-only passed. `MaintainProDev` was not dropped.
-- Schema audit: `docs/handover/SCHEMA_USAGE_AUDIT.md`. Handover: `docs/handover/FINAL_HANDOVER_2026-10-19.md`.
+- Schema audit: `docs/handover/SCHEMA_USAGE_AUDIT.md`. Current handover: `docs/handover/FINAL_HANDOVER_2026-10-21.md`.
 
 ## Next
 

@@ -32,9 +32,9 @@ export function QaIssueDetailPage({ issueId }: { issueId: string }) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["qa", "issue", issueId] });
-      toast.success("RCA saved");
+      toast.success("Why it broke saved");
     },
-    onError: (e) => toast.error(getApiErrorMessage(e, "Could not save RCA"))
+    onError: (e) => toast.error(getApiErrorMessage(e, "Could not save why it broke"))
   });
 
   const regressionMutation = useMutation({
@@ -76,16 +76,16 @@ export function QaIssueDetailPage({ issueId }: { issueId: string }) {
 
       <section className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border bg-white p-4">
-          <h3 className="text-sm font-semibold">Root Cause Analysis</h3>
+          <h3 className="text-sm font-semibold">Why it broke</h3>
           <textarea
             className="mt-2 w-full rounded border px-3 py-2 text-sm"
             rows={4}
-            placeholder="Root cause explanation"
+            placeholder="Why it broke explanation"
             value={rcaExplanation}
             onChange={(e) => setRcaExplanation(e.target.value)}
           />
           <button type="button" className="mt-2 rounded border px-3 py-1 text-sm" onClick={() => rcaMutation.mutate()}>
-            Save RCA
+            Save why it broke
           </button>
         </div>
         <div className="rounded-xl border bg-white p-4">

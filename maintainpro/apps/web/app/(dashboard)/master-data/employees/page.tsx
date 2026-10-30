@@ -1,5 +1,7 @@
 "use client";
 
+import { ButtonSpinner, TableLoadingRows } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/page-state";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -67,6 +69,7 @@ export default function WorkforceEmployeesPage() {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [items, setItems] = useState<EmployeeRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -86,8 +89,9 @@ export default function WorkforceEmployeesPage() {
         }
       });
       setItems(Array.isArray(response.data?.data) ? response.data.data : []);
+      setLoadError(null);
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to load employees."));
+      setLoadError(err);
     } finally {
       setLoading(false);
     }
@@ -197,8 +201,8 @@ export default function WorkforceEmployeesPage() {
     const ok = await confirm({
       title: nextActive ? "Activate employee?" : "Deactivate employee?",
       description: nextActive
-        ? `${row.fullName} will appear in work order assignment lists.`
-        : `${row.fullName} will be hidden from assignment and cannot receive new work orders.`,
+        ? `${row.fullName} will appear in job assignment lists.`
+        : `${row.fullName} will be hidden from assignment and cannot receive new jobs.`,
       confirmLabel: nextActive ? "Activate" : "Deactivate",
       variant: nextActive ? "default" : "destructive"
     });
@@ -227,7 +231,7 @@ export default function WorkforceEmployeesPage() {
           <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Workforce</p>
           <h1 className="mt-1 page-title">Employees & Technicians</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500">
-            Maintain workforce members for work order assignment. Login access is optional — employees without
+            Maintain workforce members for job assignment. Login access is optional — employees without
             accounts can still be assigned to jobs.
           </p>
         </div>
@@ -350,7 +354,7 @@ export default function WorkforceEmployeesPage() {
                   checked={form.canReceiveWorkOrders}
                   onChange={(event) => setForm((current) => ({ ...current, canReceiveWorkOrders: event.target.checked }))}
                 />
-                Can receive work orders
+                Can receive jobs
               </label>
               <label className="space-y-1">
                 <span className="font-medium text-slate-700">Availability</span>
@@ -386,7 +390,7 @@ export default function WorkforceEmployeesPage() {
               disabled={submitting}
               className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
+              {submitting ? <ButtonSpinner className="h-3.5 w-3.5" /> : null}
               {editingId ? "Save changes" : "Create employee"}
             </button>
             {editingId ? (
@@ -438,13 +442,15 @@ export default function WorkforceEmployeesPage() {
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm text-slate-500">
           <span className="inline-flex items-center gap-2 font-medium text-slate-700">
-            <Users size={16} aria-hidden /> {filteredCount} employees
+            <Users size={16} aria-hidden /> {loadError ? "Employees" : loading && items.length === 0 ? "Employees" : `${filteredCount} employees`}
           </span>
         </div>
-        {loading ? (
-          <p className="inline-flex items-center gap-2 px-4 py-8 text-sm text-slate-500">
-            <Loader2 size={16} className="animate-spin" /> Loading employees...
-          </p>
+        {loadError ? (
+          <div className="p-4">
+            <ErrorState title="Couldn't load employees" error={loadError} onRetry={() => void refresh()} />
+          </div>
+        ) : loading && items.length === 0 ? (
+          <TableLoadingRows label="Loading employees" />
         ) : items.length === 0 ? (
           <p className="px-4 py-8 text-sm text-slate-500">No employees match your filters.</p>
         ) : (

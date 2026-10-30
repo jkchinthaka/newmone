@@ -290,7 +290,7 @@ test.describe("role UAT @full-stack", () => {
     });
     await step("ADMIN", "dashboard shows work", "work orders page loads", async () => {
       await page.goto("/work-orders");
-      await expect(page.getByRole("heading", { name: /work orders/i })).toBeVisible();
+      await expect(page.getByRole("heading", { name: /^jobs$/i })).toBeVisible();
       return "work orders visible";
     });
   });

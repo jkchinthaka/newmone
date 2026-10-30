@@ -163,7 +163,7 @@ export default function JobCodesPage() {
   const handleDeactivate = async (job: JobCode) => {
     const confirmed = await confirm({
       title: `Deactivate ${job.code}?`,
-      description: `"${job.name}" will no longer be available for new maintenance or work order entries.`,
+      description: `"${job.name}" will no longer be available for new maintenance or job entries.`,
       confirmLabel: "Deactivate job code",
       cancelLabel: "Keep active",
       variant: "destructive"
@@ -197,7 +197,7 @@ export default function JobCodesPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="page-title">Job Codes</h1>
-            <p className="mt-1 text-sm text-slate-500">Main jobs and cascading sub-jobs used across maintenance and work orders.</p>
+            <p className="mt-1 text-sm text-slate-500">Main jobs and cascading sub-jobs used across maintenance and jobs.</p>
           </div>
           <BulkImportButton entity="job-code" entityLabel="Job Codes" onImported={() => refreshMain(searchMain.trim() || undefined)} />
         </div>
@@ -218,7 +218,7 @@ export default function JobCodesPage() {
               onClick={() => setTab("main")}
               className={`rounded-lg px-4 py-1.5 text-sm font-medium transition ${tab === "main" ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
             >
-              Main Job
+              Main job
             </button>
             <button
               type="button"
@@ -294,7 +294,7 @@ export default function JobCodesPage() {
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
             <div>
-              <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Main Jobs</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Main jobs</h2>
               <p className="mt-0.5 text-xs text-slate-400">{mainJobs.length} records</p>
             </div>
             <input value={searchMain} onChange={(e) => setSearchMain(e.target.value)}

@@ -2,7 +2,8 @@ export const ASSET_EMPTY = "No assets match these filters.";
 
 export const ASSET_CONDITIONS = ["EXCELLENT", "GOOD", "FAIR", "POOR", "CRITICAL"] as const;
 
-export const ASSET_STATUSES = ["ACTIVE", "INACTIVE", "UNDER_MAINTENANCE", "RETIRED", "DISPOSED"] as const;
+/** Every AssetStatus the API stores (prisma AssetStatus enum). */
+export const ASSET_STATUSES = ["DRAFT", "ACTIVE", "INACTIVE", "UNDER_MAINTENANCE", "OUT_OF_SERVICE", "RETIRED", "DISPOSED"] as const;
 export const ASSET_CATEGORIES = ["MACHINE", "EQUIPMENT", "VEHICLE", "INFRASTRUCTURE", "OTHER"] as const;
 export const ASSET_SORT_FIELDS = ["assetTag", "name", "category", "status", "createdAt", "location", "lastServiceDate"] as const;
 

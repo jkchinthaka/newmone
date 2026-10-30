@@ -21,7 +21,7 @@ export function RetiredForecastRedirect() {
   if (allowed) {
     return (
       <p className="p-6 text-sm text-slate-600" role="status">
-        Opening Preventive Maintenance...
+        Opening Scheduled Service...
       </p>
     );
   }

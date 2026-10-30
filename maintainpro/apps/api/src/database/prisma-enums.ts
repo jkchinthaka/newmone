@@ -791,6 +791,8 @@ export enum EvidenceSource {
   WEB = "WEB",
   MOBILE = "MOBILE",
   OFFLINE_SYNC = "OFFLINE_SYNC",
+  /** Taken with the in-app camera (no gallery or file picker). */
+  LIVE_CAMERA = "LIVE_CAMERA",
 }
 
 export enum EvidenceSyncStatus {
@@ -1468,6 +1470,7 @@ export enum ApprovalStepStatus {
   REJECTED = "REJECTED",
   SKIPPED = "SKIPPED",
   ESCALATED = "ESCALATED",
+  WAITING = "WAITING",
 }
 
 export enum ApprovalDecisionOutcome {

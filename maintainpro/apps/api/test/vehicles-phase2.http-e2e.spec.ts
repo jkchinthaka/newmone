@@ -38,10 +38,15 @@ const createPrismaMockBundle = (): PrismaMockBundle => {
       findFirst: jest.fn()
     },
     vehicleGateMovement: {
-      create: jest.fn()
+      create: jest.fn(),
+      // No previous movement: the vehicle is not already inside.
+      findFirst: jest.fn().mockResolvedValue(null)
     },
     vehicleMeterLog: {
       create: jest.fn()
+    },
+    workOrder: {
+      count: jest.fn().mockResolvedValue(0)
     },
     tripLog: {
       findFirst: jest.fn(),

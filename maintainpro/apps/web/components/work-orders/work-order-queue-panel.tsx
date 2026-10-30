@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { AlertTriangle, ChevronDown } from "lucide-react";
+import { AlertTriangle, ChevronDown, ClipboardList, UserX } from "lucide-react";
 
 import { DateField } from "@/components/forms/date-fields";
 import { ActiveFilterChips } from "@/components/operational/active-filter-chips";
@@ -13,7 +13,11 @@ import { JobsPagination } from "@/components/operational/jobs-pagination";
 import { OperationalEmptyState, TableLoadingRows } from "@/components/operational/operational-list-states";
 import { QueueTabBar } from "@/components/operational/queue-tab-bar";
 import { withLockedJobDomain } from "@/lib/domain-jobs-columns";
+import { KpiCard } from "@/components/ui/dashboard";
 import { ErrorState } from "@/components/ui/page-state";
+import { RefreshErrorBanner } from "@/components/ui/refresh-error-banner";
+import { backgroundPollingOptions, clampPage, listErrorPresentation, totalPagesFor } from "@/lib/list-query-state";
+import { deriveWorkOrderKpis, oldestAgeDays } from "@/lib/batch-3-presentation";
 import { getApiErrorMessage, isDatabaseUnavailableError } from "@/lib/api-client";
 import { JOB_DOMAINS, JOB_DOMAIN_LABELS } from "@/lib/job-domain";
 import {
@@ -52,8 +56,12 @@ import { humanWorkOrderStatusLabel } from "./helpers";
 import { selectableWorkOrderStatuses } from "@/lib/work-order-next-action";
 import { WORK_ORDER_STATUSES, type TechnicianOption, type WorkOrder } from "./types";
 
+const EMPTY_QUEUE_ROWS: WorkOrderQueueItem[] = [];
+const QUEUE_POLL_MS = 30_000;
+
 type Props = {
   onOpenWorkOrder: (workOrder: WorkOrder) => void;
+  onQueueAction?: (workOrder: WorkOrder, actionId: string) => void;
   onRefreshLegacy?: () => void;
   selectedIds?: string[];
   onSelectedIdsChange?: (ids: string[]) => void;
@@ -114,8 +122,15 @@ function takeHistoryNavigation(): boolean {
   return true;
 }
 
+const KPI_ICONS = {
+  open: ClipboardList,
+  unassigned: UserX,
+  overdue: AlertTriangle
+} as const;
+
 export function WorkOrderQueuePanel({
   onOpenWorkOrder,
+  onQueueAction,
   onRefreshLegacy,
   selectedIds = [],
   onSelectedIdsChange,
@@ -215,7 +230,7 @@ export function WorkOrderQueuePanel({
     queryFn: () => fetchWorkOrderQueueSummary(jobDomain),
     retry: shouldRetryQueueRequest,
     refetchOnWindowFocus: true,
-    refetchInterval: (query) => (query.state.error ? false : 30_000)
+    ...backgroundPollingOptions(QUEUE_POLL_MS)
   });
 
   const summaryData: WorkOrderQueueSummary = summaryQuery.data ?? FALLBACK_QUEUE_SUMMARY;
@@ -274,16 +289,22 @@ export function WorkOrderQueuePanel({
 
 
   const isTechnician = roleName === "TECHNICIAN" || roleName === "MECHANIC";
-  const listFilters = isTechnician && filters.queue === "all" ? { ...filters, queue: "my-tasks" as const } : filters;
+  const listFilters = useMemo(
+    () => (isTechnician && filters.queue === "all" ? { ...filters, queue: "my-tasks" as const } : filters),
+    [filters, isTechnician]
+  );
+  const listRequestKey = workOrderQueueRequestKey(listFilters);
 
   const queueQuery = useQuery({
-    queryKey: withTenantScope(["work-orders", "queue", workOrderQueueRequestKey(listFilters)]),
+    queryKey: withTenantScope(["work-orders", "queue", listRequestKey]),
     queryFn: () => fetchWorkOrderQueue(listFilters),
-    enabled: true,
     retry: shouldRetryQueueRequest,
     refetchOnWindowFocus: true,
-    refetchInterval: (query) => (query.state.error ? false : 30_000)
+    // Keep the current rows (dimmed) while the next page/filter loads instead of blanking the table.
+    placeholderData: keepPreviousData,
+    ...backgroundPollingOptions(QUEUE_POLL_MS)
   });
+  const queueErrorMode = listErrorPresentation({ isError: queueQuery.isError, hasData: Boolean(queueQuery.data) });
 
   const visibleQueues = useMemo(() => {
     const role = currentUser?.role ?? "";
@@ -308,16 +329,36 @@ export function WorkOrderQueuePanel({
   }, [smartViewsQuery.data?.views, visibleQueues]);
   const queueTabs = useMemo(() => splitQueueTabs(visibleQueues), [visibleQueues]);
 
-  const rows = queueQuery.data?.data ?? [];
+  const rows = queueQuery.data?.data ?? EMPTY_QUEUE_ROWS;
+  const visibleSignature = rows.map((row) => `${row.id}\u0000${row.status}`).join("\n");
+  const onVisibleRowsRef = useRef(onVisibleRows);
+  onVisibleRowsRef.current = onVisibleRows;
 
   useEffect(() => {
-    onVisibleRows?.(rows.map((row) => ({ id: row.id, status: row.status })));
-  }, [onVisibleRows, rows]);
+    onVisibleRowsRef.current?.(
+      visibleSignature
+        ? visibleSignature.split("\n").map((entry) => {
+            const splitAt = entry.indexOf("\u0000");
+            return { id: entry.slice(0, splitAt), status: entry.slice(splitAt + 1) };
+          })
+        : []
+    );
+  }, [visibleSignature]);
 
   const actionRequiredCount =
     summaryData.queues?.find((queue) => queue.key === "action-required")?.count ?? 0;
 
-  const totalPages = Math.max(1, Math.ceil((queueQuery.data?.total ?? 0) / filters.pageSize));
+  const queueTotal = queueQuery.data?.total ?? 0;
+  const totalPages = totalPagesFor(queueTotal, filters.pageSize);
+
+  // A page past the end (rows removed, URL from an old link) jumps back to the last real page.
+  useEffect(() => {
+    if (!queueQuery.data || queueQuery.isPlaceholderData) return;
+    const clamped = clampPage(filtersRef.current.page, queueQuery.data.total ?? 0, filtersRef.current.pageSize);
+    if (clamped !== filtersRef.current.page) {
+      setFilters((current) => (current.page === clamped ? current : { ...current, page: clamped }));
+    }
+  }, [queueQuery.data, queueQuery.isPlaceholderData]);
 
   const updateFilters = (patch: Partial<WorkOrderQueueFilters>) => {
     if (patch.query !== undefined) {
@@ -371,18 +412,41 @@ export function WorkOrderQueuePanel({
     );
   };
 
+  const unassignedComplete =
+    filters.queue === "unassigned" && queueQuery.isSuccess && (queueQuery.data?.total ?? 0) === rows.length;
+  const kpis = summaryQuery.isSuccess
+    ? deriveWorkOrderKpis({
+        queues: summaryQuery.data?.queues,
+        openUnassigned: summaryQuery.data?.summary?.openUnassigned,
+        oldestUnassignedDays: unassignedComplete ? oldestAgeDays(rows) : null
+      })
+    : [];
   const chips = activeQueueFilterChips(filters).filter((chip) => !(jobDomain && chip.key === "jobDomain"));
   const summaryBits = [
-    summaryData.summary?.supervisorVerification ? "Verification" : "",
-    summaryData.summary?.waitingEvidence ? "Evidence" : "",
+    summaryData.summary?.supervisorVerification ? "Supervisor check" : "",
+    summaryData.summary?.waitingEvidence ? "Photos" : "",
     summaryData.summary?.waitingParts ? "Parts" : "",
     summaryData.summary?.highRisk ? "Risk" : ""
   ].filter(Boolean);
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
+      {kpis.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Job summary">
+          {kpis.map((card) => (
+            <button
+              key={card.id}
+              type="button"
+              className="flex h-full flex-col rounded-card text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+              onClick={() => updateFilters({ queue: card.queue, smartView: undefined, page: 1 })}
+            >
+              <KpiCard className="h-full w-full flex-1" delta={card.delta} icon={KPI_ICONS[card.id]} label={card.label} tone={card.tone} value={String(card.value)} />
+            </button>
+          ))}
+        </div>
+      ) : null}
       {summaryUnavailable ? (
         <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          Unable to load work order queues. Please refresh or contact IT. You can still browse the queues your role can open. Counts stay hidden until a summary response arrives.
+          Unable to load job queues. Please refresh or contact IT. You can still browse the queues your role can open. Counts stay hidden until a summary response arrives.
         </div>
       ) : null}
       {actionRequiredCount > 0 ? (
@@ -390,7 +454,7 @@ export function WorkOrderQueuePanel({
           type="button"
           onClick={() => updateFilters({ queue: "action-required", smartView: undefined, page: 1 })}
           className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-left text-sm text-amber-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-          aria-label={`${actionRequiredCount} work orders need action. View the action required queue.`}
+          aria-label={`${actionRequiredCount} jobs need action. View the action required queue.`}
         >
           <AlertTriangle size={16} className="shrink-0 text-amber-700" aria-hidden />
           <span className="font-semibold">{actionRequiredCount} need action</span>
@@ -401,7 +465,7 @@ export function WorkOrderQueuePanel({
 
       <div className="min-w-0 rounded-xl border border-slate-200 bg-white">
         <QueueTabBar
-          label="Work order queues"
+          label="Job queues"
           primary={queueTabs.primary}
           more={queueTabs.more}
           selectedKey={filters.queue}
@@ -415,14 +479,14 @@ export function WorkOrderQueuePanel({
 
         <div className="flex min-w-0 flex-col gap-2 border-b border-slate-200 px-3 py-2 lg:flex-row lg:flex-wrap lg:items-center">
           <label className="min-w-0 flex-1">
-            <span className="sr-only">Search work orders</span>
+            <span className="sr-only">Search jobs</span>
             <input
               value={searchInput}
               onChange={(event) => {
                 searchSyncRef.current = noteSearchDraft(searchSyncRef.current, event.target.value);
                 setSearchInput(event.target.value);
               }}
-              placeholder="Search work orders..."
+              placeholder="Search jobs..."
               className={`${fieldClass} w-full`}
             />
           </label>
@@ -527,16 +591,16 @@ export function WorkOrderQueuePanel({
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={filters.triageOnly} onChange={(event) => updateFilters({ triageOnly: event.target.checked, page: 1 })} />
-                Triage only
+                Review only
               </label>
               <label className="block text-sm">
-                Evidence
+                Photos
                 <select
                   value={filters.evidenceStatus || ""}
                   onChange={(event) => updateFilters({ evidenceStatus: event.target.value, page: 1 })}
                   className={`${fieldClass} mt-1 w-full`}
                 >
-                  <option value="">Any evidence</option>
+                  <option value="">Any photos</option>
                   <option value="Missing">Missing</option>
                   <option value="Rejected">Rejected</option>
                   <option value="Complete">Complete</option>
@@ -563,7 +627,7 @@ export function WorkOrderQueuePanel({
                   onChange={(event) => updateFilters({ sla: event.target.value, page: 1 })}
                   className={`${fieldClass} mt-1 w-full`}
                 >
-                  <option value="">Any SLA</option>
+                  <option value="">Any time limit</option>
                   <option value="On track">On track</option>
                   <option value="At risk">At risk</option>
                   <option value="Breached">Breached</option>
@@ -608,12 +672,21 @@ export function WorkOrderQueuePanel({
           onClearAll={clearFilters}
         />
 
+        {queueErrorMode === "banner" ? (
+          <div className="px-3 pt-3">
+            <RefreshErrorBanner
+              message="Could not refresh jobs. Showing the last loaded list."
+              onRetry={() => void queueQuery.refetch()}
+              retrying={queueQuery.isFetching}
+            />
+          </div>
+        ) : null}
         {queueQuery.isLoading ? (
           <TableLoadingRows />
-        ) : queueQuery.isError ? (
+        ) : queueErrorMode === "full" ? (
           <div className="p-6">
             <ErrorState
-              title="Unable to load work orders"
+              title="Unable to load jobs"
               description={getApiErrorMessage(queueQuery.error, "Please check backend connection.")}
               onRetry={() => void queueQuery.refetch()}
             />
@@ -649,24 +722,32 @@ export function WorkOrderQueuePanel({
             }
           />
         ) : (
-          <>
+          <div className={queueQuery.isPlaceholderData ? "opacity-60 transition-opacity" : undefined} aria-busy={queueQuery.isPlaceholderData}>
             <WorkOrderCompactTable
               rows={rows}
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               onToggleSelectAll={toggleSelectAll}
               onOpen={(row) => onOpenWorkOrder(row)}
+              onAction={(row, actionId) => onQueueAction?.(row, actionId)}
+              actorRole={currentUser.role}
               canBulkSelect={canBulkSelect}
               jobDomain={jobDomain}
             />
-            <WorkOrderMobileCardList rows={rows} onOpen={(row) => onOpenWorkOrder(row)} jobDomain={jobDomain} />
-          </>
+            <WorkOrderMobileCardList
+              rows={rows}
+              onOpen={(row) => onOpenWorkOrder(row)}
+              onAction={(row, actionId) => onQueueAction?.(row, actionId)}
+              actorRole={currentUser.role}
+              jobDomain={jobDomain}
+            />
+          </div>
         )}
 
         <JobsPagination
           page={filters.page}
           totalPages={totalPages}
-          total={queueQuery.data?.total ?? 0}
+          total={queueTotal}
           pageSize={filters.pageSize}
           onPageChange={(page) => updateFilters({ page })}
           onPageSizeChange={(pageSize) => updateFilters({ pageSize, page: 1 })}

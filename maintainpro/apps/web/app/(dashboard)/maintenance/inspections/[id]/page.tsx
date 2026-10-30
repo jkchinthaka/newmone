@@ -164,7 +164,7 @@ export default function InspectionDetailPage() {
                 type="file"
                 accept="image/*"
                 className="mt-2 block w-full text-sm"
-                aria-label={`Evidence for ${item.label}`}
+                aria-label={`Photos for ${item.label}`}
                 onChange={async (event) => {
                   const file = event.target.files?.[0];
                   if (!file || !detail) return;
@@ -193,9 +193,9 @@ export default function InspectionDetailPage() {
                         evidenceRefs: [...(current[item.key]?.evidenceRefs ?? []), id]
                       }
                     }));
-                    toast.success("Evidence attached");
+                    toast.success("Photos attached");
                   } catch (err) {
-                    toast.error(getApiErrorMessage(err, "Could not attach evidence"));
+                    toast.error(getApiErrorMessage(err, "Could not attach photos"));
                   }
                 }}
               />
@@ -251,10 +251,10 @@ export default function InspectionDetailPage() {
             <p>{finding.description}</p>
             {finding.itemKey ? <p className="text-slate-500">Item: {finding.itemKey}</p> : null}
             {finding.maintenanceRequestId ? <Link className="text-brand-700" href={`/requests/${finding.maintenanceRequestId}` as Route}>Request</Link> : null}
-            {finding.workOrderId ? <Link className="ml-3 text-brand-700" href={`/work-orders?wo=${finding.workOrderId}` as Route}>Work order</Link> : null}
+            {finding.workOrderId ? <Link className="ml-3 text-brand-700" href={`/work-orders?wo=${finding.workOrderId}` as Route}>Job</Link> : null}
           </article>
         ))}
-        {detail.correctiveWorkOrderId ? <Link className="text-sm text-brand-700" href={`/work-orders?wo=${detail.correctiveWorkOrderId}` as Route}>Corrective work order</Link> : null}
+        {detail.correctiveWorkOrderId ? <Link className="text-sm text-brand-700" href={`/work-orders?wo=${detail.correctiveWorkOrderId}` as Route}>Repair job</Link> : null}
       </section>
     </div>
   );
