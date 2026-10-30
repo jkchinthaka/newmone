@@ -8,7 +8,10 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
+import { USER_KEY } from "@/lib/auth-storage";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { withTenantScope } from "@/lib/tenant-query";
 
@@ -125,6 +128,18 @@ export function ReliabilityWorkbench() {
   const [bulkReason, setBulkReason] = useState("");
   const [confirmBulk, setConfirmBulk] = useState(false);
   const [rcaForm, setRcaForm] = useState({ problemStatement: "", failureCode: "", assetId: "" });
+  const [myUserId, setMyUserId] = useState("");
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(USER_KEY);
+      const id = raw ? (JSON.parse(raw) as { id?: unknown }).id : null;
+      setMyUserId(typeof id === "string" ? id : "");
+    } catch {
+      setMyUserId("");
+    }
+  }, []);
 
   const writeQuery = (next: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -263,13 +278,23 @@ export function ReliabilityWorkbench() {
     );
   }
 
-  const changeTab = (next: Tab) => {
-    if (dirty && !window.confirm("You have unsaved policy changes. Leave this tab?")) return;
+  const changeTab = async (next: Tab) => {
+    if (dirty) {
+      const leave = await confirm({
+        title: "Leave without saving?",
+        description: "You have unsaved policy changes. They will be lost if you leave this tab.",
+        confirmLabel: "Leave tab",
+        cancelLabel: "Stay",
+        variant: "destructive"
+      });
+      if (!leave) return;
+    }
     writeQuery({ tab: next === "policy" ? null : next, page: null });
   };
 
   return (
     <div className="space-y-6 p-4 md:p-6">
+      {confirmDialog}
       <PageBreadcrumbs
         items={
           underMaintenance
@@ -296,7 +321,7 @@ export function ReliabilityWorkbench() {
             ["Critical assets", summaryQuery.data?.criticalAssets ?? null, "criticality"]
           ] as const
         ).map(([label, count, next]) => (
-          <button key={label} type="button" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left" onClick={() => changeTab(next)}>
+          <button key={label} type="button" className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left" onClick={() => void changeTab(next)}>
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
             <p className="mt-1 page-title">{count ?? "—"}</p>
           </button>
@@ -316,7 +341,7 @@ export function ReliabilityWorkbench() {
             type="button"
             role="tab"
             aria-selected={tab === key}
-            onClick={() => changeTab(key)}
+            onClick={() => void changeTab(key)}
             className={`min-h-11 rounded-md px-3 py-1.5 text-sm ${tab === key ? "bg-brand-600 text-white" : "border border-slate-200 bg-white"}`}
           >
             {label}
@@ -560,7 +585,11 @@ export function ReliabilityWorkbench() {
             <details className="md:col-span-2" open={Boolean(owner) || Boolean(sort)}>
               <summary className="cursor-pointer text-sm text-slate-600">More filters</summary>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <input className="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="Owner id" value={owner} onChange={(event) => writeQuery({ owner: event.target.value || null, page: null })} aria-label="Owner" />
+            <select className="rounded border border-slate-300 px-3 py-2 text-sm" value={owner} onChange={(event) => writeQuery({ owner: event.target.value || null, page: null })} aria-label="Owner">
+              <option value="">All owners</option>
+              {myUserId ? <option value={myUserId}>Only mine</option> : null}
+              {owner && owner !== myUserId ? <option value={owner}>Selected owner</option> : null}
+            </select>
             <select className="rounded border border-slate-300 px-3 py-2 text-sm" value={sort} onChange={(event) => writeQuery({ sort: event.target.value || null })} aria-label="Sort">
               <option value="">Newest</option>
               <option value="due">Due date</option>
@@ -570,7 +599,16 @@ export function ReliabilityWorkbench() {
           </form>
           <form className="grid max-w-2xl gap-2 rounded-lg border border-slate-200 bg-white p-4" onSubmit={(event) => { event.preventDefault(); createRca.mutate(); }}>
             <h2 className="text-sm font-semibold">Open a why-it-broke review</h2>
-            <input className="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="Asset id (optional)" value={rcaForm.assetId} onChange={(event) => setRcaForm((form) => ({ ...form, assetId: event.target.value }))} />
+            <EntityPicker<{ id: string; name: string; assetTag?: string }>
+              endpoint="/assets"
+              searchParam="search"
+              pageSizeParam="limit"
+              value={rcaForm.assetId || null}
+              onChange={(id) => setRcaForm((form) => ({ ...form, assetId: id ?? "" }))}
+              displayField="name"
+              secondaryField="assetTag"
+              placeholder="Machine (optional) - search by name or tag"
+            />
             <input className="rounded border border-slate-300 px-3 py-2 text-sm" placeholder="Fault code" value={rcaForm.failureCode} onChange={(event) => setRcaForm((form) => ({ ...form, failureCode: event.target.value }))} />
             <textarea className="rounded border border-slate-300 px-3 py-2 text-sm" rows={3} placeholder="Problem statement" required value={rcaForm.problemStatement} onChange={(event) => setRcaForm((form) => ({ ...form, problemStatement: event.target.value }))} />
             <button type="submit" className="w-fit rounded bg-brand-600 px-4 py-2 text-sm text-white disabled:opacity-50" disabled={createRca.isPending || !rcaForm.problemStatement.trim()}>Create why it broke</button>
