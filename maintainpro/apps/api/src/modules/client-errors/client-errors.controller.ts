@@ -3,6 +3,7 @@ import { Throttle } from "@nestjs/throttler";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { IsOptional, IsString, MaxLength } from "class-validator";
 
+import { SelfService } from "../../common/decorators/self-service.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
 
@@ -53,6 +54,7 @@ export class ClientErrorsController {
 
   /** Screens that crash report only the safe fields (no message, stack or form data). */
   @Post()
+  @SelfService()
   @HttpCode(204)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   report(@Req() req: { user: JwtPayload }, @Body() dto: ClientErrorDto): void {

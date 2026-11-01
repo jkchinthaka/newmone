@@ -75,7 +75,7 @@ function main() {
     if (weakInCode.length) fail("SEC-CONFIG-003", `production compose still contains unsafe default patterns: ${weakInCode.join(", ")}`);
     else pass("SEC-CONFIG-003", "production compose has no weak credential defaults in active YAML");
 
-    const missingReq = ["MONGO_INITDB_ROOT_PASSWORD", "MONGO_APP_PASSWORD", "MINIO_ACCESS_KEY", "JWT_ACCESS_SECRET", "PRIMARY_DATABASE_URL"]
+    const missingReq = ["MSSQL_SA_PASSWORD", "MINIO_ACCESS_KEY", "JWT_ACCESS_SECRET", "PRIMARY_DATABASE_URL"]
       .filter((name) => !new RegExp(`${name}:\\s*\\$\\{${name}:\\?`).test(prodText));
     if (missingReq.length) fail("SEC-CONFIG-004", `production compose missing required-variable syntax for: ${missingReq.join(", ")}`);
     else pass("SEC-CONFIG-004", "production compose uses ${VAR:?} for mandatory secrets");
