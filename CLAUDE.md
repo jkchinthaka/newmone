@@ -26,7 +26,7 @@ Any AI session can end abruptly (usage limits). Continuity lives in the repo, no
 
 ## Run the current project
 
-When the user says "Run this project", "Start MaintainPro", "Open localhost", or "Run current project", run `npm run dev:current` inside `C:\Users\chint\AppData\Local\MaintainPro\worktrees\app\maintainpro`. Local app runs only on 3040 (API) and 3041 (web) from the 'app' worktree. Agents must not start other dev servers; e2e uses its own temporary stack and must stop it when done.
+When the user says "Run this project", "Start MaintainPro", "Open localhost", or "Run current project", run `npm run dev:current` inside `C:\Users\chint\OneDrive\Pictures\newmone\maintainpro`. Local app runs only on 3040 (API) and 3041 (web) from this repository checkout. Agents must not start other dev servers; e2e uses its own temporary stack and must stop it when done.
 
 ## Repository layout
 

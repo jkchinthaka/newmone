@@ -1,3 +1,66 @@
+## CURRENT (2026-11-01) - Phase 9 browser UAT (in progress)
+
+- Phase 8 verified: web 547 pass; API tsc clean; client-errors spec 2 pass.
+- Browser run on localhost (mobile width), users: Admin, Super Admin, Manager (pathum), Technician (Chinthaka). Test data created: MR-2026-00021 -> JO-2026-0014 (assigned to Chinthaka). Test text starts "UAT TEST".
+- Pass: Report a Problem in 3 taps + Send now; tracking page; segregation of duties blocks self-review (correct); Manager start review -> accept -> create job; job history timeline; welcome guide per user.
+- Fixed during UAT: (1) welcome guide dismiss key now per user only (company id loaded late so flag was lost); (2) Add assignee: required planned start/end/hours although API allows none, no message, and DOM-disabled button stuck forever on early return - now only the person is required, hours/times optional, toast on missing person, in-flight ref guard; (3) footer "Assign technician" hidden while the Assignment tab is open.
+- Data issues seen: employee "pathum kulasooriya" exists twice (MECHANIC and Technician); only one real asset (AST-DISK22 "Local disk upload pump"); junk jobs/assets "tttt", "kkkk", TY5678.
+- UAT result 2026-11-01: full lifecycle passed in browser: Report -> Review -> Job -> Assign -> Technician Start/Finish (user did photos on device) -> Manager Verify & close (JO-2026-0014). Compliance page: equipment certificate added (Fire extinguisher service on AST-DISK22, expiry suggested +12 months). Approvals page lists 9 pending junk requests (gibberish titles from earlier testing) - clean before pilot.
+- Fixed in UAT round 2: certificate machine picker used `q` (API 400) -> `searchParam="search"`; certificate "days left" now counts Colombo calendar days (365 not 366) in `statutory-catalog.ts` + spec updated.
+- Minor UX notes (not fixed): job cards show both "Open job" and "Open details" for the technician; Verify & close is one tap with no photo review prompt.
+- Not testable in the browser pane: live camera (blocked), offline strip.
+
+- Pending UAT: Technician Start/Finish with photos (live camera, user must do on device), Verify & close, Approvals, certificates add/renew, offline strip.
+- Tests added to phase4b-daily-polish.test.ts (assignee panel, footer). Not yet run on Windows.
+
+## CURRENT (2026-11-01) - Phase 8 hardening (code done, checks pending on Windows)
+
+- Phase 7 verified on Windows: web 543 pass; API tsc clean; `test/statutory-catalog.spec.ts` 4 pass. API tests live ONLY under `apps/api/test/*.spec.ts` (jest testRegex); run `npx jest --config ./jest.config.cjs --runInBand test/<file>`.
+- Crash reporting (own server, no Sentry): `reportClientError` now also POSTs safe fields (source, error name, digest, page path with ids removed) to `POST /client-errors` (JwtAuthGuard, 10/min, 204, one log line `client-error ...` via Logger "ClientErrors"). Max 3 per page load, only when signed in, never throws. API: `modules/client-errors/*`; test `apps/api/test/client-errors.spec.ts`.
+- Welcome guide: `lib/welcome-tips.ts` + `components/onboarding/welcome-tips.tsx` (3 tips per role group, shown once per person per device, "Got it" dismisses) mounted in dashboard layout.
+- Tests: web `lib/__tests__/phase8-hardening.test.ts`.
+- NOT done (needs people/environment, not code): SMTP/SMS credentials from Nelna IT (settings exist, SMTP_ENABLED/SMS_ENABLED=false); backup/restore drill (`scripts/db-sqlserver-drill.mjs`) must be run against the real DB and timed; Sentry optional later (add DSN + package).
+- Next: Phase 9 UAT/pilot prep (browser scenarios, test users per role, UAT script).
+
+## CURRENT (2026-10-31) - Phase 7 equipment certificates (code done, checks pending on Windows)
+
+- Phase 6 verified: web tests 539 pass / 0 fail.
+- Vehicles already track licence / insurance / emission via VehicleDocument + daily reminders (unchanged).
+- NEW for non-vehicle assets (boiler, pressure vessel, fire extinguisher/alarm, lift, crane/hoist, generator, earthing, calibration, cold room, water test): uses existing `ComplianceRequirement` table with subjectType ASSET (no schema change).
+  - API: `compliance/statutory-catalog.ts` (types + state rules), `statutory.service.ts`, `dto/statutory.dto.ts`; routes `GET compliance/certificates[/types|/summary]`, `POST compliance/certificates`, `PATCH compliance/certificates/:id/renew`, `DELETE compliance/certificates/:id` (write roles: SUPER_ADMIN, ADMIN, MANAGER, ASSET_MANAGER, SUPERVISOR; read: compliance.view).
+  - Reminders: `DailyRemindersService.equipmentCertificates` (managers + asset managers; weekly until expired, then daily).
+  - Web: `lib/statutory-certificates.ts`, `components/compliance/statutory-certificates.tsx` mounted on `/compliance` (page retitled "Compliance"); Manager Home card "Equipment Certificates".
+  - Tests: API `statutory-catalog.spec.ts`; web `phase7-statutory-certificates.test.ts`.
+- Not run: API tsc/jest, web tsc/npm test. Run on Windows. Also not browser-tested.
+- Open: real Nelna equipment list (which boilers/extinguishers/lifts/generators, expiry dates) is needed to load actual records; entry is via the Compliance page (no bulk import yet).
+- Next: Phase 8 hardening (monitoring, SMTP/SMS with Nelna IT, backup/restore test, onboarding/help).
+
+## CURRENT (2026-10-31) - Phase 6 (code done, Windows checks pending)
+
+- Manager to-do inbox: already exists on the maintenance dashboard (Approvals card, Needs attention, Priority jobs). No change.
+- Wording: menu entry "Outside Repairs" renamed "Vendors" (it opens the vendor directory). Other terms checked and are distinct things (Vendor repair tab, Breakdowns & Causes list, Why it broke section).
+- Inline/bulk actions: Approvals already has bulk approve + per-row decisions; Requests already has row menu. Bulk on Requests intentionally not added (reject / need-info need a reason each).
+- Requests list now remembers Priority, Type and sort per person (only when the link has no filters). Scheduled Service and Inspections intentionally NOT remembered (time-based filters could hide due work).
+- Tests added to `phase4b-daily-polish.test.ts`. Run in apps\web: `npx tsc --noEmit`, `npm test`.
+- Next: Phase 7 (KPIs + Nelna statutory seed data).
+
+## CURRENT (2026-10-31) - Phase 4b and Phase 5 verified; Phase 6 next
+
+- Verified on Windows: web `tsc --noEmit` clean; `npm test` 537 pass / 0 fail.
+- Phase 5: `components/pwa/connection-status.tsx` (strip under top bar: offline notice, "Sending N saved reports...") mounted in `app/(dashboard)/layout.tsx`; test `phase5-connection-status.test.ts`.
+- Out of scope by design: starting/holding/finishing jobs offline (needs conflict + photo handling); My Jobs tells the user it needs internet.
+- Next: Phase 6 remaining pages migration, incl. items moved from 4b (manager to-do inbox, glossary unification, inline/bulk actions on Requests/Approvals).
+
+## CURRENT (2026-10-31) - Phase 4b daily-use polish (code done, checks pending on Windows)
+
+- Report a Problem step 3 now has Back | More details | Send now (urgency defaults to Normal, photos can be added after sending).
+- New `lib/remembered-filters.ts` (per company+user, try/catch). Wired into Assets list and Vehicles list (status, sort, page size only; never search text or page).
+- Job detail tabs: Overview, Assignment, Parts, Photos + "More" menu (Escape / outside click closes; deep-linked hidden tab stays visible).
+- Tests: new `lib/__tests__/phase4b-daily-polish.test.ts` (source-pattern + remembered-filters behaviour). Three older tests made CRLF-proof.
+- NOT run: web `tsc --noEmit` and unit tests (VM cannot run esbuild). Run on Windows in `apps/web`: `npx tsc --noEmit` then `npm test`.
+- Not done (move to Phase 6): manager to-do inbox on dashboard, glossary unification, inline/bulk actions on Requests/Approvals.
+- Next: Phase 5 offline PWA coverage, after the Windows checks pass.
+
 # AI Session Handover — MaintainPro
 
 > **Mandatory for every AI session (Claude, Cursor, or other agents).**
@@ -7,6 +70,10 @@
 >    a blocker found), not just at the end. Sessions can end without warning at a usage limit.
 > 3. Keep unfinished work on the current feature branch. Never force-push, never discard or
 >    reset someone else's changes, never push unvalidated code to `main`.
+
+**CURRENT (2026-10-31) — Phase 0 closed, Phase 1 static audit, on `release/develop-20261022b` (uncommitted).** Found and fixed by running the app: `asset-taxonomy.controller.ts` had `listDomains` without `@Get("domains")` (Asset Masters page failed with 404, fixed, one line); Prisma client was stale (`sessionVersion` missing, `auth/me` 500) and needed `npm run db:generate`. Local env: Redis from `docker compose -f docker-compose.dev.yml up -d redis`, dev DB on localhost:1433. 313 real-world machine/vehicle types seeded in the UI. Phase 1 static audit of scenario rules (code reading only): already enforced: monotonic vehicle mileage, fuel entry checks (tank size, price, previous mileage), planning meter validation, vehicle gate-out (status, service overdue, compliance docs, critical open jobs, driver licence), user deactivation blocked with open jobs, asset retire and delete blocked with open jobs, job version lock on start/hold/resume/complete, idempotency on approvals/goods-in/imports. One gap fixed: `AssetRegistryService.dispose` now refuses an asset with open work orders (same rule as retire). Not run: jest for assets (no dispose test exists), browser scenarios. Next: runtime scenario run in the browser (Vehicle, Machinery, Service) with Admin, Manager and Technician users.
+
+**CURRENT (2026-10-31) — Phase 0 (UX/hardening plan): real-world machine and vehicle types added to the asset taxonomy seed, on `release/develop-20261022b` (on top of `b5bf96cc`, uncommitted).** API data only, no schema or migration change, no behaviour change. New `apps/api/src/modules/asset-taxonomy/domain-defaults-extended.ts` (about 313 types in 52 categories: food-processing and workshop machines, boilers, compressors, electrical, HVAC and cold rooms (incl. mango ripening chamber), forklifts and cranes, on-road fleet incl. three-wheeler, lorry, reefer truck, bowsers, tractors and farm implements, heavy equipment, water and wastewater, fire, security, IT, lab, kitchen, solar, facility). `domain-defaults.ts` now exports `DEFAULT_CATEGORY_EXAMPLES` = base + extended (the old list was renamed `BASE_CATEGORY_EXAMPLES`). `AssetTaxonomyService.seedDefaults` skips anything that exists, so it is safe to re-run on a live tenant (`POST /asset-taxonomy/seed-defaults`, Admin). Checked: data loaded with Node type stripping, all domain codes and legacy enums valid, no duplicate types, every attribute example still points at an existing category. Not run: `domain-coverage-phase11.spec` (ts-jest ran out of memory in the Linux sandbox; run it on the owner machine), `tsc`, browser. Not changed on purpose: the `VehicleType` enum (CAR, MOTORCYCLE, TRUCK, VAN, BUS, HEAVY_EQUIPMENT, OTHER) has no three-wheeler or tractor value; adding values is a schema decision for the owner. Local run state seen in the dev log: web port 3041 already in use (stale process), Redis 6380 not running (queues degraded), API starts. Next: owner frees 3041 and starts Redis, applies the types to the local tenant, then Phase 1 scenario runs (Vehicle, Machinery, Service).
 
 **CURRENT (2026-10-31) — UX quick wins, on `release/develop-20261022b` (uncommitted).** Web only. Added `docs/UX_FLOW_AUDIT_2026-10-31.md` (static code review, no browser run). Changed `components/reliability/reliability-workbench.tsx` (asset id input -> `EntityPicker` on `/assets`; Owner id input -> "All owners / Only mine" select using the stored user id; native `window.confirm` -> `useConfirmDialog`) and `app/(dashboard)/admin/maintenance-templates/page.tsx` (native `window.prompt` -> `usePromptDialog`). No API, DB or RBAC change. Checks: web `tsc --noEmit` clean. Web unit tests: 3 fail in untouched files (vehicles-page-simplified, jobs-queue More filters, Add Location source-string tests) because this Windows checkout has CRLF (`core.autocrlf=true`) and the tests match `
 `; not caused by this change, not re-verified on a clean checkout. Not run: browser check, Playwright, `next build`. Next: owner picker needs a reliability-scoped user lookup API; then default priority and remembered list filters from the audit.
