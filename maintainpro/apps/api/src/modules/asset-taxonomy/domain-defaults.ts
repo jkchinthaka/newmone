@@ -4,6 +4,8 @@
  * Do not invent Nelna plant/serial master data here.
  */
 
+import { EXTENDED_CATEGORY_EXAMPLES, type CategoryExample } from "./domain-defaults-extended";
+
 export const DEFAULT_ASSET_DOMAINS = [
   { code: "PLANT_MACHINERY", name: "Plant & Machinery", sortOrder: 10 },
   { code: "MECHANICAL", name: "Mechanical", sortOrder: 20 },
@@ -33,7 +35,7 @@ export const DEFAULT_ASSET_DOMAINS = [
 ] as const;
 
 /** Example categories for seed — illustrative only, not Nelna inventory */
-export const DEFAULT_CATEGORY_EXAMPLES: Array<{
+const BASE_CATEGORY_EXAMPLES: Array<{
   domainCode: string;
   code: string;
   name: string;
@@ -171,6 +173,9 @@ export const DEFAULT_CATEGORY_EXAMPLES: Array<{
     types: [{ code: "GENERIC", name: "Generic" }]
   }
 ];
+
+/** Base examples + extended real-world machine / vehicle / equipment types (additive, idempotent seed). */
+export const DEFAULT_CATEGORY_EXAMPLES: CategoryExample[] = [...BASE_CATEGORY_EXAMPLES, ...EXTENDED_CATEGORY_EXAMPLES];
 
 /**
  * Sample attribute definitions seeded per type code — illustrative only.

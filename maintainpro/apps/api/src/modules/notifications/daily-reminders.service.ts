@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { NotificationPriority, NotificationType, WorkOrderStatus } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
+import { STATUTORY_SUBJECT_TYPE, statutoryLabel, statutoryState } from "../compliance/statutory-catalog";
 import { NotificationsService } from "./notifications.service";
 
 /**
@@ -11,7 +12,8 @@ import { NotificationsService } from "./notifications.service";
  * - jobs past their time limit (assigned technician per job, managers one summary);
  * - requests waiting for review for more than a day (reviewers, one summary);
  * - work permits that expire within a day or already expired while still open (raiser + approver);
- * - vehicle documents (insurance, licence, ...) that expire within 30 days or have expired.
+ * - vehicle documents (insurance, licence, ...) that expire within 30 days or have expired;
+ * - equipment certificates (boiler, fire, lift, ...) that are due soon or have expired.
  */
 const OVERDUE_JOB_STATUSES: WorkOrderStatus[] = [
   WorkOrderStatus.OPEN,
@@ -81,12 +83,13 @@ export class DailyRemindersService implements OnModuleInit, OnModuleDestroy {
   async runOnce(now = new Date()): Promise<Record<string, number>> {
     if (this.running) return {};
     this.running = true;
-    const sent: Record<string, number> = { overdueJobs: 0, waitingRequests: 0, permits: 0, vehicleDocuments: 0 };
+    const sent: Record<string, number> = { overdueJobs: 0, waitingRequests: 0, permits: 0, vehicleDocuments: 0, equipmentCertificates: 0 };
     try {
       sent.overdueJobs = await this.safe("overdue jobs", () => this.overdueJobs(now));
       sent.waitingRequests = await this.safe("waiting requests", () => this.waitingRequests(now));
       sent.permits = await this.safe("permits", () => this.expiringPermits(now));
       sent.vehicleDocuments = await this.safe("vehicle documents", () => this.vehicleDocuments(now));
+      sent.equipmentCertificates = await this.safe("equipment certificates", () => this.equipmentCertificates(now));
     } finally {
       this.running = false;
     }
@@ -261,6 +264,56 @@ export class DailyRemindersService implements OnModuleInit, OnModuleDestroy {
           dedupeKey: expired
             ? `reminder:vehicle-doc:${document.id}:expired:${day}`
             : `reminder:vehicle-doc:${document.id}:soon:${day.slice(0, 8)}${Math.floor(now.getUTCDate() / 7)}`
+        });
+      }
+    }
+    return count;
+  }
+
+  private async equipmentCertificates(now: Date): Promise<number> {
+    const day = reminderDay(now);
+    const rows = await this.prisma.complianceRequirement.findMany({
+      where: {
+        isActive: true,
+        subjectType: STATUTORY_SUBJECT_TYPE,
+        expiresAt: { not: null, lt: new Date(now.getTime() + 400 * DAY_MS) }
+      },
+      select: { id: true, tenantId: true, typeKey: true, subjectId: true, expiresAt: true, reminderDays: true },
+      take: 5000
+    });
+    const due = rows.filter((row) => row.expiresAt && statutoryState(row.expiresAt, row.reminderDays, now) !== "VALID");
+    if (due.length === 0) return 0;
+    const assets = await this.prisma.asset.findMany({
+      where: { id: { in: [...new Set(due.map((row) => row.subjectId))] } },
+      select: { id: true, name: true, assetTag: true },
+      take: 5000
+    });
+    const assetById = new Map(assets.map((asset) => [asset.id, asset]));
+    const recipientsByTenant = new Map<string, string[]>();
+    let count = 0;
+    for (const row of due) {
+      const expiresAt = row.expiresAt as Date;
+      const expired = statutoryState(expiresAt, row.reminderDays, now) === "EXPIRED";
+      let recipients = recipientsByTenant.get(row.tenantId);
+      if (!recipients) {
+        recipients = await this.usersWithRoles(row.tenantId, [...MANAGER_ROLES, "ASSET_MANAGER"]);
+        recipientsByTenant.set(row.tenantId, recipients);
+      }
+      const asset = assetById.get(row.subjectId);
+      for (const userId of recipients) {
+        count += await this.send({
+          userId,
+          title: expired ? "Equipment certificate expired" : "Equipment certificate due soon",
+          message: `${asset?.name ?? "Equipment"}${asset?.assetTag ? ` (${asset.assetTag})` : ""}: ${statutoryLabel(row.typeKey).toLowerCase()} ${
+            expired ? "has expired" : `is due on ${reminderDay(expiresAt)}`
+          }.`,
+          type: NotificationType.SYSTEM_ALERT,
+          referenceType: "ComplianceRequirement",
+          referenceId: row.id,
+          // Weekly until it expires, then daily.
+          dedupeKey: expired
+            ? `reminder:equipment-cert:${row.id}:expired:${day}`
+            : `reminder:equipment-cert:${row.id}:soon:${day.slice(0, 8)}${Math.floor(now.getUTCDate() / 7)}`
         });
       }
     }
