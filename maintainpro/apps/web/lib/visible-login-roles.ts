@@ -2,6 +2,7 @@ export const VISIBLE_LOGIN_ROLES = [
   "SUPER_ADMIN",
   "ADMIN",
   "MANAGER",
+  "SUPERVISOR",
   "TECHNICIAN",
   "SECURITY_OFFICER",
   "INVENTORY_KEEPER"
@@ -9,7 +10,7 @@ export const VISIBLE_LOGIN_ROLES = [
 
 const ALLOWED = new Set<string>(VISIBLE_LOGIN_ROLES);
 
-/** Create and edit dropdowns list these six roles. A saved legacy role stays visible so edit does not wipe it. */
+/** Create and edit dropdowns list these go-live roles. A saved legacy role stays visible so edit does not wipe it. */
 export function visibleLoginRoles<T extends { id: string; name: string }>(roles: T[], currentRoleId?: string): T[] {
   return roles.filter((role) => ALLOWED.has(role.name) || role.id === currentRoleId);
 }

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const read = (file: string) => readFileSync(path.resolve(__dirname, "../../components/work-orders", file), "utf8");
+const read = (file: string) => readFileSync(path.resolve(__dirname, "../../components/work-orders", file), "utf8").replace(/\r\n/g, "\n");
 
 test("Jobs queue page keeps only search and status up front; the rest sits under More filters", () => {
   const panel = read("work-order-queue-panel.tsx");

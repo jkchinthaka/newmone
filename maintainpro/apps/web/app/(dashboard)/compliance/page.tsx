@@ -5,6 +5,7 @@ import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { CheckCircle2, AlertTriangle, ShieldX, RefreshCw, FileWarning, Truck } from "lucide-react";
 
+import { StatutoryCertificates } from "@/components/compliance/statutory-certificates";
 import { STICKY_TABLE_CLASS } from "@/components/fleet/fleet-register";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { ButtonSpinner, RefreshingNote, TableLoadingRows } from "@/components/ui/loading";
@@ -80,9 +81,9 @@ export default function CompliancePage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="page-title">Vehicle Compliance</h1>
+          <h1 className="page-title">Compliance</h1>
           <p className="text-sm text-slate-600">
-            Fleet-wide compliance status and upcoming document expirations.
+            Vehicle documents and equipment certificates, with what is due or expired.
           </p>
         </div>
         <button
@@ -148,6 +149,7 @@ export default function CompliancePage() {
           />
         )}
       </section>
+      <StatutoryCertificates />
     </div>
   );
 }

@@ -37,6 +37,7 @@ import { ButtonSpinner, InlineLoadingState, TableLoadingRows } from "@/component
 import { ErrorState } from "@/components/ui/page-state";
 import { apiClient } from "@/lib/api-client";
 import { colomboTodayYmd } from "@/lib/colombo-datetime";
+import { loadRememberedFilters, saveRememberedFilters } from "@/lib/remembered-filters";
 import { formatDate as formatColomboDate, formatDateTime } from "@/lib/localization";
 import {
   getStoredPermissions,
@@ -59,6 +60,9 @@ type VehicleOwnershipType = "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
 type VehicleServiceStatus = "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
 type SortBy = "createdAt" | "mileage" | "nextServiceDate" | "year";
 type SortDir = "asc" | "desc";
+const VEHICLE_SORT_FIELDS: SortBy[] = ["createdAt", "mileage", "nextServiceDate", "year"];
+const VEHICLE_FILTER_MEMORY_KEY = "maintainpro:vehicles-filters";
+const VEHICLE_FILTER_MEMORY_FIELDS = ["selectedStatuses", "sortBy", "sortDir", "pageSize"] as const;
 
 interface Vehicle {
   id: string;
@@ -184,6 +188,33 @@ export default function VehiclesPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(9);
+  const [filtersRestored, setFiltersRestored] = useState(false);
+
+  // Bring back this person's last status filter, sort and page size (never the search text or page).
+  useEffect(() => {
+    const saved = loadRememberedFilters<{ selectedStatuses: string[]; sortBy: string; sortDir: string; pageSize: number }>(
+      VEHICLE_FILTER_MEMORY_KEY,
+      VEHICLE_FILTER_MEMORY_FIELDS
+    );
+    if (Array.isArray(saved.selectedStatuses)) {
+      setSelectedStatuses(
+        saved.selectedStatuses.filter((status) => (VEHICLE_STATUSES as readonly string[]).includes(status)) as VehicleStatus[]
+      );
+    }
+    if (typeof saved.sortBy === "string" && VEHICLE_SORT_FIELDS.includes(saved.sortBy as SortBy)) {
+      setSortBy(saved.sortBy as SortBy);
+    }
+    if (saved.sortDir === "asc" || saved.sortDir === "desc") setSortDir(saved.sortDir);
+    if (typeof saved.pageSize === "number" && (PAGE_SIZE_OPTIONS as readonly number[]).includes(saved.pageSize)) {
+      setPageSize(saved.pageSize);
+    }
+    setFiltersRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersRestored) return;
+    saveRememberedFilters(VEHICLE_FILTER_MEMORY_KEY, { selectedStatuses, sortBy, sortDir, pageSize }, VEHICLE_FILTER_MEMORY_FIELDS);
+  }, [filtersRestored, selectedStatuses, sortBy, sortDir, pageSize]);
 
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Vehicle | null>(null);

@@ -87,6 +87,7 @@ export const ROLE_HOME_PROFILES: RoleHomeProfile[] = [
       { id: "downtime", title: "Machine stopped time", href: "/reports/assets?search=downtime", description: "Asset machine stopped time", kpiCodes: ["DOWNTIME", "AVAILABILITY"] },
       { id: "cost", title: "Maintenance Cost", href: "/maintenance/jobs", description: "Labour, parts, and vendor cost on a job", kpiCodes: ["MAINTENANCE_COST", "COST_PER_KM"] },
       { id: "repeat-failures", title: "Repeat Failures", href: "/reports/maintenance-exceptions", description: "Recurring problems", kpiCodes: ["REPEAT_FAILURE"] },
+      { id: "certificates", title: "Equipment Certificates", href: "/compliance", description: "Boiler, fire, lift and other certificates due or expired" },
       { id: "management-intel", title: "Management Intelligence", href: "/reports/management-intelligence", description: "Executive metrics" }
     ]
   },

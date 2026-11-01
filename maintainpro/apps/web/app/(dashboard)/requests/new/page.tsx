@@ -801,13 +801,25 @@ function NewRequestForm() {
             </button>
             <button
               type="button"
-              disabled={description.trim().length < 5}
-              className="min-h-11 flex-1 rounded-lg bg-brand-600 text-sm text-white disabled:opacity-40"
+              disabled={description.trim().length < 5 || submitting}
+              className="min-h-11 flex-1 rounded-lg border border-slate-300 text-sm disabled:opacity-40"
               onClick={() => setStep(4)}
             >
-              Continue
+              More details
+            </button>
+            <button
+              type="button"
+              disabled={description.trim().length < 5 || submitting || !canContinueTarget}
+              className="min-h-11 flex-[1.4] rounded-lg bg-brand-600 text-sm font-medium text-white disabled:opacity-40"
+              onClick={() => void submit()}
+            >
+              {submitting ? "Sending…" : "Send now"}
             </button>
           </div>
+          <p className="text-xs text-slate-500">
+            Urgency is set to Normal. Choose More details to change urgency or safety impact. Photos can be
+            added on the request after it is sent.
+          </p>
         </section>
       ) : null}
 

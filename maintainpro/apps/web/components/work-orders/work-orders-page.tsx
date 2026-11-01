@@ -545,6 +545,15 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
     if ((selected === "close" || selected === "verify-close") && !(await partsReturnsSettled(workOrder))) {
       return;
     }
+    if (selected === "verify-close") {
+      const photosChecked = await confirm({
+        title: "Check the photos first",
+        description: "Open the job and look at the before and after photos. Verify and close only when the work looks done.",
+        confirmLabel: "Photos checked, close it",
+        cancelLabel: "Not yet"
+      });
+      if (!photosChecked) return;
+    }
     if (selected === "close") {
       try {
         await closeWithReasonIfNeeded(workOrder, workOrder.version);

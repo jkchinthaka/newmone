@@ -96,7 +96,15 @@ export function AdminUserFormDialog({
         : EMPTY_FORM
     );
     fetchAdminTenantOverviewList()
-      .then((rows) => setTenants(rows.map((t) => ({ id: t.id, name: t.name, isActive: t.isActive }))))
+      .then((rows) => {
+        const mapped = rows.map((t) => ({ id: t.id, name: t.name, isActive: t.isActive }));
+        setTenants(mapped);
+        // A new user belongs to the only active company by default, so they can see its data.
+        const active = mapped.filter((t) => t.isActive);
+        if (!user && active.length === 1) {
+          setForm((c) => (c.tenantId ? c : { ...c, tenantId: active[0].id }));
+        }
+      })
       .catch(() => setTenants([]));
   }, [open, user]);
 

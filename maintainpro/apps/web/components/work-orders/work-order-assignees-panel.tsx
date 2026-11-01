@@ -1,7 +1,7 @@
 "use client";
 
 import { formatEnumLabel } from "@/lib/display-labels";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { AlertTriangle, Loader2, UserMinus, UserPlus, Star } from "lucide-react";
@@ -121,6 +121,8 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
     [assignedIds, employees]
   );
 
+  // Hours and planned times are optional (the API accepts a job without them); when typed they must make sense.
+  const hoursEntered = estimatedHours.trim() !== "";
   const parsedEstimatedHours = useMemo(() => {
     const value = Number(estimatedHours);
     return Number.isFinite(value) ? value : NaN;
@@ -128,7 +130,8 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
 
   const plannedRangeValid = useMemo(() => {
     if (!plannedStartAt || !plannedEndAt) {
-      return false;
+      // One date alone is not a range; leaving both empty is fine.
+      return !plannedStartAt && !plannedEndAt;
     }
 
     const start = new Date(plannedStartAt);
@@ -139,8 +142,7 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
   const canSubmit =
     Boolean(employeeId) &&
     plannedRangeValid &&
-    Number.isFinite(parsedEstimatedHours) &&
-    parsedEstimatedHours > 0 &&
+    (!hoursEntered || (Number.isFinite(parsedEstimatedHours) && parsedEstimatedHours > 0)) &&
     (!leaveOverride || (canOverrideLeaveConflict(currentUser.role) && leaveOverrideReason.trim().length > 0));
 
   const canSeeAssignees = canViewWorkOrderAssignees(currentUser.role);
@@ -247,12 +249,25 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
     };
   }, [employeeId, parsedEstimatedHours, plannedEndAt, plannedStartAt]);
 
+  const addInFlight = useRef(false);
+
   async function handleAdd() {
+    if (addInFlight.current) return;
     setAssignmentSubmitAttempted(true);
+    if (!employeeId) {
+      toast.error("Choose who will do this job first.");
+      return;
+    }
     if (!canSubmit) {
+      toast.error(
+        (plannedStartAt && !plannedEndAt) || (!plannedStartAt && plannedEndAt)
+          ? "Fill both planned start and planned end, or leave both empty."
+          : "Check the planned times and hours."
+      );
       return;
     }
 
+    addInFlight.current = true;
     setBusy(true);
     try {
       await apiClient.post(`/work-orders/${workOrderId}/assignees`, {
@@ -262,7 +277,7 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
         isPrimary,
         plannedStartAt: dateTimeLocalToIso(plannedStartAt),
         plannedEndAt: dateTimeLocalToIso(plannedEndAt),
-        estimatedHours: parsedEstimatedHours,
+        estimatedHours: hoursEntered ? parsedEstimatedHours : undefined,
         leaveOverride: leaveOverride || undefined,
         leaveOverrideReason: leaveOverride ? leaveOverrideReason.trim() : undefined
       });
@@ -282,6 +297,7 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
     } catch (err) {
       toast.error(getApiErrorMessageForRoute(err, "work-order-assignees", "Could not add assignee."));
     } finally {
+      addInFlight.current = false;
       setBusy(false);
     }
   }
@@ -558,12 +574,11 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
         </label>
 
         <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Estimated hours</span>
+          <span className="font-medium">Estimated hours (optional)</span>
           <input
             type="number"
             min="0.5"
             step="0.5"
-            required
             value={estimatedHours}
             onChange={(event) => {
               setHoursTouched(true);
@@ -579,10 +594,10 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
           ) : null}
         </label>
 
-        <DateTimeField label="Planned start" value={plannedStartAt} onChange={setPlannedStartAt} />
+        <DateTimeField label="Planned start (optional)" value={plannedStartAt} onChange={setPlannedStartAt} />
 
         <div className="space-y-1">
-          <DateTimeField label="Planned end" value={plannedEndAt} onChange={setPlannedEndAt} />
+          <DateTimeField label="Planned end (optional)" value={plannedEndAt} onChange={setPlannedEndAt} />
           {plannedStartAt && plannedEndAt && !plannedRangeValid ? (
             <span className="text-xs text-rose-600">Planned end must be after planned start.</span>
           ) : null}
@@ -635,10 +650,7 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
         <div className="sm:col-span-2">
           <button
             type="button"
-            onClick={(event) => {
-              event.currentTarget.disabled = true;
-              void handleAdd();
-            }}
+            onClick={() => void handleAdd()}
             disabled={busy}
             className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
           >

@@ -959,7 +959,8 @@ export function WorkOrderEditorModal({
                         role: actorRole,
                         approvalStatus: workOrder.approvalStatus
                       });
-                      return next.kind === "action" ? (
+                      // On the Assignment tab "Assign technician" would only reload the tab the person is already on.
+                      return next.kind === "action" && !(next.actionId === "assign" && activeTab === "assignment") ? (
                         <button
                           type="button"
                           onClick={() => onPrimaryAction(workOrder, next.actionId)}

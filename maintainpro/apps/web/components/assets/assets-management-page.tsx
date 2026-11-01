@@ -36,6 +36,7 @@ import {
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { loadRememberedFilters, saveRememberedFilters } from "@/lib/remembered-filters";
 import { apiClient } from "@/lib/api-client";
 import { formatDate as formatDateLk, formatDateTime as formatDateTimeLk } from "@/lib/localization";
 import { USER_KEY } from "@/lib/auth-storage";
@@ -857,6 +858,9 @@ function collectActivityChanges(event: AssetActivityEvent) {
     }));
 }
 
+const ASSET_FILTER_MEMORY_KEY = "maintainpro:assets-filters";
+const ASSET_FILTER_MEMORY_FIELDS = ["status", "category", "location", "departmentId", "condition", "sortBy", "sortOrder", "pageSize"] as const;
+
 export default function AssetsManagementPage() {
   const queryClient = useQueryClient();
   const currentUser = useCurrentUser();
@@ -928,7 +932,10 @@ export default function AssetsManagementPage() {
     const asset = params.get("asset");
     if (!urlReady.current) {
       urlReady.current = true;
-      setFilters(parsed);
+      // A link with filters in the address wins; otherwise bring back this person's last filters.
+      const urlHasFilters = ASSET_FILTER_MEMORY_FIELDS.some((key) => params.has(key)) || params.has("q");
+      const remembered = urlHasFilters ? {} : (loadRememberedFilters<Record<string, unknown>>(ASSET_FILTER_MEMORY_KEY, ASSET_FILTER_MEMORY_FIELDS) as Partial<typeof filters>);
+      setFilters({ ...parsed, ...remembered });
       setSearchDraft(parsed.search);
       if (asset) setDetailsAssetId(asset);
       lastWrittenQuery.current = assetSearchFromFilters(parsed, asset);
@@ -947,6 +954,11 @@ export default function AssetsManagementPage() {
       router.replace((fromFilters ? `${pathname}?${fromFilters}` : pathname) as Route);
     }
   }, [detailsAssetId, filters, params, pathname, router, setFilters]);
+
+  useEffect(() => {
+    if (!urlReady.current) return;
+    saveRememberedFilters(ASSET_FILTER_MEMORY_KEY, filters as unknown as Record<string, unknown>, ASSET_FILTER_MEMORY_FIELDS);
+  }, [filters]);
 
   useEffect(() => {
     if (filters.search !== debouncedSearch) {

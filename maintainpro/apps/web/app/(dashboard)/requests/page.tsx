@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { loadRememberedFilters, saveRememberedFilters } from "@/lib/remembered-filters";
 import { AlertTriangle, MoreHorizontal, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -117,6 +118,9 @@ function StatusBadge({ status, workOrderStatus, ownOnly }: { status: string; wor
 }
 
 type RowAction = { id: string; label: string; href?: string; run?: () => Promise<boolean> };
+
+const REQUEST_FILTER_MEMORY_KEY = "maintainpro:requests-filters";
+const REQUEST_FILTER_MEMORY_FIELDS = ["priority", "type", "sort", "dir"] as const;
 
 function ActionMenu({
   item,
@@ -287,6 +291,28 @@ export default function RequestsPage() {
     // Keep the chosen view (All / My / Triage); clear everything else.
     router.replace((view === "all" ? pathname : `${pathname}?view=${view}`) as Route);
   }, [pathname, router, view]);
+
+  // Remember Priority / Type / sort on this device for this person (never search text or page).
+  const filtersRestored = useRef(false);
+  useEffect(() => {
+    if (filtersRestored.current) return;
+    filtersRestored.current = true;
+    const hasExplicit = ["priority", "type", "sort", "dir", "q", "status", "stage", "asset", "reporter", "from", "converted"].some((key) => searchParams.has(key));
+    if (hasExplicit) return;
+    const saved = loadRememberedFilters<{ priority: string; type: string; sort: string; dir: string }>(REQUEST_FILTER_MEMORY_KEY, REQUEST_FILTER_MEMORY_FIELDS);
+    const patch: Record<string, string | null> = {};
+    if (saved.priority) patch.priority = saved.priority;
+    if (saved.type && parseJobDomain(saved.type)) patch.type = saved.type;
+    if (saved.sort && saved.sort !== "reportedAt") patch.sort = saved.sort;
+    if (saved.dir === "asc") patch.dir = "asc";
+    if (Object.keys(patch).length > 0) writeQuery(patch, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!filtersRestored.current) return;
+    saveRememberedFilters(REQUEST_FILTER_MEMORY_KEY, { priority, type: jobDomain, sort: sortBy, dir: sortDirection }, REQUEST_FILTER_MEMORY_FIELDS);
+  }, [jobDomain, priority, sortBy, sortDirection]);
 
   useEffect(() => {
     setDraftQuery(queryText);

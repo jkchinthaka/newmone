@@ -438,12 +438,19 @@ function JobBody({
       ) : null}
       <div className="mt-auto pt-3">
         <JobAction job={job} starting={starting} onStart={onStart} onHold={onHold} onResume={onResume} onComplete={onComplete} />
-        <Link className="mt-2 inline-flex min-h-10 items-center text-sm font-medium text-slate-600 underline-offset-2 hover:underline" href={`/maintenance/jobs?wo=${job.id}` as Route}>
-          Open details
-        </Link>
+        {jobActionIsDetailsLink(job) ? null : (
+          <Link className="mt-2 inline-flex min-h-10 items-center text-sm font-medium text-slate-600 underline-offset-2 hover:underline" href={`/maintenance/jobs?wo=${job.id}` as Route}>
+            Open details
+          </Link>
+        )}
       </div>
     </div>
   );
+}
+
+/** The main button already opens the job when it is not Start / Finish / Continue, so a second "Open details" link would repeat it. */
+function jobActionIsDetailsLink(job: MyJob): boolean {
+  return !(job.nextAction.kind === "start" || job.status === "IN_PROGRESS" || job.status === "ON_HOLD");
 }
 
 function JobAction({

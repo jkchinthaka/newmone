@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const page = readFileSync(path.resolve(__dirname, "../../app/(dashboard)/vehicles/page.tsx"), "utf8");
+const page = readFileSync(path.resolve(__dirname, "../../app/(dashboard)/vehicles/page.tsx"), "utf8").replace(/\r\n/g, "\n");
 
 test("Vehicles: sort and rows-per-page sit under More options; search and status chips stay up front", () => {
   const more = page.indexOf("More options (sort, rows per page)");

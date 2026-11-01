@@ -508,7 +508,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "vendors-external",
-    label: "Outside Repairs",
+    label: "Vendors",
     href: "/procurement/vendors",
     icon: "Users",
     allowedRoles: mergeRoles(PARTS_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES, PROCUREMENT_ROLES),
