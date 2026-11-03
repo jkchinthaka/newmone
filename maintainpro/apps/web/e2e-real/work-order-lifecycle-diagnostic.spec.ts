@@ -148,8 +148,10 @@ async function runLifecycleGate(browser: Browser): Promise<{
         await invContext.close();
       }
 
+      // Technicians cannot waive the before/after photo rule; only manager/admin roles can override it,
+      // so the disposable fixture is completed with the manager session (managerPage).
       const complete = await authenticatedPost(
-        techPage,
+        managerPage,
         `/api/backend/work-orders/${workOrderId}/complete-technician`,
         {
           data: {
@@ -157,14 +159,14 @@ async function runLifecycleGate(browser: Browser): Promise<{
             actualCost: 99,
             actualHours: 1.5,
             overrideReason: "E2E gate evidence/QR waived for disposable fixture",
-            expectedVersion: await expectedVersion(techPage, workOrderId)
+            expectedVersion: await expectedVersion(managerPage, workOrderId)
           }
         }
       );
       technicianCompletionStatus = complete.status();
       if (technicianCompletionStatus !== 200 && technicianCompletionStatus !== 201) {
         const completePatch = await authenticatedPatch(
-          techPage,
+          managerPage,
           `/api/backend/work-orders/${workOrderId}/status`,
           {
             data: {
@@ -173,7 +175,7 @@ async function runLifecycleGate(browser: Browser): Promise<{
               actualCost: 99,
               actualHours: 1.5,
               overrideReason: "E2E gate evidence/QR waived for disposable fixture",
-              expectedVersion: await expectedVersion(techPage, workOrderId)
+              expectedVersion: await expectedVersion(managerPage, workOrderId)
             }
           }
         );
