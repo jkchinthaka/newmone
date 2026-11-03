@@ -26,6 +26,7 @@ import { AccidentsController } from "../src/modules/accidents/accidents.controll
 import { AccidentsService } from "../src/modules/accidents/accidents.service";
 import { ComplianceController } from "../src/modules/compliance/compliance.controller";
 import { ComplianceService } from "../src/modules/compliance/compliance.service";
+import { StatutoryService } from "../src/modules/compliance/statutory.service";
 import { InsuranceClaimsController } from "../src/modules/insurance-claims/insurance-claims.controller";
 import { InsuranceClaimsService } from "../src/modules/insurance-claims/insurance-claims.service";
 import { TrafficFinesController } from "../src/modules/traffic-fines/traffic-fines.controller";
@@ -107,6 +108,7 @@ const prisma = buildPrismaMock();
     Reflector,
     VehicleDocumentsService,
     ComplianceService,
+    StatutoryService,
     AccidentsService,
     InsuranceClaimsService,
     TrafficFinesService,
