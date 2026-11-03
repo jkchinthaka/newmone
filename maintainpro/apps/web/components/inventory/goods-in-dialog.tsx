@@ -39,7 +39,13 @@ export function GoodsInDialog({ onClose, onDone }: { onClose: () => void; onDone
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Shared delivery details.
-  const [supplierName, setSupplierName] = useState("");
+  const [supplierName, setSupplierName] = useState(() => {
+    try {
+      return window.localStorage.getItem("mp_goods_in_supplier") ?? "";
+    } catch {
+      return "";
+    }
+  });
   const [referenceNo, setReferenceNo] = useState("");
   const [grnPhoto, setGrnPhoto] = useState<File | null>(null);
   const [receivedDate, setReceivedDate] = useState(today());
@@ -102,6 +108,11 @@ export function GoodsInDialog({ onClose, onDone }: { onClose: () => void; onDone
       toast.success(
         `Received ${result.totalQuantity} item(s) into ${result.store.name}${result.newParts ? ` · ${result.newParts} new part(s) added` : ""}.`
       );
+      try {
+        if (supplierName.trim()) window.localStorage.setItem("mp_goods_in_supplier", supplierName.trim());
+      } catch {
+        /* remembering the supplier is optional */
+      }
       onDone();
     } catch (cause) {
       setError(getApiErrorMessage(cause, "Goods in could not be saved."));

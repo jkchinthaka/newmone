@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Route } from "next";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { PendingApprovalsInbox } from "@/components/approvals/pending-approvals-inbox";
@@ -51,6 +53,7 @@ function initialInboxTab(): InboxTabId {
 }
 
 export default function ApprovalsInboxPage() {
+  const router = useRouter();
   const [items, setItems] = useState<InboxViewItem[]>([]);
   const [counts, setCounts] = useState<ApprovalInboxCounts | undefined>();
   const [total, setTotal] = useState(0);
@@ -151,7 +154,13 @@ export default function ApprovalsInboxPage() {
       await refresh();
     } catch (err) {
       const message = getApiErrorMessage(err, "Request failed");
-      toast.error(message.includes("Refresh") ? "This approval changed. Refresh and try again." : message);
+      if (item.kind === "request" && /asset, vehicle, or functional location|canonical machine/i.test(message)) {
+        toast.error("Set the machine, vehicle or location on this request first.", {
+          action: { label: "Open request", onClick: () => router.push(`/requests/${item.id}` as Route) }
+        });
+      } else {
+        toast.error(message.includes("Refresh") ? "This approval changed. Refresh and try again." : message);
+      }
       if (message.includes("Refresh")) await refresh();
     } finally {
       setBusyIds((current) => current.filter((id) => id !== item.id));

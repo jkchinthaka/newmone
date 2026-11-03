@@ -428,7 +428,7 @@ function NewRequestForm() {
       ) : null}
 
       <div className="flex gap-1 text-xs text-slate-500">
-        {[1, 2, 3, 4, 5].map((n) => (
+        {(step >= 4 ? [1, 2, 3, 4, 5] : [1, 2, 3]).map((n) => (
           <span
             key={n}
             className={`h-1.5 flex-1 rounded-full ${step >= n ? "bg-brand-500" : "bg-slate-200"}`}
