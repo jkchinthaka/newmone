@@ -29,13 +29,15 @@ describe("JwtStrategy validate()", () => {
     });
     const strategy = buildStrategy(findUnique);
 
-    await expect(strategy.validate(payload)).resolves.toEqual(payload);
+    await expect(strategy.validate(payload)).resolves.toEqual({ ...payload, mustChangePassword: false });
     expect(findUnique).toHaveBeenCalledWith({
       where: { id: payload.sub },
       select: {
         isActive: true,
         lockedUntil: true,
         tenantId: true,
+        mustChangePassword: true,
+        sessionVersion: true,
         role: { select: { name: true } }
       }
     });
@@ -51,7 +53,7 @@ describe("JwtStrategy validate()", () => {
 
     await expect(
       strategy.validate({ ...payload, role: RoleName.SUPER_ADMIN })
-    ).resolves.toEqual({ ...payload, role: RoleName.TECHNICIAN, tenantId: "tenant-a" });
+    ).resolves.toEqual({ ...payload, role: RoleName.TECHNICIAN, tenantId: "tenant-a", mustChangePassword: false });
   });
 
   it("rejects when the user is deactivated", async () => {
@@ -66,5 +68,37 @@ describe("JwtStrategy validate()", () => {
     const strategy = buildStrategy(findUnique);
 
     await expect(strategy.validate(payload)).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("rejects an access token minted before the session version was bumped", async () => {
+    const findUnique = jest.fn().mockResolvedValue({
+      isActive: true,
+      tenantId: "tenant-a",
+      sessionVersion: 3,
+      role: { name: RoleName.TECHNICIAN }
+    });
+    const strategy = buildStrategy(findUnique);
+
+    await expect(strategy.validate({ ...payload, sv: 2 })).rejects.toThrow(/revoked/);
+    await expect(strategy.validate(payload)).rejects.toThrow(UnauthorizedException);
+    await expect(strategy.validate({ ...payload, sv: 3 })).resolves.toMatchObject({ sub: "user-1" });
+  });
+
+  it("keeps the per-session tenant claim and exposes mustChangePassword from the database", async () => {
+    const findUnique = jest.fn().mockResolvedValue({
+      isActive: true,
+      tenantId: "tenant-home",
+      mustChangePassword: true,
+      sessionVersion: 0,
+      role: { name: RoleName.TECHNICIAN }
+    });
+    const strategy = buildStrategy(findUnique);
+
+    await expect(
+      strategy.validate({ ...payload, tenantId: "tenant-b", mustChangePassword: false })
+    ).resolves.toMatchObject({ tenantId: "tenant-b", mustChangePassword: true });
+    await expect(strategy.validate({ ...payload, tenantId: null })).resolves.toMatchObject({
+      tenantId: "tenant-home"
+    });
   });
 });

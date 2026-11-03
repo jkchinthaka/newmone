@@ -62,10 +62,10 @@ export function WorkOrderSafetyPanel({ workOrderId, readOnly = false }: Props) {
       await apiClient.post(`/work-orders/${workOrderId}/downtime`, { category });
     },
     onSuccess: async () => {
-      toast.success("Downtime segment opened.");
+      toast.success("Machine stopped time opened.");
       await qc.invalidateQueries({ queryKey: withTenantScope(["work-order", workOrderId, "downtime"]) });
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, "Could not open downtime segment."))
+    onError: (error) => toast.error(getApiErrorMessage(error, "Could not open machine stopped time."))
   });
 
   const closeDowntime = useMutation({
@@ -73,10 +73,10 @@ export function WorkOrderSafetyPanel({ workOrderId, readOnly = false }: Props) {
       await apiClient.post(`/downtime/${segmentId}/close`, {});
     },
     onSuccess: async () => {
-      toast.success("Downtime segment closed.");
+      toast.success("Machine stopped time closed.");
       await qc.invalidateQueries({ queryKey: withTenantScope(["work-order", workOrderId, "downtime"]) });
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, "Could not close downtime segment."))
+    onError: (error) => toast.error(getApiErrorMessage(error, "Could not close machine stopped time."))
   });
 
   const segments = downtimeQuery.data?.segments ?? [];
@@ -86,27 +86,27 @@ export function WorkOrderSafetyPanel({ workOrderId, readOnly = false }: Props) {
   return (
     <div className="space-y-4" aria-labelledby="wo-safety-heading">
       <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <h3 id="wo-safety-heading" className="text-sm font-semibold text-slate-900">Downtime segments</h3>
+        <h3 id="wo-safety-heading" className="text-sm font-semibold text-slate-900">Machine stopped time</h3>
         <p className="mt-1 text-xs text-slate-600">
-          Record actual downtime segments separately from work-order elapsed time.
+          Record actual machine stopped time separately from work-order elapsed time.
         </p>
 
         {downtimeQuery.isLoading ? (
           <div className="mt-3">
-            <p className="sr-only">Loading downtime…</p>
+            <p className="sr-only">Loading machine stopped time…</p>
             <SkeletonCard />
           </div>
         ) : downtimeQuery.isError ? (
           <div className="mt-3">
             <ErrorState
-              message={getApiErrorMessage(downtimeQuery.error, "Could not load downtime.")}
+              message={getApiErrorMessage(downtimeQuery.error, "Could not load machine stopped time.")}
               onRetry={() => void downtimeQuery.refetch()}
             />
           </div>
         ) : (
           <div className="mt-3 space-y-3">
             {openSegments.length === 0 ? (
-              <p className="text-sm text-slate-600">No open downtime segments.</p>
+              <p className="text-sm text-slate-600">No open machine stopped time.</p>
             ) : (
               openSegments.map((segment) => (
                 <div
@@ -135,7 +135,7 @@ export function WorkOrderSafetyPanel({ workOrderId, readOnly = false }: Props) {
             )}
 
             {segments.length === 0 ? (
-              <EmptyState title="No downtime recorded" description="Open a segment when the asset cannot be used." />
+              <EmptyState title="No machine stopped time recorded" description="Open a segment when the asset cannot be used." />
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-sm">

@@ -20,7 +20,6 @@ import {
   CircleCheck,
   Filter,
   Fuel,
-  Loader2,
   Pencil,
   Plus,
   RefreshCw,
@@ -33,7 +32,11 @@ import { toast } from "sonner";
 
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { ButtonSpinner, InlineLoadingState, TableLoadingRows } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/page-state";
 import { apiClient } from "@/lib/api-client";
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
+import { formatDate as formatColomboDate, formatDateTime } from "@/lib/localization";
 import {
   getStoredPermissions,
   getStoredRole,
@@ -163,8 +166,11 @@ export default function VehiclesPage() {
   const [role, setRole] = useState<DashboardRole>("VIEWER");
   const [permissions, setPermissions] = useState<string[]>([]);
   const [rows, setRows] = useState<Vehicle[]>([]);
-  const [summary, setSummary] = useState<VehicleSummary>(DEFAULT_SUMMARY);
-  const [alerts, setAlerts] = useState<VehicleAlert[]>([]);
+  // null = not loaded yet; a failed load is shown as an error, never as zeros / "no alerts".
+  const [summary, setSummary] = useState<VehicleSummary | null>(null);
+  const [summaryError, setSummaryError] = useState<unknown>(null);
+  const [alerts, setAlerts] = useState<VehicleAlert[] | null>(null);
+  const [alertsError, setAlertsError] = useState<unknown>(null);
   const [pagination, setPagination] = useState<PaginationState>(DEFAULT_PAGINATION);
 
   const [loading, setLoading] = useState(true);
@@ -213,6 +219,7 @@ export default function VehiclesPage() {
   );
 
   const loadSummary = useCallback(async () => {
+    setSummaryError(null);
     try {
       const res = await apiClient.get("/vehicles/summary", { params: { upcomingDays: 14 } });
       const payload = res.data?.data ?? res.data;
@@ -228,12 +235,14 @@ export default function VehiclesPage() {
           vehiclesOutOfService: Number(payload.vehiclesOutOfService ?? 0)
         });
       }
-    } catch {
-      // Non-blocking; keep list usable even if summary endpoint is unavailable.
+    } catch (err) {
+      // Non-blocking for the list, but the strip says it failed instead of showing zeros.
+      setSummaryError(err);
     }
   }, []);
 
   const loadAlerts = useCallback(async () => {
+    setAlertsError(null);
     try {
       const res = await apiClient.get("/vehicles/alerts", {
         params: {
@@ -245,8 +254,8 @@ export default function VehiclesPage() {
       const payload = res.data?.data ?? res.data;
       const nextAlerts = Array.isArray(payload) ? payload : [];
       setAlerts(nextAlerts);
-    } catch {
-      setAlerts([]);
+    } catch (err) {
+      setAlertsError(err);
     }
   }, []);
 
@@ -316,8 +325,8 @@ export default function VehiclesPage() {
     if (!canView) {
       setLoading(false);
       setRows([]);
-      setAlerts([]);
-      setSummary(DEFAULT_SUMMARY);
+      setAlerts(null);
+      setSummary(null);
       setError("You do not have permission to view vehicle records.");
       return;
     }
@@ -485,7 +494,7 @@ export default function VehiclesPage() {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `vehicles-page-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `vehicles-page-${colomboTodayYmd()}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -505,7 +514,7 @@ export default function VehiclesPage() {
     const worksheet = XLSX.utils.aoa_to_sheet([exportRows.headers, ...exportRows.records]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Vehicles");
-    XLSX.writeFile(workbook, `vehicles-page-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(workbook, `vehicles-page-${colomboTodayYmd()}.xlsx`);
 
     toast.success("Current vehicle view exported as Excel.");
   }
@@ -524,7 +533,7 @@ export default function VehiclesPage() {
       return;
     }
 
-    const generatedAt = new Date().toLocaleString();
+    const generatedAt = formatDateTime(new Date());
     const tableHead = exportRows.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
     const tableRows = exportRows.records
       .map((record) => `<tr>${record.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`)
@@ -560,25 +569,25 @@ export default function VehiclesPage() {
     () => [
       {
         title: "Total Vehicles",
-        value: summary.totalVehicles,
+        value: summary?.totalVehicles ?? null,
         icon: CarFront,
         tone: "bg-sky-50 text-sky-800 ring-sky-200"
       },
       {
         title: "Under Maintenance",
-        value: summary.vehiclesUnderMaintenance,
+        value: summary?.vehiclesUnderMaintenance ?? null,
         icon: Wrench,
         tone: "bg-amber-50 text-amber-800 ring-amber-200"
       },
       {
         title: "Available Vehicles",
-        value: summary.availableVehicles,
+        value: summary?.availableVehicles ?? null,
         icon: CircleCheck,
         tone: "bg-emerald-50 text-emerald-800 ring-emerald-200"
       },
       {
         title: "Upcoming Services",
-        value: summary.upcomingServices,
+        value: summary?.upcomingServices ?? null,
         icon: CalendarClock,
         tone: "bg-violet-50 text-violet-800 ring-violet-200"
       }
@@ -628,18 +637,26 @@ export default function VehiclesPage() {
         </p>
       ) : null}
 
-      <section className="summary-strip">
-        {summaryCards.map((card) => (
-          <SummaryCard key={card.title} title={card.title} value={card.value} icon={card.icon} tone={card.tone} />
-        ))}
-      </section>
+      {summaryError && !summary ? (
+        <ErrorState title="Couldn't load the vehicle summary" error={summaryError} onRetry={() => void loadSummary()} />
+      ) : (
+        <section className="summary-strip" aria-busy={!summary}>
+          {summaryCards.map((card) => (
+            <SummaryCard key={card.title} title={card.title} value={card.value} icon={card.icon} tone={card.tone} />
+          ))}
+        </section>
+      )}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-2">
           <CircleAlert size={16} className="text-amber-600" />
           <h3 className="text-sm font-semibold text-slate-800">Service & Status Alerts</h3>
         </div>
-        {alerts.length === 0 ? (
+        {alertsError ? (
+          <ErrorState title="Couldn't load vehicle alerts" error={alertsError} onRetry={() => void loadAlerts()} />
+        ) : alerts === null ? (
+          <InlineLoadingState label="Loading alerts…" />
+        ) : alerts.length === 0 ? (
           <p className="text-sm text-slate-500">No active alerts right now.</p>
         ) : (
           <ul className="grid gap-2 md:grid-cols-2">
@@ -774,15 +791,11 @@ export default function VehiclesPage() {
         </div>
       </section>
 
-      {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="card flex items-center gap-2 py-8 text-sm text-slate-500">
-          <Loader2 size={16} className="animate-spin" /> Loading vehicles...
+      {error ? (
+        <ErrorState title="Couldn't load vehicles" description={error} onRetry={() => void loadVehicles()} />
+      ) : loading && rows.length === 0 ? (
+        <div className="card p-0">
+          <TableLoadingRows label="Loading vehicles" />
         </div>
       ) : rows.length === 0 ? (
         <div className="card py-10 text-center text-sm text-slate-500">
@@ -828,7 +841,7 @@ export default function VehiclesPage() {
                   </p>
                   <p className="flex items-center gap-2">
                     <Fuel size={14} className="text-slate-400" />
-                    <span>{Number(vehicle.currentMileage).toLocaleString()} km</span>
+                    <span>{Number(vehicle.currentMileage).toLocaleString("en-LK")} km</span>
                   </p>
                   <p className="flex items-center gap-2">
                     <CalendarClock size={14} className="text-slate-400" />
@@ -1026,14 +1039,14 @@ function SummaryCard({
   tone
 }: {
   title: string;
-  value: number;
+  value: number | null;
   icon: LucideIcon;
   tone: string;
 }) {
   return (
     <span className={`inline-flex items-center gap-2 text-sm text-ink ${tone}`}>
       <Icon size={14} aria-hidden />
-      <span className="font-semibold tabular-nums">{value.toLocaleString()}</span>
+      <span className="font-semibold tabular-nums">{value == null ? "–" : value.toLocaleString("en-LK")}</span>
       <span>{title}</span>
     </span>
   );
@@ -1319,7 +1332,7 @@ function CreateVehicleModal({
             disabled={busy}
             className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-800 disabled:opacity-50"
           >
-            {busy && <Loader2 size={14} className="animate-spin" />} Create
+            {busy && <ButtonSpinner className="h-3.5 w-3.5" />} Create
           </button>
         </div>
       </form>
@@ -1578,7 +1591,7 @@ function EditVehicleModal({
             disabled={busy || !canEdit}
             className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-800 disabled:opacity-50"
           >
-            {busy && <Loader2 size={14} className="animate-spin" />} Save Changes
+            {busy && <ButtonSpinner className="h-3.5 w-3.5" />} Save Changes
           </button>
         </div>
       </form>
@@ -1660,7 +1673,7 @@ function formatDate(value: string) {
     return "Invalid date";
   }
 
-  return parsed.toLocaleDateString();
+  return formatColomboDate(parsed);
 }
 
 function escapeHtml(value: unknown) {

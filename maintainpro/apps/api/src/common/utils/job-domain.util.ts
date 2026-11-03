@@ -90,3 +90,30 @@ export function resolveJobDomain(input: {
 
   return "SERVICE";
 }
+
+/**
+ * A stored or typed category only counts when it matches the target: Vehicle needs a vehicle,
+ * Machinery needs a machine, Service cannot be a vehicle. Otherwise the category is worked out
+ * again from the target, so a request whose machine was changed to a vehicle (or a place) moves
+ * to the right Jobs page instead of keeping the old category.
+ */
+export function explicitJobDomainFitsTarget(
+  jobDomain: string | null | undefined,
+  target: { vehicleId?: string | null; assetId?: string | null }
+): boolean {
+  const parsed = parseJobDomain(jobDomain);
+  if (!parsed) return false;
+  if (parsed === "VEHICLE") return Boolean(target.vehicleId);
+  if (parsed === "MACHINERY") return Boolean(target.assetId) && !target.vehicleId;
+  return !target.vehicleId;
+}
+
+export function resolveTargetJobDomain(input: {
+  jobDomain?: string | null;
+  vehicleId?: string | null;
+  assetId?: string | null;
+  assetDomainCode?: string | null;
+}): JobDomain {
+  const explicit = explicitJobDomainFitsTarget(input.jobDomain, input) ? input.jobDomain : undefined;
+  return resolveJobDomain({ ...input, jobDomain: explicit });
+}

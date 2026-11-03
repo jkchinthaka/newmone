@@ -8,13 +8,18 @@ import {
   IsString,
   MaxLength,
   Min,
+  Matches,
   MinLength
 } from "class-validator";
+
+import { PASSWORD_STRENGTH_MESSAGE, PASSWORD_STRENGTH_PATTERN } from "../../auth/dto/password-strength";
 
 export enum InviteMethod {
   INVITE_EMAIL = "INVITE_EMAIL",
   TEMP_PASSWORD = "TEMP_PASSWORD",
-  COPY_LINK = "COPY_LINK"
+  COPY_LINK = "COPY_LINK",
+  /** The admin types the first password; the person must replace it at first sign-in. */
+  SET_PASSWORD = "SET_PASSWORD"
 }
 
 export class PeopleListQueryDto {
@@ -143,6 +148,12 @@ export class CreatePersonDto {
   @IsOptional()
   @IsEnum(InviteMethod)
   inviteMethod?: InviteMethod;
+
+  /** Required when inviteMethod is SET_PASSWORD. Never stored or logged in clear text. */
+  @IsOptional()
+  @IsString()
+  @Matches(PASSWORD_STRENGTH_PATTERN, { message: PASSWORD_STRENGTH_MESSAGE })
+  initialPassword?: string;
 }
 
 export class UpdatePersonDto {
@@ -255,6 +266,12 @@ export class EnableLoginDto {
   @IsOptional()
   @IsEnum(InviteMethod)
   inviteMethod?: InviteMethod;
+
+  /** Required when inviteMethod is SET_PASSWORD. Never stored or logged in clear text. */
+  @IsOptional()
+  @IsString()
+  @Matches(PASSWORD_STRENGTH_PATTERN, { message: PASSWORD_STRENGTH_MESSAGE })
+  initialPassword?: string;
 }
 
 export class AcceptInviteDto {

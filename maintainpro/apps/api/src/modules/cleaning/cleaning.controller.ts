@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  GoneException,
   Inject,
   Param,
   Patch,
@@ -264,9 +265,13 @@ export class CleaningController {
     "SUPERVISOR"
   )
   @Permissions("facility_issues.manage")
-  async createWorkOrderFromIssue(@Req() req: AuthedRequest, @Param("id") id: string) {
-    const data = await this.cleaning.createWorkOrderFromIssue(id, req.user!);
-    return { data, message: "Work order created from facility issue" };
+  async createWorkOrderFromIssue(@Req() _req: AuthedRequest, @Param("id") _id: string): Promise<never> {
+    // Retired: a job made here had no exact place (Service jobs need a functional location) and
+    // bypassed request review. Building issues are reported through Report issue -> Service.
+    throw new GoneException({
+      code: "FACILITY_ISSUE_TO_JOB_RETIRED",
+      message: "Jobs are no longer created from cleaning issues. Use Report issue and choose Service."
+    });
   }
 
   @Get("schedule/calendar")

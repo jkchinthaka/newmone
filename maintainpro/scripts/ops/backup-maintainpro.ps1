@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     - Takes a full SQL Server backup of MaintainProProd using Windows integrated auth.
-    - Copies the evidence folder (C:\MaintainProData\evidence-prod) into the same dated backup folder.
+    - Copies the evidence folder (D:\MaintainPro\evidence) into the same dated backup folder.
     - Retains 14 days of backups (older folders deleted).
     - Logs to C:\MaintainProData\backups\backup-YYYYMMDD.log
 
@@ -16,7 +16,7 @@
     Root folder for dated backup subfolders. Default: C:\MaintainProData\backups
 
 .PARAMETER EvidenceSource
-    Evidence folder to copy. Default: C:\MaintainProData\evidence-prod
+    Evidence folder to copy. Default: D:\MaintainPro\evidence
 
 .PARAMETER RetentionDays
     Days to keep. Default: 14
@@ -35,7 +35,7 @@
 param(
     [string]$DatabaseName = "MaintainProProd",
     [string]$BackupRoot = "C:\MaintainProData\backups",
-    [string]$EvidenceSource = "C:\MaintainProData\evidence-prod",
+    [string]$EvidenceSource = "D:\MaintainPro\evidence",
     [int]$RetentionDays = 14
 )
 
@@ -52,6 +52,7 @@ function Write-Log {
 }
 
 try {
+    New-Item -ItemType Directory -Path $BackupRoot -Force | Out-Null
     Write-Log "=== MaintainPro Backup Started ==="
     Write-Log "Database: $DatabaseName"
     Write-Log "Backup dir: $backupDir"
@@ -98,12 +99,20 @@ SKIP, NOREWIND, NOUNLOAD, COMPRESSION, STATS = 10
     $evidenceDest = Join-Path $backupDir "evidence-prod"
     if (Test-Path $EvidenceSource) {
         Write-Log "Copying evidence folder to $evidenceDest ..."
-        Copy-Item -Path $EvidenceSource -Destination $evidenceDest -Recurse -Force -ErrorAction Stop
+        # Both paths are explicit: /MIR deletes only inside this new dated evidence destination.
+        $resolvedSource = [IO.Path]::GetFullPath($EvidenceSource)
+        $resolvedDestination = [IO.Path]::GetFullPath($evidenceDest)
+        $resolvedBackup = [IO.Path]::GetFullPath($backupDir).TrimEnd("\") + "\"
+        if (-not $resolvedDestination.StartsWith($resolvedBackup, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Evidence destination must remain inside the dated backup directory"
+        }
+        robocopy $resolvedSource $resolvedDestination /MIR /XJ /R:2 /W:5 | ForEach-Object { Write-Log $_ }
+        if ($LASTEXITCODE -ge 8) { throw "Evidence robocopy failed (exit $LASTEXITCODE)" }
         $evCount = (Get-ChildItem $evidenceDest -Recurse -File).Count
         $evSize = (Get-ChildItem $evidenceDest -Recurse -File | Measure-Object -Property Length -Sum).Sum
         Write-Log "Evidence copied: $evCount files, $([math]::Round($evSize/1MB,2)) MB"
     } else {
-        Write-Log "Evidence source not found (skipping): $EvidenceSource" "WARN"
+        throw "Evidence source not found: $EvidenceSource"
     }
 
     # 5. Retention cleanup (delete folders older than RetentionDays)
@@ -114,7 +123,10 @@ SKIP, NOREWIND, NOUNLOAD, COMPRESSION, STATS = 10
         if ($_.LastWriteTime -lt $cutoff) {
             $folderName = $_.Name
             Write-Log "Deleting expired backup: $folderName"
-            Remove-Item -Path $_.FullName -Recurse -Force
+            $expired = [IO.Path]::GetFullPath($_.FullName)
+            $retentionRoot = [IO.Path]::GetFullPath($BackupRoot).TrimEnd("\") + "\"
+            if (-not $expired.StartsWith($retentionRoot, [StringComparison]::OrdinalIgnoreCase)) { throw "Invalid retention target" }
+            Remove-Item -LiteralPath $expired -Recurse -Force
             $deleted++
         }
     }

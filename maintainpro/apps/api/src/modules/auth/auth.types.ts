@@ -12,6 +12,10 @@ export interface JwtPayload {
   email: string;
   role: RoleName | string;
   tenantId?: string | null;
+  /** User.sessionVersion at issue time; older tokens are rejected. */
+  sv?: number;
+  /** Set by JwtStrategy.validate from the DB (never trusted from the token). */
+  mustChangePassword?: boolean;
 }
 
 /**
@@ -23,6 +27,7 @@ export interface JwtPayload {
 export interface RefreshTokenPayload {
   sub: string;
   tenantId?: string | null;
+  sv?: number;
 }
 
 export interface AuthTokens {

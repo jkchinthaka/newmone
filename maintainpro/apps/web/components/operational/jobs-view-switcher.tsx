@@ -16,7 +16,7 @@ const VIEWS = [
 /** Compact Queues / Kanban / List switch shared by All Jobs and domain job pages. */
 export function JobsViewSwitcher({ view, onChange }: Props) {
   return (
-    <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm" role="group" aria-label="Work order view">
+    <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm" role="group" aria-label="Job view">
       {VIEWS.map(([key, label, Icon]) => (
         <button
           key={key}

@@ -56,7 +56,7 @@ test.describe("UAT-003 staging MVP lifecycle portfolio capture", () => {
     await capture(page, "03-admin-console.png");
 
     await page.goto(`${stagingWeb}/work-orders`);
-    await expect(page.getByRole("heading", { name: "Work Orders", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Jobs", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Loading work orders" })).toHaveCount(0, {
       timeout: 60_000
     });
@@ -106,7 +106,7 @@ test.describe("UAT-003 staging MVP lifecycle portfolio capture", () => {
   test("technician jobs surface", async ({ page }) => {
     await loginAs(page, personas.technician);
     await page.goto(`${stagingWeb}/work-orders`);
-    await expect(page.getByRole("heading", { name: "Work Orders", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Jobs", exact: true })).toBeVisible();
     await capture(page, "07-technician-jobs.png");
   });
 

@@ -50,6 +50,8 @@ const ASSET_READ_ROLES = [
   "ASSET_MANAGER",
   "SUPERVISOR",
   "MECHANIC",
+  // Owner decision 2026-10-22: technicians may view assets (read-only routes only).
+  "TECHNICIAN",
   "VIEWER"
 ] as const;
 
@@ -76,6 +78,13 @@ export class AssetsController {
   async filterOptions(@Req() req: AuthedRequest) {
     const data = await this.assetsService.filterOptions(req.user?.tenantId ?? null);
     return { data, message: "Asset filter options fetched" };
+  }
+
+  @Get("next-tag")
+  @Roles(...ASSET_CREATE_ROLES)
+  async nextTag(@Req() req: AuthedRequest, @Query("category") category?: string) {
+    const data = await this.assetsService.suggestNextAssetTag(req.user?.tenantId ?? null, category);
+    return { data, message: "Next asset tag" };
   }
 
   @Get("validate-tag")
@@ -373,8 +382,11 @@ export class AssetsController {
       req.user?.tenantId ?? null,
       documentId
     );
+    const safeName = file.filename.replace(/["\r\n]/g, "");
     res.setHeader("Content-Type", file.mimeType);
-    res.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${safeName}"`);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "private, no-store");
     res.send(file.buffer);
   }
 

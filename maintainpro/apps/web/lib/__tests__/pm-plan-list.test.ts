@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { pmPlanDraftError, pmPlanListParams, pmPlanStateFromSearch, pmSummaryHint } from "../pm-plan-list";
 
-test("create PM draft rejects a blank name, a zero interval, and activation without an asset", () => {
+test("create scheduled service draft rejects a blank name, a zero interval, and activation without an asset", () => {
   assert.match(pmPlanDraftError({
     name: "  ",
     assetId: "",
@@ -42,7 +42,7 @@ test("create PM draft rejects a blank name, a zero interval, and activation with
   }), null);
 });
 
-test("PM filters survive the URL and request the same due window", () => {
+test("Scheduled service filters survive the URL and request the same due window", () => {
   const state = pmPlanStateFromSearch(new URLSearchParams("status=ACTIVE&due=overdue&q=pump&trigger=CALENDAR&page=2"));
   assert.equal(state.status, "ACTIVE");
   assert.equal(state.due, "overdue");
@@ -68,7 +68,7 @@ test("clearing filters returns the first unfiltered page", () => {
   assert.equal(params.search, undefined);
 });
 
-test("PM summary hints match the list filters", () => {
+test("Scheduled service summary hints match the list filters", () => {
   assert.match(pmSummaryHint("soon"), /7 days/);
   assert.match(pmSummaryHint("overdue"), /passed/);
   assert.match(pmSummaryHint("attention"), /trigger/);

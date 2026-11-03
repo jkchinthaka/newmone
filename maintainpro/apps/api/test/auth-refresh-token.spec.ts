@@ -13,7 +13,8 @@ const buildPrisma = () => ({
     updateMany: jest.fn()
   },
   user: {
-    findUnique: jest.fn()
+    findUnique: jest.fn(),
+    update: jest.fn()
   }
 });
 
@@ -138,6 +139,11 @@ describe("AuthService refresh token persistence", () => {
 
     const result = await service.logoutAll("user-1");
 
+    // Session version bump also invalidates unexpired access tokens.
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { sessionVersion: { increment: 1 } }
+    });
     expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
       where: {
         userId: "user-1",

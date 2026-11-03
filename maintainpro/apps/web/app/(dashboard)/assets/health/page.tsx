@@ -5,7 +5,7 @@ export default function AssetHealthPage() {
     <EnterpriseQueuePage
       kind="assets"
       title="Asset health"
-      description="Explainable asset scores and criticality. Health is decision support and is not a legal or safety gate."
+      description="Explainable asset scores and importance. Health is decision support and is not a legal or safety gate."
     />
   );
 }

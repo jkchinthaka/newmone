@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { RoleName, WorkOrderApprovalStatus, WorkOrderStatus, WorkOrderType } from "@prisma/client";
 
+import { EVIDENCE_REQUIRED_WORK_ORDER_TYPES } from "./work-order-evidence-governance";
+
 export const GOVERNANCE_MIN_REASON_LENGTH = 3;
 
 export function isTerminalWorkOrderStatus(status: WorkOrderStatus): boolean {
@@ -49,16 +51,8 @@ export const TECHNICIAN_EXECUTION_ROLES = new Set<RoleName>([
   RoleName.MECHANIC
 ]);
 
-/** Work order types that require before/after evidence when storage is enabled. */
-export const EVIDENCE_REQUIRED_TYPES = new Set<WorkOrderType>([
-  WorkOrderType.CORRECTIVE,
-  WorkOrderType.EMERGENCY,
-  WorkOrderType.ACCIDENT_REPAIR,
-  WorkOrderType.PREVENTIVE,
-  WorkOrderType.INSPECTION,
-  WorkOrderType.BREAKDOWN,
-  WorkOrderType.INSPECTION_CORRECTIVE
-]);
+/** Work order types that require before/after evidence — the one shared evidence list. */
+export const EVIDENCE_REQUIRED_TYPES: ReadonlySet<WorkOrderType> = EVIDENCE_REQUIRED_WORK_ORDER_TYPES;
 
 /**
  * Canonical D2 / Phase 6 transitions + legacy OVERDUE / COMPLETED compatibility.

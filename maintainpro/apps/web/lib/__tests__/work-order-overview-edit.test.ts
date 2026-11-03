@@ -13,7 +13,7 @@ const draft = {
   estimatedHours: "2"
 };
 
-describe("work order overview editing", () => {
+describe("job overview editing", () => {
   it("keeps save hidden until the user edits overview", () => {
     const decision = overviewSaveDecision({
       mode: "view",
@@ -62,7 +62,7 @@ describe("work order overview editing", () => {
     assert.match(decision.reason ?? "", /own changes/);
   });
 
-  it("uses a distinct badge tone for cancelled work orders", () => {
+  it("uses a distinct badge tone for cancelled jobs", () => {
     assert.equal(workOrderStatusBadgeClass("CANCELLED").includes("slate"), true);
     assert.equal(workOrderStatusBadgeClass("OPEN").includes("brand"), true);
     assert.notEqual(workOrderStatusBadgeClass("CANCELLED"), workOrderStatusBadgeClass("OPEN"));

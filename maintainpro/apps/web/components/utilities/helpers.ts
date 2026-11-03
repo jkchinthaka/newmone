@@ -9,12 +9,9 @@ import type {
   UtilityType,
   UtilityTypeFilter
 } from "./types";
+import { addCalendarMonths, COLOMBO_TIME_ZONE, colomboTodayYmd } from "@/lib/colombo-datetime";
+import { formatCurrency as formatLkr } from "@/lib/localization";
 
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 2
-});
 
 const numberFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2
@@ -25,13 +22,15 @@ const compactNumberFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1
 });
 
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
+const dateFormatter = new Intl.DateTimeFormat("en-LK", {
+  timeZone: COLOMBO_TIME_ZONE,
   month: "short",
   day: "2-digit",
   year: "numeric"
 });
 
-const monthFormatter = new Intl.DateTimeFormat("en-US", {
+const monthFormatter = new Intl.DateTimeFormat("en-LK", {
+  timeZone: COLOMBO_TIME_ZONE,
   month: "short",
   year: "2-digit"
 });
@@ -49,8 +48,9 @@ export function toNumber(value: unknown): number {
   return 0;
 }
 
+/** Utility bills are in Sri Lankan rupees (shared LKR formatter). */
 export function formatCurrency(value: number): string {
-  return currencyFormatter.format(value);
+  return formatLkr(value);
 }
 
 export function formatQuantity(value: number): string {
@@ -95,7 +95,7 @@ export function toMonthKey(value?: string | null): string {
     return "";
   }
 
-  return parsed.toISOString().slice(0, 7);
+  return colomboTodayYmd(parsed).slice(0, 7);
 }
 
 export function getErrorMessage(error: unknown): string {
@@ -361,7 +361,7 @@ export function buildTopMeterSeries(bills: UtilityBill[], meters: UtilityMeter[]
 }
 
 export function buildCurrentMonthConsumption(bills: UtilityBill[], now = new Date()): number {
-  const currentMonth = now.toISOString().slice(0, 7);
+  const currentMonth = colomboTodayYmd(now).slice(0, 7);
 
   return bills.reduce((sum, bill) => {
     if (toMonthKey(bill.billingPeriodStart) !== currentMonth) {
@@ -373,8 +373,7 @@ export function buildCurrentMonthConsumption(bills: UtilityBill[], now = new Dat
 }
 
 export function buildPreviousMonthConsumption(bills: UtilityBill[], now = new Date()): number {
-  const previous = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  const previousMonth = previous.toISOString().slice(0, 7);
+  const previousMonth = addCalendarMonths(`${colomboTodayYmd(now).slice(0, 7)}-01`, -1).slice(0, 7);
 
   return bills.reduce((sum, bill) => {
     if (toMonthKey(bill.billingPeriodStart) !== previousMonth) {

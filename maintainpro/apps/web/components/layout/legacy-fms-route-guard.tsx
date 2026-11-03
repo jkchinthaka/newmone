@@ -40,7 +40,7 @@ export function LegacyFmsRouteGuard({ children }: { children: ReactNode }) {
               current maintenance history.
             </p>
             <Link href="/work-orders" className="mt-3 inline-block text-sm font-medium text-rose-900 underline">
-              Go to Work Orders
+              Go to jobs
             </Link>
           </div>
         </div>

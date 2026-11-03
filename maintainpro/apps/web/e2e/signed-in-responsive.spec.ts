@@ -15,7 +15,6 @@ const pages = [
   "/maintenance/jobs",
   "/assets",
   "/fleet",
-  "/fleet/gate",
   "/inventory",
   "/reports",
   "/admin",

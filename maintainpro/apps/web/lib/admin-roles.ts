@@ -130,3 +130,37 @@ function groupPermissionRows(permissions: AdminPermissionReviewRow[]): AdminPerm
       permissions: modulePermissions
     }));
 }
+
+/**
+ * Rows for the Roles & Permissions Excel download: sheet 1 is the permission × role grid
+ * ("Yes" where the role holds the permission), sheet 2 one line per role.
+ */
+export function rolesPermissionsExportSheets(matrix: Pick<AdminRolesPermissionsMatrix, "permissions" | "roles">): {
+  grid: string[][];
+  roles: Array<Array<string | number>>;
+} {
+  const roleHeader = (role: AdminRoleReviewRow) =>
+    role.tenantName ? `${formatRoleLabel(role.name)} (${role.tenantName})` : formatRoleLabel(role.name);
+  const held = matrix.roles.map((role) => new Set(role.permissionKeys));
+  const permissions = [...matrix.permissions].sort((a, b) => a.module.localeCompare(b.module) || a.key.localeCompare(b.key));
+  const grid: string[][] = [
+    ["Module", "Permission", "Description", ...matrix.roles.map(roleHeader)],
+    ...permissions.map((permission) => [
+      formatPermissionModuleLabel(permission.module),
+      permission.key,
+      permission.description ?? "",
+      ...held.map((keys) => (keys.has(permission.key) ? "Yes" : ""))
+    ])
+  ];
+  const roles: Array<Array<string | number>> = [
+    ["Role", "Tenant", "Built-in", "Permission count", "Permissions"],
+    ...matrix.roles.map((role) => [
+      formatRoleLabel(role.name),
+      role.tenantName ?? "All tenants",
+      role.isBuiltIn ? "Yes" : "No",
+      role.permissionKeys.length,
+      [...role.permissionKeys].sort().join(", ")
+    ])
+  ];
+  return { grid, roles };
+}

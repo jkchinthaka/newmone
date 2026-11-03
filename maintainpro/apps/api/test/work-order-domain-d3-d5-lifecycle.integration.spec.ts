@@ -662,7 +662,9 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
       await workOrders.assign(created.id, technician.sub, planner);
       await moveStatus(created.id, { status: WorkOrderStatus.IN_PROGRESS }, technician);
       const previous = process.env.STORAGE_UPLOADS_ENABLED;
+      const previousRoot = process.env.STORAGE_LOCAL_ROOT;
       process.env.STORAGE_UPLOADS_ENABLED = "true";
+      process.env.STORAGE_LOCAL_ROOT = previousRoot || "/srv/maintainpro-evidence-test";
       try {
         await expect(
           moveStatus(
@@ -682,6 +684,8 @@ describeIfDb("D3/D4/D5 domain lifecycle (real WorkOrdersService + SQL)", () => {
         ).rejects.toThrow(/Before photo is required/);
       } finally {
         process.env.STORAGE_UPLOADS_ENABLED = previous;
+        if (previousRoot === undefined) delete process.env.STORAGE_LOCAL_ROOT;
+        else process.env.STORAGE_LOCAL_ROOT = previousRoot;
       }
       expect((await readback(created.id)).status).toBe(WorkOrderStatus.IN_PROGRESS);
     }, 180_000);

@@ -8,8 +8,8 @@ import { JOB_DOMAIN_LABELS } from "@/lib/job-domain";
 export type CreateFormDomain = JobDomain;
 
 export function createFormTitle(domain: CreateFormDomain | null | undefined): string {
-  if (!domain) return "Create Work Order";
-  return `Create ${JOB_DOMAIN_LABELS[domain]} Work Order`;
+  if (!domain) return "Create job";
+  return `Create ${JOB_DOMAIN_LABELS[domain]} Job`;
 }
 
 /**

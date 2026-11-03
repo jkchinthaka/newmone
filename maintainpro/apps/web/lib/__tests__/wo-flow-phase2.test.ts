@@ -34,7 +34,7 @@ test("approve and assign runs in order and keeps the approval when assign fails"
   assert.deepEqual(calls, ["approve", "assign", "approve-2"]);
 });
 
-test("verify and close keeps verification when close fails, and send back is not called", async () => {
+test("verify and close keeps supervisor check when close fails, and send back is not called", async () => {
   const calls: string[] = [];
   const failed = await verifyThenClose({
     verify: async () => {

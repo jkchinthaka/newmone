@@ -11,7 +11,7 @@ type Props = {
 
 export function JobsPagination({ page, totalPages, total, pageSize, onPageChange, onPageSizeChange }: Props) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3">
+    <nav aria-label="Pagination" className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-sm text-slate-600">
           Page {page} of {totalPages} · {total} total
@@ -21,7 +21,7 @@ export function JobsPagination({ page, totalPages, total, pageSize, onPageChange
           <select
             value={pageSize}
             onChange={(event) => onPageSizeChange(Number(event.target.value))}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1"
+            className="min-h-11 rounded-md border border-slate-300 bg-white px-2 py-2"
           >
             <option value={25}>25 / page</option>
             <option value={50}>50 / page</option>
@@ -32,21 +32,23 @@ export function JobsPagination({ page, totalPages, total, pageSize, onPageChange
       <div className="flex items-center gap-2">
         <button
           type="button"
+          aria-label="Previous page"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
         >
           <ChevronLeft size={14} aria-hidden /> Previous
         </button>
         <button
           type="button"
+          aria-label="Next page"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
         >
           Next <ChevronRight size={14} aria-hidden />
         </button>
       </div>
-    </div>
+    </nav>
   );
 }

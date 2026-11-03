@@ -63,11 +63,11 @@ export function WorkOrderGovernanceExceptionsCard() {
   }
 
   const cards = [
-    { label: "Completed without evidence", value: summary.completedWithoutEvidence },
-    { label: "Closed without supervisor verification", value: summary.closedWithoutSupervisorVerification },
+    { label: "Completed without photos", value: summary.completedWithoutEvidence },
+    { label: "Closed without supervisor check", value: summary.closedWithoutSupervisorVerification },
     { label: "Parts issued, job not completed", value: summary.partsIssuedJobNotCompleted },
     { label: "Repeated asset breakdowns (30d)", value: summary.repeatedAssetBreakdowns },
-    { label: "High-cost work orders", value: summary.highCostWorkOrders },
+    { label: "High-cost jobs", value: summary.highCostWorkOrders },
     { label: "Cancelled (30d)", value: summary.cancelledWorkOrders },
     { label: "Reopened (30d)", value: summary.reopenedWorkOrders }
   ];
@@ -78,7 +78,7 @@ export function WorkOrderGovernanceExceptionsCard() {
         { label: "Issued parts not accounted", value: partsSummary.issuedPartsNotAccounted },
         { label: "Pending return confirmations", value: partsSummary.pendingReturnConfirmations },
         { label: "High-cost part issues", value: partsSummary.highCostPartIssues },
-        { label: "Procurement required", value: partsSummary.procurementRequiredParts },
+        { label: "Buying required", value: partsSummary.procurementRequiredParts },
         { label: "Frequent asset part usage (30d)", value: partsSummary.frequentAssetPartUsage }
       ]
     : [];
@@ -90,7 +90,7 @@ export function WorkOrderGovernanceExceptionsCard() {
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-slate-900">Fraud & exception indicators</h3>
           <p className="mt-1 text-xs text-slate-500">
-            Operational misuse signals for maintenance supervisors. Review flagged work orders in Audit and History tabs.
+            Operational misuse signals for maintenance supervisors. Review flagged jobs in Audit and History tabs.
           </p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {cards.map((card) => (

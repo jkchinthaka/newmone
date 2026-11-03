@@ -1,5 +1,6 @@
 "use client";
 
+import { TouchCheckbox } from "@/components/ui/touch-checkbox";
 import type { KeyboardEvent } from "react";
 
 import {
@@ -11,11 +12,14 @@ import {
   workSubtitle,
   type DomainJobListRow
 } from "@/lib/domain-jobs-columns";
+import { holdReasonSuffix, queueNextControl } from "@/lib/batch-3-presentation";
+import { priorityBadgePresentation } from "@/lib/dashboard-status";
 import { formatQueueDue, nextActionLabel } from "@/lib/work-order-queue-nav";
 import type { WorkOrderQueueItem } from "@/lib/work-order-queues-api";
 import { jobDomainLabel } from "@/lib/job-domain";
+import { StatusBadge } from "@/components/ui/dashboard";
 
-import { getTechnicianName, humanWorkOrderStatusLabel, toTitleCase } from "./helpers";
+import { getTechnicianName } from "./helpers";
 
 type Props = {
   rows: WorkOrderQueueItem[];
@@ -23,29 +27,16 @@ type Props = {
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: (checked: boolean) => void;
   onOpen: (row: WorkOrderQueueItem) => void;
+  onAction?: (row: WorkOrderQueueItem, actionId: string) => void;
+  actorRole?: string | null;
   canBulkSelect?: boolean;
   jobDomain?: string;
 };
 
-function statusClass(status: string) {
-  if (status === "OVERDUE" || status === "REWORK_REQUIRED") return "text-red-700";
-  if (status === "ON_HOLD" || status === "TECHNICIAN_COMPLETED") return "text-amber-800";
-  if (status === "COMPLETED" || status === "CLOSED" || status === "VERIFIED") return "text-emerald-800";
-  return "text-slate-800";
-}
-
-function priorityClass(priority: string) {
-  if (priority === "CRITICAL") return "font-semibold text-red-700";
-  if (priority === "HIGH") return "font-semibold text-amber-800";
-  return "text-slate-700";
-}
-
-function actionClass(tone: "critical" | "warn" | "ok" | "neutral") {
-  if (tone === "critical") return "text-red-700";
-  if (tone === "warn") return "text-amber-800";
-  if (tone === "ok") return "text-emerald-800";
-  return "text-slate-600";
-}
+const primaryButtonClass =
+  "inline-flex min-h-9 items-center rounded-md bg-brand-600 px-3 text-xs font-semibold text-white hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500";
+const viewButtonClass =
+  "inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500";
 
 function openFromKeyboard(event: KeyboardEvent<HTMLTableRowElement>, row: WorkOrderQueueItem, onOpen: (row: WorkOrderQueueItem) => void) {
   if (event.key !== "Enter" && event.key !== " ") return;
@@ -59,6 +50,8 @@ export function WorkOrderCompactTable({
   onToggleSelect,
   onToggleSelectAll,
   onOpen,
+  onAction,
+  actorRole,
   canBulkSelect = false,
   jobDomain
 }: Props) {
@@ -73,18 +66,17 @@ export function WorkOrderCompactTable({
             <tr>
               {canBulkSelect ? (
                 <th className="w-10 px-3 py-2">
-                  <input
-                    type="checkbox"
+                  <TouchCheckbox
                     checked={allSelected}
                     onChange={(event) => onToggleSelectAll(event.target.checked)}
-                    aria-label="Select all work orders"
+                    label="Select all jobs on this page"
                   />
                 </th>
               ) : null}
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-3 py-2 font-medium ${column.hideUntilXl ? "hidden xl:table-cell" : ""}`}
+                  className={`px-3 py-2 font-medium ${column.key === "actions" ? "hidden" : ""} ${column.hideUntilXl ? "hidden xl:table-cell" : ""}`}
                 >
                   {column.key === "actions" ? <span className="sr-only">{column.label}</span> : column.label}
                 </th>
@@ -95,6 +87,13 @@ export function WorkOrderCompactTable({
             {rows.map((row) => {
               const due = formatQueueDue(row.dueDate, row.overdueDays);
               const next = nextActionLabel(row);
+              const control = queueNextControl({ status: row.status, role: actorRole, approvalStatus: row.approvalStatus });
+              const priority = priorityBadgePresentation(row.priority);
+              const hold = holdReasonSuffix(
+                row.status,
+                (row as { holdNotes?: string | null }).holdNotes,
+                (row as { holdReasonCode?: string | null }).holdReasonCode
+              );
               const domainRow = row as WorkOrderQueueItem & DomainJobListRow;
               const subtitle = workSubtitle(domainRow, jobDomain);
               const domain = jobDomain ? "" : jobDomainLabel(row.jobDomain);
@@ -111,11 +110,10 @@ export function WorkOrderCompactTable({
                 >
                   {canBulkSelect ? (
                     <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
-                      <input
-                        type="checkbox"
+                      <TouchCheckbox
                         checked={selectedIds.includes(row.id)}
                         onChange={() => onToggleSelect(row.id)}
-                        aria-label={`Select ${row.woNumber}`}
+                        label={`Select ${row.woNumber}`}
                       />
                     </td>
                   ) : null}
@@ -142,10 +140,11 @@ export function WorkOrderCompactTable({
                   {jobDomain === "VEHICLE" ? (
                     <td className="hidden px-3 py-3 align-top text-slate-700 xl:table-cell">{registrationLine(domainRow)}</td>
                   ) : null}
-                  <td className={`px-3 py-3 align-top font-medium ${statusClass(row.status)}`}>
-                    {humanWorkOrderStatusLabel(row.status)}
+                  <td className="px-3 py-3 align-top">
+                    <StatusBadge status={row.status} />
+                    {hold ? <div className="mt-1 max-w-[12rem] text-xs text-amber-800">{hold}</div> : null}
                   </td>
-                  <td className={`px-3 py-3 align-top ${priorityClass(row.priority)}`}>{toTitleCase(row.priority)}</td>
+                  <td className="px-3 py-3 align-top">{priority ? <StatusBadge status={row.priority} label={priority.label} tone={priority.tone} /> : null}</td>
                   <td className="max-w-[12rem] truncate px-3 py-3 align-top text-slate-700">
                     {assigneeLine(domainRow, jobDomain, getTechnicianName(row))}
                   </td>
@@ -155,18 +154,35 @@ export function WorkOrderCompactTable({
                       <div className={`text-xs ${due.overdue ? "text-red-700" : "text-slate-500"}`}>{due.hint}</div>
                     ) : null}
                   </td>
-                  <td className={`max-w-[12rem] px-3 py-3 align-top ${actionClass(next.tone)}`}>
-                    {mileage ? <div className="text-xs text-slate-500">{mileage}</div> : null}
-                    <div>{next.label}</div>
+                  <td className="max-w-[14rem] px-3 py-3 align-top">
+                    {mileage ? <div className="mb-1 text-xs text-slate-500">{mileage}</div> : null}
+                    <div className="sr-only">{next.label}</div>
+                    {control.kind === "action" ? (
+                      <button
+                        type="button"
+                        className={primaryButtonClass}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onAction?.(row, control.actionId);
+                        }}
+                      >
+                        {control.label}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={viewButtonClass}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onOpen(row);
+                        }}
+                      >
+                        View
+                      </button>
+                    )}
                   </td>
-                  <td className="px-3 py-3 text-right align-top" onClick={(event) => event.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() => onOpen(row)}
-                      className="rounded-md px-2 py-1 text-sm font-medium text-brand-700 hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-                    >
-                      Open
-                    </button>
+                  <td className="hidden px-3 py-3 text-right align-top">
+                    <span className="sr-only">Open</span>
                   </td>
                 </tr>
               );

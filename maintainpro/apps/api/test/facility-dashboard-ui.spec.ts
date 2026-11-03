@@ -43,7 +43,8 @@ describe("facility dashboard web helpers", () => {
     const driverItems = getVisibleNavigationItems("DRIVER");
 
     expect(facilityManagerItems.some((item) => item.href === "/facilities/reports")).toBe(false);
-    expect(facilityManagerItems.some((item) => item.href === "/assets")).toBe(true);
+    // GET /assets @Roles has no FACILITY_MANAGER; the menu does not offer a page that returns 403.
+    expect(facilityManagerItems.some((item) => item.href === "/assets")).toBe(false);
     expect(driverItems.some((item) => item.href === "/facilities/reports")).toBe(false);
   });
 });

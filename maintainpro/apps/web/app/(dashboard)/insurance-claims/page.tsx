@@ -1,16 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Suspense, useMemo, useState, type FormEvent } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 
-import {
-  CLAIM_STATUS,
-  formatCurrency,
-  formatDate,
-  p4Get,
-  p4Post
-} from "@/lib/phase4-api";
+import { RegisterList, useRecordParam, useRegisterPage, useRegisterRecord } from "@/components/fleet/fleet-register";
+import type { DataTableColumn } from "@/components/ui/data-table";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import { ButtonSpinner, LoadingState } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/page-state";
+import { formatEnumLabel } from "@/lib/display-labels";
+import { formatDate } from "@/lib/localization";
+import { CLAIM_STATUS, formatCurrency, p4Post } from "@/lib/phase4-api";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { getStoredPermissions } from "@/lib/user-role";
 
@@ -39,31 +41,50 @@ const STATUS_BADGE: Record<string, string> = {
   CLOSED: "bg-slate-200 text-slate-700"
 };
 
+const CLAIM_REGISTER = "/insurance-claims";
+
 export default function InsuranceClaimsPage() {
-  const [rows, setRows] = useState<ClaimRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  return (
+    <Suspense fallback={<LoadingState title="Loading insurance claims" description="Fetching claims." />}>
+      <InsuranceClaimsRegister />
+    </Suspense>
+  );
+}
+
+function InsuranceClaimsRegister() {
+  const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
-  const [active, setActive] = useState<ClaimRow | null>(null);
+  const [status, setStatus] = useState("");
+  const [activeId, setActiveId] = useRecordParam();
 
   const permissions = useMemo(() => new Set(getStoredPermissions()), []);
   const canManage = permissions.has("insurance_claims.manage");
   const canApprove = permissions.has("insurance_claims.approve");
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await p4Get<ClaimRow[]>("/insurance-claims");
-      setRows(data);
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to load insurance claims"));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const filters = useMemo(() => ({ status }), [status]);
+  const register = useRegisterPage<ClaimRow>(CLAIM_REGISTER, filters);
+  const { record: active, query: activeQuery } = useRegisterRecord<ClaimRow>(CLAIM_REGISTER, activeId, register.query.data?.rows);
+  const refreshing = register.query.isFetching;
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["fleet-register", CLAIM_REGISTER] });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const columns: DataTableColumn<ClaimRow>[] = [
+    { id: "claim", header: "Claim", cell: (row) => <span className="font-medium text-slate-900">{row.claimNumber}</span> },
+    { id: "vehicle", header: "Vehicle", cell: (row) => row.vehicle?.registrationNo ?? "—" },
+    { id: "insurer", header: "Insurer", cell: (row) => row.insurerName || "—" },
+    { id: "policy", header: "Policy", cell: (row) => row.policyNumber || "—", hideOnMobile: true },
+    {
+      id: "status",
+      header: "Status",
+      cell: (row) => (
+        <span className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[row.status] ?? "bg-slate-100 text-slate-700"}`}>
+          {formatEnumLabel(row.status)}
+        </span>
+      )
+    },
+    { id: "filed", header: "Filed", cell: (row) => formatDate(row.filedAt), hideOnMobile: true },
+    { id: "amount", header: "Amount", cell: (row) => formatCurrency(row.claimAmount), className: "text-right", headerClassName: "text-right" },
+    { id: "approved", header: "Approved", cell: (row) => formatCurrency(row.approvedAmount), className: "text-right", headerClassName: "text-right" }
+  ];
 
   return (
     <div className="space-y-6">
@@ -72,98 +93,75 @@ export default function InsuranceClaimsPage() {
           <h1 className="page-title">Insurance Claims</h1>
           <p className="text-sm text-slate-600">Manage vehicle insurance claims and settlements.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={refresh}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            aria-label="Claim status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="min-h-11 rounded-lg border border-slate-200 px-2 text-sm"
           >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
+            <option value="">All statuses</option>
+            {CLAIM_STATUS.map((s) => (
+              <option key={s} value={s}>
+                {formatEnumLabel(s)}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => void register.query.refetch()}
+            disabled={refreshing}
+            aria-busy={refreshing}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {refreshing ? <ButtonSpinner /> : <RefreshCw aria-hidden size={14} />} Refresh
           </button>
           {canManage ? (
             <button
+              type="button"
               onClick={() => setShowCreate(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-3 text-sm font-medium text-white hover:bg-brand-700"
             >
-              <Plus size={14} /> New Claim
+              <Plus aria-hidden size={14} /> New Claim
             </button>
           ) : null}
         </div>
       </header>
 
-      <section className="rounded-xl border border-slate-200 bg-white">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-2 text-left">Claim</th>
-                <th className="px-4 py-2 text-left">Vehicle</th>
-                <th className="px-4 py-2 text-left">Insurer</th>
-                <th className="px-4 py-2 text-left">Policy</th>
-                <th className="px-4 py-2 text-left">Status</th>
-                <th className="px-4 py-2 text-left">Filed</th>
-                <th className="px-4 py-2 text-right">Amount</th>
-                <th className="px-4 py-2 text-right">Approved</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-6 text-center text-sm text-slate-500">
-                    {loading ? "Loading..." : "No insurance claims."}
-                  </td>
-                </tr>
-              ) : (
-                rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="cursor-pointer hover:bg-slate-50"
-                    onClick={() => setActive(row)}
-                  >
-                    <td className="px-4 py-2 font-medium text-slate-900">{row.claimNumber}</td>
-                    <td className="px-4 py-2 text-slate-700">
-                      {row.vehicle?.registrationNo ?? row.vehicleId}
-                    </td>
-                    <td className="px-4 py-2 text-slate-700">{row.insurerName}</td>
-                    <td className="px-4 py-2 text-slate-700">{row.policyNumber}</td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${
-                          STATUS_BADGE[row.status] ?? "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-slate-700">{formatDate(row.filedAt)}</td>
-                    <td className="px-4 py-2 text-right text-slate-700">{formatCurrency(row.claimAmount)}</td>
-                    <td className="px-4 py-2 text-right text-slate-700">{formatCurrency(row.approvedAmount)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {activeId && !active && activeQuery.isError ? (
+        <ErrorState title="Couldn't open this claim" error={activeQuery.error} onRetry={() => void activeQuery.refetch()} />
+      ) : null}
+
+      <RegisterList
+        register={register}
+        columns={columns}
+        getRowId={(row) => row.id}
+        getRowLabel={(row) => `Open claim ${row.claimNumber}`}
+        onRowClick={(row) => setActiveId(row.id)}
+        ariaLabel="Insurance claims"
+        emptyTitle={status ? "No claims match this status." : "No insurance claims."}
+        errorTitle="Couldn't load insurance claims"
+      />
 
       {showCreate ? (
         <CreateClaimDialog
           onClose={() => setShowCreate(false)}
           onSaved={() => {
             setShowCreate(false);
-            refresh();
+            void invalidate();
           }}
         />
       ) : null}
 
       {active ? (
         <ClaimStatusDialog
+          key={active.id}
           claim={active}
           canApprove={canApprove}
-          onClose={() => setActive(null)}
+          onClose={() => setActiveId(null)}
           onSaved={() => {
-            setActive(null);
-            refresh();
+            setActiveId(null);
+            void invalidate();
           }}
         />
       ) : null}
@@ -190,6 +188,10 @@ function CreateClaimDialog({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!form.vehicleId) {
+      toast.error("Choose the vehicle for this claim.");
+      return;
+    }
     setSaving(true);
     try {
       await p4Post("/insurance-claims", {
@@ -213,12 +215,15 @@ function CreateClaimDialog({
     <Modal title="New Insurance Claim" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Vehicle ID *">
-            <input
+          <Field label="Vehicle *">
+            <EntityPicker<{ id: string; registrationNo: string; vehicleModel?: string }>
+              endpoint="/vehicles"
+              value={form.vehicleId || null}
+              displayField="registrationNo"
+              secondaryField="vehicleModel"
+              placeholder="Search registration..."
               required
-              value={form.vehicleId}
-              onChange={(e) => setForm({ ...form, vehicleId: e.target.value })}
-              className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
+              onChange={(id) => setForm((current) => ({ ...current, vehicleId: id ?? "" }))}
             />
           </Field>
           <Field label="Accident ID">
@@ -311,10 +316,10 @@ function ClaimStatusDialog({
   return (
     <Modal title={`Claim ${claim.claimNumber}`} onClose={onClose}>
       <div className="grid grid-cols-2 gap-3 text-sm">
-        <Info label="Vehicle">{claim.vehicle?.registrationNo ?? claim.vehicleId}</Info>
+        <Info label="Vehicle">{claim.vehicle?.registrationNo ?? "—"}</Info>
         <Info label="Insurer">{claim.insurerName}</Info>
         <Info label="Policy">{claim.policyNumber}</Info>
-        <Info label="Current status">{claim.status}</Info>
+        <Info label="Current status">{formatEnumLabel(claim.status)}</Info>
         <Info label="Claim amount">{formatCurrency(claim.claimAmount)}</Info>
         <Info label="Approved">{formatCurrency(claim.approvedAmount)}</Info>
         <Info label="Filed at">{formatDate(claim.filedAt)}</Info>
@@ -332,7 +337,7 @@ function ClaimStatusDialog({
               >
                 {CLAIM_STATUS.map((s) => (
                   <option key={s} value={s}>
-                    {s}
+                    {formatEnumLabel(s)}
                   </option>
                 ))}
               </select>
@@ -414,7 +419,7 @@ function FormActions({ saving, onClose, label }: { saving: boolean; onClose: () 
         disabled={saving}
         className="inline-flex items-center gap-2 rounded bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
       >
-        {saving ? <Loader2 size={12} className="animate-spin" /> : null} {label}
+        {saving ? <ButtonSpinner className="h-3 w-3" /> : null} {label}
       </button>
     </div>
   );

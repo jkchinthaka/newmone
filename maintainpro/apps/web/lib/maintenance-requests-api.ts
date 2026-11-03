@@ -74,7 +74,14 @@ export type MaintenanceRequestListItem = {
   createdAt: string;
   publicUpdateNote?: string | null;
   workOrderId?: string | null;
-  workOrder?: { id: string; woNumber: string; status?: string } | null;
+  workOrder?: {
+    id: string;
+    woNumber: string;
+    status?: string;
+    requesterConfirmationStatus?: string | null;
+    requesterConfirmationOutcome?: string | null;
+    requesterConfirmationDueAt?: string | null;
+  } | null;
   resolutionCode?: string | null;
   asset?: { id: string; assetTag: string; name: string } | null;
   vehicle?: {
@@ -102,6 +109,20 @@ function unwrap<T>(payload: unknown): T {
     return (payload as { data: T }).data;
   }
   return payload as T;
+}
+
+/** Site / location pickers for the request form; reporters do not need organization access. */
+export type RequestSiteOption = { id: string; code: string; name: string };
+export type RequestLocationOption = { id: string; code: string; name: string; type?: string | null; parentId?: string | null };
+
+export async function listRequestSites(): Promise<RequestSiteOption[]> {
+  const res = await apiClient.get("/maintenance-requests/site-lookup");
+  return unwrap<RequestSiteOption[]>(res.data) ?? [];
+}
+
+export async function listRequestLocations(siteId: string): Promise<RequestLocationOption[]> {
+  const res = await apiClient.get("/maintenance-requests/location-lookup", { params: { siteId } });
+  return unwrap<RequestLocationOption[]>(res.data) ?? [];
 }
 
 export async function listProblemCategories() {
@@ -196,6 +217,12 @@ export async function convertRequestToWorkOrder(id: string, title?: string) {
   return unwrap<{ alreadyConverted?: boolean; workOrder?: { id: string; woNumber: string } }>(
     res.data
   );
+}
+
+/** "Is it fixed?" answer from the person who reported the issue. */
+export async function confirmRequestFixed(id: string, body: { fixed: boolean; note?: string }) {
+  const res = await apiClient.post(`/maintenance-requests/${id}/confirm-fixed`, body);
+  return unwrap(res.data);
 }
 
 export async function fetchDuplicateCandidates(id: string) {

@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException
 } from "@nestjs/common";
+import { resolveJobDomain } from "../../common/utils/job-domain.util";
 import { ConfigService } from "@nestjs/config";
 import {
   NotificationPriority,
@@ -1056,6 +1057,7 @@ export class PredictiveAiService {
             type: dto.type ?? "CORRECTIVE",
             assetId: dto.assetId,
             vehicleId: dto.vehicleId,
+            jobDomain: resolveJobDomain({ assetId: dto.assetId, vehicleId: dto.vehicleId }),
             createdById: currentActor.sub,
             dueDate
           }

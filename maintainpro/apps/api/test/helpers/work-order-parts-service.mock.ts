@@ -6,6 +6,8 @@ export function createWorkOrderPartsServiceMock() {
     syncApprovedLine: jest.fn().mockResolvedValue({ id: "line-1" }),
     syncRejectedLine: jest.fn().mockResolvedValue({ id: "line-1" }),
     syncIssuedLine: jest.fn().mockResolvedValue({ id: "line-1" }),
+    releaseWorkOrderReservations: jest.fn().mockResolvedValue(0),
+    recordDirectIssueLine: jest.fn().mockResolvedValue({ id: "line-direct" }),
     listLines: jest.fn().mockResolvedValue([]),
     getCostSummary: jest.fn().mockResolvedValue({ netPartCost: 0 }),
     markUsed: jest.fn(),

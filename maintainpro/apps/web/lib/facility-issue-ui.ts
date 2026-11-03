@@ -152,7 +152,7 @@ export function formatLinkedWorkOrderLabel(
     parts.push(issue.workOrderStatus.trim());
   }
 
-  return parts.length > 0 ? parts.join(" · ") : "Linked work order";
+  return parts.length > 0 ? parts.join(" · ") : "Linked job";
 }
 
 export function getLinkedWorkOrderHref(_workOrderId?: string | null): string {

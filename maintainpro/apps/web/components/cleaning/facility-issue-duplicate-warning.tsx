@@ -75,7 +75,7 @@ export function FacilityIssueDuplicateWarning({
                 <span>{formatFacilityIssueCategory(candidate.category)}</span>
               ) : null}
               <span>{formatDateTime(candidate.createdAt)}</span>
-              {candidate.workOrderId ? <span>Linked work order</span> : null}
+              {candidate.workOrderId ? <span>Linked job</span> : null}
             </div>
             <p className="mt-1 text-xs text-slate-500">{candidate.reason}</p>
           </li>

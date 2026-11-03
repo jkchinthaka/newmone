@@ -188,7 +188,7 @@ export class NotificationsController {
   @Get("templates/samples")
   @Roles("SUPER_ADMIN", "ADMIN")
   async templateSamples() {
-    const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:3001";
+    const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:3041";
     const data = {
       criticalFacilityIssue: this.notificationTemplatesService.renderCriticalFacilityIssue({
         issueTitle: "Restroom leak near lobby",

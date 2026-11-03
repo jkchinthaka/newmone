@@ -4,7 +4,7 @@
  *
  * Production path: Browser → Nginx → Web BFF → API
  * Nginx sets X-Real-IP=$remote_addr; BFF forwards only a validated single IP.
- * API honors that header only when the immediate TCP peer is an internal hop.
+ * API honors that header only when the immediate TCP peer is loopback.
  */
 import { isIP } from "node:net";
 
@@ -67,20 +67,22 @@ function normalizeIp(ip: string): string {
   return trimmed;
 }
 
+/**
+ * Only the co-located BFF/Nginx (loopback) may assert X-Real-IP. Private-range peers
+ * are NOT trusted: any host on the LAN could otherwise spoof its throttle identity.
+ */
 function peerLooksLikeTrustedProxyHop(peer: string): boolean {
   if (!peer) {
     return false;
   }
-  if (peer === "127.0.0.1" || peer === "::1") {
+  if (peer === "::1" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(peer)) {
     return true;
   }
-  if (peer.startsWith("10.")) {
-    return true;
+  // Container deployments (Nginx/BFF in sibling containers) opt in explicitly.
+  if (process.env.TRUST_PRIVATE_PROXY_PEERS?.trim().toLowerCase() !== "true") {
+    return false;
   }
-  if (peer.startsWith("192.168.")) {
-    return true;
-  }
-  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(peer)) {
+  if (peer.startsWith("10.") || peer.startsWith("192.168.") || /^172\.(1[6-9]|2\d|3[0-1])\./.test(peer)) {
     return true;
   }
   const lower = peer.toLowerCase();

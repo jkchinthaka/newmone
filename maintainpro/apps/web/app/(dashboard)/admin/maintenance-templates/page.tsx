@@ -83,7 +83,7 @@ export default function AdminMaintenanceTemplatesPage() {
       });
     },
     onSuccess: () => {
-      toast.success("New template version created — prior WO snapshots stay frozen");
+      toast.success("New template version created — prior job snapshots stay frozen");
       void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "maintenance-templates"]) });
     },
     onError: (error) => toast.error(getApiErrorMessage(error, "Revise failed"))
@@ -119,7 +119,7 @@ export default function AdminMaintenanceTemplatesPage() {
           <h1 className="page-title">Maintenance Templates</h1>
           <p className="mt-1 text-sm text-slate-600">
             Versioned job templates for Machinery, Service, and Vehicle. Applying a template to a
-            work order freezes a snapshot so later revisions do not rewrite history.
+            job freezes a snapshot so later revisions do not rewrite history.
           </p>
         </div>
         <button

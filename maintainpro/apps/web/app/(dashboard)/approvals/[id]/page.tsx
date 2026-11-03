@@ -1,5 +1,7 @@
 "use client";
 
+import { formatEnumLabel } from "@/lib/display-labels";
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -81,7 +83,7 @@ export default function ApprovalDetailPage() {
         ]}
       />
       <ResponsivePageHeader
-        title={String(data.processType ?? "Approval").replaceAll("_", " ")}
+        title={formatEnumLabel(String(data.processType ?? ""), "Approval")}
         description={`${String(data.subjectEntityType)} · ${String(data.subjectEntityId)}`}
       />
 
@@ -94,15 +96,16 @@ export default function ApprovalDetailPage() {
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-2 text-sm font-semibold">Approval chain</h2>
+        {/* Rules use one approver; the level number is not shown. */}
+        <h2 className="mb-2 text-sm font-semibold">Approver</h2>
         <ul className="space-y-2 text-sm">
           {steps.map((step) => (
             <li key={String(step.id)} className="flex justify-between gap-2 border-b border-slate-100 pb-2">
               <span>
-                Level {String(step.level)} · {String(step.approverRole ?? "User")} · {String(step.status)}
+                {formatEnumLabel(String(step.approverRole ?? ""), "User")} · {formatEnumLabel(String(step.status ?? ""))}
               </span>
               <span className="text-xs text-slate-500">
-                {step.dueAt ? `Due ${new Date(String(step.dueAt)).toLocaleString()}` : ""}
+                {step.dueAt ? `Due ${lkDateTime(String(step.dueAt))}` : ""}
               </span>
             </li>
           ))}
@@ -118,7 +121,7 @@ export default function ApprovalDetailPage() {
             {decisions.map((d) => (
               <li key={String(d.id)}>
                 {String(d.decision)} — {String(d.reason ?? "—")} ·{" "}
-                {d.decidedAt ? new Date(String(d.decidedAt)).toLocaleString() : ""}
+                {d.decidedAt ? lkDateTime(String(d.decidedAt)) : ""}
               </li>
             ))}
           </ul>

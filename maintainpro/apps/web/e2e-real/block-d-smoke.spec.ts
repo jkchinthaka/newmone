@@ -8,7 +8,7 @@ test.describe("Block D screen smoke @full-stack @smoke", () => {
   test("create work order shows the due date field", async ({ page }) => {
     await loginViaUi(page, "admin-a");
     await page.goto("/work-orders");
-    await page.getByRole("button", { name: "Create Work Order" }).click();
+    await page.getByRole("button", { name: "Create job" }).click();
     await page.getByRole("button", { name: "Machinery" }).click();
     await page.getByRole("button", { name: "More options" }).click();
     await expect(page.getByRole("textbox", { name: "Due date" })).toBeVisible();
@@ -31,7 +31,7 @@ test.describe("Block D screen smoke @full-stack @smoke", () => {
     const id = body.data?.id ?? body.id;
     expect(id).toBeTruthy();
     await page.goto(`/maintenance/jobs?wo=${id}&tab=evidence`);
-    await expect(page.getByText("Evidence & field proof")).toBeVisible();
+    await expect(page.getByText("Photos & field proof")).toBeVisible();
     await expect(page.locator("input[type=file]").first()).toBeAttached();
   });
 

@@ -5,6 +5,19 @@ type CleanupClient = Pick<PrismaClient, "$queryRaw" | "$transaction" | "$execute
 const TENANT_ID = /^[a-z0-9]+$/i;
 
 /**
+ * Throws unless the connected SQL Server database is a disposable maintainpro_e2e_* database.
+ * Every cleanup that deletes rows or touches the AuditLog trigger must call this first.
+ */
+export async function assertDisposableSqlServer(prisma: Pick<PrismaClient, "$queryRaw">): Promise<string> {
+  const rows = await prisma.$queryRaw<Array<{ name: string }>>(Prisma.sql`SELECT DB_NAME() AS name`);
+  const database = rows[0]?.name ?? "";
+  if (!database.startsWith("maintainpro_e2e_") || /nelna|MaintainProDev/i.test(database)) {
+    throw new Error(`Refusing cleanup on database ${database || "(unknown)"}`);
+  }
+  return database;
+}
+
+/**
  * Deletes tenants created by disposable SQL Server specs.
  * AuditLog is immutable, so the cleanup turns that trigger off only inside this
  * transaction on a maintainpro_e2e_* database, then turns it back on before commit.
@@ -17,11 +30,7 @@ export async function deleteDisposableTenants(prisma: CleanupClient, tenantIds: 
     throw new Error("Refusing tenant cleanup because a tenant id is not a plain id");
   }
 
-  const rows = await prisma.$queryRaw<Array<{ name: string }>>(Prisma.sql`SELECT DB_NAME() AS name`);
-  const database = rows[0]?.name ?? "";
-  if (!database.startsWith("maintainpro_e2e_") || /nelna|MaintainProDev/i.test(database)) {
-    throw new Error(`Refusing tenant cleanup on database ${database || "(unknown)"}`);
-  }
+  await assertDisposableSqlServer(prisma);
 
   const list = ids.map((id) => `N'${id}'`).join(", ");
   const fixtureUser = `[tenantId] IN (${list}) AND ([email] LIKE N'%@e2e.maintainpro.test' OR [email] LIKE N'nav-admin-%@example.test')`;

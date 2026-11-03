@@ -4,6 +4,7 @@ import type { Route } from "next";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
+import { InlineLoadingState } from "@/components/ui/page-state";
 import { canAccessNavigationPath } from "@/lib/navigation";
 import { extractRoleName, getPostLoginRedirect } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
@@ -32,19 +33,11 @@ export function NavigationRouteGuard({ children }: Props) {
   }, [allowed, landing, pathname, router]);
 
   if (!checked) {
-    return (
-      <p className="text-sm text-slate-600" role="status">
-        Checking access...
-      </p>
-    );
+    return <InlineLoadingState label="Checking access…" />;
   }
 
   if (!allowed) {
-    return (
-      <p className="text-sm text-slate-600" role="status">
-        Opening an allowed page...
-      </p>
-    );
+    return <InlineLoadingState label="Opening an allowed page…" />;
   }
 
   return <>{children}</>;

@@ -32,7 +32,7 @@ test("a work-order link opens the record and tab, and a stale tab falls back", (
   assert.equal(parseWorkOrderRecordLink({ wo: "  " }).id, undefined);
 });
 
-test("evidence loads activity and files; overview loads requirements only", () => {
+test("photos loads activity and files; overview loads requirements only", () => {
   assert.deepEqual(workOrderTabLoads("evidence"), { activity: true, evidence: true, requirements: true });
   assert.deepEqual(workOrderTabLoads("overview"), { activity: false, evidence: false, requirements: true });
   assert.deepEqual(workOrderTabLoads("history"), { activity: false, evidence: false, requirements: false });

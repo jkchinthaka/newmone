@@ -49,7 +49,7 @@ export function BillsTable({
       {bills.length === 0 ? (
         <EmptyState
           title="No bills available"
-          description="Generate bills from meter consumption data to start payment tracking."
+          description="Generate bills from meter usage data to start payment tracking."
         />
       ) : (
         <DataTable minWidthClass="min-w-[980px]">
@@ -57,7 +57,7 @@ export function BillsTable({
             <tr>
               <th className="px-4 py-3">Meter</th>
               <th className="px-4 py-3">Billing Period</th>
-              <th className="px-4 py-3">Consumption</th>
+              <th className="px-4 py-3">Usage</th>
               <th className="px-4 py-3">Total Amount</th>
               <th className="px-4 py-3">Due Date</th>
               <th className="px-4 py-3">Status</th>

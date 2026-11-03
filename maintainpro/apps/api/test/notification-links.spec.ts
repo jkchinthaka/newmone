@@ -36,7 +36,7 @@ describe("notification inbox query", () => {
       "/work-orders?wo=wo-1"
     );
     expect(notificationContextHref({ referenceType: "Vehicle", referenceId: "veh-1", title: "Gate blocked" })).toBe(
-      "/fleet/gate?vehicle=veh-1"
+      "/vehicles/veh-1"
     );
   });
 });

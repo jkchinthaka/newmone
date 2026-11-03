@@ -48,9 +48,9 @@ export function HoldWorkOrderModal({
           >
             <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">Place Work Order On Hold</h3>
+                <h3 className="text-lg font-semibold text-slate-900">Place job On Hold</h3>
                 <p className="mt-1 text-sm text-slate-500">
-                  Capture why {workOrder?.woNumber ?? "this work order"} is being paused before it can be resumed.
+                  Capture why {workOrder?.woNumber ?? "this job"} is being paused before it can be resumed.
                 </p>
               </div>
               <button type="button" onClick={onClose} className="rounded-md p-2 text-slate-500 hover:bg-slate-100">
@@ -80,7 +80,7 @@ export function HoldWorkOrderModal({
                   value={delayReason}
                   onChange={(event) => setDelayReason(event.target.value)}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
-                  placeholder="Explain what is blocking this work order..."
+                  placeholder="Explain what is blocking this job..."
                 />
               </label>
 

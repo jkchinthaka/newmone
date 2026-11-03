@@ -1,5 +1,7 @@
 "use client";
 
+import { formatEnumLabel } from "@/lib/display-labels";
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -70,10 +72,10 @@ export default function RcaDetailPage() {
       await apiClient.patch(`/reliability/rca/${id}`, { rootCause, method, impact });
     },
     onSuccess: () => {
-      toast.success("Root cause saved");
+      toast.success("Why it broke saved");
       void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "rca", id]) });
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, "We couldn't save the root cause."))
+    onError: (error) => toast.error(getApiErrorMessage(error, "We couldn't save the why it broke."))
   });
 
   const addCapa = useMutation({
@@ -85,11 +87,11 @@ export default function RcaDetailPage() {
       });
     },
     onSuccess: async () => {
-      toast.success("CAPA added");
+      toast.success("Fix and prevent plan added");
       setCapa({ description: "", kind: "CORRECTIVE", dueDate: "", evidence: "" });
       void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "rca", id]) });
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, "We couldn't add the CAPA."))
+    onError: (error) => toast.error(getApiErrorMessage(error, "We couldn't add the fix and prevent plan."))
   });
 
   const updateCapa = useMutation({
@@ -101,10 +103,10 @@ export default function RcaDetailPage() {
       });
     },
     onSuccess: () => {
-      toast.success("CAPA updated. The RCA stays open until effectiveness is reviewed.");
+      toast.success("Fix and prevent plan updated. The why-it-broke review stays open until effectiveness is reviewed.");
       void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "rca", id]) });
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, "We couldn't update the CAPA."))
+    onError: (error) => toast.error(getApiErrorMessage(error, "We couldn't update the fix and prevent plan."))
   });
 
   const verify = useMutation({
@@ -118,9 +120,9 @@ export default function RcaDetailPage() {
     onError: (error) => toast.error(getApiErrorMessage(error, "We couldn't record effectiveness."))
   });
 
-  if (query.isLoading) return <LoadingState title="Loading RCA" description="Fetching the investigation." />;
+  if (query.isLoading) return <LoadingState title="Loading why it broke" description="Fetching the investigation." />;
   if (query.isError || !query.data) {
-    return <ErrorState title="We couldn't load this RCA." description={getApiErrorMessage(query.error, "Request failed")} onRetry={() => query.refetch()} />;
+    return <ErrorState title="We couldn't load this why-it-broke review." description={getApiErrorMessage(query.error, "Request failed")} onRetry={() => query.refetch()} />;
   }
   const rca = query.data;
   const shownRoot = rootCause || rca.rootCause || "";
@@ -137,8 +139,8 @@ export default function RcaDetailPage() {
           <div><dt className="text-slate-500">Asset</dt><dd className="font-mono text-xs">{rca.assetId || "—"}</dd></div>
           <div><dt className="text-slate-500">Failure code</dt><dd>{rca.failureCode || "—"}</dd></div>
           <div><dt className="text-slate-500">Owner</dt><dd className="font-mono text-xs">{rca.ownerId || "—"}</dd></div>
-          <div><dt className="text-slate-500">Created</dt><dd>{new Date(rca.createdAt).toLocaleString()}</dd></div>
-          <div><dt className="text-slate-500">Due</dt><dd>{rca.dueDate ? new Date(rca.dueDate).toLocaleDateString() : "—"}</dd></div>
+          <div><dt className="text-slate-500">Created</dt><dd>{lkDateTime(rca.createdAt)}</dd></div>
+          <div><dt className="text-slate-500">Due</dt><dd>{lkDate(rca.dueDate)}</dd></div>
         </dl>
       </header>
       <section className="rounded-lg border border-slate-200 bg-white p-4">
@@ -146,30 +148,30 @@ export default function RcaDetailPage() {
         <p className="mt-2 text-sm text-slate-700">{rca.problemStatement}</p>
       </section>
       <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="font-semibold">Root cause analysis</h2>
+        <h2 className="font-semibold">Why it broke</h2>
         <label className="block text-sm">Impact
           <textarea className="mt-1 w-full rounded border px-3 py-2" rows={2} value={shownImpact} onChange={(event) => setImpact(event.target.value)} />
         </label>
         <label className="block text-sm">Method
           <select className="mt-1 rounded border px-3 py-2" value={method || rca.method || "FIVE_WHYS"} onChange={(event) => setMethod(event.target.value)}>
-            {METHODS.map((item) => <option key={item} value={item}>{item.replace(/_/g, " ")}</option>)}
+            {METHODS.map((item) => <option key={item} value={item}>{formatEnumLabel(item)}</option>)}
           </select>
         </label>
-        <label className="block text-sm">Root cause
+        <label className="block text-sm">Why it broke
           <textarea className="mt-1 w-full rounded border px-3 py-2" rows={4} value={shownRoot} onChange={(event) => setRootCause(event.target.value)} />
         </label>
-        <button type="button" className="rounded bg-brand-600 px-4 py-2 text-sm text-white" disabled={saveAnalysis.isPending} onClick={() => saveAnalysis.mutate()}>Save root cause</button>
+        <button type="button" className="rounded bg-brand-600 px-4 py-2 text-sm text-white" disabled={saveAnalysis.isPending} onClick={() => saveAnalysis.mutate()}>Save why it broke</button>
       </section>
       <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="font-semibold">CAPA actions</h2>
-        {rca.capaActions.length === 0 ? <p className="text-sm text-slate-600">No CAPA actions yet.</p> : null}
+        <h2 className="font-semibold">Fix and prevent steps</h2>
+        {rca.capaActions.length === 0 ? <p className="text-sm text-slate-600">No fix and prevent steps yet.</p> : null}
         <ul className="space-y-3">
           {rca.capaActions.map((action) => (
             <li key={action.id} className="rounded border border-slate-200 p-3 text-sm">
               <p className="font-medium">{action.description}</p>
-              <p className="text-slate-600">{action.kind} · {action.status} · due {action.dueDate ? new Date(action.dueDate).toLocaleDateString() : "—"}</p>
-              <p className="text-slate-600">Owner {action.ownerId || "—"} · verified {action.verifiedAt ? new Date(action.verifiedAt).toLocaleString() : "—"}</p>
-              {action.verificationNote ? <p>Verification: {action.verificationNote}</p> : null}
+              <p className="text-slate-600">{formatEnumLabel(action.kind)} · {formatEnumLabel(action.status)} · due {lkDate(action.dueDate)}</p>
+              <p className="text-slate-600">Owner {action.ownerId || "—"} · verified {lkDateTime(action.verifiedAt)}</p>
+              {action.verificationNote ? <p>Supervisor check: {action.verificationNote}</p> : null}
               <div className="mt-2 flex flex-wrap gap-2">
                 {action.status === "OPEN" ? <button type="button" className="rounded border px-2 py-1" onClick={() => updateCapa.mutate({ capaId: action.id, status: "IN_PROGRESS" })}>Start</button> : null}
                 {action.status === "IN_PROGRESS" ? <button type="button" className="rounded border px-2 py-1" onClick={() => updateCapa.mutate({ capaId: action.id, status: "VERIFIED", evidence: ["completed"], verificationNote: "Work completed and awaiting effectiveness review" })}>Mark completed</button> : null}
@@ -180,16 +182,16 @@ export default function RcaDetailPage() {
         <form className="grid gap-2 border-t border-slate-200 pt-3" onSubmit={(event) => { event.preventDefault(); addCapa.mutate(); }}>
           <select className="rounded border px-3 py-2 text-sm" value={capa.kind} onChange={(event) => setCapa((form) => ({ ...form, kind: event.target.value }))}>
             <option value="CORRECTIVE">Corrective</option>
-            <option value="PREVENTIVE">Preventive</option>
+            <option value="PREVENTIVE">Scheduled service</option>
           </select>
           <textarea className="rounded border px-3 py-2 text-sm" rows={2} required placeholder="Action" value={capa.description} onChange={(event) => setCapa((form) => ({ ...form, description: event.target.value }))} />
           <DateField label="Due date" value={capa.dueDate} onChange={(dueDate) => setCapa((form) => ({ ...form, dueDate }))} />
-          <button type="submit" className="w-fit rounded bg-slate-900 px-3 py-2 text-sm text-white" disabled={addCapa.isPending}>Add CAPA</button>
+          <button type="submit" className="w-fit rounded bg-slate-900 px-3 py-2 text-sm text-white" disabled={addCapa.isPending}>Add fix and prevent plan</button>
         </form>
       </section>
       <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="font-semibold">Linked work orders</h2>
-        {rca.workOrders.length === 0 ? <p className="mt-2 text-sm text-slate-600">No linked work orders.</p> : (
+        <h2 className="font-semibold">Linked jobs</h2>
+        {rca.workOrders.length === 0 ? <p className="mt-2 text-sm text-slate-600">No linked jobs.</p> : (
           <ul className="mt-2 space-y-1 text-sm">
             {rca.workOrders.map((order) => (
               <li key={order.id}><Link className="text-brand-700 underline" href={`/work-orders?wo=${order.id}`}>{order.woNumber}</Link> · {order.status}</li>
@@ -207,13 +209,13 @@ export default function RcaDetailPage() {
         </select>
         <textarea className="w-full rounded border px-3 py-2 text-sm" rows={2} placeholder="Notes" value={notes} onChange={(event) => setNotes(event.target.value)} />
         <button type="button" className="rounded bg-brand-600 px-4 py-2 text-sm text-white" disabled={verify.isPending} onClick={() => verify.mutate()}>Record effectiveness</button>
-        {rca.effectiveness === "INEFFECTIVE" ? <p className="text-sm text-amber-800">This RCA was reopened so further CAPA can be added.</p> : null}
+        {rca.effectiveness === "INEFFECTIVE" ? <p className="text-sm text-amber-800">This why-it-broke review was reopened so further fix and prevent plan can be added.</p> : null}
       </section>
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="font-semibold">Activity</h2>
         <ul className="mt-2 space-y-1 text-sm text-slate-700">
           {rca.activity.length === 0 ? <li>No audit entries yet.</li> : rca.activity.map((entry) => (
-            <li key={entry.id}>{new Date(entry.createdAt).toLocaleString()} · {entry.action} · {entry.reason || "—"}</li>
+            <li key={entry.id}>{lkDateTime(entry.createdAt)} · {entry.action} · {entry.reason || "—"}</li>
           ))}
         </ul>
       </section>

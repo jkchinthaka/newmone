@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api-client";
+import { toPartNumber } from "@/lib/inventory-control";
 import { parseUrlList } from "@/lib/media-urls";
 
 import { InventoryDashboardKpis, InventoryPart, LinkedWorkOrder, PurchaseOrder, StockAdjustmentPayload, StockMovement, SupplierRecord, TopUsedPartPoint, UpdatePartPayload, UsageTrendPoint } from "./types";
@@ -21,7 +22,19 @@ function unwrap<T>(payload: Envelope<T> | T | undefined, fallback: T): T {
  * InventoryPart declares `string[]`. Normalize here so the UI never indexes a string.
  */
 function normalizePart(part: InventoryPart): InventoryPart {
-  return { ...part, images: parseUrlList((part as { images?: unknown }).images) };
+  // Money and quantities can arrive as Decimal strings; coerce them so totals and costs never show "—".
+  const raw = part as unknown as Record<string, unknown>;
+  return {
+    ...part,
+    images: parseUrlList(raw.images),
+    unitCost: toPartNumber(raw.unitCost, 0),
+    minimumStock: toPartNumber(raw.minimumStock, 0),
+    reorderPoint: toPartNumber(raw.reorderPoint, 0),
+    quantityInStock: toPartNumber(raw.quantityInStock, 0),
+    reservedQuantity: toPartNumber(raw.reservedQuantity),
+    availableQuantity: toPartNumber(raw.availableQuantity),
+    maximumStock: toPartNumber(raw.maximumStock)
+  };
 }
 
 function normalizeParts(parts: InventoryPart[]): InventoryPart[] {
@@ -95,7 +108,7 @@ export async function stockInPart(payload: StockAdjustmentPayload): Promise<unkn
 
 export async function stockOutPart(payload: StockAdjustmentPayload): Promise<unknown> {
   if (!payload.workOrderId?.trim()) {
-    throw new Error("A work order is required to issue stock.");
+    throw new Error("A job is required to issue stock.");
   }
   const response = await apiClient.post(`/inventory/parts/${payload.id}/stock-out`, {
     quantity: payload.quantity,

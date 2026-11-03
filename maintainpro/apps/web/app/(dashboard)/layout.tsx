@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { OfflineRequestReplayer } from "@/components/pwa/offline-request-replayer";
 import { useRouter } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
@@ -18,7 +19,7 @@ import {
 } from "@/lib/tenant-session";
 import { safeInternalReturnPath } from "@/lib/role-redirect";
 import { stackedOverlayEscape } from "@/lib/overlay-dismiss";
-import { queryRetryDelay, shouldRetryQuery } from "@/lib/upstream-status";
+import { APP_QUERY_DEFAULT_OPTIONS } from "@/lib/query-client-defaults";
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -136,9 +137,10 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
-      <MobileBottomNav onOpenSearch={() => setCommandPaletteOpen(true)} />
+      <MobileBottomNav onOpenSearch={() => setCommandPaletteOpen(true)} onOpenMenu={() => setMobileNavOpen(true)} menuOpen={mobileNavOpen} />
       <GlobalCommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
       <Toaster closeButton position="top-center" richColors duration={4_000} />
+      <OfflineRequestReplayer ready={state === "READY"} />
     </div>
   );
 }
@@ -150,18 +152,7 @@ export default function DashboardLayout({
 }>) {
   const [queryClient] = useState(
     () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 30_000,
-            refetchOnWindowFocus: false,
-            retry: shouldRetryQuery,
-            retryDelay: queryRetryDelay
-          },
-          // A mutation is never replayed automatically; the user retries it.
-          mutations: { retry: false }
-        }
-      })
+      new QueryClient({ defaultOptions: APP_QUERY_DEFAULT_OPTIONS })
   );
 
   return (

@@ -1,40 +1,24 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Inject,
-  Param,
-  Post,
-  Query,
-  Req,
-  UseGuards
-} from "@nestjs/common";
+import { Controller, Get, Inject, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
-import { SelfService } from "../../common/decorators/self-service.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import type { JwtPayload } from "../auth/auth.types";
-import {
-  AssignTechnicianActionDto,
-  CreateWorkOrderActionDto,
-  GenerateReportActionDto,
-  ScheduleMaintenanceActionDto
-} from "./dto/copilot-actions.dto";
-import { CopilotChatDto } from "./dto/copilot-chat.dto";
-import {
-  CopilotContextQueryDto,
-  CopilotCreateConversationDto,
-  CopilotLogsQueryDto
-} from "./dto/copilot-query.dto";
+import { CopilotContextQueryDto } from "./dto/copilot-query.dto";
 import { PredictiveAiService, type CopilotActor } from "./predictive-ai.service";
 
 type AuthedRequest = Request & {
   user?: JwtPayload;
 };
 
+/**
+ * The AI Copilot routes (copilot chat, context, conversations, logs, predictive logs and the
+ * create/schedule/assign/report actions) were removed: they read and changed data without a
+ * tenant filter or permission check. PredictiveAiModule is also no longer registered in
+ * AppModule, so no route here is served; this class is kept for the guard unit test.
+ */
 @ApiTags("Predictive AI")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
@@ -42,25 +26,6 @@ type AuthedRequest = Request & {
 export class PredictiveAiController {
   @Inject(PredictiveAiService)
   private readonly predictiveAiService!: PredictiveAiService;
-
-  @Post("copilot")
-  @SelfService()
-  async copilot(@Req() req: AuthedRequest, @Body() dto: CopilotChatDto) {
-    const data = await this.predictiveAiService.copilotChat(dto, this.getActor(req));
-    return { data, message: "AI copilot response generated" };
-  }
-
-  @Get("context")
-  @SelfService()
-  async context(@Req() req: AuthedRequest, @Query() query: CopilotContextQueryDto) {
-    const data = await this.predictiveAiService.getCopilotContext(
-      this.getActor(req),
-      query.focusArea,
-      query.mode
-    );
-
-    return { data, message: "Copilot context fetched" };
-  }
 
   @Get("field-insights")
   @Roles(
@@ -87,109 +52,6 @@ export class PredictiveAiController {
     );
 
     return { data, message: "Field insights fetched" };
-  }
-
-  @Get("conversations")
-  @SelfService()
-  async conversations(
-    @Req() req: AuthedRequest,
-    @Query("limit") limitRaw?: string,
-    @Query("userId") userId?: string
-  ) {
-    const data = await this.predictiveAiService.listConversations(this.getActor(req), {
-      limit: limitRaw,
-      userId
-    });
-
-    return { data, message: "Copilot conversations fetched" };
-  }
-
-  @Post("conversations")
-  @SelfService()
-  async createConversation(@Req() req: AuthedRequest, @Body() dto: CopilotCreateConversationDto) {
-    const data = await this.predictiveAiService.createConversation(this.getActor(req), dto);
-    return { data, message: "Copilot conversation created" };
-  }
-
-  @Get("conversations/:id")
-  @SelfService()
-  async conversation(
-    @Req() req: AuthedRequest,
-    @Param("id") id: string,
-    @Query("limit") limitRaw?: string
-  ) {
-    const data = await this.predictiveAiService.getConversation(this.getActor(req), id, limitRaw);
-    return { data, message: "Copilot conversation fetched" };
-  }
-
-  @Get("conversations/:id/messages")
-  @SelfService()
-  async conversationMessages(
-    @Req() req: AuthedRequest,
-    @Param("id") id: string,
-    @Query("limit") limitRaw?: string
-  ) {
-    const data = await this.predictiveAiService.getConversationMessages(
-      this.getActor(req),
-      id,
-      limitRaw
-    );
-
-    return { data, message: "Copilot conversation messages fetched" };
-  }
-
-  @Get("logs")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "SUPERVISOR", "MANAGER", "TECHNICIAN")
-  async logs(@Req() req: AuthedRequest, @Query() query: CopilotLogsQueryDto) {
-    const data = await this.predictiveAiService.logs(this.getActor(req), query);
-    return { data, message: "Copilot logs fetched" };
-  }
-
-  @Get("predictive-logs")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "SUPERVISOR")
-  async predictiveLogs() {
-    const data = await this.predictiveAiService.predictiveLogs();
-    return { data, message: "Predictive maintenance logs fetched" };
-  }
-
-  @Post("actions/create-work-order")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MANAGER")
-  async createWorkOrderAction(
-    @Req() req: AuthedRequest,
-    @Body() dto: CreateWorkOrderActionDto
-  ) {
-    const data = await this.predictiveAiService.createWorkOrderAction(this.getActor(req), dto);
-    return { data, message: "AI action completed: work order created" };
-  }
-
-  @Post("actions/schedule-maintenance")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MANAGER")
-  async scheduleMaintenanceAction(
-    @Req() req: AuthedRequest,
-    @Body() dto: ScheduleMaintenanceActionDto
-  ) {
-    const data = await this.predictiveAiService.scheduleMaintenanceAction(this.getActor(req), dto);
-    return { data, message: "AI action completed: maintenance scheduled" };
-  }
-
-  @Post("actions/assign-technician")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MANAGER")
-  async assignTechnicianAction(
-    @Req() req: AuthedRequest,
-    @Body() dto: AssignTechnicianActionDto
-  ) {
-    const data = await this.predictiveAiService.assignTechnicianAction(this.getActor(req), dto);
-    return { data, message: "AI action completed: technician assigned" };
-  }
-
-  @Post("actions/generate-report")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "SUPERVISOR", "MANAGER")
-  async generateReportAction(
-    @Req() req: AuthedRequest,
-    @Body() dto: GenerateReportActionDto
-  ) {
-    const data = await this.predictiveAiService.generateReportAction(this.getActor(req), dto);
-    return { data, message: "AI action completed: report generated" };
   }
 
   private getActor(req: AuthedRequest): CopilotActor | null {

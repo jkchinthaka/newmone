@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown, Filter, Search } from "lucide-react";
 
 import { DateField } from "@/components/forms/date-fields";
+import { DebouncedField } from "@/components/forms/debounced-field";
 import { toTitleCase, humanWorkOrderStatusLabel } from "./helpers";
 import { selectableWorkOrderStatuses } from "@/lib/work-order-next-action";
 import {
@@ -55,7 +56,7 @@ export function WorkOrderFiltersBar({
     <section className="space-y-3">
       {showHeading ? (
         <div>
-          <h2 className="page-title">Work Orders</h2>
+          <h2 className="page-title">Jobs</h2>
           <p className="mt-1 text-sm text-slate-500">Production workflow for corrective and preventive tasks.</p>
         </div>
       ) : null}
@@ -64,11 +65,14 @@ export function WorkOrderFiltersBar({
           <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
             <label className="relative">
               <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
+              {/* Debounced: one request after typing pauses, not one per keystroke. */}
+              <DebouncedField
+                label="Search jobs"
+                type="search"
                 value={filters.query}
-                onChange={(event) => onChange({ query: event.target.value })}
-                placeholder="Search by title or WO number"
-                className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
+                onCommit={(query) => onChange({ query })}
+                placeholder="Search by title or job number"
+                className="min-h-11 w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
               />
             </label>
 
@@ -165,7 +169,7 @@ export function WorkOrderFiltersBar({
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-700 outline-none ring-brand-100 transition focus:border-brand-400 focus:ring-4"
                 >
                   <option value="createdAt">Created Date</option>
-                  <option value="woNumber">WO Number</option>
+                  <option value="woNumber">Job Number</option>
                   <option value="title">Title</option>
                   <option value="asset">Asset</option>
                   <option value="status">Status</option>

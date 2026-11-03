@@ -14,7 +14,7 @@ const rows = [
   { id: "d", status: "CANCELLED" }
 ];
 
-describe("open work order bulk cancel", () => {
+describe("open job bulk cancel", () => {
   it("keeps only OPEN ids from the selection", () => {
     assert.deepEqual(openWorkOrderIds(["b", "a", "d", "missing"], rows), ["a"]);
     assert.deepEqual(openWorkOrderIds(["c", "a"], rows), ["c", "a"]);
@@ -29,8 +29,8 @@ describe("open work order bulk cancel", () => {
   it("reports cancelled and skipped counts, then the first error", () => {
     assert.equal(bulkCancelToast(2, 3), "2 cancelled, 3 skipped (not OPEN)");
     assert.equal(
-      bulkCancelToast(1, 2, "Only OPEN work orders can be cancelled through this action. Use the governed cancel transition for work already in progress."),
-      "1 cancelled, 2 skipped (not OPEN). Only OPEN work orders can be cancelled through this action. Use the governed cancel transition for work already in progress."
+      bulkCancelToast(1, 2, "Only OPEN jobs can be cancelled through this action. Use the governed cancel transition for work already in progress."),
+      "1 cancelled, 2 skipped (not OPEN). Only OPEN jobs can be cancelled through this action. Use the governed cancel transition for work already in progress."
     );
   });
 });

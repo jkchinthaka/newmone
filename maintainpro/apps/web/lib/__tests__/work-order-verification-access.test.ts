@@ -4,7 +4,7 @@ import test from "node:test";
 import { canVerifyWorkOrder, canVerifyWorkOrderRole, getLifecycleStageLabel } from "../work-order-governance";
 import { erpReconciliationLabel } from "../erp-reconciliation-label";
 
-test("only manager and admin roles can verify work orders", () => {
+test("only manager and admin roles can verify jobs", () => {
   assert.equal(canVerifyWorkOrderRole("ADMIN"), true);
   assert.equal(canVerifyWorkOrderRole("MANAGER"), true);
   assert.equal(canVerifyWorkOrderRole("SUPER_ADMIN"), true);
@@ -32,10 +32,10 @@ test("ST-27 pending ERP outbox is not labeled posted", () => {
   assert.equal(erpReconciliationLabel("POSTED"), "ERP posted");
 });
 
-test("verification labels do not call pending or rework work closed", () => {
-  assert.equal(getLifecycleStageLabel("TECHNICIAN_COMPLETED"), "Technician completed — awaiting supervisor");
+test("supervisor check labels do not call pending or fix again work closed", () => {
+  assert.equal(getLifecycleStageLabel("TECHNICIAN_COMPLETED"), "Done, waiting for supervisor check");
   assert.equal(getLifecycleStageLabel("VERIFIED"), "Verified — ready to close");
-  assert.equal(getLifecycleStageLabel("REWORK_REQUIRED"), "Rework required");
+  assert.equal(getLifecycleStageLabel("REWORK_REQUIRED"), "Needs to be fixed again");
   assert.equal(getLifecycleStageLabel("CLOSED"), "Closed");
   assert.equal(getLifecycleStageLabel("COMPLETED"), "Closed (legacy)");
 });

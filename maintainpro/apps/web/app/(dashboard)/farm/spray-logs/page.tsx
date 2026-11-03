@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/localization";
 import { FarmListPage } from "@/components/farm/farm-list-page";
 
 type Spray = {
@@ -23,7 +24,7 @@ export default function FarmSprayLogsPage() {
       endpoint="/farm/spray-logs"
       queryKey="farm-spray-logs"
       columns={[
-        { key: "date", label: "Date", render: (r) => new Date(r.date).toLocaleDateString() },
+        { key: "date", label: "Date", render: (r) => formatDate(r.date) },
         { key: "chemicalName", label: "Chemical" },
         { key: "chemicalType", label: "Type" },
         {

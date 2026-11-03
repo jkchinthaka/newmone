@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, Logger } from "@nestjs/common";
+import { PUBLIC_USER_SUMMARY_SELECT } from "../../common/selects/public-user.select";
 import {
   Prisma,
   RoleName,
@@ -75,6 +76,8 @@ import {
   toMaintenanceHistoryItem
 } from "./maintenance-history.query";
 
+const FINISHED_STATUSES: WorkOrderStatus[] = [WorkOrderStatus.VERIFIED, WorkOrderStatus.CLOSED, WorkOrderStatus.COMPLETED];
+
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
 
 export type WorkOrderQueueQuery = {
@@ -130,8 +133,10 @@ const listInclude = {
   functionalLocation: { select: { name: true, code: true } },
   site: { select: { name: true } },
   vendorSupplier: { select: { name: true } },
-  technician: { include: { role: true } },
-  createdBy: { include: { role: true } },
+  // Public fields only: a full User row would put the password hash and lockout data in the
+  // job list response (visible in the browser's Network tab).
+  technician: { select: { ...PUBLIC_USER_SUMMARY_SELECT, role: { select: { id: true, name: true } } } },
+  createdBy: { select: { ...PUBLIC_USER_SUMMARY_SELECT, role: { select: { id: true, name: true } } } },
   parts: { include: { part: true } },
   partIssues: { select: { id: true }, take: 5 },
   assignees: {
@@ -351,7 +356,8 @@ export class WorkOrderQueuesService {
       "high-risk": { where: this.highRiskWhere(now), severity: "CRITICAL" },
       "finance-vendor-pending": { where: this.financeVendorPendingWhere() },
       triage: { where: this.mergeWhere(this.nonTerminalWhere(), { isTriage: true }) },
-      completed: { where: { status: WorkOrderStatus.COMPLETED } },
+      // Finished work: verified, closed, and legacy COMPLETED rows.
+      completed: { where: { status: { in: FINISHED_STATUSES } } },
       cancelled: { where: { status: WorkOrderStatus.CANCELLED } },
       all: { where: {} }
     };
@@ -502,12 +508,13 @@ export class WorkOrderQueuesService {
     return assignedToActorScope(actor.sub);
   }
 
+  /** Same rule as My Jobs (isMyJobOverdue): due before the start of today in Asia/Colombo. */
   private overdueWhere(now = new Date()): Prisma.WorkOrderWhereInput {
     return {
       OR: [
         { status: WorkOrderStatus.OVERDUE },
         {
-          dueDate: { lt: now },
+          dueDate: { lt: businessDayWindow(now).start },
           status: { notIn: TERMINAL_STATUSES }
         }
       ]
@@ -720,6 +727,9 @@ export class WorkOrderQueuesService {
       asset: row.asset,
       functionalLocation: row.functionalLocation,
       site: row.site,
+      // Sent-back jobs show the supervisor's reason on the My Jobs card.
+      verificationRejectionReason:
+        row.status === "REWORK_REQUIRED" ? row.verificationRejectionReason?.trim() || null : null,
       nextAction: this.myJobNextAction(row)
     }));
     return {
@@ -747,6 +757,7 @@ export class WorkOrderQueuesService {
       approvalStatus: true,
       // Start/hold/resume/complete send this as expectedVersion.
       version: true,
+      verificationRejectionReason: true,
       asset: { select: { name: true, assetTag: true } },
       functionalLocation: { select: { name: true, code: true } },
       site: { select: { name: true } }
@@ -1230,7 +1241,7 @@ export class WorkOrderQueuesService {
       case "open-load":
         return { AND: [where, openLoadQueueWhere(DASHBOARD_OPEN_STATUSES)] };
       case "completed":
-        return { AND: [where, { status: WorkOrderStatus.COMPLETED }] };
+        return { AND: [where, { status: { in: FINISHED_STATUSES } }] };
       case "cancelled":
         return { AND: [where, { status: WorkOrderStatus.CANCELLED }] };
       case "in-progress":
@@ -1683,7 +1694,7 @@ export class WorkOrderQueuesService {
       case "triage":
         return row.isTriage && !TERMINAL_STATUSES.includes(row.status);
       case "completed": {
-        if (row.status !== WorkOrderStatus.COMPLETED) return false;
+        if (!FINISHED_STATUSES.includes(row.status as WorkOrderStatus)) return false;
         if (query.queue === "completed" && query.dateFrom) return true;
         const view = query.queue;
         if (view === "completed-this-month") {

@@ -390,7 +390,7 @@ test.describe("authentication", () => {
     await page.goto("/dashboard");
 
     await expect(page).toHaveURL(/\/login\?reason=session_expired/);
-    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sign in to MaintainPro" })).toBeVisible();
   });
 
   test("legacy /home route shows archive label and dashboard link", async ({ page }) => {
@@ -421,13 +421,13 @@ test.describe("authentication", () => {
     await mainNav.getByRole("button", { name: "Administration" }).click();
     await expect(mainNav.getByRole("link", { name: "Admin Console" })).toBeVisible();
 
-    await mainNav.getByRole("button", { name: "Maintenance", exact: true }).click();
-    await expect(mainNav.getByRole("link", { name: "Work Orders", exact: true })).toBeVisible();
+    await mainNav.getByRole("button", { name: "Jobs", exact: true }).click();
+    await expect(mainNav.getByRole("link", { name: "All Jobs", exact: true })).toBeVisible();
 
     await expect(mainNav.getByRole("link", { name: "Home", exact: true })).toHaveCount(0);
   });
 
-  test("mobile navigation drawer opens and shows Work Orders for admin", async ({ page }) => {
+  test("mobile navigation drawer opens and shows All Jobs for admin", async ({ page }) => {
     await mockAuthenticatedShell(page);
     await page.addInitScript((user) => {
       localStorage.setItem("maintainpro_user", JSON.stringify(user));
@@ -439,8 +439,8 @@ test.describe("authentication", () => {
     await page.getByRole("button", { name: "Open navigation menu" }).click();
     const mobileNav = page.getByRole("dialog", { name: "Mobile navigation" });
     await expect(mobileNav.getByRole("link", { name: "Action Center" }).first()).toBeVisible();
-    await mobileNav.getByRole("button", { name: "Maintenance", exact: true }).click();
-    await expect(mobileNav.getByRole("link", { name: "Work Orders", exact: true })).toBeVisible();
+    await mobileNav.getByRole("button", { name: "Jobs", exact: true }).click();
+    await expect(mobileNav.getByRole("link", { name: "All Jobs", exact: true })).toBeVisible();
     await mobileNav.getByRole("button", { name: "Close navigation menu" }).first().click();
     await expect(page.getByRole("dialog", { name: "Mobile navigation" })).toHaveCount(0);
   });
@@ -527,6 +527,6 @@ test.describe("authentication", () => {
     await expect(page).toHaveURL(/\/login/);
     await page.goBack({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sign in to MaintainPro" })).toBeVisible();
   });
 });

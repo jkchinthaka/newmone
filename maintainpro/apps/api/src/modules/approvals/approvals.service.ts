@@ -20,7 +20,14 @@ import {
 import { stringArrayToText, toStringArray } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
-import { assertAmountWithinRole, assertExpectedVersion, assertNotOwnRequest, readAmount, versionFromDate } from "./approval-inbox.rules";
+import {
+  asRecord,
+  assertAmountWithinRole,
+  assertExpectedVersion,
+  assertNotOwnRequest,
+  readAmount,
+  versionFromDate
+} from "./approval-inbox.rules";
 import {
   ApprovalEvaluationContext,
   conditionsMatch,
@@ -62,6 +69,14 @@ export type CreateRuleInput = {
   effectiveTo?: string | Date | null;
   levels: RuleLevelInput[];
 };
+
+/**
+ * Later levels wait until the level before them approves. Not in the generated enum (ApprovalStep.status
+ * is a string column); kept out of PENDING so inbox, SLA and escalation only see the active level.
+ */
+export const APPROVAL_STEP_WAITING = "WAITING" as ApprovalStepStatus;
+
+const ACTIVE_STEP_STATUSES: ApprovalStepStatus[] = [ApprovalStepStatus.PENDING, ApprovalStepStatus.ESCALATED];
 
 export type EnsureApprovalResult = {
   required: boolean;
@@ -374,7 +389,7 @@ export class ApprovalsService {
     if (!match) {
       return { matched: false, message: "No active approval rule matches the simulated context" };
     }
-    const resolution = await this.resolveLevels(match, actor.tenantId!);
+    const resolution = await this.resolveLevels(match, actor.tenantId!, actor.sub);
     return {
       matched: true,
       rule: {
@@ -416,7 +431,9 @@ export class ApprovalsService {
   }
 
   /**
-   * Never auto-approve when no user can be resolved â€” surface configuration error instead.
+   * Never auto-approve when no user can be resolved — surface configuration error instead.
+   * The requester is never their own approver: fall back to the next eligible user in the role,
+   * then to the backup, then to any active ADMIN.
    */
   private async resolveLevels(
     rule: {
@@ -430,7 +447,8 @@ export class ApprovalsService {
         backupUserId: string | null;
       }>;
     },
-    tenantId: string
+    tenantId: string,
+    requesterId?: string | null
   ): Promise<{
     levels: Array<{
       level: number;
@@ -446,20 +464,37 @@ export class ApprovalsService {
       assignedApproverId: string | null;
       backupApproverId: string | null;
     }> = [];
+    const notRequester = requesterId ? { id: { not: requesterId } } : {};
 
     for (const level of rule.levels) {
-      let assignedApproverId = level.approverUserId;
+      let assignedApproverId = level.approverUserId && level.approverUserId !== requesterId ? level.approverUserId : null;
+      let excludedRequester = Boolean(requesterId && level.approverUserId === requesterId);
       if (!assignedApproverId && level.approverRole) {
         const user = await this.prisma.user.findFirst({
-          where: {
-            tenantId,
-            isActive: true,
-            role: { name: level.approverRole }
-          },
+          where: { tenantId, isActive: true, role: { name: level.approverRole }, ...notRequester },
           orderBy: { createdAt: "asc" },
           select: { id: true }
         });
         assignedApproverId = user?.id ?? null;
+        if (!assignedApproverId && requesterId) {
+          const requesterHoldsRole = await this.prisma.user.findFirst({
+            where: { id: requesterId, tenantId, isActive: true, role: { name: level.approverRole } },
+            select: { id: true }
+          });
+          excludedRequester = excludedRequester || Boolean(requesterHoldsRole);
+        }
+      }
+      if (!assignedApproverId && excludedRequester) {
+        if (level.backupUserId && level.backupUserId !== requesterId) {
+          assignedApproverId = level.backupUserId;
+        } else {
+          const admin = await this.prisma.user.findFirst({
+            where: { tenantId, isActive: true, role: { name: RoleName.ADMIN }, ...notRequester },
+            orderBy: { createdAt: "asc" },
+            select: { id: true }
+          });
+          assignedApproverId = admin?.id ?? null;
+        }
       }
 
       if (!assignedApproverId) {
@@ -486,7 +521,7 @@ export class ApprovalsService {
         level: level.level,
         approverRole: level.approverRole,
         assignedApproverId,
-        backupApproverId: level.backupUserId
+        backupApproverId: level.backupUserId && level.backupUserId !== assignedApproverId ? level.backupUserId : null
       });
     }
 
@@ -583,7 +618,7 @@ export class ApprovalsService {
       return { required: false };
     }
 
-    const resolution = await this.resolveLevels(rule, tenantId);
+    const resolution = await this.resolveLevels(rule, tenantId, input.actor.sub);
     if (resolution.configError) {
       return {
         required: true,
@@ -636,8 +671,9 @@ export class ApprovalsService {
             approverRole: l.approverRole ?? undefined,
             assignedApproverId: l.assignedApproverId ?? undefined,
             backupApproverId: l.backupApproverId ?? undefined,
-            status: index === 0 ? ApprovalStepStatus.PENDING : ApprovalStepStatus.PENDING,
-            dueAt: dueAt ?? undefined
+            status: index === 0 ? ApprovalStepStatus.PENDING : APPROVAL_STEP_WAITING,
+            // Each level's SLA starts when it becomes active (see decide()).
+            dueAt: index === 0 ? dueAt ?? undefined : undefined
           }))
         }
       },
@@ -870,16 +906,17 @@ export class ApprovalsService {
     return request;
   }
 
+  /** Assigned or backup approver of the step. */
+  isStepApprover(step: { assignedApproverId: string | null; backupApproverId: string | null }, actorId: string) {
+    return step.assignedApproverId === actorId || step.backupApproverId === actorId;
+  }
+
   private assertCanDecide(actor: Actor, step: { assignedApproverId: string | null; backupApproverId: string | null; status: ApprovalStepStatus }) {
     const privileged =
       actor.role === RoleName.SUPER_ADMIN ||
       actor.role === RoleName.ADMIN ||
       (actor.permissions ?? []).includes("approvals.view_all");
-    const assigned =
-      step.assignedApproverId === actor.sub ||
-      (step.status === ApprovalStepStatus.ESCALATED && step.backupApproverId === actor.sub) ||
-      step.backupApproverId === actor.sub;
-    if (!privileged && !assigned) {
+    if (!privileged && !this.isStepApprover(step, actor.sub)) {
       throw new ForbiddenException("You are not the assigned approver for this step");
     }
   }
@@ -923,7 +960,14 @@ export class ApprovalsService {
       }
     }
 
-    const decision = await this.prisma.$transaction(async (tx) => {
+    const snapshotSla = Number(asRecord(request.ruleSnapshot)?.slaHours);
+    const slaHours = Number.isFinite(snapshotSla) && snapshotSla > 0 ? snapshotSla : null;
+
+    const decision: {
+      createdDecision: { id: string };
+      finalStatus: ApprovalRequestStatus | "RETURNED";
+      nextStep?: { id: string; level: number; assignedApproverId: string | null; backupApproverId: string | null; dueAt: Date | null };
+    } = await this.prisma.$transaction(async (tx) => {
       const createdDecision = await tx.approvalDecision.create({
         data: {
           tenantId,
@@ -948,6 +992,11 @@ export class ApprovalsService {
       });
 
       if (input.decision === ApprovalDecisionOutcome.REJECTED || returned) {
+        // Levels that never became active are closed out with the request.
+        await tx.approvalStep.updateMany({
+          where: { approvalRequestId: request.id, status: APPROVAL_STEP_WAITING },
+          data: { status: ApprovalStepStatus.SKIPPED }
+        });
         const finalStatus = returned ? "RETURNED" : ApprovalRequestStatus.REJECTED;
         await tx.approvalRequest.update({
           where: { id: request.id },
@@ -963,7 +1012,7 @@ export class ApprovalsService {
       const remaining = request.steps.filter(
         (s) =>
           s.id !== currentStep.id &&
-          (s.status === ApprovalStepStatus.PENDING || s.status === ApprovalStepStatus.ESCALATED)
+          (ACTIVE_STEP_STATUSES.includes(s.status as ApprovalStepStatus) || s.status === APPROVAL_STEP_WAITING)
       );
 
       if (remaining.length === 0) {
@@ -977,7 +1026,16 @@ export class ApprovalsService {
         return { createdDecision, finalStatus: ApprovalRequestStatus.APPROVED };
       }
 
-      return { createdDecision, finalStatus: ApprovalRequestStatus.PENDING };
+      const next = [...remaining].sort((a, b) => a.level - b.level)[0];
+      const nextDueAt = slaHours != null ? new Date(Date.now() + slaHours * 60 * 60 * 1000) : null;
+      const activated =
+        next.status === APPROVAL_STEP_WAITING
+          ? await tx.approvalStep.update({
+              where: { id: next.id },
+              data: { status: ApprovalStepStatus.PENDING, dueAt: nextDueAt }
+            })
+          : next;
+      return { createdDecision, finalStatus: ApprovalRequestStatus.PENDING, nextStep: activated };
     });
 
     await this.audit({
@@ -1017,9 +1075,39 @@ export class ApprovalsService {
       referenceType: "ApprovalRequest"
     });
 
+    const nextStep = decision.nextStep;
+    if (nextStep) {
+      for (const userId of new Set([nextStep.assignedApproverId, nextStep.backupApproverId])) {
+        if (!userId) continue;
+        await this.notifySafe({
+          userId,
+          title: "Approval required",
+          message: `${request.processType} needs your approval (level ${nextStep.level})`,
+          type: NotificationType.APPROVAL_REQUIRED,
+          priority: NotificationPriority.WARNING,
+          referenceId: request.id,
+          referenceType: "ApprovalRequest",
+          dueAt: nextStep.dueAt,
+          dedupeKey: `approval-req-${request.id}-L${nextStep.level}-${userId}`
+        });
+      }
+    }
+
     // Side-effect hooks for subject entities after final approval
     if (decision.finalStatus === ApprovalRequestStatus.APPROVED) {
       await this.applyApprovedSideEffects(request, input.actor);
+    }
+    // A rejection must reach the work order too, or the next Start opens a fresh request and the rejection is lost.
+    if (decision.finalStatus === ApprovalRequestStatus.REJECTED && request.subjectEntityType === "WorkOrder") {
+      await this.prisma.workOrder.updateMany({
+        where: { id: request.subjectEntityId, tenantId, approvalStatus: "PENDING" },
+        data: {
+          approvalStatus: "REJECTED",
+          rejectionReason: input.reason?.trim() || null,
+          approvedAt: null,
+          approvedById: null
+        }
+      });
     }
 
     return this.getRequest(request.id, input.actor);

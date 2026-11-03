@@ -1,5 +1,6 @@
 "use client";
 
+import { useDelayedFlag } from "@/components/ui/loading";
 import type { ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight, Minus, X } from "lucide-react";
 
@@ -119,8 +120,14 @@ export function DataTable({ children, minWidthClass = "min-w-[900px]" }: DataTab
   );
 }
 
+/** Panel-sized skeleton; same tint, delay, and reduced-motion rule as TableLoadingRows. */
 export function LoadingPanel({ className = "h-40" }: { className?: string }) {
-  return <div className={`${className} animate-pulse rounded-2xl bg-slate-200`} />;
+  const visible = useDelayedFlag(true);
+  return (
+    <div role="status" aria-label="Loading" aria-busy="true" className={`${className} rounded-2xl ${visible ? "animate-pulse bg-brand-100 motion-reduce:animate-none" : ""}`}>
+      <span className="sr-only">Loading</span>
+    </div>
+  );
 }
 
 export function EmptyState({ title, description }: { title: string; description: string }) {

@@ -47,7 +47,7 @@ export function WorkforcePendingPanel() {
 
       {query.isLoading ? (
         <p className="mt-4 text-sm text-slate-500">Loading workforce summary...</p>
-      ) : query.isError ? (
+      ) : query.isError && !query.data ? (
         <p className="mt-4 text-sm text-rose-600">
           {toSafeApiErrorMessage(query.error, "Could not load workforce summary.")}
         </p>

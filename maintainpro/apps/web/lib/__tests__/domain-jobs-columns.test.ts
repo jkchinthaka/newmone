@@ -33,7 +33,7 @@ test("machinery, service, and vehicle tables keep only their own columns", () =>
   const service = domainJobsColumns("SERVICE").map((column) => column.label);
   const vehicle = domainJobsColumns("VEHICLE").map((column) => column.label);
   assert.deepEqual(machinery, [
-    "WO",
+    "Job",
     "Work / Machine Asset",
     "Status",
     "Priority",

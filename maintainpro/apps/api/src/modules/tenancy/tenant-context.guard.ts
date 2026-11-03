@@ -16,6 +16,11 @@ import {
   TENANT_SCOPED_KEY
 } from "../../common/decorators/tenant-scope.decorator";
 import { PrismaService } from "../../database/prisma.service";
+import {
+  TENANT_EFFECTIVE_ROLE_KEY,
+  type TenantEffectiveRole,
+  effectiveRoleForTenant
+} from "./tenant-effective-role";
 
 type TenantAwareRequest = {
   headers: Record<string, string | string[] | undefined>;
@@ -28,6 +33,7 @@ type TenantAwareRequest = {
     requestedTenantId: string | null;
   };
   tenantId?: string | null;
+  [TENANT_EFFECTIVE_ROLE_KEY]?: TenantEffectiveRole;
 };
 
 @Injectable()
@@ -67,7 +73,9 @@ export class TenantContextGuard implements CanActivate {
       return true;
     }
 
-    request.user.role = await this.currentRole(request.user.sub);
+    const account = await this.currentAccount(request.user.sub);
+    const globalRole = account.role;
+    request.user.role = globalRole;
 
     if (platformScoped && request.user.role !== RoleName.SUPER_ADMIN) {
       throw new ForbiddenException("Platform scope requires SUPER_ADMIN");
@@ -134,6 +142,20 @@ export class TenantContextGuard implements CanActivate {
         }
       }
 
+      let membershipRole: string | null = null;
+      if (request.user.role !== RoleName.SUPER_ADMIN && tenantId !== account.homeTenantId) {
+        // A per-session tenant claim may outlive the membership: fall back to the home tenant.
+        const membership = await this.findMembership(request.user.sub, tenantId!);
+        if (membership) {
+          membershipRole = membership.membershipRole ?? null;
+        } else if (account.homeTenantId) {
+          tenantId = account.homeTenantId;
+        } else {
+          throw new ForbiddenException("Tenant access denied");
+        }
+      }
+
+      this.applyEffectiveRole(request, globalRole, account.homeTenantId, tenantId, membershipRole);
       request.user.tenantId = tenantId;
       request.tenantId = tenantId;
       return true;
@@ -149,6 +171,7 @@ export class TenantContextGuard implements CanActivate {
           throw new ForbiddenException("Requested tenant is inactive or missing");
         }
       }
+      this.applyEffectiveRole(request, globalRole, account.homeTenantId, tenantId, null);
       request.user.tenantId = tenantId;
       request.tenantId = tenantId;
       return true;
@@ -159,25 +182,16 @@ export class TenantContextGuard implements CanActivate {
       throw new ForbiddenException("Tenant context is required");
     }
 
+    let membershipRole: string | null = null;
     if (request.user.role !== RoleName.SUPER_ADMIN) {
       // Tenant switching: the user must hold an active membership in an active
       // tenant. Missing/disabled memberships or inactive tenants are denied.
-      const membership = await this.prisma.tenantMembership.findFirst({
-        where: {
-          tenantId,
-          userId: request.user.sub,
-          tenant: {
-            isActive: true
-          }
-        },
-        select: {
-          tenantId: true
-        }
-      });
+      const membership = await this.findMembership(request.user.sub, tenantId);
 
       if (!membership) {
         throw new ForbiddenException("Tenant access denied");
       }
+      membershipRole = membership.membershipRole ?? null;
     } else {
       const tenant = await this.prisma.tenant.findUnique({
         where: { id: tenantId },
@@ -189,10 +203,51 @@ export class TenantContextGuard implements CanActivate {
       }
     }
 
+    this.applyEffectiveRole(request, globalRole, account.homeTenantId, tenantId, membershipRole);
     request.user.tenantId = tenantId;
     request.tenantId = tenantId;
 
     return true;
+  }
+
+  private findMembership(userId: string, tenantId: string) {
+    return this.prisma.tenantMembership.findFirst({
+      where: {
+        tenantId,
+        userId,
+        tenant: {
+          isActive: true
+        }
+      },
+      select: {
+        tenantId: true,
+        membershipRole: true
+      }
+    });
+  }
+
+  /**
+   * Outside the home tenant the caller acts with their membership role there, so a
+   * global ADMIN who is a MEMBER elsewhere is a TECHNICIAN in that tenant. RolesGuard,
+   * PermissionsGuard and services (req.user.role) all see this effective role.
+   */
+  private applyEffectiveRole(
+    request: TenantAwareRequest,
+    globalRole: string,
+    homeTenantId: string | null,
+    tenantId: string | null,
+    membershipRole: string | null
+  ): void {
+    const effective = effectiveRoleForTenant({
+      globalRole,
+      homeTenantId,
+      activeTenantId: tenantId,
+      membershipRole
+    });
+    request[TENANT_EFFECTIVE_ROLE_KEY] = effective;
+    if (request.user) {
+      request.user.role = effective.roleName;
+    }
   }
 
   /**
@@ -201,14 +256,14 @@ export class TenantContextGuard implements CanActivate {
    * A current SUPER_ADMIN may enter an active tenant without a membership row.
    * Every other current role must hold a membership in that tenant.
    */
-  private async currentRole(userId: string): Promise<string> {
+  private async currentAccount(userId: string): Promise<{ role: string; homeTenantId: string | null }> {
     const account = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { isActive: true, role: { select: { name: true } } }
+      select: { isActive: true, tenantId: true, role: { select: { name: true } } }
     });
     if (!account?.isActive || !account.role?.name) {
       throw new UnauthorizedException("Account is inactive or no longer exists");
     }
-    return account.role.name;
+    return { role: account.role.name, homeTenantId: account.tenantId ?? null };
   }
 }

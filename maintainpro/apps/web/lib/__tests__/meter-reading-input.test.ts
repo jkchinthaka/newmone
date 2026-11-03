@@ -16,6 +16,8 @@ describe("meter reading input", () => {
     assert.ok(readingFieldError("-4", 3));
     assert.equal(readingFieldError("12.50", 3), null);
     assert.deepEqual(acceptReadingDraft("12", "12abc", 3), { value: "12", rejected: true });
+    assert.deepEqual(acceptReadingDraft("", "12abc", 3), { value: "", rejected: true });
+    assert.deepEqual(acceptReadingDraft("1", "1e2", 3), { value: "1", rejected: true });
     assert.deepEqual(acceptReadingDraft("12", "12.5", 0), { value: "12", rejected: true });
     assert.deepEqual(acceptReadingDraft("", "12.50", 3), { value: "12.50", rejected: false });
   });

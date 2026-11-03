@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -457,7 +458,7 @@ export function ErpExcelImportPage() {
             <tbody>
               {history.map((item) => (
                 <tr key={item.id} className="border-t border-slate-100">
-                  <td className="px-3 py-2">{new Date(item.uploadedAt).toLocaleString()}</td>
+                  <td className="px-3 py-2">{lkDateTime(item.uploadedAt)}</td>
                   <td className="px-3 py-2">{item.originalFilename}</td>
                   <td className="px-3 py-2">{item.status}</td>
                   <td className="px-3 py-2">{item.changedRows}</td>

@@ -143,7 +143,7 @@ describe("work order evidence storage", () => {
     expect(prisma.evidenceAttachment.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          storageKey: expect.stringContaining("evidence/tenant-a/wo-1/"),
+          storageKey: expect.stringMatching(/^tenant-a\/\d{4}\/\d{2}\/[0-9a-f-]+\.jpg$/),
           status: EvidenceAttachmentStatus.PENDING
         })
       })

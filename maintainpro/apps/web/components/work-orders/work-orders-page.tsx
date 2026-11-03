@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { StartJobDialog } from "./start-job-dialog";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -9,8 +10,13 @@ import { toast } from "sonner";
 
 import { ErrorState, LoadingCardSkeleton, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { JobsPagination } from "@/components/operational/jobs-pagination";
 import { JobsViewSwitcher } from "@/components/operational/jobs-view-switcher";
+import { RefreshErrorBanner } from "@/components/ui/refresh-error-banner";
+import { clampPage, listErrorPresentation } from "@/lib/list-query-state";
+import { colomboDateTimeToIso } from "@/lib/colombo-datetime";
 import { OperationalPageHeader } from "@/components/operational/operational-page-header";
 import { workOrderCreatePreset } from "@/lib/asset-list";
 import { parseWorkOrderRecordLink } from "@/lib/operational-deep-link";
@@ -30,7 +36,7 @@ import { approveThenAssign, verifyThenClose } from "@/lib/wo-flow-phase2";
 
 import { CompleteWorkOrderModal } from "./complete-work-order-modal";
 import { approveWorkOrder, assignWorkOrder } from "./api";
-import { getErrorMessage, toTitleCase } from "./helpers";
+import { getErrorMessage, humanWorkOrderStatusLabel, toTitleCase } from "./helpers";
 import { HoldWorkOrderModal } from "./hold-work-order-modal";
 import {
   useAssignWorkOrder,
@@ -52,7 +58,27 @@ import { WorkOrderQueuePanel } from "./work-order-queue-panel";
 import { WorkOrderEditorModal } from "./work-order-editor-modal";
 import { WorkOrderFiltersBar } from "./work-order-filters-bar";
 import { WorkOrderTable } from "./work-order-table";
-import { WORK_ORDER_STATUSES, type WorkOrder, type WorkOrderSortField, type WorkOrderStatus, type WorkOrderViewMode } from "./types";
+import type { WorkOrderDetailTab } from "./work-order-detail-tabs";
+import {
+  WORK_ORDER_STATUSES,
+  type WorkOrder,
+  type WorkOrderFilters,
+  type WorkOrderSortField,
+  type WorkOrderStatus,
+  type WorkOrderViewMode
+} from "./types";
+
+function localInputToColomboIso(value: string): string {
+  const [date, time] = value.split("T");
+  return colomboDateTimeToIso(date ?? "", (time ?? "").slice(0, 5)) || new Date(value).toISOString();
+}
+
+function parseListPage(raw: string | null): number {
+  const page = Number(raw);
+  return Number.isInteger(page) && page > 0 ? page : 1;
+}
+
+const CANCEL_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER"]);
 
 function readCurrentUserId(): string | null {
   if (typeof window === "undefined") {
@@ -75,8 +101,8 @@ function readCurrentUserId(): string | null {
 function LoadingSkeleton() {
   return (
     <LoadingState
-      description="Fetching work orders, filters, and assignment data."
-      title="Loading work orders"
+      description="Fetching jobs, filters, and assignment data."
+      title="Loading jobs"
     >
       <LoadingCardSkeleton rows={6} />
     </LoadingState>
@@ -87,10 +113,15 @@ type WorkOrdersPageProps = {
   jobDomain?: string;
   heading?: string;
   description?: string;
+  /** Set by a summary card above the list: show the list filtered to this status. */
+  focus?: { status: WorkOrderStatus | "ALL"; nonce: number } | null;
+  /** Rendered between the page header and the job list (for example the vehicle overview). */
+  aboveList?: ReactNode;
 };
 
-export default function WorkOrdersPage({ jobDomain, heading, description }: WorkOrdersPageProps) {
+export default function WorkOrdersPage({ jobDomain, heading, description, focus, aboveList }: WorkOrdersPageProps) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const { prompt, dialog: promptDialog } = usePromptDialog();
   const [view, setView] = useState<WorkOrderViewMode>("queues");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [queueStatusRows, setQueueStatusRows] = useState<BulkCancelRow[]>([]);
@@ -101,6 +132,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     workOrder: WorkOrder | null;
     presetAssetId?: string | null;
     presetAssetLabel?: string | null;
+    detailTab?: WorkOrderDetailTab;
   }>({
     open: false,
     mode: "create",
@@ -110,21 +142,56 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
   });
   const [completionTarget, setCompletionTarget] = useState<WorkOrder | null>(null);
   const [holdTarget, setHoldTarget] = useState<WorkOrder | null>(null);
+  const [startTarget, setStartTarget] = useState<WorkOrder | null>(null);
   const [rejectTarget, setRejectTarget] = useState<WorkOrder | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [approveAssignTarget, setApproveAssignTarget] = useState<WorkOrder | null>(null);
   const [approveAssignTech, setApproveAssignTech] = useState("");
   const [approveAssignStart, setApproveAssignStart] = useState("");
   const [approveAssignEnd, setApproveAssignEnd] = useState("");
+  const [approveAssignSubmitting, setApproveAssignSubmitting] = useState(false);
   const createIdempotencyKey = useRef<string | null>(null);
 
-  const { filters, updateFilters, resetFilters } = useWorkOrderFilters();
-  const effectiveFilters = jobDomain ? { ...filters, jobDomain } : filters;
-  const workOrdersQuery = useWorkOrders(effectiveFilters);
-
+  const { filters, updateFilters: patchFilters, resetFilters: resetStoredFilters } = useWorkOrderFilters();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  // List/Board page lives in the URL (?listPage=) so refresh, back and shared links keep it.
+  // A separate key from the queue view's ?page= so the two views do not fight over it.
+  const listPage = parseListPage(searchParams.get("listPage"));
+  const setListPage = useCallback(
+    (page: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (page > 1) params.set("listPage", String(page));
+      else params.delete("listPage");
+      const query = params.toString();
+      router.replace((query ? `${pathname}?${query}` : pathname) as Route, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+  const updateFilters = useCallback(
+    (patch: Partial<WorkOrderFilters>) => {
+      patchFilters(patch);
+      if (listPage !== 1 && Object.keys(patch).some((key) => key !== "page")) setListPage(1);
+    },
+    [listPage, patchFilters, setListPage]
+  );
+  const resetFilters = useCallback(() => {
+    resetStoredFilters();
+    if (listPage !== 1) setListPage(1);
+  }, [listPage, resetStoredFilters, setListPage]);
+  const effectiveFilters = useMemo(
+    () => ({ ...filters, page: listPage, ...(jobDomain ? { jobDomain } : {}) }),
+    [filters, jobDomain, listPage]
+  );
+  // The queue view has its own server queries; do not fetch/poll the List/Board data behind it.
+  const workOrdersQuery = useWorkOrders(effectiveFilters, { enabled: view !== "queues" });
+
+  useEffect(() => {
+    if (!workOrdersQuery.data || workOrdersQuery.isPlaceholderData) return;
+    const clamped = clampPage(listPage, workOrdersQuery.pagination.total, workOrdersQuery.pagination.pageSize);
+    if (clamped !== listPage) setListPage(clamped);
+  }, [listPage, setListPage, workOrdersQuery.data, workOrdersQuery.isPlaceholderData, workOrdersQuery.pagination.pageSize, workOrdersQuery.pagination.total]);
   const recordLink = parseWorkOrderRecordLink({
     wo: searchParams.get("wo"),
     open: searchParams.get("open"),
@@ -134,10 +201,19 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
   const deepLinkQuery = useWorkOrder(deepLinkId ?? null);
 
   useEffect(() => {
-    if (jobDomain && filters.jobDomain !== jobDomain) {
-      updateFilters({ jobDomain, page: 1 });
+    // The page decides the category: a category page sets it, All Jobs clears it.
+    if ((filters.jobDomain ?? undefined) !== (jobDomain ?? undefined)) {
+      patchFilters({ jobDomain: jobDomain ?? undefined });
     }
-  }, [jobDomain, filters.jobDomain, updateFilters]);
+  }, [jobDomain, filters.jobDomain, patchFilters]);
+
+  // A summary card was pressed: show the list with that status.
+  useEffect(() => {
+    if (!focus) return;
+    setView("list");
+    patchFilters({ status: focus.status });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.nonce]);
 
   const currentUser = useCurrentUser();
   const canLoadTechnicians = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR"].includes(
@@ -199,8 +275,8 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     setEditorState({ open: true, mode: "create", workOrder: null });
   };
 
-  const openEditModal = (workOrder: WorkOrder) => {
-    setEditorState({ open: true, mode: "edit", workOrder });
+  const openEditModal = (workOrder: WorkOrder, detailTab?: WorkOrderDetailTab) => {
+    setEditorState({ open: true, mode: "edit", workOrder, detailTab });
   };
 
   const clearDeepLinkParam = () => {
@@ -244,7 +320,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
 
   useEffect(() => {
     if (deepLinkId && deepLinkQuery.isError) {
-      toast.error("That work order could not be found or you don't have access to it.");
+      toast.error("That job could not be found or you don't have access to it.");
       clearDeepLinkParam();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -282,6 +358,12 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       return;
     }
 
+    // First start goes through the camera (live before photo); resume after hold does not.
+    if (status === "IN_PROGRESS" && workOrder.status !== "ON_HOLD" && !workOrder.startDate) {
+      setStartTarget(workOrder);
+      return;
+    }
+
     try {
       await statusMutation.mutateAsync({
         id: workOrder.id,
@@ -290,41 +372,109 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       toast.success(
         status === "IN_PROGRESS"
           ? `${workOrder.woNumber} moved to In Progress`
-          : `Status updated to ${status.replaceAll("_", " ")}`
+          : `Status updated to ${humanWorkOrderStatusLabel(status)}`
       );
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   };
 
+  // Same roles the API allows to cancel (SUPERVISOR_ROLE_NAMES). Others do not see the button.
+  const canCancelWorkOrders = CANCEL_ROLES.has(currentUser.role ?? "");
+
   const handleDelete = async (workOrder: WorkOrder) => {
-    const confirmed = await confirm({
+    const reason = await prompt({
       title: `Cancel ${workOrder.woNumber}?`,
-      description:
-        "This cancels the work order and keeps the historical record. It does not permanently delete the work order.",
-      confirmLabel: "Cancel work order",
-      cancelLabel: "Keep work order",
-      variant: "destructive"
+      description: "The job is cancelled and its history is kept. It is not deleted.",
+      label: "Reason for cancelling",
+      required: true,
+      validate: (value) => (value.trim().length < 3 ? "Enter at least 3 characters." : null),
+      submitLabel: "Cancel job",
+      cancelLabel: "Keep job"
     });
-    if (!confirmed) {
+    if (!reason?.trim()) {
       return;
     }
 
     try {
-      await deleteMutation.mutateAsync(workOrder.id);
-      toast.success("Work order cancelled");
+      // The governed status change works from any open status; DELETE only allowed OPEN jobs for admins.
+      await apiClient.patch(`/work-orders/${workOrder.id}/status`, {
+        status: "CANCELLED",
+        cancelReason: reason.trim(),
+        expectedVersion: workOrder.version
+      });
+      toast.success(`${workOrder.woNumber} cancelled`);
       setSelectedIds((current) => current.filter((id) => id !== workOrder.id));
+      await workOrdersQuery.refetch();
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   };
 
+
   const handleAssign = async (workOrder: WorkOrder, technicianId: string) => {
+    // Changing an existing technician needs a reason; ask before calling the API instead of failing.
+    let reason: string | undefined;
+    if (workOrder.technicianId && workOrder.technicianId !== technicianId) {
+      const answer = await prompt({
+        title: `Change technician on ${workOrder.woNumber}`,
+        label: "Reason for the change",
+        required: true,
+        validate: (value) => (value.trim().length < 3 ? "Enter at least 3 characters." : null),
+        submitLabel: "Change technician"
+      });
+      if (!answer?.trim()) return;
+      reason = answer.trim();
+    }
     try {
-      await assignMutation.mutateAsync({ id: workOrder.id, technicianId });
+      await assignMutation.mutateAsync({ id: workOrder.id, technicianId, reason, expectedVersion: workOrder.version });
       toast.success("Technician assigned");
     } catch (error) {
       toast.error(getErrorMessage(error));
+    }
+  };
+
+  /** Stores must confirm part returns before a job can close. Say so before verifying, with a way to the Parts tab. */
+  const partsReturnsSettled = async (workOrder: WorkOrder) => {
+    try {
+      const response = await apiClient.get<{ data?: { pendingReturnLines?: number } }>(`/work-orders/${workOrder.id}/parts/summary`);
+      const pending = response.data?.data?.pendingReturnLines ?? 0;
+      if (pending > 0) {
+        toast.error(`Waiting for stores to confirm ${pending} part return${pending === 1 ? "" : "s"}. Close the job after that.`, {
+          action: { label: "Open Parts", onClick: () => openEditModal(workOrder, "parts") }
+        });
+        return false;
+      }
+    } catch {
+      // If the summary cannot load, let the server decide.
+    }
+    return true;
+  };
+
+  const postClose = (workOrder: WorkOrder, expectedVersion: number | undefined, overrideReason?: string) =>
+    apiClient.post(`/work-orders/${workOrder.id}/close`, {
+      expectedVersion,
+      note: "Closed after supervisor check",
+      ...(overrideReason ? { overrideReason } : {})
+    });
+
+  /** High-priority jobs wait for the requester. Closing early needs a reason, so ask for one and retry. */
+  const closeWithReasonIfNeeded = async (workOrder: WorkOrder, expectedVersion: number | undefined) => {
+    try {
+      await postClose(workOrder, expectedVersion);
+      return true;
+    } catch (error) {
+      if (!/requester confirmation is still pending/i.test(getErrorMessage(error))) throw error;
+      const reason = await prompt({
+        title: `Close ${workOrder.woNumber} now`,
+        description: "The requester has not confirmed the repair yet.",
+        label: "Reason to close before confirmation",
+        required: true,
+        submitLabel: "Close job"
+      });
+      if (!reason?.trim()) throw new Error("Closing was cancelled.");
+      await postClose(workOrder, expectedVersion, reason.trim());
+      return true;
     }
   };
 
@@ -338,9 +488,18 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     if (!selected) return;
     if (selected === action?.id && action?.disabledReason) return;
     if (selected === "send-back") {
+      const reason = await prompt({
+        title: `Send ${workOrder.woNumber} back to be fixed again`,
+        description: "The technician sees this on My jobs.",
+        label: "What needs to be fixed?",
+        required: true,
+        validate: (value) => (value.trim().length < 3 ? "Enter at least 3 characters." : null),
+        submitLabel: "Send back"
+      });
+      if (!reason?.trim()) return;
       try {
         await apiClient.post(`/work-orders/${workOrder.id}/reject-supervisor`, {
-          reason: "Sent back for rework"
+          reason: reason.trim()
         });
         toast.success(`${workOrder.woNumber} sent back`);
         await workOrdersQuery.refetch();
@@ -350,17 +509,21 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       return;
     }
     if (selected === "assign") {
-      toast.message("Choose a technician in the Assign list.");
+      openEditModal(workOrder, "assignment");
       return;
     }
     if (selected === "approve-assign") {
+      if (currentUser.id && workOrder.createdById === currentUser.id) {
+        toast.message("You created this job. Another manager must approve it.");
+        return;
+      }
       setApproveAssignTarget(workOrder);
       setApproveAssignTech("");
       setApproveAssignStart("");
       setApproveAssignEnd("");
       return;
     }
-    if (selected === "start") {
+    if (selected === "start" || selected === "resume") {
       await handleStatusChange(workOrder, "IN_PROGRESS");
       return;
     }
@@ -368,22 +531,31 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       setCompletionTarget(workOrder);
       return;
     }
+    if ((selected === "close" || selected === "verify-close") && !(await partsReturnsSettled(workOrder))) {
+      return;
+    }
+    if (selected === "close") {
+      try {
+        await closeWithReasonIfNeeded(workOrder, workOrder.version);
+        toast.success(`${workOrder.woNumber} closed`);
+      } catch (error) {
+        toast.error(`${getErrorMessage(error)} The job stays verified.`);
+      }
+      await workOrdersQuery.refetch();
+      return;
+    }
     const result = await verifyThenClose({
       verify: () =>
         apiClient.post<{ data?: { version?: number } }>(`/work-orders/${workOrder.id}/verify-supervisor`, {
           expectedVersion: workOrder.version,
-          verificationNote: "Verified from the work order list"
+          verificationNote: "Verified from the job list"
         }),
-      close: (verified) =>
-        apiClient.post(`/work-orders/${workOrder.id}/close`, {
-          expectedVersion: verified.data?.data?.version ?? workOrder.version,
-          note: "Closed after verification"
-        })
+      close: (verified) => closeWithReasonIfNeeded(workOrder, verified.data?.data?.version ?? workOrder.version)
     });
     if (!result.ok) {
       toast.error(
         result.stage === "close"
-          ? `${getErrorMessage(result.error)} The work order stays verified.`
+          ? `${getErrorMessage(result.error)} The job stays verified.`
           : getErrorMessage(result.error)
       );
       if (result.stage === "close") await workOrdersQuery.refetch();
@@ -395,20 +567,24 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
 
   const submitApproveAssign = async () => {
     if (!approveAssignTarget || !approveAssignTech || !approveAssignStart || !approveAssignEnd) return;
+    if (approveAssignSubmitting) return;
     const target = approveAssignTarget;
+    // Disable the button on click, not after the response, so a slow network cannot double-submit.
+    setApproveAssignSubmitting(true);
     const result = await approveThenAssign({
       approve: () => approveWorkOrder(target.id),
       assign: (approved) =>
         assignWorkOrder(target.id, approveAssignTech, {
           expectedVersion: approved.version,
-          plannedStartAt: new Date(approveAssignStart).toISOString(),
-          plannedEndAt: new Date(approveAssignEnd).toISOString()
+          // datetime-local values are Asia/Colombo wall-clock times, not the device's zone.
+          plannedStartAt: localInputToColomboIso(approveAssignStart),
+          plannedEndAt: localInputToColomboIso(approveAssignEnd)
         })
-    });
+    }).finally(() => setApproveAssignSubmitting(false));
     if (!result.ok) {
       toast.error(
         result.stage === "assign"
-          ? `${getErrorMessage(result.error)} The work order stays approved.`
+          ? `${getErrorMessage(result.error)} The job stays approved.`
           : getErrorMessage(result.error)
       );
       if (result.stage === "assign") {
@@ -420,6 +596,14 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     toast.success(`${target.woNumber} approved and assigned`);
     setApproveAssignTarget(null);
     await workOrdersQuery.refetch();
+  };
+
+  const handleQueueAction = (workOrder: WorkOrder, actionId: string) => {
+    if (actionId === "assign") {
+      openEditModal(workOrder, "assignment");
+      return;
+    }
+    void handlePrimary(workOrder, actionId);
   };
 
   const handleApprove = async (workOrder: WorkOrder) => {
@@ -466,9 +650,9 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     }
 
     const confirmed = await confirm({
-      title: "Cancel open work orders?",
-      description: "Only OPEN work orders will be cancelled. Records are kept for audit.",
-      confirmLabel: "Cancel open work orders",
+      title: "Cancel open jobs?",
+      description: "Only OPEN jobs will be cancelled. Records are kept for audit.",
+      confirmLabel: "Cancel open jobs",
       cancelLabel: "Keep selected",
       variant: "destructive"
     });
@@ -498,7 +682,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     }
 
     if (status === "COMPLETED") {
-      toast.error("Bulk completion requires actual cost and hours per work order.");
+      toast.error("Bulk completion requires actual cost and hours per job.");
       return;
     }
 
@@ -516,14 +700,14 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       const labels = Object.fromEntries(rows.map((row) => [row.id, row.woNumber || row.id]));
       const summary = summarizeBulkStatusResults(result.results ?? [], labels);
       if (summary.ok > 0) {
-        toast.success(`Updated ${summary.ok} work order(s) to ${status.replaceAll("_", " ")}`);
+        toast.success(`Updated ${summary.ok} job(s) to ${humanWorkOrderStatusLabel(status)}`);
       }
       if (summary.conflict > 0) {
-        toast.error(`${summary.conflict} work order(s) changed elsewhere. The list was refreshed.`);
+        toast.error(`${summary.conflict} job(s) changed elsewhere. The list was refreshed.`);
         void workOrdersQuery.refetch();
       }
       if (summary.error > 0) {
-        toast.error(summary.lines.filter((line) => !line.includes("changed by someone else")).join(" ") || "Some work orders could not be updated.");
+        toast.error(summary.lines.filter((line) => !line.includes("changed by someone else")).join(" ") || "Some jobs could not be updated.");
       }
       setSelectedIds(remainingBulkSelection(selectedIds, result.results ?? []));
     } catch (error) {
@@ -552,6 +736,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
           <WorkOrderQueuePanel
             jobDomain={jobDomain}
             onOpenWorkOrder={openEditModal}
+            onQueueAction={handleQueueAction}
             onRefreshLegacy={() => void workOrdersQuery.refetch()}
             selectedIds={selectedIds}
             onSelectedIdsChange={setSelectedIds}
@@ -566,15 +751,16 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       return <LoadingSkeleton />;
     }
 
-    if (workOrdersQuery.error) {
+    // A failed background refresh keeps the rows; only an error with nothing loaded replaces them.
+    if (listErrorPresentation({ isError: workOrdersQuery.isError, hasData: Boolean(workOrdersQuery.data) }) === "full") {
       return (
         <ErrorState
           error={workOrdersQuery.error}
           onRetry={() => workOrdersQuery.refetch()}
-          title="Could not load work orders"
+          title="Could not load jobs"
           description={toSafeApiErrorMessage(
             workOrdersQuery.error,
-            "Unable to load work orders right now."
+            "Unable to load jobs right now."
           )}
         />
       );
@@ -582,6 +768,10 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
 
     return (
       <>
+        {workOrdersQuery.isError ? (
+          <RefreshErrorBanner onRetry={() => void workOrdersQuery.refetch()} retrying={workOrdersQuery.isFetching} />
+        ) : null}
+        <div className={workOrdersQuery.isPlaceholderData ? "opacity-60 transition-opacity" : undefined} aria-busy={workOrdersQuery.isPlaceholderData}>
         {view === "kanban" ? (
           <KanbanBoard
             groupedWorkOrders={workOrdersQuery.groupedByStatus}
@@ -597,7 +787,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             onHold={(workOrder) => void handleStatusChange(workOrder, "ON_HOLD")}
             onComplete={(workOrder) => setCompletionTarget(workOrder)}
             onAssign={(workOrder, technicianId) => void handleAssign(workOrder, technicianId)}
-            onDelete={(workOrder) => void handleDelete(workOrder)}
+            onDelete={canCancelWorkOrders ? (workOrder) => void handleDelete(workOrder) : undefined}
             onEdit={openEditModal}
             canApprove={canApproveWorkOrders}
             onApprove={(workOrder) => void handleApprove(workOrder)}
@@ -634,17 +824,30 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             onStatusChange={(workOrder, status) => void handleStatusChange(workOrder, status)}
             onAssign={(workOrder, technicianId) => void handleAssign(workOrder, technicianId)}
             onComplete={(workOrder) => setCompletionTarget(workOrder)}
-            onDelete={(workOrder) => void handleDelete(workOrder)}
+            onDelete={canCancelWorkOrders ? (workOrder) => void handleDelete(workOrder) : undefined}
             onEdit={openEditModal}
             actorRole={currentUser.role}
+            currentUserId={currentUser.id}
             onPrimary={(workOrder, actionId) => void handlePrimary(workOrder, actionId)}
           />
         )}
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white">
+          <JobsPagination
+            page={workOrdersQuery.pagination.page}
+            totalPages={workOrdersQuery.pagination.totalPages}
+            total={workOrdersQuery.pagination.total}
+            pageSize={filters.pageSize}
+            onPageChange={setListPage}
+            onPageSizeChange={(pageSize) => updateFilters({ pageSize })}
+          />
+        </div>
       </>
     );
   }, [
     handleAssign,
     handlePrimary,
+    handleQueueAction,
     currentUser.role,
     handleApprove,
     handleReject,
@@ -660,9 +863,9 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
     technicians
   ]);
 
-  const pageHeading = heading ?? "Work Orders";
+  const pageHeading = heading ?? "Jobs";
   const pageDescription =
-    description ?? "All executable maintenance jobs across machinery, service, and vehicle domains.";
+    description ?? "All maintenance jobs across machinery, vehicles and services.";
 
   return (
     <div className="min-w-0 space-y-3">
@@ -679,12 +882,13 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
               onClick={openCreateModal}
               className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
             >
-              <Plus size={16} aria-hidden /> Create Work Order
+              <Plus size={16} aria-hidden /> Create job
             </button>
           ) : null}
         </div>
         }
       />
+      {aboveList}
       {selectedIds.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
           <span className="font-medium text-slate-700">{bulkCancelSummary(selectedIds.length, cancellableIds.length)}</span>
@@ -715,7 +919,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             disabled={bulkBusy || cancellableIds.length === 0}
             className="rounded-md border border-rose-300 px-2 py-1 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60"
           >
-            Cancel open work orders
+            Cancel open jobs
           </button>
         </div>
       ) : null}
@@ -738,7 +942,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       )}
 
       {view === "queues" ? null : (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Work order counts">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Job counts">
           {(
             [
               ["Open", workOrdersQuery.stats.open, "text-slate-900"],
@@ -763,9 +967,11 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
       >
         <div className="flex items-center justify-between px-1 text-sm text-slate-500">
           {view === "queues" ? (
-            <span className="sr-only">Work order queue</span>
+            <span className="sr-only">Job queue</span>
           ) : (
-            <p>{totalFiltered} work order(s) shown</p>
+            <p>
+              {totalFiltered} of {workOrdersQuery.pagination.total} job(s) shown
+            </p>
           )}
           {workOrdersQuery.isFetching ? (
             <p className="inline-flex items-center gap-1 text-brand-700">
@@ -792,11 +998,17 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             ? jobDomain
             : undefined
         }
-        initialTab={recordLink.tab}
+        initialTab={editorState.detailTab ?? recordLink.tab}
+        actorRole={currentUser.role}
+        onPrimaryAction={(workOrder, actionId) => {
+          // Assign stays in this drawer (assignment tab). Other steps open their own dialog, so close the drawer first.
+          if (actionId !== "assign") closeEditorModal();
+          handleQueueAction(workOrder, actionId);
+        }}
         onClose={closeEditorModal}
         onCreate={(values) => {
           if (!canCreateWorkOrders) {
-            toast.error("You do not have permission to create work orders.");
+            toast.error("You do not have permission to create jobs.");
             return;
           }
           if (!currentUserId) {
@@ -818,7 +1030,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
               idempotencyKey: createIdempotencyKey.current
             })
             .then(() => {
-              toast.success("Work order created");
+              toast.success("Job created");
               closeEditorModal();
             })
             .catch((error) => {
@@ -836,7 +1048,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
               payload: values
             })
             .then(() => {
-              toast.success("Work order updated");
+              toast.success("Job updated");
               closeEditorModal();
             })
             .catch((error) => {
@@ -877,7 +1089,9 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
             </label>
             <div className="mt-4 flex justify-end gap-2">
               <button type="button" className="min-h-10 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setApproveAssignTarget(null)}>Cancel</button>
-              <button type="submit" className="min-h-10 rounded-md bg-brand-700 px-3 text-sm font-semibold text-white">Approve & assign</button>
+              <button type="submit" disabled={approveAssignSubmitting} aria-busy={approveAssignSubmitting} className="min-h-11 rounded-md bg-brand-700 px-3 text-sm font-semibold text-white disabled:opacity-60">
+                {approveAssignSubmitting ? "Saving…" : "Approve & assign"}
+              </button>
             </div>
           </form>
         </div>
@@ -888,6 +1102,11 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
         workOrder={completionTarget}
         submitting={statusMutation.isPending}
         onClose={() => setCompletionTarget(null)}
+        onOpenTab={(tab) => {
+          const target = completionTarget;
+          setCompletionTarget(null);
+          if (target) openEditModal(target, tab);
+        }}
         onSubmit={(payload) => {
           if (!completionTarget) {
             return;
@@ -918,7 +1137,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
               }
             })
             .then(() => {
-              toast.success("Work order submitted for supervisor verification");
+              toast.success("Job submitted for supervisor check");
               setCompletionTarget(null);
             })
             .catch((error) => {
@@ -927,6 +1146,16 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
         }}
       />
 
+      {startTarget ? (
+        <StartJobDialog
+          job={startTarget}
+          onClose={() => setStartTarget(null)}
+          onStarted={async () => {
+            setStartTarget(null);
+            await workOrdersQuery.refetch();
+          }}
+        />
+      ) : null}
       <HoldWorkOrderModal
         open={Boolean(holdTarget)}
         workOrder={holdTarget}
@@ -960,7 +1189,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
             <h2 className="text-lg font-semibold text-slate-900">Reject {rejectTarget.woNumber}</h2>
-            <p className="mt-1 text-sm text-slate-600">Provide a reason for rejection. This cancels the work order.</p>
+            <p className="mt-1 text-sm text-slate-600">Provide a reason for rejection. This cancels the job.</p>
             <textarea
               value={rejectReason}
               onChange={(event) => setRejectReason(event.target.value)}
@@ -985,7 +1214,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
                 onClick={() => void submitReject()}
                 className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
               >
-                Reject work order
+                Reject job
               </button>
             </div>
           </div>
@@ -994,6 +1223,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description }: Work
 
       {busy ? <div className="fixed bottom-4 right-4 rounded-full bg-slate-900 px-3 py-1 text-xs text-white">Processing...</div> : null}
       {confirmDialog}
+      {promptDialog}
     </div>
   );
 }

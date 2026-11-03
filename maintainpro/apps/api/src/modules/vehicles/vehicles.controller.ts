@@ -82,6 +82,19 @@ export class VehiclesController {
     return { data, message: "Vehicle created" };
   }
 
+  @Get("gate-checks")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "SECURITY_OFFICER")
+  async gateChecks(@Query("date") date?: string) {
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Colombo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).format(new Date());
+    const data = await this.vehiclesService.listGateChecks(date?.trim() || today);
+    return { data, message: "Gate checks fetched" };
+  }
+
   @Get("gate-queue")
   @Permissions("vehicles.view")
   async gateQueue(

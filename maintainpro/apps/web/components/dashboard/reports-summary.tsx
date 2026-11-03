@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate as lkDate, formatDateTime as lkDateTime } from "@/lib/localization";
 import Link from "next/link";
 import type { Route } from "next";
 import { useQuery } from "@tanstack/react-query";
@@ -37,7 +38,7 @@ export function ReportsSummary({ readOnly = false }: ReportsSummaryProps) {
     );
   }
 
-  if (query.isError) {
+  if (query.isError && !query.data) {
     return (
       <DashboardSection
         title="Reports summary"
@@ -78,7 +79,7 @@ export function ReportsSummary({ readOnly = false }: ReportsSummaryProps) {
   const metaBits = [
     dashboard.currencyCode ? `Currency ${dashboard.currencyCode}` : null,
     dashboard.reportingTimezone ? `Timezone ${dashboard.reportingTimezone}` : null,
-    dashboard.generatedAt ? `Generated ${new Date(dashboard.generatedAt).toLocaleString()}` : null
+    dashboard.generatedAt ? `Generated ${lkDateTime(dashboard.generatedAt)}` : null
   ].filter(Boolean);
 
   return (

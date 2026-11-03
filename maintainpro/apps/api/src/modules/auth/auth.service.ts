@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   Logger,
@@ -29,6 +31,42 @@ import { RegisterDto } from "./dto/register.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { AcceptInviteDto } from "./dto/accept-invite.dto";
 import type { AuthTokens, JwtPayload, RefreshTokenPayload } from "./auth.types";
+import { bumpSessionVersion, currentSessionVersion, isSessionVersionCurrent } from "./session-version";
+import {
+  effectiveRoleForTenant as resolveTenantEffectiveRole,
+  loadRolePermissionKeysForTenant
+} from "../tenancy/tenant-effective-role";
+
+export const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+/** 1st lock 30 seconds, 2nd 60 seconds, 3rd and later 90 seconds. */
+export const LOCKOUT_SECONDS = [30, 60, 90] as const;
+const LOCKOUT_MEMORY_MS = 24 * 60 * 60 * 1000;
+/**
+ * Cost-12 bcrypt hash of a throwaway value. Unknown / inactive accounts are compared
+ * against it so their response time matches a real wrong-password attempt.
+ */
+const TIMING_EQUALIZER_HASH = "$2a$12$5TWGdqoF6UV2gakfxgITn.W5UeN.eoY6DJpNIL/T.N2FP2.i3TwOa";
+
+export function lockoutSecondsForRound(previousLockouts: number): number {
+  const index = Math.min(Math.max(0, Math.floor(previousLockouts)), LOCKOUT_SECONDS.length - 1);
+  return LOCKOUT_SECONDS[index];
+}
+
+/**
+ * 429 with the seconds left, so the sign-in page can count down instead of showing
+ * "Incorrect email or password" while the account is locked.
+ */
+export function accountLockedError(retryAfterSeconds: number) {
+  const seconds = Math.max(1, Math.ceil(retryAfterSeconds));
+  return new HttpException(
+    {
+      message: `Too many wrong passwords. Try again in ${seconds} seconds.`,
+      code: "ACCOUNT_LOCKED",
+      metadata: { retryAfterSeconds: seconds }
+    },
+    HttpStatus.TOO_MANY_REQUESTS
+  );
+}
 
 @Injectable()
 export class AuthService {
@@ -128,7 +166,8 @@ export class AuthService {
     // RefreshToken row it corresponds to.
     const refreshPayload: RefreshTokenPayload = {
       sub: payload.sub,
-      tenantId: payload.tenantId ?? null
+      tenantId: payload.tenantId ?? null,
+      sv: payload.sv ?? 0
     };
 
     const accessToken = await this.jwtService.signAsync(payload, {
@@ -286,7 +325,8 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role.name as RoleName,
-      tenantId: user.tenantId ?? null
+      tenantId: user.tenantId ?? null,
+      sv: currentSessionVersion(user)
     });
 
     return {
@@ -299,6 +339,71 @@ export class AuthService {
       },
       message: "Registration successful"
     };
+  }
+
+  /** Lockouts since the last successful sign-in, looking back at most one day. */
+  private async countRecentLockouts(userId: string, lastLogin: Date | null, now: Date): Promise<number> {
+    const dayAgo = new Date(now.getTime() - LOCKOUT_MEMORY_MS);
+    const since = lastLogin && lastLogin > dayAgo ? lastLogin : dayAgo;
+    try {
+      return (
+        (await this.prisma.securityEvent?.count({
+          where: {
+            actorId: userId,
+            eventType: "ACCOUNT_LOCK",
+            reasonCode: "MAX_FAILED_ATTEMPTS",
+            createdAt: { gte: since }
+          }
+        })) ?? 0
+      );
+    } catch {
+      return 0;
+    }
+  }
+
+  private async equalizeLoginTiming(password: string): Promise<void> {
+    await bcrypt.compare(password ?? "", TIMING_EQUALIZER_HASH);
+  }
+
+  /**
+   * Unknown, inactive and workforce-disabled sign-ins follow the same 5-try / 30-60-90 s lock as
+   * real accounts, so the sign-in page always counts down and the reply never reveals which
+   * emails exist. Kept in memory: there is no user row to store it on.
+   */
+  private readonly unknownLoginLocks = new Map<string, { failed: number; lockedUntil: number; rounds: number; lastAt: number }>();
+
+  private assertUnknownIdentifierNotLocked(email: string, now: Date): void {
+    const entry = this.unknownLoginLocks.get(email.trim().toLowerCase());
+    if (entry && entry.lockedUntil > now.getTime()) {
+      throw accountLockedError((entry.lockedUntil - now.getTime()) / 1000);
+    }
+  }
+
+  private failUnknownIdentifier(email: string, now: Date): never {
+    const key = email.trim().toLowerCase();
+    const at = now.getTime();
+    const previous = this.unknownLoginLocks.get(key);
+    const fresh = !previous || at - previous.lastAt > LOCKOUT_MEMORY_MS;
+    const entry = fresh ? { failed: 0, lockedUntil: 0, rounds: 0, lastAt: at } : previous;
+    if (entry.lockedUntil && entry.lockedUntil <= at) {
+      entry.failed = 0;
+      entry.lockedUntil = 0;
+    }
+    entry.failed += 1;
+    entry.lastAt = at;
+    this.unknownLoginLocks.delete(key);
+    this.unknownLoginLocks.set(key, entry);
+    if (this.unknownLoginLocks.size > 5000) {
+      const oldest = this.unknownLoginLocks.keys().next().value;
+      if (oldest !== undefined) this.unknownLoginLocks.delete(oldest);
+    }
+    if (entry.failed >= MAX_FAILED_LOGIN_ATTEMPTS) {
+      const seconds = lockoutSecondsForRound(entry.rounds);
+      entry.rounds += 1;
+      entry.lockedUntil = at + seconds * 1000;
+      throw accountLockedError(seconds);
+    }
+    throw new UnauthorizedException("Invalid email or password");
   }
 
   async login(dto: LoginDto) {
@@ -324,6 +429,8 @@ export class AuthService {
     });
 
     if (!user || !user.isActive) {
+      this.assertUnknownIdentifierNotLocked(dto.email, now);
+      await this.equalizeLoginTiming(dto.password);
       recordAuthSecurityEvent(this.prisma, {
         eventType: "LOGIN_FAILURE",
         outcome: "FAILURE",
@@ -332,11 +439,13 @@ export class AuthService {
         requestId: requestContext.get()?.requestId ?? null,
         metadata: { reason: "unknown_or_inactive" }
       });
-      throw new UnauthorizedException("Invalid email or password");
+      this.failUnknownIdentifier(dto.email, now);
     }
 
     const linkedEmployee = user.linkedWorkforceEmployees?.[0];
     if (linkedEmployee && !linkedEmployee.active) {
+      this.assertUnknownIdentifierNotLocked(dto.email, now);
+      await this.equalizeLoginTiming(dto.password);
       recordAuthSecurityEvent(this.prisma, {
         tenantId: user.tenantId,
         actorId: user.id,
@@ -346,7 +455,7 @@ export class AuthService {
         identifierHint: dto.email,
         requestId: requestContext.get()?.requestId ?? null
       });
-      throw new UnauthorizedException("Invalid email or password");
+      this.failUnknownIdentifier(dto.email, now);
     }
 
     if (user.lockedUntil && user.lockedUntil > now) {
@@ -359,23 +468,24 @@ export class AuthService {
         identifierHint: dto.email,
         requestId: requestContext.get()?.requestId ?? null
       });
-      throw new UnauthorizedException("Invalid email or password");
-    }
-
-    if (user.temporaryPasswordExpiresAt && user.temporaryPasswordExpiresAt <= now && user.mustChangePassword) {
-      throw new UnauthorizedException("Temporary password expired. Contact your administrator.");
+      throw accountLockedError((user.lockedUntil.getTime() - now.getTime()) / 1000);
     }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!valid) {
-      const nextFailedAttempts = user.failedLoginAttempts + 1;
-      const shouldLock = nextFailedAttempts >= 5;
+      // A lock that has run out starts a fresh round of five attempts.
+      const lockExpired = Boolean(user.lockedUntil && user.lockedUntil <= now);
+      const nextFailedAttempts = (lockExpired ? 0 : user.failedLoginAttempts) + 1;
+      const shouldLock = nextFailedAttempts >= MAX_FAILED_LOGIN_ATTEMPTS;
+      const lockSeconds = shouldLock
+        ? lockoutSecondsForRound(await this.countRecentLockouts(user.id, user.lastLogin ?? null, now))
+        : 0;
       await this.prisma.user.update({
         where: { id: user.id },
         data: {
           failedLoginAttempts: nextFailedAttempts,
-          lockedUntil: shouldLock ? new Date(now.getTime() + 15 * 60 * 1000) : null
+          lockedUntil: shouldLock ? new Date(now.getTime() + lockSeconds * 1000) : null
         }
       });
       recordAuthSecurityEvent(this.prisma, {
@@ -388,7 +498,13 @@ export class AuthService {
         requestId: requestContext.get()?.requestId ?? null,
         metadata: { attemptBucket: nextFailedAttempts }
       });
+      if (shouldLock) throw accountLockedError(lockSeconds);
       throw new UnauthorizedException("Invalid email or password");
+    }
+
+    // Only after a correct password, so the expiry never reveals which accounts exist.
+    if (user.temporaryPasswordExpiresAt && user.temporaryPasswordExpiresAt <= now && user.mustChangePassword) {
+      throw new UnauthorizedException("Temporary password expired. Contact your administrator.");
     }
 
     const mustChangePassword = user.mustChangePassword === true;
@@ -404,7 +520,8 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role.name as RoleName,
-      tenantId: user.tenantId ?? null
+      tenantId: user.tenantId ?? null,
+      sv: currentSessionVersion(user)
     });
 
     return {
@@ -490,6 +607,14 @@ export class AuthService {
       throw new UnauthorizedException("Invalid refresh token");
     }
 
+    if (!isSessionVersionCurrent(decoded.sv, user.sessionVersion)) {
+      await this.prisma.refreshToken.updateMany({
+        where: { familyId: storedToken.familyId, revokedAt: null },
+        data: { revokedAt: now, lastUsedAt: now }
+      });
+      throw new UnauthorizedException("Invalid refresh token");
+    }
+
     if (decoded.sub !== storedToken.userId) {
       await this.prisma.refreshToken.updateMany({
         where: { familyId: storedToken.familyId, revokedAt: null },
@@ -538,7 +663,8 @@ export class AuthService {
         sub: user.id,
         email: user.email,
         role: user.role.name as RoleName,
-        tenantId: user.tenantId ?? null
+        tenantId: user.tenantId ?? null,
+        sv: currentSessionVersion(user)
       },
       { familyId: storedToken.familyId, replacedTokenHash: tokenHash }
     );
@@ -547,6 +673,27 @@ export class AuthService {
       data: tokens,
       message: "Token refreshed"
     };
+  }
+
+  /**
+   * Fresh token pair (new refresh family) for the caller after a credential change has
+   * bumped their session version, so only this session survives.
+   */
+  async issueSessionTokens(userId: string, activeTenantId: string | null = null): Promise<AuthTokens> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true }
+    });
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException("Account is inactive or no longer exists");
+    }
+    return this.generateTokens({
+      sub: user.id,
+      email: user.email,
+      role: user.role.name as RoleName,
+      tenantId: activeTenantId ?? user.tenantId ?? null,
+      sv: currentSessionVersion(user)
+    });
   }
 
   async logout(dto: { refreshToken: string }) {
@@ -568,6 +715,11 @@ export class AuthService {
 
   async logoutAll(userId: string) {
     const now = new Date();
+    // Also kills unexpired access tokens on every device.
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: bumpSessionVersion()
+    });
     const result = await this.prisma.refreshToken.updateMany({
       where: {
         userId,
@@ -628,7 +780,7 @@ export class AuthService {
 
     const frontendBase =
       this.configService.get<string>("FRONTEND_URL") ??
-      this.configService.get<string>("CORS_ORIGIN", "http://localhost:3001").split(",")[0].trim();
+      this.configService.get<string>("CORS_ORIGIN", "http://localhost:3041").split(",")[0].trim();
     const resetLink = `${frontendBase.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(token)}`;
 
     try {
@@ -669,7 +821,13 @@ export class AuthService {
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: passwordResetToken.userId },
-        data: { passwordHash }
+        data: {
+          passwordHash,
+          mustChangePassword: false,
+          temporaryPasswordExpiresAt: null,
+          lastPasswordChangedAt: now,
+          ...bumpSessionVersion()
+        }
       });
 
       await tx.passwordResetToken.update({
@@ -870,13 +1028,29 @@ export class AuthService {
       resolvedTenantId = firstMembership?.tenantId ?? null;
     }
 
-    const roleKeys = this.permissionKeysFromRole(user.role);
+    // Outside the home tenant the membership role applies (same rule as the guards).
+    const membership =
+      resolvedTenantId && user.role?.name !== RoleName.SUPER_ADMIN && resolvedTenantId !== (user.tenantId ?? null)
+        ? await this.prisma.tenantMembership.findFirst({
+            where: { userId, tenantId: resolvedTenantId },
+            select: { membershipRole: true }
+          })
+        : null;
+    const tenantRole = resolveTenantEffectiveRole({
+      globalRole: user.role?.name ?? "",
+      homeTenantId: user.tenantId ?? null,
+      activeTenantId: resolvedTenantId,
+      membershipRole: membership?.membershipRole ?? null
+    });
+    const roleKeys = tenantRole.usesGlobalRole
+      ? this.permissionKeysFromRole(user.role)
+      : await loadRolePermissionKeysForTenant(this.prisma, tenantRole.roleName, resolvedTenantId);
     const permissionKeys =
       user.role?.name === "SUPER_ADMIN"
         ? roleKeys
         : await loadEffectivePermissionKeys(
             this.prisma,
-            { id: user.id, tenantId: user.tenantId ?? null },
+            { id: user.id, tenantId: tenantRole.usesGlobalRole ? user.tenantId ?? null : resolvedTenantId },
             roleKeys
           );
 
@@ -892,6 +1066,7 @@ export class AuthService {
     return {
       data: {
         ...this.toPublicUser(user),
+        ...(tenantRole.usesGlobalRole ? {} : { role: { ...user.role, name: tenantRole.roleName } }),
         permissions: permissionKeys,
         tenantId: resolvedTenantId,
         enabledFeatures,

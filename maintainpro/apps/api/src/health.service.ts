@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
+import { EvidenceStorageProviderService } from "./modules/evidence/evidence-storage-provider.service";
 import { DeploymentReadinessService } from "./deployment-readiness.service";
 import { PrismaService } from "./database/prisma.service";
 import { ReplicationSyncService } from "./database/replication-sync.service";
@@ -455,6 +456,14 @@ export class HealthService {
   private async checkObjectStorage(): Promise<DependencyCheck> {
     const required = this.configService.get<boolean>("OBJECT_STORAGE_REQUIRED_FOR_READINESS", false);
 
+    if (this.configService.get<string>("NODE_ENV") === "production" && this.configService.get<string>("STORAGE_MODE") === "local") {
+      const readiness = new EvidenceStorageProviderService(this.configService).checkReadiness();
+      return { key: "objectStorage", label: "Local evidence storage", required,
+        status: readiness.state === "configured" ? (readiness.lowDiskSpace ? "degraded" : "operational") : "degraded",
+        message: readiness.message,
+        details: { mode: "local", rootSet: readiness.rootSet ?? false, writable: readiness.writable ?? false,
+          freeSpaceBytes: readiness.freeSpaceBytes ?? null, lowDiskSpace: readiness.lowDiskSpace ?? false } };
+    }
     if (this.hasCloudinaryConfig()) {
       return {
         key: "objectStorage",
@@ -703,6 +712,12 @@ export class HealthService {
       };
     }
 
+    if (storageMode === "local" && this.configService.get<string>("NODE_ENV") === "production") {
+      const readiness = new EvidenceStorageProviderService(this.configService).checkReadiness();
+      return { key: "storage", label: "Local evidence storage", required: true,
+        status: readiness.state === "configured" ? (readiness.lowDiskSpace ? "degraded" : "operational") : "misconfigured",
+        message: readiness.message };
+    }
     if (storageMode === "local") {
       return {
         key: "storage",

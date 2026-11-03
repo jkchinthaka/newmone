@@ -68,7 +68,7 @@ type EvidenceTimelineProps = {
 
 export function EvidenceTimeline({
   events,
-  title = "Evidence timeline",
+  title = "Photos timeline",
   description = "Read-only chronological record of operational events.",
   emptyTitle = "No timeline events yet",
   emptyDescription = "Events will appear here when underlying records include dated activity fields."
@@ -154,7 +154,7 @@ export function mapWorkOrderDatesToEvidenceTimeline(input: {
       id: `${input.id}-reported`,
       type: "reported",
       occurredAt: input.createdAt,
-      description: "Work order created."
+      description: "Job created."
     });
   }
 

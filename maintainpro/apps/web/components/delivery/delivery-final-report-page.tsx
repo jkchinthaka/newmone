@@ -60,7 +60,7 @@ export function DeliveryFinalReportPage() {
       ) : (
         <>
           <div className="rounded-xl border bg-white p-5 shadow-sm">
-            <p className="text-xs font-medium uppercase text-slate-500">Readiness verdict</p>
+            <p className="text-xs font-medium uppercase text-slate-500">Ready or not</p>
             <p className="mt-2 text-2xl font-semibold">{verdict}</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6 text-sm">
               <div>

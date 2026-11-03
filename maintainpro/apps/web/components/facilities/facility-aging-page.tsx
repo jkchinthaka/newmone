@@ -69,7 +69,7 @@ export function FacilityAgingPage() {
     return (
       <div className="space-y-4">
         <PageBreadcrumbs />
-        <InlineLoadingState label="Loading SLA / aging report…" />
+        <InlineLoadingState label="Loading time limit / aging report…" />
       </div>
     );
   }
@@ -110,10 +110,10 @@ export function FacilityAgingPage() {
         <div>
           <div className="flex items-center gap-2">
             <BarChart3 className="h-6 w-6 text-brand-700" aria-hidden="true" />
-            <h1 className="page-title">SLA / Aging Report</h1>
+            <h1 className="page-title">Time limit / Aging Report</h1>
           </div>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
-            Tenant-scoped aging buckets for active facility issues and linked work orders with due dates.
+            Tenant-scoped aging buckets for active facility issues and linked jobs with due dates.
             Generated {formatDateTime(report.generatedAt)}.
           </p>
         </div>
@@ -144,7 +144,7 @@ export function FacilityAgingPage() {
 
       {!hasData ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-600">
-          No active facility issues or linked work orders with due dates for this tenant yet. Aging buckets
+          No active facility issues or linked jobs with due dates for this tenant yet. Aging buckets
           will populate from real records only.
         </div>
       ) : null}
@@ -162,7 +162,7 @@ export function FacilityAgingPage() {
           <FacilityKpiCard
             label="Overdue issues"
             value={formatAgingMetric(report.issues.overdueIssueCount)}
-            hint="OPEN / IN_PROGRESS with SLA target in the past"
+            hint="OPEN / IN_PROGRESS with time limit target in the past"
             tone={report.issues.overdueIssueCount > 0 ? "danger" : "neutral"}
           />
           <FacilityKpiCard
@@ -171,7 +171,7 @@ export function FacilityAgingPage() {
             tone={report.issues.criticalHighActiveCount > 0 ? "danger" : "neutral"}
           />
           <FacilityKpiCard
-            label="WO with due dates"
+            label="Job with due dates"
             value={formatAgingMetric(report.workOrders.withDueDateCount)}
             hint={`${formatAgingMetric(report.workOrders.overdueCount)} overdue`}
             tone={report.workOrders.overdueCount > 0 ? "danger" : "info"}
@@ -186,21 +186,21 @@ export function FacilityAgingPage() {
           rows={report.issues.ageBuckets}
         />
         <FacilityAgingHeatmap
-          title="Linked work order aging"
+          title="Linked job aging"
           description={
             report.workOrders.trackingAvailable
-              ? "Age since work order creation for linked active work orders with due dates"
-              : "No linked work orders with due dates are available for this tenant"
+              ? "Age since job creation for linked active jobs with due dates"
+              : "No linked jobs with due dates are available for this tenant"
           }
           rows={report.workOrders.ageBuckets}
-          emptyLabel="No linked work orders with due dates"
+          emptyLabel="No linked jobs with due dates"
         />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
         <FacilityAttentionList
           title="Overdue issues"
-          description="Oldest SLA breaches first"
+          description="Oldest time limit breaches first"
           items={report.issues.overduePreview}
           emptyLabel="No overdue issues"
         />
@@ -215,14 +215,14 @@ export function FacilityAgingPage() {
       {report.workOrders.overduePreview.length > 0 ? (
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <header className="mb-3">
-            <h2 className="text-sm font-semibold text-slate-900">Overdue linked work orders</h2>
-            <p className="text-xs text-slate-500">Work orders past due date that remain active</p>
+            <h2 className="text-sm font-semibold text-slate-900">Overdue linked jobs</h2>
+            <p className="text-xs text-slate-500">Jobs past due date that remain active</p>
           </header>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
-                  <th className="py-2 pr-4">Work order</th>
+                  <th className="py-2 pr-4">Job</th>
                   <th className="py-2 pr-4">Title</th>
                   <th className="py-2 pr-4">Due</th>
                   <th className="py-2 text-right">Age (days)</th>

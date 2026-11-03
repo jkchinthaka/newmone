@@ -18,7 +18,7 @@ export function GoLiveDashboardPage() {
       <PageBreadcrumbs />
       <header>
         <h2 className="page-title">Go-Live Control Center</h2>
-        <p className="mt-1 text-sm text-slate-500">Pilot rollout, cutover checklist, waves, go/no-go, and sign-off.</p>
+        <p className="mt-1 text-sm text-slate-500">Pilot rollout, cutover checklist, waves, go/no-go, and supervisor approval.</p>
       </header>
 
       <nav className="flex flex-wrap gap-2 text-sm">
@@ -30,7 +30,7 @@ export function GoLiveDashboardPage() {
             ["/go-live/decision", "Go / No-Go"],
             ["/go-live/rollback", "Rollback Plan"],
             ["/go-live/issues", "Live Issues"],
-            ["/go-live/signoff", "Sign-off"],
+            ["/go-live/signoff", "Supervisor approval"],
             ["/go-live/report", "Final Report"]
           ] as Array<[string, string]>
         ).map(([href, label]) => (
@@ -56,7 +56,7 @@ export function GoLiveDashboardPage() {
                 ["Critical Blockers", data?.openCriticalBlockers, AlertTriangle],
                 ["Backup Status", data?.backupStatus, Shield],
                 ["Rollback Status", data?.rollbackStatus, Flag],
-                ["Sign-off Status", data?.signOffStatus, CheckCircle2],
+                ["Supervisor Approval Status", data?.signOffStatus, CheckCircle2],
                 ["Wave Status", data?.rolloutWaveStatus, Rocket],
                 ["Latest Decision", data?.latestDecision ?? "—", Flag]
               ] as Array<[string, string | number | null | undefined, typeof Rocket]>

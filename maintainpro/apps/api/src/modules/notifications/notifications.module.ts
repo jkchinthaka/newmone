@@ -2,6 +2,7 @@ import { BullModule } from "@nestjs/bull";
 import { Module } from "@nestjs/common";
 
 import { NotificationsController } from "./notifications.controller";
+import { DailyRemindersService } from "./daily-reminders.service";
 import { EmailDispatchService } from "./email-dispatch.service";
 import { NotificationReadinessService } from "./notification-readiness.service";
 import { NotificationTemplatesService } from "./notification-templates.service";
@@ -32,7 +33,8 @@ import { SmsDispatchService } from "./sms-dispatch.service";
     NoopPushProvider,
     NotificationReadinessService,
     NotificationTemplatesService,
-    NotificationUatService
+    NotificationUatService,
+    DailyRemindersService
   ],
   exports: [
     NotificationsService,

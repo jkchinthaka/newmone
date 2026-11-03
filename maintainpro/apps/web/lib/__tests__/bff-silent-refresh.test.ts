@@ -5,7 +5,8 @@ import {
   canSilentlyRefreshSession,
   isAuthCredentialPath,
   resetSilentRefreshLatchForTests,
-  runExclusiveSilentRefresh
+  runExclusiveSilentRefresh,
+  silentRefreshLatchCountForTests
 } from "../bff-silent-refresh";
 
 afterEach(() => {
@@ -63,9 +64,9 @@ describe("runExclusiveSilentRefresh", () => {
     };
 
     const [a, b, c] = await Promise.all([
-      runExclusiveSilentRefresh(runner),
-      runExclusiveSilentRefresh(runner),
-      runExclusiveSilentRefresh(runner)
+      runExclusiveSilentRefresh("rt-user-a", runner),
+      runExclusiveSilentRefresh("rt-user-a", runner),
+      runExclusiveSilentRefresh("rt-user-a", runner)
     ]);
 
     assert.equal(runs, 1);
@@ -80,8 +81,39 @@ describe("runExclusiveSilentRefresh", () => {
       return runs;
     };
 
-    assert.equal(await runExclusiveSilentRefresh(runner), 1);
-    assert.equal(await runExclusiveSilentRefresh(runner), 2);
+    assert.equal(await runExclusiveSilentRefresh("rt-user-a", runner), 1);
+    assert.equal(await runExclusiveSilentRefresh("rt-user-a", runner), 2);
     assert.equal(runs, 2);
+    assert.equal(silentRefreshLatchCountForTests(), 0);
+  });
+
+  it("never shares a refresh result between two different refresh tokens", async () => {
+    const calls: string[] = [];
+    const runnerFor = (token: string) => async () => {
+      calls.push(token);
+      await new Promise((r) => setTimeout(r, 20));
+      return { accessToken: `access-for-${token}`, refreshToken: `next-${token}` };
+    };
+
+    const [a, b, a2] = await Promise.all([
+      runExclusiveSilentRefresh("rt-user-a", runnerFor("rt-user-a")),
+      runExclusiveSilentRefresh("rt-user-b", runnerFor("rt-user-b")),
+      runExclusiveSilentRefresh("rt-user-a", runnerFor("rt-user-a"))
+    ]);
+
+    assert.deepEqual(calls.sort(), ["rt-user-a", "rt-user-b"]);
+    assert.equal(a.accessToken, "access-for-rt-user-a");
+    assert.equal(a2.accessToken, "access-for-rt-user-a");
+    assert.equal(b.accessToken, "access-for-rt-user-b");
+    assert.equal(silentRefreshLatchCountForTests(), 0);
+  });
+
+  it("clears the latch when the refresh rejects", async () => {
+    await assert.rejects(
+      runExclusiveSilentRefresh("rt-user-a", async () => {
+        throw new Error("boom");
+      })
+    );
+    assert.equal(silentRefreshLatchCountForTests(), 0);
   });
 });

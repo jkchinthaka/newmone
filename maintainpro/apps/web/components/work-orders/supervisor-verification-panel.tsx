@@ -40,10 +40,10 @@ export function SupervisorVerificationPanel({
         verificationNote: verificationNote.trim() || undefined,
         expectedVersion
       });
-      toast.success("Work order verified. Close it when the job is finished.");
+      toast.success("Job verified. Close it when the job is finished.");
       onUpdated?.();
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Could not verify work order."));
+      toast.error(getApiErrorMessage(error, "Could not verify job."));
     } finally {
       setBusy(false);
     }
@@ -59,10 +59,10 @@ export function SupervisorVerificationPanel({
       await apiClient.post(`/work-orders/${workOrderId}/reject-supervisor`, {
         reason: rejectionReason.trim()
       });
-      toast.success("Work order sent back for rework.");
+      toast.success("Job sent back to be fixed again.");
       onUpdated?.();
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Could not reject verification."));
+      toast.error(getApiErrorMessage(error, "Could not reject supervisor check."));
     } finally {
       setBusy(false);
     }
@@ -70,14 +70,14 @@ export function SupervisorVerificationPanel({
 
   return (
     <section className="rounded-lg border border-brand-200 bg-brand-50/60 p-4">
-      <h4 className="text-sm font-semibold text-slate-900">Supervisor verification</h4>
+      <h4 className="text-sm font-semibold text-slate-900">Supervisor check</h4>
       <p className="mt-1 text-xs text-slate-600">
-        Verification marks this job Verified. It is not closed until an authorized user closes it. Rejection returns it for rework.
+        Supervisor check marks this job Verified. It is not closed until an authorized user closes it. Rejection returns it to be fixed again.
       </p>
 
       {evidenceRequirements ? (
         <div className="mt-3 rounded-md border border-slate-200 bg-white p-3 text-xs text-slate-700">
-          <p className="font-medium text-slate-900">Evidence summary</p>
+          <p className="font-medium text-slate-900">Photos summary</p>
           <ul className="mt-1 space-y-1">
             <li>Before photos: {evidenceRequirements.beforeCount}</li>
             <li>After photos: {evidenceRequirements.afterCount}</li>
@@ -87,14 +87,14 @@ export function SupervisorVerificationPanel({
               <li className="text-red-700">Rejected evidence: {evidenceRequirements.rejectedCount}</li>
             ) : null}
             {!evidenceRequirements.complete && evidenceRequirements.required ? (
-              <li className="font-medium text-amber-800">Supervisor verification blocked because required evidence is missing.</li>
+              <li className="font-medium text-amber-800">Supervisor check blocked because required photos are missing.</li>
             ) : null}
           </ul>
         </div>
       ) : null}
 
       <label className="mt-3 block space-y-1 text-sm">
-        <span className="font-medium text-slate-700">Verification note (optional)</span>
+        <span className="font-medium text-slate-700">Supervisor check note (optional)</span>
         <textarea
           rows={2}
           value={verificationNote}
@@ -111,7 +111,7 @@ export function SupervisorVerificationPanel({
             value={rejectionReason}
             onChange={(event) => setRejectionReason(event.target.value)}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            placeholder="Required if sending back for rework"
+            placeholder="Required if sending back to be fixed again"
           />
         </label>
       ) : null}
@@ -148,8 +148,8 @@ export function SupervisorVerificationPanel({
         <div className="mt-3 rounded-md border border-slate-300 bg-white p-3 text-sm text-slate-800">
           <p>
             {pendingAction === "verify"
-              ? "Verify this completion? The work order stays open until it is closed."
-              : "Send this work order back for rework?"}
+              ? "Verify this completion? The job stays open until it is closed."
+              : "Send this job back to be fixed again?"}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <button

@@ -70,7 +70,8 @@ describe("Admin user status mutation", () => {
     expect(prisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "user-target" },
-        data: { isActive: false }
+        // Deactivation also bumps the session version (revokes issued tokens).
+        data: { isActive: false, sessionVersion: { increment: 1 } }
       })
     );
     expect(row.isActive).toBe(false);

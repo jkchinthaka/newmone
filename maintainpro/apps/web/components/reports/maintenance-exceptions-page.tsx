@@ -75,7 +75,7 @@ export function MaintenanceExceptionsPage() {
   const woKpis = useMemo(() => {
     const workOrders = (kpis?.workOrders ?? {}) as Record<string, number>;
     return [
-      { label: "Total work orders", value: workOrders.total ?? 0 },
+      { label: "Total jobs", value: workOrders.total ?? 0 },
       { label: "Open", value: workOrders.open ?? 0 },
       { label: "In progress", value: workOrders.inProgress ?? 0 },
       { label: "Overdue", value: workOrders.overdue ?? 0 },
@@ -176,7 +176,7 @@ export function MaintenanceExceptionsPage() {
         </div>
 
         {!selectedType ? (
-          <p className="mt-3 text-sm text-slate-500">Select an exception card to view work order details.</p>
+          <p className="mt-3 text-sm text-slate-500">Select an exception card to view job details.</p>
         ) : detailLoading ? (
           <div className="mt-3 flex items-center text-sm text-slate-500">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading details…
@@ -188,7 +188,7 @@ export function MaintenanceExceptionsPage() {
             <table className="min-w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-2 pr-3">WO</th>
+                  <th className="py-2 pr-3">Job</th>
                   <th className="py-2 pr-3">Title</th>
                   <th className="py-2 pr-3">Asset</th>
                   <th className="py-2 pr-3">Status</th>
@@ -227,7 +227,7 @@ export function MaintenanceExceptionsPage() {
         <div className="flex items-start gap-2">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <p>
-            Counts are aligned with Work Order governance (UAT-009) and Parts controls (UAT-010). PDF export, vendor
+            Counts are aligned with job governance (UAT-009) and Parts controls (UAT-010). PDF export, vendor
             invoice gaps, and full BI dashboards remain on the roadmap.
           </p>
         </div>

@@ -14,7 +14,7 @@ const configuredMinio: EvidenceStorageReadiness = {
   uploadsEnabled: true,
   maxFileSizeMb: 10,
   allowedMimeTypes: ["image/jpeg", "image/png"],
-  message: "MinIO evidence storage is ready.",
+  message: "MinIO photos storage is ready.",
   missingKeys: []
 };
 

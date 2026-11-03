@@ -3,9 +3,11 @@
  *
  * Kept separate from proxyBffRequest so the security rules can be unit-tested without
  * spinning up NextRequest. Behavior must stay strict: GET-only, never on credential
- * endpoints, only when a refresh cookie is present, and concurrent callers share one
- * in-flight refresh so a burst of 401s cannot rotate tokens in parallel.
+ * endpoints, only when a refresh cookie is present, and concurrent callers with the same
+ * refresh token share one in-flight refresh so a burst of 401s cannot rotate tokens in parallel.
  */
+
+import { createHash } from "node:crypto";
 
 export type SilentRefreshSession = {
   refreshToken?: string | null;
@@ -49,30 +51,44 @@ export function canSilentlyRefreshSession(
   return typeof session.refreshToken === "string" && session.refreshToken.trim().length > 0;
 }
 
-type RefreshRunner = () => Promise<unknown>;
+const refreshInFlight = new Map<string, Promise<unknown>>();
 
-let refreshInFlight: Promise<unknown> | null = null;
+function refreshKey(refreshToken: string): string {
+  return createHash("sha256").update(refreshToken).digest("hex");
+}
 
 /**
- * Coalesce concurrent silent-refresh attempts onto a single upstream POST /auth/refresh.
- * Callers still retry their own original GET with the resulting tokens.
+ * Coalesce concurrent silent-refresh attempts for the SAME refresh token onto a single
+ * upstream POST /auth/refresh. Different sessions never share a result: the latch is keyed
+ * by a hash of the caller's own refresh token, so one user's rotated tokens can never be
+ * written into another user's cookies.
  */
-export async function runExclusiveSilentRefresh<T>(runner: () => Promise<T>): Promise<T> {
-  if (refreshInFlight) {
-    return refreshInFlight as Promise<T>;
+export async function runExclusiveSilentRefresh<T>(
+  refreshToken: string,
+  runner: () => Promise<T>
+): Promise<T> {
+  const key = refreshKey(refreshToken);
+  const existing = refreshInFlight.get(key);
+  if (existing) {
+    return existing as Promise<T>;
   }
 
   const pending = runner().finally(() => {
-    if (refreshInFlight === pending) {
-      refreshInFlight = null;
+    if (refreshInFlight.get(key) === pending) {
+      refreshInFlight.delete(key);
     }
   });
 
-  refreshInFlight = pending;
+  refreshInFlight.set(key, pending);
   return pending;
 }
 
-/** Test-only: reset the in-flight latch between cases. */
+/** Test-only: reset the in-flight latches between cases. */
 export function resetSilentRefreshLatchForTests(): void {
-  refreshInFlight = null;
+  refreshInFlight.clear();
+}
+
+/** Test-only: number of in-flight refresh latches. */
+export function silentRefreshLatchCountForTests(): number {
+  return refreshInFlight.size;
 }

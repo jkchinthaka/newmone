@@ -97,7 +97,7 @@ export default function RegisterVehiclePage() {
 
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4">
-      <PageBreadcrumbs items={[{ label: "Admin", href: "/admin" }, { label: "Register vehicle" }]} />
+      <PageBreadcrumbs items={[{ label: "Admin", href: "/admin" }, { label: "Add Vehicle" }]} />
       <div>
         <h1 className="text-xl font-semibold text-slate-900">Register vehicle</h1>
         <p className="mt-1 text-sm text-slate-600">Add a company vehicle. Fields marked * are required.</p>
@@ -236,7 +236,7 @@ export default function RegisterVehiclePage() {
             disabled={saving || Boolean(createdId)}
             type="submit"
           >
-            {saving ? "Registering..." : "Register vehicle"}
+            {saving ? "Registering..." : "Add vehicle"}
           </button>
         </div>
       </form>

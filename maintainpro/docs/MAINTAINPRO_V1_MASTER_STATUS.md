@@ -1,5 +1,7 @@
 # MaintainPro V1 — Master Scope & Implementation Status
 
+> Historical. This status is not the current product record. Read `docs/handover/FINAL_HANDOVER_2026-10-21.md`.
+
 **Last updated:** 2026-09-15  
 **Canonical product branch (Phases 0–14):** `maintainpro/integration-v1`  
 **Canonical remote tip (Phase 14 product + master SoT):** `c54d7824ad42da0cd33c9c3a49dd5f7d0a6d2ed1`  

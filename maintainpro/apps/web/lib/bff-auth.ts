@@ -57,7 +57,7 @@ export const BFF_CSRF_EXEMPTIONS: readonly CsrfExemption[] = [
     match: "exact",
     reason: "Read-only invite validation before accept",
     authRequirement: "Public with invite token",
-    abuseRisk: "Low (verification only)",
+    abuseRisk: "Low (supervisor check only)",
     testCoverage: "CSRF exemption table review"
   },
   {

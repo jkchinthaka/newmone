@@ -1,5 +1,7 @@
 "use client";
 
+import { ButtonSpinner, TableLoadingRows } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/page-state";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -48,6 +50,7 @@ export default function DepartmentsPage() {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [items, setItems] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -61,8 +64,9 @@ export default function DepartmentsPage() {
         params: q ? { q } : {},
       });
       setItems(Array.isArray(response.data?.data) ? response.data.data : []);
-    } catch {
-      toast.error("Failed to load departments");
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(err);
     } finally {
       setLoading(false);
     }
@@ -271,7 +275,7 @@ export default function DepartmentsPage() {
               disabled={submitting}
               className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              {submitting ? <ButtonSpinner className="h-3.5 w-3.5" /> : <Plus size={14} />}
               {editingId ? "Update" : "Save"}
             </button>
           </div>
@@ -285,7 +289,7 @@ export default function DepartmentsPage() {
             <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
               All Departments
             </h2>
-            <p className="mt-0.5 text-xs text-slate-400">{items.length} records</p>
+            <p className="mt-0.5 text-xs text-slate-400">{loadError ? "" : loading && items.length === 0 ? "…" : `${items.length} records`}</p>
           </div>
           <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
             <input
@@ -298,10 +302,10 @@ export default function DepartmentsPage() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-12 text-sm text-slate-400">
-            <Loader2 size={16} className="mr-2 animate-spin" /> Loading…
-          </div>
+        {loadError ? (
+          <ErrorState title="Couldn't load departments" error={loadError} onRetry={() => void refresh(search.trim() || undefined)} />
+        ) : loading && items.length === 0 ? (
+          <TableLoadingRows label="Loading departments" />
         ) : items.length === 0 ? (
           <div className="py-12 text-center text-sm text-slate-400">
             {search

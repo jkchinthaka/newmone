@@ -1,5 +1,7 @@
 # Production Deployment Readiness Checklist
 
+> Historical. This checklist is not the current go-live record. Read `docs/handover/FINAL_HANDOVER_2026-10-21.md`.
+
 Use this checklist before go-live. This sprint adds honest readiness helpers only — **no automatic deployment**.
 
 For final UAT sign-off and production cutover, see also **`docs/FINAL_UAT_AND_CUTOVER_CHECKLIST.md`**.

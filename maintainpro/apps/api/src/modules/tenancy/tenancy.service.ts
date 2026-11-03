@@ -6,6 +6,7 @@ import { RoleName, TenantMembershipRole } from "@prisma/client";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { getAccessJwtSecret } from "../../config/jwt-secrets";
+import { currentSessionVersion } from "../auth/session-version";
 
 type TenantSummary = {
   tenantId: string;
@@ -130,7 +131,8 @@ export class TenancyService {
       activeTenantId = tenantSummaries[0]?.tenantId ?? null;
     }
 
-    if (activeTenantId && user.tenantId !== activeTenantId) {
+    // The active tenant is per session; only a user with no home tenant adopts one here.
+    if (activeTenantId && !user.tenantId && user.role.name !== RoleName.SUPER_ADMIN) {
       await this.prisma.user.update({
         where: { id: user.id },
         data: { tenantId: activeTenantId }
@@ -209,19 +211,20 @@ export class TenancyService {
     };
   }
 
+  /**
+   * The switched tenant lives only in this session's access-token claim; User.tenantId
+   * (home tenant) is not changed. Outside the home tenant TenantContextGuard applies the
+   * membership role, so the global role never carries over.
+   */
   async switchTenant(userId: string, tenantId: string) {
     const access = await this.ensureTenantAccess(userId, tenantId);
-
-    await this.prisma.user.update({
-      where: { id: access.user.id },
-      data: { tenantId: access.tenant.id }
-    });
 
     const accessToken = await this.signAccessToken({
       sub: access.user.id,
       email: access.user.email,
       role: access.user.role.name,
-      tenantId: access.tenant.id
+      tenantId: access.tenant.id,
+      sv: currentSessionVersion(access.user)
     });
 
     return {

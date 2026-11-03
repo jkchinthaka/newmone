@@ -31,8 +31,17 @@ import {
   UpdateTechnicianProfileDto
 } from "./dto/people.dto";
 import { UserInvitationService } from "./user-invitation.service";
+import { bumpSessionVersion } from "../auth/session-version";
 
 const TEMP_PASSWORD_TTL_MS = 72 * 60 * 60 * 1000;
+
+/** "Set a password now" must carry a password that passed the DTO strength rule. */
+function requireInitialPassword(value: string | undefined): string {
+  if (!value || !value.trim()) {
+    throw new BadRequestException("Enter a first password, or choose another way to give access.");
+  }
+  return value;
+}
 
 function splitFullName(fullName: string): { firstName: string; lastName: string } {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -352,7 +361,12 @@ export class PeopleService {
         let mustChangePassword = false;
         let temporaryPasswordExpiresAt: Date | null = null;
 
-        if (inviteMethod === InviteMethod.TEMP_PASSWORD) {
+        if (inviteMethod === InviteMethod.SET_PASSWORD) {
+          passwordHash = await bcrypt.hash(requireInitialPassword(dto.initialPassword), 10);
+          // The admin knows it, so it works like a temporary password: replace at first sign-in.
+          mustChangePassword = true;
+          temporaryPasswordExpiresAt = new Date(Date.now() + TEMP_PASSWORD_TTL_MS);
+        } else if (inviteMethod === InviteMethod.TEMP_PASSWORD) {
           temporaryPassword = randomBytes(9).toString("base64url");
           passwordHash = await bcrypt.hash(temporaryPassword, 10);
           mustChangePassword = true;
@@ -452,7 +466,15 @@ export class PeopleService {
         ? await this.prisma.department.findUnique({ where: { id: dto.departmentId }, select: { name: true } })
         : null;
 
-      if (dto.inviteMethod === InviteMethod.TEMP_PASSWORD && temporaryPassword) {
+      if (dto.inviteMethod === InviteMethod.SET_PASSWORD) {
+        await writeAuditTrail(this.prisma, {
+          entity: "User",
+          entityId: linkedUserId,
+          action: AuditAction.UPDATE,
+          module: "people",
+          metadata: { event: "initial_password_set_by_admin" }
+        });
+      } else if (dto.inviteMethod === InviteMethod.TEMP_PASSWORD && temporaryPassword) {
         await writeAuditTrail(this.prisma, {
           entity: "User",
           entityId: linkedUserId,
@@ -548,7 +570,7 @@ export class PeopleService {
     if (dto.active === false && existing.linkedUserId) {
       await this.prisma.user.update({
         where: { id: existing.linkedUserId },
-        data: { isActive: false }
+        data: { isActive: false, ...bumpSessionVersion() }
       });
     }
 
@@ -580,7 +602,7 @@ export class PeopleService {
     if (existing.linkedUserId) {
       await this.prisma.user.update({
         where: { id: existing.linkedUserId },
-        data: { isActive: false }
+        data: { isActive: false, ...bumpSessionVersion() }
       });
       await writeAuditTrail(this.prisma, {
         entity: "User",
@@ -696,7 +718,11 @@ export class PeopleService {
     let mustChangePassword = false;
     let temporaryPasswordExpiresAt: Date | null = null;
 
-    if (inviteMethod === InviteMethod.TEMP_PASSWORD) {
+    if (inviteMethod === InviteMethod.SET_PASSWORD) {
+      passwordHash = await bcrypt.hash(requireInitialPassword(dto.initialPassword), 10);
+      mustChangePassword = true;
+      temporaryPasswordExpiresAt = new Date(Date.now() + TEMP_PASSWORD_TTL_MS);
+    } else if (inviteMethod === InviteMethod.TEMP_PASSWORD) {
       temporaryPassword = randomBytes(9).toString("base64url");
       passwordHash = await bcrypt.hash(temporaryPassword, 10);
       mustChangePassword = true;
@@ -753,7 +779,15 @@ export class PeopleService {
       metadata: { event: "login_enabled" }
     });
 
-    if (inviteMethod === InviteMethod.TEMP_PASSWORD && temporaryPassword) {
+    if (inviteMethod === InviteMethod.SET_PASSWORD) {
+      await writeAuditTrail(this.prisma, {
+        entity: "User",
+        entityId: user.id,
+        action: AuditAction.UPDATE,
+        module: "people",
+        metadata: { event: "initial_password_set_by_admin" }
+      });
+    } else if (inviteMethod === InviteMethod.TEMP_PASSWORD && temporaryPassword) {
       await writeAuditTrail(this.prisma, {
         entity: "User",
         entityId: user.id,
@@ -793,7 +827,7 @@ export class PeopleService {
 
     await this.prisma.user.update({
       where: { id: employee.linkedUserId },
-      data: { isActive: false }
+      data: { isActive: false, ...bumpSessionVersion() }
     });
 
     await this.prisma.employee.update({
@@ -837,16 +871,24 @@ export class PeopleService {
           passwordHash,
           mustChangePassword: true,
           temporaryPasswordExpiresAt: new Date(Date.now() + TEMP_PASSWORD_TTL_MS),
+          lastPasswordChangedAt: new Date(),
           failedLoginAttempts: 0,
-          lockedUntil: null
+          lockedUntil: null,
+          ...bumpSessionVersion()
         }
+      });
+      // Same as the Admin Console reset: every existing session ends now.
+      const now = new Date();
+      await this.prisma.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now, lastUsedAt: now }
       });
       await writeAuditTrail(this.prisma, {
         entity: "User",
         entityId: userId,
         action: AuditAction.UPDATE,
         module: "people",
-        metadata: { event: "password_reset_issued" }
+        metadata: { event: "password_reset_issued", sessionsRevoked: true }
       });
     } else {
       const actorId = this.actorId();

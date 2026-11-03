@@ -54,7 +54,7 @@ export function SystemHealthSummary({ enabled = true }: SystemHealthSummaryProps
     );
   }
 
-  if (query.isError) {
+  if (query.isError && !query.data) {
     return (
       <DashboardSection title="System health" description="Operational readiness from the existing health endpoint.">
         <ErrorState title="Could not load system health" error={query.error} onRetry={() => query.refetch()} />

@@ -1,5 +1,9 @@
 "use client";
 
+import { colomboTodayYmd } from "@/lib/colombo-datetime";
+import { formatDate } from "@/lib/localization";
+import { TableLoadingRows } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/page-state";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -32,7 +36,7 @@ export default function FarmTraceabilityPage() {
     harvestRecordId: "",
     sprayLogIds: "",
     soilTestId: "",
-    harvestDate: new Date().toISOString().slice(0, 10),
+    harvestDate: colomboTodayYmd(),
     buyerName: "",
     certifications: ""
   });
@@ -168,7 +172,9 @@ export default function FarmTraceabilityPage() {
 
       <Section title="Issued batches">
         {list.isLoading ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <TableLoadingRows rows={3} label="Loading" />
+        ) : list.isError ? (
+          <ErrorState error={list.error} onRetry={() => void list.refetch()} />
         ) : !list.data?.length ? (
           <EmptyState title="No batches yet" description="Generate your first batch code above." />
         ) : (
@@ -187,7 +193,7 @@ export default function FarmTraceabilityPage() {
                 {list.data.map((t) => (
                   <tr key={t.id}>
                     <td className="px-3 py-2 font-mono text-xs">{t.batchCode}</td>
-                    <td className="px-3 py-2">{new Date(t.harvestDate).toLocaleDateString()}</td>
+                    <td className="px-3 py-2">{formatDate(t.harvestDate)}</td>
                     <td className="px-3 py-2">{t.buyerName ?? "—"}</td>
                     <td className="px-3 py-2">{t.certifications.join(", ") || "—"}</td>
                     <td className="px-3 py-2">

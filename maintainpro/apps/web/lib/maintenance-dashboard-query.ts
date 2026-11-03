@@ -24,6 +24,12 @@ export function shouldRetryMaintenanceQuery(failureCount: number, error: unknown
   return failureCount < 1;
 }
 
+/**
+ * Keep polling after a transient failure (the next poll may succeed; the page keeps its last data).
+ * Stop only for terminal errors (401/403/503, database unavailable) that polling cannot fix.
+ */
 export function maintenanceRefetchInterval(query: { state: { error: unknown } }): number | false {
-  return query.state.error ? false : 60_000;
+  const error = query.state.error;
+  if (error && !shouldRetryMaintenanceQuery(0, error)) return false;
+  return 60_000;
 }

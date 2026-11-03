@@ -1,15 +1,21 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from "@nestjs/common";
 import { AppSettingScope, AuditAction, Prisma } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 
 import { PrismaService } from "../../database/prisma.service";
 import { requestContext } from "../../common/context/request-context";
-import type { JwtPayload } from "../auth/auth.types";
+import { AuthService } from "../auth/auth.service";
+import type { AuthTokens, JwtPayload } from "../auth/auth.types";
+import { bumpSessionVersion } from "../auth/session-version";
+import type { ChangePasswordDto } from "./dto/change-password.dto";
+import type { UpdateProfileDto } from "./dto/update-profile.dto";
 
 type Pagination = {
   page: number;
@@ -20,7 +26,77 @@ type Pagination = {
 
 @Injectable()
 export class SettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Optional() @Inject(AuthService) private readonly authService?: AuthService
+  ) {}
+
+  private async assertCurrentPassword(passwordHash: string, currentPassword: string | undefined, action: string) {
+    if (!currentPassword) {
+      throw new BadRequestException(`Current password is required to ${action}`);
+    }
+    const valid = await bcrypt.compare(currentPassword, passwordHash);
+    if (!valid) {
+      throw new ForbiddenException("Current password is incorrect");
+    }
+  }
+
+  /**
+   * Credential change: clears any temporary-password requirement, bumps the session
+   * version (every other session's access + refresh tokens stop working) and returns a
+   * fresh token pair for this session. The BFF stores it as the session cookies.
+   */
+  private async commitCredentialChange(
+    userId: string,
+    data: Record<string, unknown>,
+    activeTenantId: string | null
+  ): Promise<AuthTokens | null> {
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: userId }, data: { ...data, ...bumpSessionVersion() } });
+      await tx.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now, lastUsedAt: now }
+      });
+    });
+    return this.authService ? this.authService.issueSessionTokens(userId, activeTenantId) : null;
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto, activeTenantId: string | null = null) {
+    const current = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!current) {
+      throw new NotFoundException("User not found");
+    }
+    await this.assertCurrentPassword(current.passwordHash, dto.currentPassword, "set a new password");
+    if (await bcrypt.compare(dto.newPassword, current.passwordHash)) {
+      throw new BadRequestException("New password must be different from the current password");
+    }
+
+    const tokens = await this.commitCredentialChange(
+      userId,
+      {
+        passwordHash: await bcrypt.hash(dto.newPassword, 12),
+        mustChangePassword: false,
+        temporaryPasswordExpiresAt: null,
+        lastPasswordChangedAt: new Date(),
+        failedLoginAttempts: 0,
+        lockedUntil: null
+      },
+      activeTenantId
+    );
+
+    await this.recordAudit({
+      tenantId: current.tenantId,
+      actorId: userId,
+      entity: "SETTINGS_PROFILE",
+      entityId: userId,
+      action: AuditAction.UPDATE,
+      reason: "Password changed",
+      metadata: { event: "password_changed", otherSessionsRevoked: true }
+    });
+
+    return { changed: true, ...(tokens ?? {}) };
+  }
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -44,17 +120,7 @@ export class SettingsService {
     };
   }
 
-  async updateProfile(
-    userId: string,
-    payload: Partial<{
-      firstName: string;
-      lastName: string;
-      email: string;
-      phone: string;
-      currentPassword: string;
-      newPassword: string;
-    }>
-  ) {
+  async updateProfile(userId: string, payload: UpdateProfileDto, activeTenantId: string | null = null) {
     const current = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { role: true }
@@ -82,6 +148,10 @@ export class SettingsService {
         throw new BadRequestException("Email is invalid");
       }
 
+      if (email !== current.email.toLowerCase()) {
+        await this.assertCurrentPassword(current.passwordHash, payload.currentPassword, "change your email");
+      }
+
       const existing = await this.prisma.user.findFirst({
         where: {
           email,
@@ -94,30 +164,33 @@ export class SettingsService {
         throw new BadRequestException("Email already in use");
       }
 
-      nextData.email = email;
+      if (email !== current.email.toLowerCase()) {
+        nextData.email = email;
+      }
     }
 
     if (payload.newPassword) {
-      if (!payload.currentPassword) {
-        throw new BadRequestException("Current password is required to set a new password");
-      }
-
-      const valid = await bcrypt.compare(payload.currentPassword, current.passwordHash);
-      if (!valid) {
-        throw new ForbiddenException("Current password is incorrect");
-      }
+      await this.assertCurrentPassword(current.passwordHash, payload.currentPassword, "set a new password");
 
       nextData.passwordHash = await bcrypt.hash(payload.newPassword, 12);
+      nextData.mustChangePassword = false;
+      nextData.temporaryPasswordExpiresAt = null;
+      nextData.lastPasswordChangedAt = new Date();
     }
 
     if (Object.keys(nextData).length === 0) {
       return this.getProfile(userId);
     }
 
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: nextData
-    });
+    // Email (login identifier) and password are credentials: revoke every other session.
+    const credentialChanged = "email" in nextData || "passwordHash" in nextData;
+    let tokens: AuthTokens | null = null;
+    if (credentialChanged) {
+      tokens = await this.commitCredentialChange(userId, nextData, activeTenantId);
+    } else {
+      await this.prisma.user.update({ where: { id: userId }, data: nextData });
+    }
+    const updated = (await this.prisma.user.findUnique({ where: { id: userId } })) ?? current;
 
     await this.recordAudit({
       tenantId: current.tenantId,
@@ -139,7 +212,8 @@ export class SettingsService {
       }
     });
 
-    return this.getProfile(userId);
+    const profile = await this.getProfile(userId);
+    return tokens ? { ...profile, ...tokens } : profile;
   }
 
   async getOrganization(actor: JwtPayload) {

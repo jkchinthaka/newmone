@@ -50,7 +50,7 @@ export function consumptionWarning(consumption: number | null, samples: readonly
   if (consumption == null || samples.length === 0) return null;
   const average = samples.reduce((sum, value) => sum + value, 0) / samples.length;
   if (average > 0 && consumption > average * 3) {
-    return `Consumption ${consumption} is more than three times the recent average of ${average}. Confirm the reading before leaving the meter.`;
+    return `Usage ${consumption} is more than three times the recent average of ${average}. Confirm the reading before leaving the meter.`;
   }
   return null;
 }

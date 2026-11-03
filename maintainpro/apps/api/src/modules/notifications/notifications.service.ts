@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import { resolveJobDomain } from "../../common/utils/job-domain.util";
 import { InjectQueue } from "@nestjs/bull";
 import {
   AppSettingScope,
@@ -1236,6 +1237,18 @@ export class NotificationsService {
     const priority = this.toWorkOrderPriority(payload.priority, notification.priority);
     const tenantId = requestContext.get()?.tenantId ?? null;
 
+    const followUpAssetId =
+      typeof payload.assetId === "string"
+        ? payload.assetId
+        : notification.referenceType === "Asset"
+          ? notification.referenceId ?? undefined
+          : undefined;
+    const followUpVehicleId =
+      typeof payload.vehicleId === "string"
+        ? payload.vehicleId
+        : notification.referenceType === "Vehicle"
+          ? notification.referenceId ?? undefined
+          : undefined;
     const created = await this.prisma.workOrder.create({
       data: {
         woNumber,
@@ -1255,18 +1268,9 @@ export class NotificationsService {
           typeof payload.dueDate === "string"
             ? new Date(payload.dueDate)
             : notification.dueAt ?? undefined,
-        assetId:
-          typeof payload.assetId === "string"
-            ? payload.assetId
-            : notification.referenceType === "Asset"
-              ? notification.referenceId ?? undefined
-              : undefined,
-        vehicleId:
-          typeof payload.vehicleId === "string"
-            ? payload.vehicleId
-            : notification.referenceType === "Vehicle"
-              ? notification.referenceId ?? undefined
-              : undefined
+        assetId: followUpAssetId,
+        vehicleId: followUpVehicleId,
+        jobDomain: resolveJobDomain({ assetId: followUpAssetId, vehicleId: followUpVehicleId })
       }
     });
 

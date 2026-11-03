@@ -1,5 +1,9 @@
 "use client";
 
+import { useState } from "react";
+
+import { VehicleJobsOverview } from "@/components/maintenance/vehicle-jobs-overview";
+import type { WorkOrderStatus } from "@/components/work-orders/types";
 import WorkOrdersPage from "@/components/work-orders/work-orders-page";
 import { JOB_DOMAIN_LABELS, type JobDomain } from "@/lib/job-domain";
 
@@ -14,19 +18,30 @@ type DomainJobsPageProps = {
  * Does not duplicate lifecycle, costing, or assignment logic.
  */
 export function DomainJobsPage({ jobDomain, title, description }: DomainJobsPageProps) {
-  const heading = title ?? (jobDomain ? `${JOB_DOMAIN_LABELS[jobDomain]} Jobs` : "Work Orders");
+  const [focus, setFocus] = useState<{ status: WorkOrderStatus | "ALL"; nonce: number } | null>(null);
+  const heading = title ?? (jobDomain ? `${JOB_DOMAIN_LABELS[jobDomain]} Jobs` : "Jobs");
   const sub =
     description ??
     (jobDomain === "MACHINERY"
-      ? "Machinery jobs. Scan the machine, status, and next action."
+      ? "Only jobs created with the Machinery category (machines and equipment)."
       : jobDomain === "SERVICE"
-        ? "Service jobs by location and service type."
+        ? "Only jobs created with the Service category (buildings, facilities and places)."
         : jobDomain === "VEHICLE"
-          ? "Vehicle jobs with registration and odometer."
-          : "All executable maintenance jobs across machinery, service, and vehicle domains.");
+          ? "Only jobs created with the Vehicle category."
+          : "All maintenance jobs across machinery, vehicles and services.");
 
   return (
-    <WorkOrdersPage jobDomain={jobDomain} heading={heading} description={sub} />
+    <WorkOrdersPage
+      jobDomain={jobDomain}
+      heading={heading}
+      description={sub}
+      focus={focus}
+      aboveList={
+        jobDomain === "VEHICLE" ? (
+          <VehicleJobsOverview onFocus={(status) => setFocus({ status, nonce: Date.now() })} />
+        ) : null
+      }
+    />
   );
 }
 

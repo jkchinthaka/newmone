@@ -9,6 +9,7 @@ import { RequestContextInterceptor } from "./common/context/request-context.inte
 import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
 import { HttpThrottlerGuard } from "./common/guards/http-throttler.guard";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
+import { PasswordChangeRequiredGuard } from "./common/guards/password-change-required.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { resolveTrustedClientIp } from "./common/security/client-ip.util";
@@ -57,7 +58,6 @@ import { JobCodesModule } from "./modules/job-codes/job-codes.module";
 import { MaintenanceModule } from "./modules/maintenance/maintenance.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { OperationsModule } from "./modules/operations/operations.module";
-import { PredictiveAiModule } from "./modules/predictive-ai/predictive-ai.module";
 import { QueuesModule } from "./modules/queues/queues.module";
 import { ReportsModule } from "./modules/reports/reports.module";
 import { FraudControlModule } from "./modules/fraud-control/fraud-control.module";
@@ -196,7 +196,8 @@ normalizeDatabaseEnvironment();
     FraudControlModule,
     ManagementIntelligenceModule,
     UtilitiesModule,
-    PredictiveAiModule,
+    // PredictiveAiModule (AI Copilot) is not registered: its routes read and changed data
+    // without tenant or permission checks. Its files stay for reference only.
     CleaningModule,
     FacilitiesModule,
     OrganizationModule,
@@ -230,6 +231,11 @@ normalizeDatabaseEnvironment();
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard
+    },
+    // Temporary-password accounts may only reach me/logout/password change (403 PASSWORD_CHANGE_REQUIRED).
+    {
+      provide: APP_GUARD,
+      useClass: PasswordChangeRequiredGuard
     },
     {
       provide: APP_GUARD,

@@ -144,7 +144,7 @@ export function WorkOrderTaxonomyPicker({ value, onChange, allowTriage = true }:
           type="button"
             onClick={() =>
               onChange({
-                pathLabel: "Not Sure / Triage → Need Triage Classification",
+                pathLabel: "Not Sure / Review → Need Review Classification",
                 categoryId: undefined,
                 typeId: undefined,
                 issueId: undefined,
@@ -153,7 +153,7 @@ export function WorkOrderTaxonomyPicker({ value, onChange, allowTriage = true }:
             }
           className="w-full rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-left text-sm text-amber-900 hover:bg-amber-100"
         >
-          Not sure? Submit to triage. A supervisor will classify it.
+          Not sure? Submit to review. A supervisor will classify it.
         </button>
       ) : null}
     </div>

@@ -115,7 +115,7 @@ export default function AdminJobCategoriesPage() {
           <h1 className="page-title">Job Categories</h1>
           <p className="mt-1 text-sm text-slate-600">
             Master data for Service Category and Problem Category on Machinery / Service / Vehicle
-            work orders. Deactivate instead of deleting referenced categories.
+            jobs. Deactivate instead of deleting referenced categories.
           </p>
         </div>
         <button

@@ -61,10 +61,10 @@ const ACTIONS_BY_STATUS: Record<WorkOrderStatus, WorkOrderActionDescriptor[]> = 
   ],
   TECHNICIAN_COMPLETED: [
     { action: "VERIFY", label: "Verify", targetStatus: "VERIFIED", requiresModal: true },
-    { action: "REWORK", label: "Return for Rework", targetStatus: "REWORK_REQUIRED", requiresModal: true }
+    { action: "REWORK", label: "Send back to fix again", targetStatus: "REWORK_REQUIRED", requiresModal: true }
   ],
   REWORK_REQUIRED: [
-    { action: "RESUME", label: "Resume Rework", targetStatus: "IN_PROGRESS" },
+    { action: "RESUME", label: "Resume fixing", targetStatus: "IN_PROGRESS" },
     { action: "CANCEL", label: "Cancel", targetStatus: "CANCELLED", requiresModal: true }
   ],
   VERIFIED: [{ action: "CLOSE", label: "Close", targetStatus: "CLOSED", requiresModal: true }],

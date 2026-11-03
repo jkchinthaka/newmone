@@ -4,7 +4,12 @@ import { Prisma } from "@prisma/client";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
 import { toJsonText } from "../../common/utils/json-text";
 import { PrismaService } from "../../database/prisma.service";
+import { colomboMonthKey } from "../reports/report-timezone.util";
+import { businessDayWindow } from "../work-orders/my-jobs.rules";
 import { comparableConsumptions, evaluateMeterReading, meterFractionDigits, parseStrictReadingValue } from "./meter-reading-rules";
+
+export const BILLS_DEFAULT_TAKE = 500;
+export const BILLS_MAX_TAKE = 1000;
 
 @Injectable()
 export class UtilitiesService {
@@ -76,15 +81,27 @@ export class UtilitiesService {
             return { ...replay, warning: null, replayed: true };
           }
         }
+        const sameTime = await tx.meterReading.findFirst({ where: { meterId: id, readingDate: readingAt } });
+        if (sameTime) {
+          throw new ConflictException("A reading already exists for this meter at that time.");
+        }
+        // A backdated reading is checked against its neighbours in time, not the newest reading.
         const history = await tx.meterReading.findMany({
-          where: { meterId: id },
+          where: { meterId: id, readingDate: { lt: readingAt } },
           orderBy: { readingDate: "desc" },
           take: 8
         });
-        if (history.some((row) => row.readingDate.getTime() === readingAt.getTime())) {
-          throw new ConflictException("A reading already exists for this meter at that time.");
-        }
         const previous = history[0];
+        const following = await tx.meterReading.findFirst({
+          where: { meterId: id, readingDate: { gt: readingAt } },
+          orderBy: { readingDate: "asc" }
+        });
+        const followingIsReset = Boolean(following && String(following.notes ?? "").includes("[reset:"));
+        if (following && !followingIsReset && parsed.value > Number(following.readingValue)) {
+          throw new BadRequestException(
+            `Reading is higher than the next recorded reading (${Number(following.readingValue)} on ${businessDayWindow(following.readingDate).dateOnly}).`
+          );
+        }
         const decision = evaluateMeterReading({
           value: parsed.value,
           readingAt,
@@ -110,6 +127,13 @@ export class UtilitiesService {
             notes: noteParts.join(" ") || null
           }
         });
+        if (following && !followingIsReset) {
+          // The next reading's consumption is now measured from this one.
+          await tx.meterReading.update({
+            where: { id: following.id },
+            data: { consumption: Number(following.readingValue) - parsed.value }
+          });
+        }
         return { ...created, warning: decision.warning, replayed: false };
       });
     } catch (error) {
@@ -125,13 +149,20 @@ export class UtilitiesService {
     }
   }
 
-  async readings(id: string, tenantId: string | null) {
+  async readings(id: string, tenantId: string | null, options?: { take?: number }) {
     await this.meter(id, tenantId);
 
-    return this.prisma.meterReading.findMany({ where: { meterId: id }, orderBy: { readingDate: "desc" } });
+    return this.prisma.meterReading.findMany({
+      where: { meterId: id },
+      orderBy: { readingDate: "desc" },
+      ...(options?.take != null ? { take: options.take } : {})
+    });
   }
 
-  async allReadings(tenantId: string | null) {
+  async allReadings(
+    tenantId: string | null,
+    options?: { mineUserId?: string; days?: number; take?: number }
+  ) {
     // Scope to meters owned by this tenant, then fetch their readings. Avoids
     // Prisma's required-relation `include` throwing on dangling meterIds while
     // also enforcing tenant isolation (MeterReading has no tenantId of its own).
@@ -142,14 +173,46 @@ export class UtilitiesService {
     if (meters.length === 0) return [];
 
     const meterMap = new Map(meters.map((m) => [m.id, m]));
+    const where: Prisma.MeterReadingWhereInput = { meterId: { in: meters.map((m) => m.id) } };
+    if (options?.mineUserId) {
+      where.notes = { contains: `[by:${options.mineUserId}]` };
+    }
+    if (options?.days != null) {
+      where.readingDate = { gte: new Date(Date.now() - options.days * 24 * 60 * 60 * 1000) };
+    }
     const readings = await this.prisma.meterReading.findMany({
-      where: { meterId: { in: meters.map((m) => m.id) } },
-      orderBy: { readingDate: "desc" }
+      where,
+      orderBy: { readingDate: "desc" },
+      ...(options?.take != null ? { take: options.take } : {})
     });
 
     return readings
       .filter((r) => meterMap.has(r.meterId))
       .map((r) => ({ ...r, meter: meterMap.get(r.meterId) }));
+  }
+
+  async latestReadings(tenantId: string | null) {
+    const scopedTenantId = requireTenantId(tenantId);
+    const meters = await this.prisma.utilityMeter.findMany({
+      where: { tenantId: scopedTenantId }
+    });
+    if (meters.length === 0) return [];
+    const meterMap = new Map(meters.map((meter) => [meter.id, meter]));
+    const grouped = await this.prisma.meterReading.groupBy({
+      by: ["meterId"],
+      where: { meterId: { in: [...meterMap.keys()] } },
+      _max: { readingDate: true }
+    });
+    const pairs = grouped.filter((row) => row._max.readingDate);
+    if (pairs.length === 0) return [];
+    const readings = await this.prisma.meterReading.findMany({
+      where: {
+        OR: pairs.map((row) => ({ meterId: row.meterId, readingDate: row._max.readingDate as Date }))
+      }
+    });
+    return readings
+      .filter((reading) => meterMap.has(reading.meterId))
+      .map((reading) => ({ ...reading, meter: meterMap.get(reading.meterId) }));
   }
 
   async consumptionChart(id: string, tenantId: string | null) {
@@ -161,18 +224,23 @@ export class UtilitiesService {
     });
 
     return readings.map((item) => ({
-      month: item.readingDate.toISOString().slice(0, 7),
+      month: colomboMonthKey(item.readingDate),
       consumption: Number(item.consumption ?? 0)
     }));
   }
 
-  async bills(tenantId: string | null) {
+  async bills(tenantId: string | null, query: { take?: number; days?: number } = {}) {
     // Same orphan-tolerant strategy as `allReadings`: avoid Prisma's required
     // relation include throwing on dangling meterIds.
     const scopedTenantId = requireTenantId(tenantId);
+    // Newest first and bounded: default 500 bills, at most 1000; `days` limits to recent bills.
+    const take = Math.min(Math.max(Math.trunc(Number(query.take) || BILLS_DEFAULT_TAKE), 1), BILLS_MAX_TAKE);
+    const days = Number(query.days);
+    const since = Number.isFinite(days) && days > 0 ? new Date(Date.now() - Math.min(days, 3660) * 86_400_000) : null;
     const bills = await this.prisma.utilityBill.findMany({
-      where: { tenantId: scopedTenantId },
-      orderBy: { createdAt: "desc" }
+      where: { tenantId: scopedTenantId, ...(since ? { createdAt: { gte: since } } : {}) },
+      orderBy: { createdAt: "desc" },
+      take
     });
     if (bills.length === 0) return [];
 
@@ -255,13 +323,14 @@ export class UtilitiesService {
 
   async overdue(tenantId: string | null) {
     const scopedTenantId = requireTenantId(tenantId);
-    const now = new Date();
+    // A bill is payable through the whole Colombo due date; it is overdue from the next day.
+    const todayStart = businessDayWindow(new Date()).start;
 
     await this.prisma.utilityBill.updateMany({
       where: {
         status: "UNPAID",
         dueDate: {
-          lt: now
+          lt: todayStart
         },
         tenantId: scopedTenantId
       },

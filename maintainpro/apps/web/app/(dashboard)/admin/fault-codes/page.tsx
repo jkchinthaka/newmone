@@ -102,7 +102,7 @@ export default function AdminFaultCodesPage() {
       <div>
         <h1 className="page-title">Fault, Cause & Remedy Codes</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Admin-managed failure library used on work order diagnosis. Changes are versioned in
+          Admin-managed failure library used on job diagnosis. Changes are versioned in
           configuration history.
         </p>
       </div>

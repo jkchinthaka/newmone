@@ -24,11 +24,11 @@ test("login role dropdown lists the six go-live roles and can repeat a role", ()
   assert.deepEqual(visibleLoginRoles(roles, "1").map((role) => role.id), ["1", "2", "3", "4", "5", "6", "7"]);
 });
 
-test("primary work order action follows status and role", () => {
+test("primary job action follows status and role", () => {
   assert.equal(primaryWorkOrderAction({ status: "OPEN", role: "MANAGER", approvalStatus: "APPROVED" })?.label, "Assign technician");
   assert.equal(
     primaryWorkOrderAction({ status: "OPEN", role: "MANAGER", approvalStatus: "PENDING" })?.disabledReason,
-    "Approve this work order before assigning a technician."
+    "Approve this job before assigning a technician."
   );
   assert.equal(primaryWorkOrderAction({ status: "ASSIGNED", role: "TECHNICIAN" })?.label, "Start job");
   assert.equal(primaryWorkOrderAction({ status: "IN_PROGRESS", role: "TECHNICIAN" })?.label, "Mark complete");
@@ -45,13 +45,13 @@ test("legacy statuses stay out of filters", () => {
   assert.deepEqual(selectableWorkOrderStatuses(["OPEN", "COMPLETED", "OVERDUE", "CLOSED"]), ["OPEN", "CLOSED"]);
 });
 
-test("work order action errors use plain sentences", () => {
+test("job action errors use plain sentences", () => {
   assert.equal(
-    humanWorkOrderActionMessage("Work order requires manager approval before execution"),
-    "Approve this work order before starting the job."
+    humanWorkOrderActionMessage("Job requires manager approval before execution"),
+    "Approve this job before starting the job."
   );
   assert.equal(
-    humanWorkOrderActionMessage("Separation of duties violation: the completing technician cannot verify this work order."),
+    humanWorkOrderActionMessage("Separation of duties violation: the completing technician cannot verify this job."),
     "You cannot verify a job you completed."
   );
   assert.match(humanWorkOrderActionMessage("You already have WO-2026-0174 in progress."), /WO-2026-0174/);

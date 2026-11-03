@@ -1,13 +1,13 @@
 import { IsString, Matches, MinLength } from "class-validator";
 
+import { PASSWORD_STRENGTH_MESSAGE, PASSWORD_STRENGTH_PATTERN } from "./password-strength";
+
 export class ResetPasswordDto {
   @IsString()
   token!: string;
 
   @IsString()
   @MinLength(8)
-  @Matches(/^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/, {
-    message: "Password must contain at least 8 characters, one uppercase letter, one number, and one special character"
-  })
+  @Matches(PASSWORD_STRENGTH_PATTERN, { message: PASSWORD_STRENGTH_MESSAGE })
   newPassword!: string;
 }

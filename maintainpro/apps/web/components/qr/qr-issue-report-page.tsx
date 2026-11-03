@@ -302,7 +302,7 @@ export function QrIssueReportPage() {
         </label>
 
         <label className="block text-sm">
-          <span className="font-medium text-slate-700">SLA hours</span>
+          <span className="font-medium text-slate-700">Time limit hours</span>
           <input
             type="number"
             name="slaHours"

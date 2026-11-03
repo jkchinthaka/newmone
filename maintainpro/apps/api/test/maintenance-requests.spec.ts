@@ -150,8 +150,8 @@ describe("MaintenanceRequestsService", () => {
     },
     asset: { findFirst: jest.fn() },
     vehicle: { findFirst: jest.fn() },
-    site: { findFirst: jest.fn() },
-    functionalLocation: { findFirst: jest.fn() },
+    site: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn().mockResolvedValue(1) },
+    functionalLocation: { findFirst: jest.fn(), findMany: jest.fn() },
     department: { findFirst: jest.fn() },
     assetDomain: { findFirst: jest.fn() },
     workOrder: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(), count: jest.fn().mockResolvedValue(0) },
@@ -257,6 +257,56 @@ describe("MaintenanceRequestsService", () => {
     expect(data.priority).toBe(Priority.MEDIUM);
     expect(data.reportedUrgency).toBe("URGENT");
     expect(result.statusLabel).toBe("New");
+  });
+
+  it("not-sure needs a site once the organization has sites", async () => {
+    prisma.site.count.mockResolvedValueOnce(2);
+    await expect(
+      service.create(tenantA, requester, {
+        targetUnresolved: true,
+        approximateLocation: "Near packing bay",
+        description: "Something is leaking",
+        reportedUrgency: "NORMAL",
+        safetyImpact: "NOT_SURE",
+        productionImpact: "NONE"
+      } as never)
+    ).rejects.toThrow("Site is required");
+  });
+
+  it("not-sure works without a site while no sites are set up", async () => {
+    prisma.site.count.mockResolvedValueOnce(0);
+    prisma.maintenanceRequest.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(detailRow({ assetId: null, asset: null, siteId: null, functionalLocationId: null, functionalLocation: null, targetUnresolved: true, approximateLocation: "Workshop yard", jobDomain: null }));
+    prisma.maintenanceRequest.create.mockResolvedValue({ id: "mr-1", requestNumber: "MR-2026-00001", status: MaintenanceRequestStatus.NEW });
+    prisma.maintenanceRequestHistory.create.mockResolvedValue({});
+    await service.create(tenantA, requester, {
+      targetUnresolved: true,
+      approximateLocation: "Workshop yard",
+      description: "Gate motor is not working",
+      reportedUrgency: "NORMAL",
+      safetyImpact: "NOT_SURE",
+      productionImpact: "NONE"
+    } as never);
+    const data = prisma.maintenanceRequest.create.mock.calls[0][0].data;
+    expect(data.targetUnresolved).toBe(true);
+    expect(data.siteId ?? null).toBeNull();
+  });
+
+  it("lists sites and a site's locations for reporters without organization access", async () => {
+    prisma.site.findMany.mockResolvedValueOnce([{ id: "site-1", code: "S1", name: "Plant" }]);
+    expect(await service.lookupSelectableSites(tenantA)).toEqual([{ id: "site-1", code: "S1", name: "Plant" }]);
+    expect(prisma.site.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { tenantId: tenantA, isActive: true } }));
+
+    prisma.site.findFirst.mockResolvedValueOnce({ id: "site-1" });
+    prisma.functionalLocation.findMany.mockResolvedValueOnce([{ id: "fl-1", code: "L1", name: "Line 1" }]);
+    expect(await service.lookupSelectableLocations(tenantA, "site-1")).toHaveLength(1);
+    expect(prisma.functionalLocation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { tenantId: tenantA, siteId: "site-1", isActive: true } })
+    );
+
+    prisma.site.findFirst.mockResolvedValueOnce(null);
+    await expect(service.lookupSelectableLocations(tenantA, "other-tenant-site")).rejects.toThrow("Site not found");
   });
 
   it("creates asset-only request and snapshots context", async () => {

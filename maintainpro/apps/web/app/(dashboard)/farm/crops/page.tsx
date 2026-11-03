@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/localization";
 import { FarmListPage } from "@/components/farm/farm-list-page";
 
 type Crop = {
@@ -24,11 +25,11 @@ export default function FarmCropsPage() {
         { key: "cropType", label: "Crop" },
         { key: "variety", label: "Variety" },
         { key: "field", label: "Field", render: (r) => r.field?.name ?? "—" },
-        { key: "plantingDate", label: "Planted", render: (r) => new Date(r.plantingDate).toLocaleDateString() },
+        { key: "plantingDate", label: "Planted", render: (r) => formatDate(r.plantingDate) },
         {
           key: "expectedHarvestDate",
           label: "Expected harvest",
-          render: (r) => (r.expectedHarvestDate ? new Date(r.expectedHarvestDate).toLocaleDateString() : "—")
+          render: (r) => (r.expectedHarvestDate ? formatDate(r.expectedHarvestDate) : "—")
         },
         { key: "status", label: "Status" }
       ]}

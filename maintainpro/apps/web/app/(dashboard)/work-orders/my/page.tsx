@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { StartJobDialog } from "@/components/work-orders/start-job-dialog";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -15,10 +16,17 @@ import { resolveMyJobFilter, myJobPurpose } from "@/lib/my-job-filters";
 import { getVisibleNavigationItems } from "@/lib/navigation";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
-import { JOB_CHANGED_MESSAGE, classifyJobActionError } from "@/lib/job-action-outcome";
-import { mutationErrorMessage, showMutationError } from "@/lib/mutation-feedback";
+import { mutationErrorMessage } from "@/lib/mutation-feedback";
 import { humanWorkOrderStatusLabel } from "@/components/work-orders/helpers";
-import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
+import { useFocusTrap } from "@/lib/use-focus-trap";
+import { colomboTodayYmd, formatCalendarDate } from "@/lib/colombo-datetime";
+import {
+  MY_JOB_HOLD_CHOICES,
+  buildHoldPayload,
+  sentBackLabel,
+  validateHoldNote,
+  type MyJobHoldCode
+} from "@/lib/my-job-hold";
 
 type NextAction = { kind: "start" | "continue" | "summary" | "open" | "blocked"; label: string; reason?: string };
 
@@ -35,6 +43,8 @@ type MyJob = {
   asset?: { name?: string | null; assetTag?: string | null } | null;
   functionalLocation?: { name?: string | null; code?: string | null } | null;
   site?: { name?: string | null } | null;
+  /** Supervisor's send-back reason (REWORK_REQUIRED jobs only). */
+  verificationRejectionReason?: string | null;
   nextAction: NextAction;
 };
 
@@ -54,21 +64,21 @@ const VIEWS = [
   ["due-today", "Due today", "dueToday"],
   ["overdue", "Overdue", "overdue"],
   ["waiting-parts", "Waiting parts", "waitingParts"],
-  ["evidence-needed", "Evidence needed", "evidenceNeeded"],
-  ["rework-required", "Rework required", "reworkRequired"],
+  ["evidence-needed", "Photos needed", "evidenceNeeded"],
+  ["rework-required", "Needs to be fixed again", "reworkRequired"],
   ["in-progress", "In progress", "inProgress"],
   ["completed", "Completed", "completed"]
 ] as const;
 
+/** Due-day wording uses Asia/Colombo calendar days, not the phone's time zone. */
 function relativeDue(value?: string | null) {
   if (!value) return "No due date";
   const due = new Date(value);
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const dueStart = new Date(due);
-  dueStart.setHours(0, 0, 0, 0);
-  const days = Math.round((dueStart.getTime() - start.getTime()) / 86_400_000);
-  const date = due.toLocaleDateString();
+  if (Number.isNaN(due.getTime())) return "No due date";
+  const dueYmd = colomboTodayYmd(due);
+  const todayYmd = colomboTodayYmd();
+  const days = Math.round((Date.parse(`${dueYmd}T00:00:00Z`) - Date.parse(`${todayYmd}T00:00:00Z`)) / 86_400_000);
+  const date = formatCalendarDate(dueYmd);
   if (days === 0) return `Due today · ${date}`;
   if (days === 1) return `Due tomorrow · ${date}`;
   if (days === -1) return `Due yesterday · ${date}`;
@@ -87,7 +97,7 @@ export default function MyJobsPage() {
   const pathname = usePathname();
   const params = useSearchParams();
   const user = useCurrentUser();
-  const { prompt, dialog } = usePromptDialog();
+  const [holdTarget, setHoldTarget] = useState<MyJob | null>(null);
   const view = resolveMyJobFilter({ filter: params.get("filter"), view: params.get("view") });
   const search = params.get("search") || "";
   const status = params.get("status") || "";
@@ -103,6 +113,7 @@ export default function MyJobsPage() {
   const [forbidden, setForbidden] = useState(false);
   const [offline, setOffline] = useState(false);
   const [startingId, setStartingId] = useState<string | null>(null);
+  const [startTarget, setStartTarget] = useState<MyJob | null>(null);
   const [blocker, setBlocker] = useState<string | null>(null);
   const [capped, setCapped] = useState(false);
   const [moreViewsOpen, setMoreViewsOpen] = useState(false);
@@ -203,56 +214,34 @@ export default function MyJobsPage() {
     onHold: items.filter((job) => job.status === "ON_HOLD").length
   };
 
-  async function startJob(job: MyJob) {
+  // Start opens the camera first: the job only starts after a live before photo (see StartJobDialog).
+  function startJob(job: MyJob) {
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       setOffline(true);
       setBlocker("You are offline. Start was not sent.");
       return;
     }
-    setStartingId(job.id);
     setBlocker(null);
-    try {
-      await apiClient.post(`/work-orders/${job.id}/start`, { expectedVersion: job.version });
-      toast.success(`${job.woNumber} started.`);
-      await refresh();
-    } catch (err) {
-      const outcome = classifyJobActionError(err);
-      if (outcome === "conflict") {
-        // Someone else changed the job: show the fresh row and keep the user here.
-        toast.message(JOB_CHANGED_MESSAGE);
-        await refresh();
-      } else if (outcome === "unavailable") {
-        setBlocker(mutationErrorMessage(err, "This job could not be started."));
-        showMutationError(err, "This job could not be started.", () => void startJob(job));
-      } else {
-        const message = mutationErrorMessage(err, "This job could not be started.");
-        setBlocker(message);
-        toast.error(message);
-        await refresh();
-      }
-    } finally {
-      setStartingId(null);
-    }
+    setStartTarget(job);
   }
 
-  async function holdJob(job: MyJob) {
-    const reason = await prompt({
-      title: `Hold ${job.woNumber}`,
-      label: "Reason",
-      required: true
-    });
-    if (!reason?.trim()) return;
+  function holdJob(job: MyJob) {
+    setHoldTarget(job);
+  }
+
+  /** Returns an error message to keep the dialog open, or null when the hold was saved. */
+  async function sendHold(job: MyJob, code: MyJobHoldCode, note: string): Promise<string | null> {
     setStartingId(job.id);
     try {
-      await apiClient.post(`/work-orders/${job.id}/hold`, {
-        holdReasonCode: "OTHER",
-        delayReason: reason.trim(),
-        expectedVersion: job.version
-      });
+      await apiClient.post(`/work-orders/${job.id}/hold`, buildHoldPayload(code, note, job.version));
       toast.success(`${job.woNumber} placed on hold.`);
+      setHoldTarget(null);
       await refresh();
+      return null;
     } catch (err) {
-      toast.error(mutationErrorMessage(err, "This job could not be placed on hold."));
+      const message = mutationErrorMessage(err, "This job could not be placed on hold.");
+      toast.error(message);
+      return message;
     } finally {
       setStartingId(null);
     }
@@ -271,38 +260,25 @@ export default function MyJobsPage() {
     }
   }
 
-  async function completeJob(job: MyJob) {
-    const note = await prompt({
-      title: `Complete ${job.woNumber}`,
-      label: "Completion note",
-      required: true
-    });
-    if (!note?.trim()) return;
-    setStartingId(job.id);
-    try {
-      await apiClient.post(`/work-orders/${job.id}/complete-technician`, {
-        completionNote: note.trim(),
-        expectedVersion: job.version
-      });
-      toast.success(`${job.woNumber} submitted for verification.`);
-      await refresh();
-    } catch (err) {
-      toast.error(mutationErrorMessage(err, "This job could not be completed."));
-    } finally {
-      setStartingId(null);
-    }
+  /**
+   * Completion needs more than a note: before/after photos, QR check, and an odometer reading on
+   * vehicle jobs. Open the job so the full completion form (with those checks) is used.
+   */
+  function completeJob(job: MyJob) {
+    toast.message(`Fill in the completion details for ${job.woNumber}.`);
+    router.push(`/work-orders?wo=${encodeURIComponent(job.id)}` as Route);
   }
 
   return (
     <div className="ops-page pb-24 md:pb-0">
       <OperationalPageHeader
-        title="My Jobs"
+        title="My jobs"
         description="Jobs assigned to you, most urgent first."
         actions={
           <>
             {allWorkOrders ? (
               <Link href={allWorkOrders.href as Route} className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-3 text-sm">
-                All Work Orders
+                All jobs
               </Link>
             ) : null}
             <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => void refresh()}>
@@ -348,7 +324,7 @@ export default function MyJobsPage() {
       >
         <label className="text-sm">
           Search
-          <input className="mt-1 w-full rounded border border-slate-300 px-3 py-2" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="WO number, title, or asset" />
+          <input className="mt-1 w-full rounded border border-slate-300 px-3 py-2" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Job number, title, or asset" />
         </label>
         <label className="text-sm">
           Status
@@ -390,7 +366,24 @@ export default function MyJobsPage() {
 
       {capped ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">Showing the first 500 assigned jobs. Narrow the list with search if you cannot find a job.</p> : null}
       {blocker ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="alert">{blocker}</p> : null}
-      {dialog}
+      {startTarget ? (
+        <StartJobDialog
+          job={startTarget}
+          onClose={() => setStartTarget(null)}
+          onStarted={async () => {
+            setStartTarget(null);
+            await refresh();
+          }}
+        />
+      ) : null}
+      {holdTarget ? (
+        <HoldJobDialog
+          job={holdTarget}
+          submitting={startingId === holdTarget.id}
+          onCancel={() => setHoldTarget(null)}
+          onSubmit={(code, note) => sendHold(holdTarget, code, note)}
+        />
+      ) : null}
       {forbidden ? <ErrorState message="You cannot view assigned jobs. Your role does not include this workspace." onRetry={() => void refresh()} /> : null}
       {!forbidden && error ? <ErrorState message={`We couldn't load your jobs. ${error}`} onRetry={() => void refresh()} /> : null}
 
@@ -405,7 +398,7 @@ export default function MyJobsPage() {
       {!loading && !error && items.length === 0 && !filtersActive ? (
         <EmptyState
           title="No jobs assigned to you"
-          description="When a work order is assigned to your user, it will appear here."
+          description="When a job is assigned to your user, it will appear here."
           action={<button type="button" className="min-h-11 rounded border border-slate-300 px-3 text-sm" onClick={() => void refresh()}>Refresh</button>}
         />
       ) : null}
@@ -424,8 +417,8 @@ export default function MyJobsPage() {
               <JobBody
                 job={job}
                 starting={startingId === job.id}
-                onStart={() => void startJob(job)}
-                onHold={() => void holdJob(job)}
+                onStart={() => startJob(job)}
+                onHold={() => holdJob(job)}
                 onResume={() => void resumeJob(job)}
                 onComplete={() => void completeJob(job)}
               />
@@ -470,6 +463,11 @@ function JobBody({
       <p className="text-sm font-semibold text-slate-900">{job.title}</p>
       <p className="mt-1 text-sm text-slate-600">{locationLabel(job)}</p>
       <p className="mt-1 text-xs text-slate-500">{relativeDue(job.dueDate)}</p>
+      {sentBackLabel(job) ? (
+        <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-sm text-amber-950">
+          {sentBackLabel(job)}
+        </p>
+      ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <JobAction job={job} starting={starting} onStart={onStart} onHold={onHold} onResume={onResume} onComplete={onComplete} />
         <Link className="inline-flex min-h-11 items-center rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-800" href={`/maintenance/jobs?wo=${job.id}` as Route}>Open</Link>
@@ -529,6 +527,102 @@ function JobAction({
         {job.nextAction.label}
       </Link>
       {job.nextAction.reason ? <p className="mt-1 text-xs text-slate-600">{job.nextAction.reason}</p> : null}
+    </div>
+  );
+}
+
+function HoldJobDialog({
+  job,
+  submitting,
+  onCancel,
+  onSubmit
+}: {
+  job: MyJob;
+  submitting: boolean;
+  onCancel: () => void;
+  onSubmit: (code: MyJobHoldCode, note: string) => Promise<string | null>;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
+  const [code, setCode] = useState<MyJobHoldCode>("WAITING_PARTS");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useFocusTrap(true, panelRef, { initialFocusRef: noteRef, onEscape: submitting ? undefined : onCancel });
+
+  async function handleSubmit() {
+    const problem = validateHoldNote(note);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    setError(await onSubmit(code, note));
+  }
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 p-4 sm:items-center">
+      <button type="button" aria-label="Close dialog backdrop" className="absolute inset-0" onClick={submitting ? undefined : onCancel} disabled={submitting} />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="hold-job-title"
+        className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
+      >
+        <h2 id="hold-job-title" className="text-lg font-semibold text-slate-900">Hold {job.woNumber}</h2>
+        <fieldset className="mt-4">
+          <legend className="text-sm font-medium text-slate-700">Why are you stopping?</legend>
+          <div className="mt-2 grid gap-2">
+            {MY_JOB_HOLD_CHOICES.map((choice) => (
+              <label
+                key={choice.code}
+                className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 text-sm ${
+                  code === choice.code ? "border-brand-400 bg-brand-50 font-medium text-slate-900" : "border-slate-200 text-slate-700"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="hold-reason"
+                  value={choice.code}
+                  checked={code === choice.code}
+                  disabled={submitting}
+                  onChange={() => setCode(choice.code)}
+                />
+                {choice.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <label className="mt-4 block text-sm font-medium text-slate-700" htmlFor="hold-job-note">
+          Note (required)
+        </label>
+        <textarea
+          id="hold-job-note"
+          ref={noteRef}
+          rows={2}
+          value={note}
+          disabled={submitting}
+          placeholder={code === "WAITING_PARTS" ? "Which part?" : code === "WAITING_APPROVAL" ? "Whose approval?" : "What is the problem?"}
+          aria-invalid={error ? "true" : "false"}
+          aria-describedby={error ? "hold-job-error" : undefined}
+          onChange={(event) => {
+            setNote(event.target.value);
+            if (error) setError(null);
+          }}
+          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900"
+        />
+        {error ? (
+          <p id="hold-job-error" className="mt-1 text-sm text-rose-600" role="alert">{error}</p>
+        ) : null}
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" disabled={submitting} onClick={onCancel} className="min-h-11 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700 disabled:opacity-60">
+            Cancel
+          </button>
+          <button type="button" disabled={submitting} onClick={() => void handleSubmit()} className="min-h-11 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white disabled:opacity-60">
+            {submitting ? "Saving..." : "Put on hold"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

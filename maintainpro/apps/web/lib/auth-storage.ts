@@ -82,6 +82,9 @@ export function mergeStoredPublicUserProfile(profile: unknown) {
       next.role = roleObj.name;
     }
   }
+  if (typeof incoming.mustChangePassword === "boolean") {
+    next.mustChangePassword = incoming.mustChangePassword;
+  }
   if (Array.isArray(incoming.permissions)) {
     next.permissions = incoming.permissions.filter(
       (value): value is string => typeof value === "string" && value.trim().length > 0

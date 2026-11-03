@@ -17,7 +17,7 @@ export const PWA_ICON_PATHS = {
 } as const;
 
 export const LEGACY_PWA_BRAND_MARKERS = [
-  "Maintenance Job",
+  "Maintenance job",
   "FMS Dashboard",
   "Fleet Management System"
 ] as const;

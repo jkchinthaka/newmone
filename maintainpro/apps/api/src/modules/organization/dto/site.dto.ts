@@ -1,4 +1,4 @@
-import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength, ValidateIf } from "class-validator";
 import { SiteType } from "@prisma/client";
 
 export class CreateSiteDto {
@@ -29,6 +29,25 @@ export class CreateSiteDto {
   @IsString()
   @MaxLength(40)
   contactPhone?: string;
+
+  /** Site centre (optional) for the "photo taken far from the site" check. */
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(50)
+  @Max(20000)
+  geoRadiusMeters?: number;
 }
 
 export class UpdateSiteDto {
@@ -66,4 +85,25 @@ export class UpdateSiteDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsInt()
+  @Min(50)
+  @Max(20000)
+  geoRadiusMeters?: number | null;
 }

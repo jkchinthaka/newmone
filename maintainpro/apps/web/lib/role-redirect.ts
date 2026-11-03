@@ -21,7 +21,6 @@ export const EXISTING_POST_LOGIN_ROUTES = new Set<string>([
   "/system-health",
   "/work-orders",
   "/fleet",
-  "/fleet/gate",
   "/inventory",
   "/reports",
   "/compliance",
@@ -64,7 +63,8 @@ export const ROLE_POST_LOGIN_PREFERENCES: Record<string, readonly string[]> = {
   TECHNICIAN: ["/work-orders/my", "/work-orders", "/notifications"],
   MECHANIC: ["/work-orders/my", "/work-orders", "/notifications"],
   CLEANER: ["/notifications"],
-  SECURITY_OFFICER: ["/fleet/gate", "/notifications"],
+  // Gate screen retired from the UI; security officers report issues through Requests.
+  SECURITY_OFFICER: ["/requests", "/notifications"],
   INVENTORY_KEEPER: ["/inventory", "/notifications"],
   STOREKEEPER: ["/inventory", "/notifications"],
   PROCUREMENT_OFFICER: ["/inventory", "/notifications"],

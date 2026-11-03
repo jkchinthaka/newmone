@@ -1,7 +1,7 @@
 const RULES: Array<[RegExp, string]> = [
-  [/approve this work order before assigning/i, "Approve this work order before assigning a technician."],
-  [/can only be assigned from planned/i, "Plan this work order, or approve it, before assigning a technician."],
-  [/requires manager approval before execution/i, "Approve this work order before starting the job."],
+  [/approve this work order before assigning/i, "Approve this job before assigning a technician."],
+  [/can only be assigned from planned/i, "Plan this job, or approve it, before assigning a technician."],
+  [/requires manager approval before execution/i, "Approve this job before starting the job."],
   [/only technician-completed work orders can be supervisor verified/i, "The technician must finish the job before you can verify it."],
   [/supervisor verification requires manager or admin/i, "Only a manager or admin can verify this job."],
   [/completing technician cannot verify/i, "You cannot verify a job you completed."],

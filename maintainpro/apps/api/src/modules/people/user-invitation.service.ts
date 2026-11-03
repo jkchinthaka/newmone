@@ -30,7 +30,7 @@ export class UserInvitationService {
     return (
       this.configService.get<string>("APP_FRONTEND_URL") ??
       this.configService.get<string>("FRONTEND_URL") ??
-      this.configService.get<string>("CORS_ORIGIN", "http://localhost:3001").split(",")[0].trim()
+      this.configService.get<string>("CORS_ORIGIN", "http://localhost:3041").split(",")[0].trim()
     ).replace(/\/$/, "");
   }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { PERSON_INVITE_METHOD_LABELS, personLoginIssues, type PersonInviteMethod } from "@/lib/person-login";
 import Link from "next/link";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
@@ -37,7 +38,9 @@ type WizardState = {
   canLogin: boolean;
   roleId: string;
   branchScope: string;
-  inviteMethod: "INVITE_EMAIL" | "TEMP_PASSWORD" | "COPY_LINK";
+  inviteMethod: PersonInviteMethod;
+  initialPassword: string;
+  confirmPassword: string;
 };
 
 const INITIAL: WizardState = {
@@ -59,7 +62,9 @@ const INITIAL: WizardState = {
   canLogin: false,
   roleId: "",
   branchScope: "",
-  inviteMethod: "INVITE_EMAIL"
+  inviteMethod: "SET_PASSWORD",
+  initialPassword: "",
+  confirmPassword: ""
 };
 
 export function AddPersonWizard() {
@@ -79,19 +84,18 @@ export function AddPersonWizard() {
     enabled: isAdmin
   });
 
+  const loginIssues = useMemo(() => personLoginIssues(form), [form]);
   const warnings = useMemo(() => {
-    const list: string[] = [];
-    if (form.canLogin && !form.roleId) list.push("Login selected but role missing");
+    const list: string[] = [...loginIssues];
     if (form.isTechnician && !form.skills.trim()) list.push("Technician selected but skills missing");
-    if (!form.active && form.canLogin) list.push("Inactive employee cannot login");
-    if (form.canLogin && !form.email.trim()) list.push("Email required for login");
-    if (form.canLogin && !form.branchName.trim()) list.push("Branch is required");
     return list;
-  }, [form]);
+  }, [form, loginIssues]);
 
   const createMutation = useMutation({
     mutationFn: (payload: CreatePersonPayload) => createPerson(payload),
     onSuccess: (result) => {
+      // Never keep the admin-typed password in memory after it has been sent.
+      setForm((current) => ({ ...current, initialPassword: "", confirmPassword: "" }));
       if (result.temporaryPassword) setOneTimeSecret(result.temporaryPassword);
       if (result.inviteLink) setOneTimeSecret(result.inviteLink);
       if (!result.emailProviderConfigured && form.inviteMethod === "INVITE_EMAIL") {
@@ -122,7 +126,8 @@ export function AddPersonWizard() {
     canLogin: form.canLogin,
     roleId: form.canLogin ? form.roleId : undefined,
     branchScope: form.branchScope.trim() || form.branchName.trim() || undefined,
-    inviteMethod: form.canLogin ? form.inviteMethod : undefined
+    inviteMethod: form.canLogin ? form.inviteMethod : undefined,
+    initialPassword: form.canLogin && form.inviteMethod === "SET_PASSWORD" ? form.initialPassword : undefined
   };
 
   if (!isAdmin) {
@@ -152,7 +157,7 @@ export function AddPersonWizard() {
           <input placeholder="Employee No (optional)" value={form.employeeNo} onChange={(e) => setForm({ ...form, employeeNo: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
           <input placeholder="Full Name *" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
           <input placeholder="Mobile" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-          <input placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
+          <input type="email" placeholder="Email (optional, needed only if this person will log in)" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
           <input placeholder="Branch *" value={form.branchName} onChange={(e) => setForm({ ...form, branchName: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
           <DepartmentSelect value={form.departmentId} onChange={(departmentId) => setForm({ ...form, departmentId })} />
           <select value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} className="w-full rounded border px-3 py-2 text-sm">
@@ -174,7 +179,7 @@ export function AddPersonWizard() {
               <input placeholder="Work categories" value={form.workCategories} onChange={(e) => setForm({ ...form, workCategories: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
               <input placeholder="Daily capacity hours" value={form.dailyCapacityHours} onChange={(e) => setForm({ ...form, dailyCapacityHours: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
               <input placeholder="Shift" value={form.shift} onChange={(e) => setForm({ ...form, shift: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.canReceiveWorkOrders} onChange={(e) => setForm({ ...form, canReceiveWorkOrders: e.target.checked })} /> Can receive work orders</label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.canReceiveWorkOrders} onChange={(e) => setForm({ ...form, canReceiveWorkOrders: e.target.checked })} /> Can receive jobs</label>
               <select value={form.availabilityStatus} onChange={(e) => setForm({ ...form, availabilityStatus: e.target.value })} className="w-full rounded border px-3 py-2 text-sm">
                 <option value="AVAILABLE">Available</option>
                 <option value="ON_LEAVE">On leave</option>
@@ -191,7 +196,7 @@ export function AddPersonWizard() {
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.canLogin} onChange={(e) => setForm({ ...form, canLogin: e.target.checked })} /> Can login to the system</label>
           {form.canLogin ? (
             <>
-              <input placeholder="Login email *" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
+              <input type="email" required autoComplete="off" placeholder="Login email *" aria-label="Login email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
               <select value={form.roleId} onChange={(e) => setForm({ ...form, roleId: e.target.value })} className="w-full rounded border px-3 py-2 text-sm">
                 <option value="">Select role</option>
                 {(visibleLoginRoles(rolesQuery.data ?? [], form.roleId)).map((role) => (
@@ -199,13 +204,30 @@ export function AddPersonWizard() {
                 ))}
               </select>
               <input placeholder="Branch scope" value={form.branchScope} onChange={(e) => setForm({ ...form, branchScope: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-              <select value={form.inviteMethod} onChange={(e) => setForm({ ...form, inviteMethod: e.target.value as WizardState["inviteMethod"] })} className="w-full rounded border px-3 py-2 text-sm">
-                <option value="INVITE_EMAIL">Send Invite Email</option>
-                <option value="TEMP_PASSWORD">Generate Temporary Password</option>
-                <option value="COPY_LINK">Copy Invite Link fallback</option>
+              <label className="block text-sm font-medium text-slate-700" htmlFor="person-invite-method">How will they get their first password?</label>
+              <select id="person-invite-method" value={form.inviteMethod} onChange={(e) => setForm({ ...form, inviteMethod: e.target.value as PersonInviteMethod, initialPassword: "", confirmPassword: "" })} className="w-full rounded border px-3 py-2 text-sm">
+                {(Object.keys(PERSON_INVITE_METHOD_LABELS) as PersonInviteMethod[]).map((method) => (
+                  <option key={method} value={method}>{PERSON_INVITE_METHOD_LABELS[method]}</option>
+                ))}
               </select>
+              {form.inviteMethod === "SET_PASSWORD" ? (
+                <>
+                  <input type="password" required autoComplete="new-password" placeholder="Password *" aria-label="Password" value={form.initialPassword} onChange={(e) => setForm({ ...form, initialPassword: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
+                  <input type="password" required autoComplete="new-password" placeholder="Confirm password *" aria-label="Confirm password" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
+                  <p className="text-xs text-slate-500">At least 8 characters with an uppercase letter, a number and a symbol. They must change it the first time they sign in.</p>
+                </>
+              ) : null}
+              {loginIssues.length ? (
+                <ul className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" aria-live="polite">
+                  {loginIssues.map((issue) => (
+                    <li key={issue}>• {issue}</li>
+                  ))}
+                </ul>
+              ) : null}
             </>
-          ) : null}
+          ) : (
+            <p className="text-sm text-slate-500">Email and password are only needed when this person will log in.</p>
+          )}
         </section>
       ) : null}
 
@@ -217,7 +239,7 @@ export function AddPersonWizard() {
           <p><strong>Branch:</strong> {form.branchName || "—"}</p>
           <p><strong>Technician:</strong> {form.isTechnician ? "Yes" : "No"}</p>
           <p><strong>Login:</strong> {form.canLogin ? "Yes" : "No"}</p>
-          {form.canLogin ? <p><strong>Invite method:</strong> {form.inviteMethod}</p> : null}
+          {form.canLogin ? <p><strong>First password:</strong> {PERSON_INVITE_METHOD_LABELS[form.inviteMethod]}</p> : null}
           {warnings.length ? (
             <ul className="rounded border border-amber-200 bg-amber-50 p-3 text-amber-900">
               {warnings.map((w) => (
@@ -231,6 +253,9 @@ export function AddPersonWizard() {
       {step === 5 ? (
         <section className="space-y-3 rounded-xl border border-green-200 bg-green-50 p-5 text-sm text-green-900">
           <div className="flex items-center gap-2 font-semibold"><CheckCircle2 className="h-5 w-5" /> Person created</div>
+          {form.canLogin && form.inviteMethod === "SET_PASSWORD" ? (
+            <p>They can sign in with the password you set. They must change it the first time they sign in.</p>
+          ) : null}
           {oneTimeSecret ? (
             <div>
               <p className="font-medium">One-time password or invite link</p>
@@ -247,7 +272,12 @@ export function AddPersonWizard() {
             Back
           </button>
           {step < 4 ? (
-            <button type="button" className="inline-flex items-center gap-2 rounded bg-slate-900 px-4 py-2 text-sm text-white" onClick={() => setStep((s) => s + 1)}>
+            <button
+              type="button"
+              disabled={step === 3 && loginIssues.length > 0}
+              className="inline-flex items-center gap-2 rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-40"
+              onClick={() => setStep((s) => s + 1)}
+            >
               Next <ArrowRight className="h-4 w-4" />
             </button>
           ) : (

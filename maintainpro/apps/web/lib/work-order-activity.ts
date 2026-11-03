@@ -138,7 +138,7 @@ export function buildFacilityIssueDetailHref(issueId: string | null | undefined)
 }
 
 export function workOrderActivityUnavailableMessage(): string {
-  return "Activity timeline unavailable. Other work order actions remain available.";
+  return "Activity timeline unavailable. Other job actions remain available.";
 }
 
 export function workOrderActivityHasUploadActions(

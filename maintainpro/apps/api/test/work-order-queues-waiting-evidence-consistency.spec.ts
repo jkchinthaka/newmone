@@ -95,15 +95,19 @@ describe("WorkOrderQueuesService waiting-evidence badge/list consistency", () =>
 
   const originalStorage = process.env.STORAGE_UPLOADS_ENABLED;
   const originalNodeEnv = process.env.NODE_ENV;
+  const originalRoot = process.env.STORAGE_LOCAL_ROOT;
 
   afterEach(() => {
     if (originalStorage === undefined) delete process.env.STORAGE_UPLOADS_ENABLED;
     else process.env.STORAGE_UPLOADS_ENABLED = originalStorage;
     process.env.NODE_ENV = originalNodeEnv;
+    if (originalRoot === undefined) delete process.env.STORAGE_LOCAL_ROOT;
+    else process.env.STORAGE_LOCAL_ROOT = originalRoot;
   });
 
   it("badge and list agree: a CORRECTIVE job with no evidence is Missing when upload storage is enabled", async () => {
     process.env.STORAGE_UPLOADS_ENABLED = "true";
+    process.env.STORAGE_LOCAL_ROOT = "/srv/maintainpro-evidence-test";
     process.env.NODE_ENV = "test";
 
     const rows = [

@@ -17,13 +17,13 @@ const AUDIT_EVENT_LABELS: Record<string, string> = {
   ASSIGN: "Assigned",
   STATUS_CHANGE: "Status updated",
   SUBMIT: "Submitted for approval",
-  work_order_created: "Work order created",
+  work_order_created: "Job created",
   work_order_assigned: "Technician assigned",
   work_order_submitted_for_approval: "Submitted for approval",
   work_order_approved: "Approved",
   work_order_rejected: "Rejected",
   work_order_status_updated: "Status changed",
-  work_order_technician_completed: "Technician completed",
+  work_order_technician_completed: "Done, waiting for check",
   work_order_supervisor_verified: "Supervisor verified",
   work_order_supervisor_rejected: "Supervisor rejected",
   work_order_closed: "Closed",
@@ -146,14 +146,14 @@ export function WorkOrderAuditPanel({ workOrderId }: Props) {
         <div>
           <h4 className="text-sm font-semibold text-slate-900">Audit trail</h4>
           <p className="mt-1 text-xs text-slate-500">
-            Immutable change log for this work order and assignee changes. Some lifecycle events may only appear when
+            Immutable change log for this job and assignee changes. Some lifecycle events may only appear when
             captured by domain audit middleware.
           </p>
         </div>
       </div>
 
       {combined.length === 0 ? (
-        <p className="text-sm text-slate-500">No audit events recorded for this work order yet.</p>
+        <p className="text-sm text-slate-500">No audit events recorded for this job yet.</p>
       ) : (
         <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
           {combined.map((entry) => (

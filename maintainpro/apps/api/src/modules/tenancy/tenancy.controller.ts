@@ -2,6 +2,7 @@ import { Controller, Get, Param, Post, Req } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { SelfService } from "../../common/decorators/self-service.decorator";
+import { AllowPendingPasswordChange } from "../../common/guards/password-change-required.guard";
 import { TenancyService } from "./tenancy.service";
 
 type AuthenticatedRequest = {
@@ -19,6 +20,8 @@ export class TenancyController {
 
   @Get("me")
   @SelfService()
+  // Read-only: the app shell loads the tenant name while a temporary password is being replaced.
+  @AllowPendingPasswordChange()
   async me(@Req() req: AuthenticatedRequest) {
     const data = await this.tenancyService.getMyTenants(req.user.sub, req.user.tenantId ?? null);
     return {

@@ -74,8 +74,8 @@ export default function AssetTagUploadPage() {
     <main className="mx-auto max-w-4xl space-y-4 p-4">
       <h1 className="text-2xl font-semibold">Asset tag upload</h1>
       <p className="flex flex-wrap gap-3">
-        <a href="/api/admin/asset-tags/template.csv">CSV template</a>
-        <a href="/api/admin/asset-tags/template.xlsx">XLSX template</a>
+        <a href="/api/backend/admin/asset-tags/template.csv" download="asset-tag-template.csv">CSV template</a>
+        <a href="/api/backend/admin/asset-tags/template.xlsx" download="asset-tag-template.xlsx">XLSX template</a>
         <Link href="/assets">Existing bulk import</Link>
       </p>
       <form className="space-y-3" onSubmit={preview}>
@@ -104,7 +104,7 @@ export default function AssetTagUploadPage() {
         <div className="space-y-2">
           <p>Print QR labels for this batch. Each code encodes the applied asset tag.</p>
           {tags.filter((row) => row.entityKind !== "vehicle" && row.entityId).map((row) => (
-            <a key={row.entityId} href={`/api/assets/${row.entityId}/qr-code/download`}>{row.assetTag}</a>
+            <a key={row.entityId} href={`/api/backend/assets/${row.entityId}/qr-code/download`} download={`${row.assetTag}-qr.png`}>{row.assetTag}</a>
           ))}
         </div>
       ) : null}

@@ -1,8 +1,12 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { AuditAction, EmployeeAvailabilityStatus, RoleName, UserInviteStatus } from "@prisma/client";
 import { createHash } from "node:crypto";
+import * as bcrypt from "bcryptjs";
+import { plainToInstance } from "class-transformer";
+import { validate } from "class-validator";
 
 import { AuthService } from "../src/modules/auth/auth.service";
+import { EnableLoginDto } from "../src/modules/people/dto/people.dto";
 import { PeopleService } from "../src/modules/people/people.service";
 import { UserInvitationService } from "../src/modules/people/user-invitation.service";
 import { TechniciansService } from "../src/modules/people/technicians.service";
@@ -157,6 +161,53 @@ describe("PeopleService onboarding", () => {
     await expect(
       service.enableLogin("emp-1", { email: "x@example.com", roleId: "role-tech" })
     ).rejects.toThrow("Inactive employee cannot login");
+  });
+});
+
+describe("PeopleService set-a-password-now", () => {
+  const activeEmployee = { id: "emp-1", active: true, fullName: "Kamal Perera", linkedUserId: null, designation: "TECHNICIAN", phone: null, departmentId: null, branchName: "HQ", skills: [], dailyCapacityHours: 8 };
+
+  function setup() {
+    const prisma = buildPrisma();
+    // First lookup is the person; the next one is the unique-email check.
+    prisma.employee.findFirst.mockResolvedValueOnce(activeEmployee).mockResolvedValue(null);
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.user.findFirst.mockResolvedValue(null);
+    prisma.role.findUnique.mockResolvedValue(TECH_ROLE);
+    prisma.user.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "user-1", ...data }));
+    prisma.employee.update.mockResolvedValue({ ...activeEmployee, linkedUserId: "user-1", canLogin: true, department: null, linkedUser: null });
+    const invitations = new UserInvitationService(prisma as never, buildConfig() as never, buildEmailDispatch() as never);
+    const createInvite = jest.spyOn(invitations, "createOrRefreshInvitation");
+    return { prisma, service: new PeopleService(prisma as never, invitations), createInvite };
+  }
+
+  it("stores the admin's first password hashed, forces a change at first sign-in and sends no invite", async () => {
+    const { prisma, service, createInvite } = setup();
+    const result = await service
+      .enableLogin("emp-1", { email: "kamal@nelna.lk", roleId: "role-tech", inviteMethod: "SET_PASSWORD" as never, initialPassword: "Start-1234!" } as never)
+      .catch((error: unknown) => error);
+    void result;
+    const data = prisma.user.create.mock.calls[0][0].data as { passwordHash: string; mustChangePassword: boolean; temporaryPasswordExpiresAt: Date | null };
+    expect(await bcrypt.compare("Start-1234!", data.passwordHash)).toBe(true);
+    expect(data.mustChangePassword).toBe(true);
+    expect(data.temporaryPasswordExpiresAt).toBeInstanceOf(Date);
+    expect(createInvite).not.toHaveBeenCalled();
+    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain("Start-1234!");
+  });
+
+  it("refuses set-a-password-now without a password", async () => {
+    const { prisma, service } = setup();
+    await expect(
+      service.enableLogin("emp-1", { email: "kamal@nelna.lk", roleId: "role-tech", inviteMethod: "SET_PASSWORD" as never } as never)
+    ).rejects.toThrow("Enter a first password");
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a weak first password at the DTO", async () => {
+    const weak = await validate(plainToInstance(EnableLoginDto, { email: "kamal@nelna.lk", roleId: "r", inviteMethod: "SET_PASSWORD", initialPassword: "password" }));
+    expect(weak.some((error) => error.property === "initialPassword")).toBe(true);
+    const strong = await validate(plainToInstance(EnableLoginDto, { email: "kamal@nelna.lk", roleId: "r", inviteMethod: "SET_PASSWORD", initialPassword: "Start-1234!" }));
+    expect(strong.some((error) => error.property === "initialPassword")).toBe(false);
   });
 });
 

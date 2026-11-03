@@ -1,3 +1,5 @@
+import { BadRequestException } from "@nestjs/common";
+
 import { StockBalanceSnapshot } from "./inventory-erp-adapter.service";
 
 export const ERP_STOCK_SYNC_SAMPLE_LIMIT = 5;
@@ -81,6 +83,8 @@ export type ErpStockSyncReadiness = {
 export type MaintainProPartSnapshot = {
   id: string;
   partNumber: string;
+  /** Bileeta item code; preferred over partNumber when matching ERP rows. */
+  erpCode?: string | null;
   name: string;
   quantityInStock: number;
   warehouseId?: string | null;
@@ -127,13 +131,22 @@ export function compareStockBalances(input: {
   warnings: string[];
 } {
   const erpByExactKey = new Map<string, StockBalanceSnapshot>();
-  const erpByPartCode = new Map<string, StockBalanceSnapshot[]>();
   for (const balance of input.erpBalances) {
     const code = normalizeErpItemCode(balance.partSku);
     if (!code) {
       continue;
     }
-    erpByExactKey.set(balanceKey(code, balance.warehouseCode), balance);
+    // Bileeta can return one item+warehouse on several rows (bins/batches): they add up.
+    const key = balanceKey(code, balance.warehouseCode);
+    const existing = erpByExactKey.get(key);
+    erpByExactKey.set(
+      key,
+      existing ? { ...existing, quantityOnHand: existing.quantityOnHand + balance.quantityOnHand } : balance
+    );
+  }
+  const erpByPartCode = new Map<string, StockBalanceSnapshot[]>();
+  for (const balance of erpByExactKey.values()) {
+    const code = normalizeErpItemCode(balance.partSku);
     const list = erpByPartCode.get(code) ?? [];
     list.push(balance);
     erpByPartCode.set(code, list);
@@ -162,7 +175,11 @@ export function compareStockBalances(input: {
   }
 
   for (const part of input.maintainProParts) {
-    const code = normalizeErpItemCode(part.partNumber);
+    // The mapped ERP item code is authoritative; partNumber is the fallback for unmapped parts.
+    const erpCode = normalizeErpItemCode(part.erpCode);
+    const partCode = normalizeErpItemCode(part.partNumber);
+    const code =
+      erpCode && (erpByPartCode.has(erpCode) || !erpByPartCode.has(partCode)) ? erpCode : partCode;
     let erpBalance: StockBalanceSnapshot | undefined;
     let matchedKey: string | null = null;
 
@@ -304,7 +321,8 @@ export function parseBileetaStockBalances(payload: unknown): StockBalanceSnapsho
       ? ((payload as { items: unknown[] }).items ?? [])
       : [];
 
-  return rows
+  const missingQuantity: string[] = [];
+  const parsed = rows
     .map((row): StockBalanceSnapshot | null => {
       if (!row || typeof row !== "object") {
         return null;
@@ -315,8 +333,14 @@ export function parseBileetaStockBalances(payload: unknown): StockBalanceSnapsho
         record.itemCode ?? record.partSku ?? record.partNumber ?? record.sku ?? ""
       ).trim();
       const quantityRaw = record.quantityOnHand ?? record.quantity ?? record.qty ?? record.onHand;
-      const quantityOnHand = Number(quantityRaw);
+      // Number(null) and Number("") are 0: a blank quantity must not read as "zero on hand".
+      const blank = quantityRaw == null || (typeof quantityRaw === "string" && quantityRaw.trim() === "");
+      const quantityOnHand = blank ? Number.NaN : Number(quantityRaw);
 
+      if (partSku && blank) {
+        missingQuantity.push(partSku);
+        return null;
+      }
       if (!partSku || Number.isNaN(quantityOnHand)) {
         return null;
       }
@@ -335,4 +359,14 @@ export function parseBileetaStockBalances(payload: unknown): StockBalanceSnapsho
       };
     })
     .filter((row): row is StockBalanceSnapshot => row !== null);
+
+  if (missingQuantity.length > 0) {
+    const sample = missingQuantity.slice(0, 10).join(", ");
+    throw new BadRequestException(
+      `ERP stock rows without a quantity were rejected (${missingQuantity.length}): ${sample}${
+        missingQuantity.length > 10 ? ", …" : ""
+      }. Fix the quantity in the ERP and sync again.`
+    );
+  }
+  return parsed;
 }

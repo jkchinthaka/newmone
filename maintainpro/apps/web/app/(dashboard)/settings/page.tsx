@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState, LoadingState, toSafeApiErrorMessage } from "@/components/ui/page-state";
 import { apiClient } from "@/lib/api-client";
+import { USER_KEY } from "@/lib/auth-storage";
+import { passwordStrengthError, userMustChangePassword } from "@/lib/password-change-required";
 import {
   MUTED_NOTIFICATION_TYPES,
   passwordChangeError,
@@ -57,6 +59,17 @@ function humanize(value: string) {
   return value.replaceAll("_", " ").toLowerCase().replace(/(^|\s)\w/g, (char) => char.toUpperCase());
 }
 
+/** The login payload cached mustChangePassword: true; drop it once the password is changed. */
+function clearStoredPasswordPending() {
+  try {
+    const raw = window.localStorage.getItem(USER_KEY);
+    if (!raw) return;
+    window.localStorage.setItem(USER_KEY, JSON.stringify({ ...JSON.parse(raw), mustChangePassword: false }));
+  } catch {
+    // Storage unavailable: nothing cached to correct.
+  }
+}
+
 function SettingsWorkspace() {
   const user = useCurrentUser();
   const role = extractRoleName(user);
@@ -65,14 +78,27 @@ function SettingsWorkspace() {
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const requested = params.get("tab");
-  const tab: SettingsTab = TABS.includes(requested as SettingsTab) ? (requested as SettingsTab) : "profile";
+  // Server truth (auth/me stays reachable while a temporary password is pending).
+  const meQuery = useQuery({
+    queryKey: ["auth", "me", "password-pending"],
+    queryFn: async () => (await apiClient.get<Envelope<unknown>>("/auth/me")).data.data
+  });
+  const passwordPending = userMustChangePassword(meQuery.data);
+  // A pending temporary password locks everything except the password form.
+  const tab: SettingsTab = passwordPending
+    ? "security"
+    : TABS.includes(requested as SettingsTab)
+      ? (requested as SettingsTab)
+      : "profile";
 
   const profileQuery = useQuery({
     queryKey: ["settings", "profile"],
+    enabled: !passwordPending,
     queryFn: async () => (await apiClient.get<Envelope<Profile>>("/settings/profile")).data.data
   });
 
   const [profile, setProfile] = useState({ firstName: "", lastName: "", email: "", phone: "" });
+  const [emailPassword, setEmailPassword] = useState("");
   const [password, setPassword] = useState({ current: "", next: "", confirm: "" });
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [channels, setChannels] = useState<Preferences | null>(null);
@@ -129,12 +155,18 @@ function SettingsWorkspace() {
     );
   }, [profile, profileQuery.data]);
 
+  const emailChanged = Boolean(
+    profileQuery.data && profile.email.trim().toLowerCase() !== profileQuery.data.email.trim().toLowerCase()
+  );
+
   const saveProfile = useMutation({
     mutationFn: async () => {
-      await apiClient.patch("/settings/profile", profile);
+      // Changing the sign-in email needs the current password and signs out other sessions.
+      await apiClient.patch("/settings/profile", emailChanged ? { ...profile, currentPassword: emailPassword } : profile);
     },
     onSuccess: () => {
-      toast.success("Profile saved.");
+      setEmailPassword("");
+      toast.success(emailChanged ? "Profile saved. Other sessions were signed out." : "Profile saved.");
       void queryClient.invalidateQueries({ queryKey: ["settings", "profile"] });
     },
     onError: (error) => toast.error(toSafeApiErrorMessage(error, "Could not save your profile."))
@@ -142,15 +174,19 @@ function SettingsWorkspace() {
 
   const savePassword = useMutation({
     mutationFn: async () => {
-      await apiClient.patch("/settings/profile", {
+      await apiClient.patch("/settings/password", {
         currentPassword: password.current,
         newPassword: password.next
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setPassword({ current: "", next: "", confirm: "" });
       setPasswordError(null);
-      toast.success("Password updated.");
+      toast.success("Password updated. Other sessions were signed out.");
+      if (passwordPending) {
+        clearStoredPasswordPending();
+        window.location.replace("/");
+      }
     },
     onError: (error) => toast.error(toSafeApiErrorMessage(error, "Could not change your password."))
   });
@@ -189,7 +225,7 @@ function SettingsWorkspace() {
 
   const submitPassword = (event: FormEvent) => {
     event.preventDefault();
-    const error = passwordChangeError(password);
+    const error = passwordChangeError(password) ?? passwordStrengthError(password.next);
     setPasswordError(error);
     if (error || savePassword.isPending) return;
     savePassword.mutate();
@@ -218,7 +254,13 @@ function SettingsWorkspace() {
       </div>
 
       {profileQuery.isLoading ? <LoadingState title="Loading settings" description="Fetching your profile." /> : null}
-      {profileQuery.error ? (
+      {passwordPending ? (
+        <p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          Your account uses a temporary password. Choose a new password to continue.
+        </p>
+      ) : null}
+
+      {profileQuery.error && tab !== "security" ? (
         <ErrorState title="Could not load settings" description={toSafeApiErrorMessage(profileQuery.error, "Unable to load settings.")} onRetry={() => void profileQuery.refetch()} error={profileQuery.error} />
       ) : null}
 
@@ -228,6 +270,10 @@ function SettingsWorkspace() {
           onSubmit={(event) => {
             event.preventDefault();
             if (!profileDirty || saveProfile.isPending) return;
+            if (emailChanged && !emailPassword) {
+              toast.error("Enter your current password to change your email.");
+              return;
+            }
             saveProfile.mutate();
           }}
         >
@@ -243,6 +289,12 @@ function SettingsWorkspace() {
             Email
             <input type="email" value={profile.email} onChange={(event) => setProfile({ ...profile, email: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
           </label>
+          {emailChanged ? (
+            <label className="block text-sm text-slate-700">
+              Current password (required to change your email)
+              <input type="password" autoComplete="current-password" value={emailPassword} onChange={(event) => setEmailPassword(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
+            </label>
+          ) : null}
           <label className="block text-sm text-slate-700">
             Phone
             <input value={profile.phone} onChange={(event) => setProfile({ ...profile, phone: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />

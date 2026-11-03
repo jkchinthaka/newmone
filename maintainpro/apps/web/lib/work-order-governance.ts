@@ -3,7 +3,7 @@ import type { WorkOrderStatus, WorkOrderApprovalStatus } from "@/components/work
 export type WorkOrderVerificationStatus = "NOT_REQUIRED" | "PENDING" | "VERIFIED" | "REJECTED";
 
 export const GOVERNANCE_MESSAGES = {
-  supervisorRequired: "Supervisor verification required before closing.",
+  supervisorRequired: "Supervisor check required before closing.",
   reasonRequired: "Reason required for this action.",
   lockedAfterStart:
     "Due date and expected completion are locked because work has already started. Title, description, estimated cost, and estimated hours can still be edited.",
@@ -76,9 +76,9 @@ export function getLifecycleStageLabel(status: WorkOrderStatus): string {
     case "ON_HOLD":
       return "On hold";
     case "TECHNICIAN_COMPLETED":
-      return "Technician completed — awaiting supervisor";
+      return "Done, waiting for supervisor check";
     case "REWORK_REQUIRED":
-      return "Rework required";
+      return "Needs to be fixed again";
     case "VERIFIED":
       return "Verified — ready to close";
     case "CLOSED":
@@ -97,14 +97,14 @@ export function getLifecycleStageLabel(status: WorkOrderStatus): string {
 export function getVerificationStatusLabel(status?: WorkOrderVerificationStatus | null): string {
   switch (status) {
     case "PENDING":
-      return "Supervisor verification pending";
+      return "Supervisor check pending";
     case "VERIFIED":
       return "Supervisor verified";
     case "REJECTED":
-      return "Supervisor rejected — rework required";
+      return "Supervisor rejected — needs to be fixed again";
     case "NOT_REQUIRED":
     default:
-      return "Verification not required";
+      return "Supervisor check not required";
   }
 }
 

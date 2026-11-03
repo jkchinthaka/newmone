@@ -1,5 +1,8 @@
 "use client";
 
+import { formatDateTime } from "@/lib/localization";
+import { TableLoadingRows } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/page-state";
 import { useQuery } from "@tanstack/react-query";
 
 import { FarmListPage } from "@/components/farm/farm-list-page";
@@ -25,7 +28,9 @@ export default function FarmWeatherPage() {
     <div className="space-y-6">
       <Section title="Active alerts">
         {alerts.isLoading ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <TableLoadingRows rows={3} label="Loading" />
+        ) : alerts.isError ? (
+          <ErrorState error={alerts.error} onRetry={() => void alerts.refetch()} />
         ) : alerts.data && alerts.data.length > 0 ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {alerts.data.slice(0, 6).map((a) => (
@@ -33,7 +38,7 @@ export default function FarmWeatherPage() {
                 key={a.id}
                 label={a.alertType ?? "WEATHER_ALERT"}
                 value={a.condition ?? "—"}
-                hint={`${new Date(a.recordedAt).toLocaleString()} · ${a.temperatureC ?? "—"}°C · ${a.rainfallMm ?? 0}mm`}
+                hint={`${formatDateTime(a.recordedAt)} · ${a.temperatureC ?? "—"}°C · ${a.rainfallMm ?? 0}mm`}
               />
             ))}
           </div>
@@ -49,7 +54,7 @@ export default function FarmWeatherPage() {
         endpoint="/farm/weather"
         queryKey="farm-weather"
         columns={[
-          { key: "recordedAt", label: "When", render: (r) => new Date(r.recordedAt).toLocaleString() },
+          { key: "recordedAt", label: "When", render: (r) => formatDateTime(r.recordedAt) },
           { key: "temperatureC", label: "°C" },
           { key: "rainfallMm", label: "Rain (mm)" },
           { key: "humidityPct", label: "Humidity %" },

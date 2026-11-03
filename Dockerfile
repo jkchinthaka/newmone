@@ -18,6 +18,7 @@ RUN npm run build --workspace @maintainpro/shared-types && npm run build --works
 FROM node:20-alpine AS production
 WORKDIR /workspace
 ENV NODE_ENV=production
+ENV HOST=0.0.0.0
 RUN apk add --no-cache openssl
 
 COPY --from=base /workspace/maintainpro/node_modules ./node_modules

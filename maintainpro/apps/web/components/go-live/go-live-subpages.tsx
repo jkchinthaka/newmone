@@ -131,7 +131,7 @@ export function LiveIssuesPage() {
               ["Critical Issues", data?.openCriticalIssues],
               ["High Issues", data?.openHighIssues],
               ["Open Tickets", data?.openSupportTickets],
-              ["SLA Breaches", data?.slaBreaches],
+              ["Time Limit Breaches", data?.slaBreaches],
               ["Rollback Risk", data?.rollbackRisk]
             ] as Array<[string, unknown]>
           ).map(([label, value]) => (
@@ -149,7 +149,7 @@ export function LiveIssuesPage() {
 export function SignOffPage() {
   return (
     <SimpleListPage
-      title="Management Sign-off"
+      title="Management supervisor approval"
       queryKey={["go-live", "signoff"]}
       queryFn={fetchSignOffs}
       renderItem={(s) => `${String(s.signOffRole)} — ${String(s.decision)}`}

@@ -126,13 +126,13 @@ export default function AssetMastersAdminPage() {
           <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <span className="block text-[11px] font-medium uppercase tracking-wide text-blue-600">
-                KPI Keys
+                Key Number Codes
               </span>
               <span className="text-slate-700">{profile.kpiKeys.join(", ") || "—"}</span>
             </div>
             <div>
               <span className="block text-[11px] font-medium uppercase tracking-wide text-blue-600">
-                Downtime Applicable
+                Stopped time applies
               </span>
               <span className="text-slate-700">
                 {profile.downtimeApplicableDefault ? "Yes" : "No"}

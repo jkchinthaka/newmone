@@ -58,11 +58,11 @@ export default function AdminPrioritySlaPage() {
         escalateOnBreach: rule.escalateOnBreach,
         notifyOnBreach: rule.notifyOnBreach,
         active: rule.active,
-        reason: reason.trim() || "Priority SLA configuration change"
+        reason: reason.trim() || "Response time configuration change"
       });
     },
     onSuccess: () => {
-      toast.success("Priority SLA saved — work-order deadlines use these targets");
+      toast.success("Response time saved — work-order deadlines use these targets");
       setReason("");
       void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "priority-sla"]) });
       void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "config-history"]) });
@@ -71,13 +71,13 @@ export default function AdminPrioritySlaPage() {
   });
 
   if (query.isLoading) {
-    return <LoadingState title="Loading priority rules" description="Fetching SLA targets." />;
+    return <LoadingState title="Loading priority rules" description="Fetching time limit targets." />;
   }
 
   if (query.isError) {
     return (
       <ErrorState
-        title="Unable to load priority SLA"
+        title="Unable to load response time"
         description={getApiErrorMessage(query.error, "Request failed")}
         onRetry={() => query.refetch()}
       />
@@ -93,13 +93,13 @@ export default function AdminPrioritySlaPage() {
         items={[
           { label: "Admin", href: "/admin" },
           { label: "Maintenance Configuration", href: "/admin/maintenance-config" },
-          { label: "Priority / SLA" }
+          { label: "Priority / Time limit" }
         ]}
       />
       <div>
-        <h1 className="page-title">Priority / SLA Rules</h1>
+        <h1 className="page-title">Priority & Response Time Rules</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Response and completion targets drive work-order SLA deadlines when a job starts. Changes
+          Response and completion targets drive work-order time limit deadlines when a job starts. Changes
           are recorded in configuration history.
         </p>
       </div>

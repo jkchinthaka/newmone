@@ -51,7 +51,9 @@ export type CreatePersonPayload = {
   canLogin?: boolean;
   roleId?: string;
   branchScope?: string;
-  inviteMethod?: "INVITE_EMAIL" | "TEMP_PASSWORD" | "COPY_LINK";
+  inviteMethod?: "SET_PASSWORD" | "INVITE_EMAIL" | "TEMP_PASSWORD" | "COPY_LINK";
+  /** Only with SET_PASSWORD; sent once and never stored by the browser. */
+  initialPassword?: string;
 };
 
 export async function fetchPeople(params: Record<string, string | number | undefined> = {}) {

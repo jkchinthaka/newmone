@@ -82,11 +82,11 @@ export function buildEntityJumpCommands(
     const base = hrefs.has("/maintenance/jobs") ? "/maintenance/jobs" : "/work-orders";
     extras.push({
       id: `entity-work-orders-${trimmed.toLowerCase()}`,
-      label: `Search work orders for “${trimmed}”`,
-      description: "Open the work order queue with this search",
+      label: `Search jobs for “${trimmed}”`,
+      description: "Open the job queue with this search",
       href: `${base}?q=${encodeURIComponent(trimmed)}`,
       category: "Search",
-      keywords: ["work order", "wo", "search"]
+      keywords: ["job", "wo", "search"]
     });
   }
 

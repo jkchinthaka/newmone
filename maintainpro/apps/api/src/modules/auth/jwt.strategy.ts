@@ -7,6 +7,7 @@ import { ExtractJwt, Strategy } from "passport-jwt";
 import type { JwtPayload } from "./auth.types";
 import { getAccessJwtSecret } from "../../config/jwt-secrets";
 import { PrismaService } from "../../database/prisma.service";
+import { isSessionVersionCurrent } from "./session-version";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -41,6 +42,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         isActive: true,
         lockedUntil: true,
         tenantId: true,
+        mustChangePassword: true,
+        sessionVersion: true,
         role: { select: { name: true } }
       }
     });
@@ -53,10 +56,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException("User account is temporarily locked");
     }
 
+    // Logout-all, password change/reset, role change and deactivation bump the version.
+    if (!isSessionVersionCurrent(payload.sv, user.sessionVersion)) {
+      throw new UnauthorizedException("Session has been revoked");
+    }
+
     return {
       ...payload,
       role: user.role.name,
-      tenantId: user.tenantId
+      // The active tenant is a per-session claim (tenant switch); membership is
+      // re-checked by TenantContextGuard. Fall back to the home tenant.
+      tenantId: payload.tenantId ?? user.tenantId,
+      mustChangePassword: user.mustChangePassword === true
     };
   }
 }

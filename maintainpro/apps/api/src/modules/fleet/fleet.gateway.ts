@@ -36,7 +36,7 @@ export interface FleetSocketAlert {
 @WebSocketGateway({
   namespace: "/fleet",
   cors: {
-    origin: (process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? "http://localhost:3001")
+    origin: (process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? "http://localhost:3041")
       .split(",")
       .map((origin) => origin.trim())
       .filter(Boolean),

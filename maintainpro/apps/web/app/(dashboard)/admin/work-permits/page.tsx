@@ -11,6 +11,10 @@ import { toDateTimeLocalValue } from "@/lib/workforce-designations";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { withTenantScope } from "@/lib/tenant-query";
+import { useCurrentUser } from "@/lib/use-current-user";
+import { permitActions } from "@/lib/work-permit-actions";
+
+type PersonRef = { id: string; firstName?: string | null; lastName?: string | null } | null;
 
 type WorkPermit = {
   id: string;
@@ -18,10 +22,19 @@ type WorkPermit = {
   permitType: string;
   status: string;
   workOrderId: string;
+  workOrder?: { id: string; woNumber?: string | null; title?: string | null; status?: string | null } | null;
+  issuedById?: string | null;
+  issuedBy?: PersonRef;
+  approvedBy?: PersonRef;
   validFrom: string | null;
   validTo: string | null;
   notes: string | null;
 };
+
+function personName(person: PersonRef | undefined): string {
+  if (!person) return "—";
+  return [person.firstName, person.lastName].filter(Boolean).join(" ") || "—";
+}
 
 const PERMIT_TYPES = [
   "ELECTRICAL",
@@ -34,6 +47,7 @@ const PERMIT_TYPES = [
 
 export default function AdminWorkPermitsPage() {
   const qc = useQueryClient();
+  const currentUser = useCurrentUser();
   const [form, setForm] = useState({
     workOrderId: "",
     permitType: "ELECTRICAL",
@@ -59,7 +73,7 @@ export default function AdminWorkPermitsPage() {
       });
     },
     onSuccess: () => {
-      toast.success("Permit created");
+      toast.success("Work permit created");
       setForm((f) => ({ ...f, workOrderId: "", notes: "" }));
       void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "work-permits"]) });
     },
@@ -71,19 +85,19 @@ export default function AdminWorkPermitsPage() {
       await apiClient.patch(`/work-permits/${id}/status`, { status });
     },
     onSuccess: () => {
-      toast.success("Permit updated");
+      toast.success("Work permit updated");
       void qc.invalidateQueries({ queryKey: withTenantScope(["admin", "work-permits"]) });
     },
     onError: (error) => toast.error(getApiErrorMessage(error, "Update failed"))
   });
 
   if (listQuery.isLoading) {
-    return <LoadingState title="Loading permits" description="Fetching work permits." />;
+    return <LoadingState title="Loading work permits" description="Fetching work permits." />;
   }
   if (listQuery.isError) {
     return (
       <ErrorState
-        title="Unable to load permits"
+        title="Unable to load work permits"
         description={getApiErrorMessage(listQuery.error, "Request failed")}
         onRetry={() => listQuery.refetch()}
       />
@@ -105,15 +119,17 @@ export default function AdminWorkPermitsPage() {
       <div>
         <h1 className="page-title">Permit-to-Work</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Issue and approve permits. Critical-asset work orders cannot start without a valid permit when
-          policy requires it.
+          Supervisors and managers raise a permit for a job. Only an Admin or Super Admin can approve it.
+          High-risk jobs (hot work, confined space, height, electrical isolation)
+          and critical machines cannot start without an approved permit. A permit closes by itself when its job
+          is closed or cancelled.
         </p>
       </div>
 
       <div className="grid max-w-xl gap-3 rounded-lg border border-slate-200 bg-white p-4">
         <input
           className="rounded border border-slate-300 px-3 py-2 text-sm"
-          placeholder="Work order ID"
+          placeholder="Job number, e.g. WO-2026-0007"
           value={form.workOrderId}
           onChange={(e) => setForm((f) => ({ ...f, workOrderId: e.target.value }))}
         />
@@ -146,7 +162,7 @@ export default function AdminWorkPermitsPage() {
           disabled={!form.workOrderId || createMutation.isPending}
           onClick={() => createMutation.mutate()}
         >
-          Create draft permit
+          Create draft work permit
         </button>
       </div>
 
@@ -157,8 +173,10 @@ export default function AdminWorkPermitsPage() {
               <th className="px-3 py-2">Number</th>
               <th className="px-3 py-2">Type</th>
               <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">WO</th>
+              <th className="px-3 py-2">Job</th>
               <th className="px-3 py-2">Valid to</th>
+              <th className="px-3 py-2">Raised by</th>
+              <th className="px-3 py-2">Approved by</th>
               <th className="px-3 py-2">Actions</th>
             </tr>
           </thead>
@@ -168,39 +186,31 @@ export default function AdminWorkPermitsPage() {
                 <td className="px-3 py-2 font-mono text-xs">{row.permitNumber}</td>
                 <td className="px-3 py-2">{row.permitType}</td>
                 <td className="px-3 py-2">{row.status}</td>
-                <td className="px-3 py-2 font-mono text-xs">{row.workOrderId.slice(0, 10)}…</td>
+                <td className="px-3 py-2 font-mono text-xs">{row.workOrder?.woNumber ?? `${row.workOrderId.slice(0, 10)}…`}</td>
                 <td className="px-3 py-2">
                   {row.validTo ? new Date(row.validTo).toLocaleString() : "—"}
                 </td>
+                <td className="px-3 py-2">{personName(row.issuedBy)}</td>
+                <td className="px-3 py-2">{personName(row.approvedBy)}</td>
                 <td className="px-3 py-2">
                   <div className="flex flex-wrap gap-1">
-                    {row.status === "DRAFT" ? (
-                      <button
-                        type="button"
-                        className="rounded border px-2 py-1 text-xs"
-                        onClick={() => statusMutation.mutate({ id: row.id, status: "APPROVED" })}
-                      >
-                        Approve
-                      </button>
-                    ) : null}
-                    {row.status === "APPROVED" ? (
-                      <button
-                        type="button"
-                        className="rounded border px-2 py-1 text-xs"
-                        onClick={() => statusMutation.mutate({ id: row.id, status: "ACTIVE" })}
-                      >
-                        Activate
-                      </button>
-                    ) : null}
-                    {["APPROVED", "ACTIVE"].includes(row.status) ? (
-                      <button
-                        type="button"
-                        className="rounded border px-2 py-1 text-xs"
-                        onClick={() => statusMutation.mutate({ id: row.id, status: "CLOSED" })}
-                      >
-                        Close
-                      </button>
-                    ) : null}
+                    {permitActions(row, currentUser).map((action) =>
+                      action.disabledReason ? (
+                        <span key={action.status} className="rounded border border-dashed px-2 py-1 text-xs text-slate-500" title={action.disabledReason}>
+                          {action.label}: {action.disabledReason}
+                        </span>
+                      ) : (
+                        <button
+                          key={action.status}
+                          type="button"
+                          className="min-h-9 rounded border px-2 py-1 text-xs disabled:opacity-50"
+                          disabled={statusMutation.isPending}
+                          onClick={() => statusMutation.mutate({ id: row.id, status: action.status })}
+                        >
+                          {action.label}
+                        </button>
+                      )
+                    )}
                   </div>
                 </td>
               </tr>
@@ -208,7 +218,7 @@ export default function AdminWorkPermitsPage() {
           </tbody>
         </table>
         {rows.length === 0 ? (
-          <p className="p-4 text-sm text-slate-500">No permits yet.</p>
+          <p className="p-4 text-sm text-slate-500">No work permits yet.</p>
         ) : null}
       </div>
     </div>

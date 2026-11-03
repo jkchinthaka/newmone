@@ -23,7 +23,8 @@ export class AssetTagImportController {
 
   @Get("template.csv")
   templateCsv(@Res() res: Response) {
-    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=\"asset-tag-template.csv\"");
     res.send(this.assetTagImportService.templateCsv());
   }
 
@@ -31,6 +32,7 @@ export class AssetTagImportController {
   async templateXlsx(@Res() res: Response) {
     const buffer = await this.assetTagImportService.templateXlsx();
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", "attachment; filename=\"asset-tag-template.xlsx\"");
     res.send(buffer);
   }
 

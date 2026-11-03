@@ -30,7 +30,8 @@ import {
 } from "../../web/lib/canonical-client-ip";
 import { proxyBffRequest } from "../../web/lib/bff-proxy";
 
-const LOGIN_LIMIT = 5;
+// Matches @Throttle on POST /auth/login (per client IP; the per-account lock is 5 wrong passwords).
+const LOGIN_LIMIT = 20;
 const LOGIN_TTL_MS = 60_000;
 
 const authServiceMock = {

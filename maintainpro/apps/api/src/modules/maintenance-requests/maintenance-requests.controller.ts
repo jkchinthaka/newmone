@@ -15,8 +15,10 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import {
   AssetLookupQueryDto,
+  LocationLookupQueryDto,
   VehicleLookupQueryDto,
   CancelMaintenanceRequestDto,
+  ConfirmFixedDto,
   ConvertToWorkOrderDto,
   CreateMaintenanceRequestDto,
   MaintenanceRequestListQueryDto,
@@ -102,6 +104,22 @@ export class MaintenanceRequestsController {
       query.assetId
     );
     return { data, message: "Machines matched" };
+  }
+
+  // Reporters (technicians, drivers, security, cleaners…) need the site and location pickers but
+  // do not hold organization.view, so the request form gets its own minimal, tenant-scoped lists.
+  @Get("site-lookup")
+  @Permissions("maintenance_requests.create")
+  async siteLookup(@Req() req: AuthedRequest) {
+    const data = await this.requests.lookupSelectableSites(req.user?.tenantId ?? null);
+    return { data, message: "Sites listed" };
+  }
+
+  @Get("location-lookup")
+  @Permissions("maintenance_requests.create")
+  async locationLookup(@Req() req: AuthedRequest, @Query() query: LocationLookupQueryDto) {
+    const data = await this.requests.lookupSelectableLocations(req.user?.tenantId ?? null, query.siteId, query.q);
+    return { data, message: "Locations listed" };
   }
 
   @Get("vehicle-lookup")
@@ -250,6 +268,14 @@ export class MaintenanceRequestsController {
   ) {
     const data = await this.requests.cancel(req.user?.tenantId ?? null, id, req.user!, body);
     return { data, message: "Request cancelled" };
+  }
+
+  /** The reporter answers "Is it fixed?" after the supervisor has checked the job. */
+  @Post(":id/confirm-fixed")
+  @Permissions("maintenance_requests.view_own")
+  async confirmFixed(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: ConfirmFixedDto) {
+    const data = await this.requests.confirmFixed(req.user?.tenantId ?? null, id, req.user!, body);
+    return { data, message: body.fixed ? "Thanks — marked as fixed" : "Sent back for more work" };
   }
 
   @Post(":id/mark-duplicate")

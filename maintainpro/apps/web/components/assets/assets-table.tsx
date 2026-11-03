@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { Route } from "next";
 import { Ellipsis } from "lucide-react";
@@ -9,7 +10,9 @@ import { assetHistoryHref, assetNextAction, ASSET_EMPTY } from "@/lib/asset-list
 
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/page-state";
+import { TouchCheckbox } from "@/components/ui/touch-checkbox";
 import { formatDate as formatDateLk } from "@/lib/localization";
+import { rowMenuPlacement } from "@/lib/row-menu-placement";
 import type { AssetColumnKey } from "./use-asset-page-store";
 
 export { resolveAssetDataColumnKeys } from "./assets-table-columns";
@@ -22,7 +25,7 @@ export type AssetTableCategory =
   | "VEHICLE"
   | "OTHER";
 
-export type AssetTableStatus = "ACTIVE" | "INACTIVE" | "UNDER_MAINTENANCE" | "DISPOSED" | "RETIRED";
+export type AssetTableStatus = "DRAFT" | "ACTIVE" | "INACTIVE" | "UNDER_MAINTENANCE" | "OUT_OF_SERVICE" | "DISPOSED" | "RETIRED";
 
 export type AssetTableCondition = "EXCELLENT" | "GOOD" | "FAIR" | "POOR" | "CRITICAL";
 
@@ -49,14 +52,17 @@ type StatusPromptState = {
 const QUICK_STATUS_OPTIONS: Array<{ label: string; value: AssetTableStatus }> = [
   { label: "Active", value: "ACTIVE" },
   { label: "Under Maintenance", value: "UNDER_MAINTENANCE" },
+  { label: "Out of Service", value: "OUT_OF_SERVICE" },
   { label: "Retired", value: "RETIRED" },
   { label: "Disposed", value: "DISPOSED" }
 ];
 
 const STATUS_STYLES: Record<AssetTableStatus, string> = {
+  DRAFT: "bg-sky-100 text-sky-800",
   ACTIVE: "bg-emerald-100 text-emerald-700",
   INACTIVE: "bg-slate-200 text-slate-700",
   UNDER_MAINTENANCE: "bg-amber-100 text-amber-800",
+  OUT_OF_SERVICE: "bg-orange-100 text-orange-800",
   RETIRED: "bg-slate-300 text-slate-700",
   DISPOSED: "bg-rose-100 text-rose-700"
 };
@@ -128,10 +134,61 @@ function AssetRowActions<T extends AssetTableRow>({
   const statusPromptForRow = statusPrompt?.assetId === asset.id ? statusPrompt : null;
   const menuOpen = openRowMenuId === asset.id;
   const menuId = `asset-row-menu-${asset.id}`;
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [desktopPosition, setDesktopPosition] = useState<{ top: number; left: number } | null>(null);
+
+  // The table sits in an overflow-x-auto + contain:paint wrapper, which clipped this menu (and turned the
+  // mobile "fixed" sheet into a box inside the table). Render it in a portal; on desktop place it next to
+  // the button and open upward when the row is near the bottom of the screen.
+  useLayoutEffect(() => {
+    if (!menuOpen) {
+      setDesktopPosition(null);
+      return;
+    }
+    const isDesktop = typeof window !== "undefined" && window.matchMedia?.("(min-width: 768px)").matches;
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!isDesktop || !rect) {
+      setDesktopPosition(null);
+      return;
+    }
+    const placed = rowMenuPlacement({
+      anchor: rect,
+      menuWidth: 256,
+      menuHeight: Math.min(menuRef.current?.offsetHeight ?? 360, window.innerHeight - 16),
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      bottomInset: 8
+    });
+    setDesktopPosition({ top: placed.top, left: placed.left });
+  }, [menuOpen, statusPromptForRow?.status]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event: Event) => {
+      const target = event.target as Node | null;
+      if (target && (menuRef.current?.contains(target) || buttonRef.current?.contains(target))) return;
+      onToggleMenu(asset.id);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onToggleMenu(asset.id);
+    };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [asset.id, menuOpen, onToggleMenu]);
 
   return (
     <div className="relative inline-flex w-full justify-end md:w-auto">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => onToggleMenu(asset.id)}
         className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
@@ -142,17 +199,17 @@ function AssetRowActions<T extends AssetTableRow>({
         <Ellipsis aria-hidden size={14} />
       </button>
 
-      {menuOpen ? (
+      {menuOpen && typeof document !== "undefined" ? createPortal(
         <>
-          <button
-            type="button"
-            aria-label="Close row actions menu"
-            className="fixed inset-0 z-40 bg-slate-900/25 md:hidden"
-            onClick={() => onToggleMenu(asset.id)}
-          />
+          {/* Backdrop only: a tap outside the menu closes it via the pointerdown listener above. */}
+          <div aria-hidden className="fixed inset-0 z-40 bg-slate-900/25 md:hidden" />
           <div
             id={menuId}
-            className="fixed inset-x-4 bottom-4 z-50 max-h-[min(70vh,24rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-xl md:absolute md:inset-x-auto md:bottom-auto md:right-0 md:top-11 md:w-64 md:max-h-none"
+            ref={menuRef}
+            style={desktopPosition ? { top: desktopPosition.top, left: desktopPosition.left } : undefined}
+            className={`fixed z-50 max-h-[min(70vh,24rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-xl ${
+              desktopPosition ? "w-64 md:max-h-[calc(100vh-1rem)]" : "inset-x-4 bottom-4"
+            }`}
           >
           <button
             type="button"
@@ -175,6 +232,17 @@ function AssetRowActions<T extends AssetTableRow>({
               className="block min-h-11 w-full rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100"
             >
               Edit
+            </button>
+          ) : null}
+
+          {canChangeStatus && asset.status === "DRAFT" ? (
+            // Register flow: a new asset is saved as Draft; a manager approves it here before jobs can use it.
+            <button
+              type="button"
+              onClick={() => onConfirmStatus({ assetId: asset.id, status: "ACTIVE" as AssetTableStatus })}
+              className="block min-h-11 w-full rounded-xl bg-emerald-50 px-3 py-2.5 text-left text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
+            >
+              Approve — make Active
             </button>
           ) : null}
 
@@ -247,7 +315,7 @@ function AssetRowActions<T extends AssetTableRow>({
               onClick={() => onCreateWorkOrder(asset)}
               className="block min-h-11 w-full rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-100"
             >
-              Create work order
+              Create job
             </button>
           ) : null}
 
@@ -279,7 +347,8 @@ function AssetRowActions<T extends AssetTableRow>({
             </button>
           ) : null}
           </div>
-        </>
+        </>,
+        document.body
       ) : null}
     </div>
   );
@@ -481,9 +550,8 @@ export function AssetsTable<T extends AssetTableRow>({
       getRowId={(row) => row.id}
       getRowLabel={(asset) => `Open details for ${asset.assetTag}`}
       leadingHeader={
-        <input
-          type="checkbox"
-          aria-label="Select all assets on this page"
+        <TouchCheckbox
+          label="Select all assets on this page"
           checked={allPageSelected}
           onChange={(event) => onTogglePageSelection(pageIds, event.target.checked)}
         />
@@ -491,9 +559,8 @@ export function AssetsTable<T extends AssetTableRow>({
       minWidth="720px"
       onRowClick={(asset) => onOpenDetails(asset.id)}
       renderLeadingCell={(asset) => (
-        <input
-          type="checkbox"
-          aria-label={`Select ${asset.assetTag}`}
+        <TouchCheckbox
+          label={`Select ${asset.assetTag}`}
           checked={selectedIds.includes(asset.id)}
           onChange={() => onToggleRowSelection(asset.id)}
         />

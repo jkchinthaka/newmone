@@ -101,7 +101,7 @@ export function AnalyticsCharts({ analytics, bills, meters, filters, onFiltersCh
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-900">Monthly consumption trend</h3>
+            <h3 className="text-sm font-semibold text-slate-900">Monthly usage trend</h3>
             <div className="mt-4 h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={consumptionSeries}>

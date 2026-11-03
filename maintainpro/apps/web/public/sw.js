@@ -8,8 +8,12 @@
  *
  * Safe to cache: static PWA shell assets, icons, immutable /_next/static build chunks.
  */
-const STATIC_CACHE = "maintainpro-static-v3";
-const RUNTIME_CACHE = "maintainpro-runtime-v3";
+const STATIC_CACHE = "maintainpro-static-v4";
+const RUNTIME_CACHE = "maintainpro-runtime-v4";
+const IMAGE_CACHE = "maintainpro-images-v4";
+/** Every deploy adds new hashed chunks; keep only the newest ones so phones do not fill up. */
+const RUNTIME_MAX_ENTRIES = 400;
+const IMAGE_MAX_ENTRIES = 150;
 
 const APP_SHELL = [
   "/offline.html",
@@ -20,7 +24,47 @@ const APP_SHELL = [
 ];
 
 function isImmutableBuildAsset(pathname) {
-  return pathname.startsWith("/_next/static/") || pathname.startsWith("/_next/image/");
+  // Hashed file names: a changed file always has a new URL, so cache-first is safe.
+  return pathname.startsWith("/_next/static/");
+}
+
+function isOptimizedImage(pathname) {
+  // Same URL can return a newer picture, so these are refreshed in the background.
+  return pathname === "/_next/image" || pathname.startsWith("/_next/image/");
+}
+
+/** Oldest entries go first (cache keys keep insertion order). */
+async function trimCache(cacheName, maxEntries) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  const extra = keys.length - maxEntries;
+  for (let index = 0; index < extra; index += 1) {
+    await cache.delete(keys[index]);
+  }
+}
+
+/** Serve the cached copy now and update it from the network for next time. */
+function staleWhileRevalidate(event, cacheName, maxEntries) {
+  const { request } = event;
+  event.respondWith(
+    caches.open(cacheName).then(async (cache) => {
+      const cached = await cache.match(request);
+      const network = fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            void cache.put(request, response.clone()).then(() => (maxEntries ? trimCache(cacheName, maxEntries) : undefined));
+          }
+          return response;
+        })
+        .catch(() => cached);
+      if (cached) {
+        event.waitUntil(network.then(() => undefined));
+        return cached;
+      }
+      const response = await network;
+      return response || Response.error();
+    })
+  );
 }
 
 function isNavigationRequest(request) {
@@ -40,7 +84,7 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key !== STATIC_CACHE && key !== RUNTIME_CACHE)
+            .filter((key) => key !== STATIC_CACHE && key !== RUNTIME_CACHE && key !== IMAGE_CACHE)
             .map((key) => caches.delete(key))
         )
       )
@@ -69,7 +113,7 @@ self.addEventListener("fetch", (event) => {
         }
         const response = await fetch(request);
         if (response.ok) {
-          void cache.put(request, response.clone());
+          event.waitUntil(cache.put(request, response.clone()).then(() => trimCache(RUNTIME_CACHE, RUNTIME_MAX_ENTRIES)));
         }
         return response;
       }).catch(async () => {
@@ -83,6 +127,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (isOptimizedImage(url.pathname)) {
+    staleWhileRevalidate(event, IMAGE_CACHE, IMAGE_MAX_ENTRIES);
+    return;
+  }
+
   if (isNavigationRequest(request)) {
     // Network-first; do not put authenticated HTML documents into cache.
     event.respondWith(
@@ -93,7 +142,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Public static assets under /public (icons, offline.html, etc.)
+  // Public static assets under /public (icons, offline.html, etc.): shown from cache, refreshed in
+  // the background so a changed logo or icon appears on the next visit without a version bump.
   if (
     url.pathname.endsWith(".svg") ||
     url.pathname.endsWith(".png") ||
@@ -101,18 +151,6 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith(".webmanifest") ||
     url.pathname === "/offline.html"
   ) {
-    event.respondWith(
-      caches.open(STATIC_CACHE).then(async (cache) => {
-        const cached = await cache.match(request);
-        if (cached) {
-          return cached;
-        }
-        const response = await fetch(request);
-        if (response.ok) {
-          void cache.put(request, response.clone());
-        }
-        return response;
-      }).catch(() => caches.match(request))
-    );
+    staleWhileRevalidate(event, STATIC_CACHE, 0);
   }
 });

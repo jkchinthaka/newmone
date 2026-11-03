@@ -8,14 +8,18 @@ import { StatusBadge } from "../../components/ui/dashboard/status-badge";
 import { statusBadgePresentation } from "../dashboard-status";
 
 test("status badge keeps work-order labels and tones, including legacy statuses", () => {
-  assert.deepEqual(statusBadgePresentation("COMPLETED"), { label: "Closed (Legacy)", tone: "emerald" });
+  assert.deepEqual(statusBadgePresentation("COMPLETED"), { label: "Closed", tone: "emerald" });
   assert.deepEqual(statusBadgePresentation("OVERDUE"), { label: "Overdue (Legacy)", tone: "red" });
   assert.equal(statusBadgePresentation("ASSIGNED").label, "Assigned");
-  assert.equal(statusBadgePresentation("TECHNICIAN_COMPLETED").tone, "amber");
+  assert.equal(statusBadgePresentation("ASSIGNED").tone, "violet");
+  assert.equal(statusBadgePresentation("OPEN").tone, "sky");
+  assert.equal(statusBadgePresentation("TECHNICIAN_COMPLETED").tone, "fuchsia");
+  assert.equal(statusBadgePresentation("TECHNICIAN_COMPLETED").label, "Done, waiting for check");
+  assert.equal(statusBadgePresentation("ON_HOLD").label, "On hold");
   assert.equal(statusBadgePresentation("APPROVED").tone, "emerald");
   assert.equal(statusBadgePresentation("PENDING").tone, "amber");
   const html = renderToString(createElement(StatusBadge, { status: "IN_PROGRESS" }));
-  assert.match(html, /In Progress/);
+  assert.match(html, /In progress/);
 });
 
 test("kpi card shows the value, label, and optional delta", () => {

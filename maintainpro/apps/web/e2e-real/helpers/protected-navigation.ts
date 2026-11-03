@@ -32,8 +32,8 @@ export async function navigateToProtectedRouteAndExpectLogin(
       await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
 
       // Protected work-order shell must not remain visible after logout redirect.
-      await expect(page.getByText(/\d+\s+work order\(s\) shown/i)).not.toBeVisible();
-      await expect(page.getByRole("heading", { name: /work orders/i })).not.toBeVisible();
+      await expect(page.getByText(/\d+\s+(work order|job)\(s\) shown/i)).not.toBeVisible();
+      await expect(page.getByRole("heading", { name: /^(jobs|work orders)$/i })).not.toBeVisible();
       return;
     } catch (error) {
       lastError = error;

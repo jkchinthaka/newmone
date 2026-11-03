@@ -1,5 +1,7 @@
 "use client";
 
+import { TableLoadingRows } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/page-state";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -33,6 +35,7 @@ export default function SuppliersPage() {
 
   const [items, setItems] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ vendorCode: "", name: "", contactName: "", email: "", phone: "" });
@@ -42,8 +45,9 @@ export default function SuppliersPage() {
     try {
       const response = await apiClient.get<{ data: Supplier[] }>("/suppliers");
       setItems(Array.isArray(response.data?.data) ? response.data.data : []);
-    } catch {
-      toast.error("Failed to load suppliers");
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(err);
     } finally {
       setLoading(false);
     }
@@ -101,7 +105,7 @@ export default function SuppliersPage() {
           <div>
             <h1 className="page-title">Suppliers</h1>
             <p className="mt-1 text-sm text-slate-500">
-              MaintainPro owns supplier master data for inventory, purchase orders, and work orders. Optional ERP sync
+              MaintainPro owns supplier master data for inventory, purchase orders, and jobs. Optional ERP sync
               can refresh vendor records — see{" "}
               <Link href={"/erp/mock-sync" as Route} className="font-medium text-brand-700 hover:underline">
                 ERP mock sync
@@ -141,13 +145,13 @@ export default function SuppliersPage() {
             <Truck size={16} className="text-brand-600" aria-hidden />
             <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">All Suppliers</h2>
           </div>
-          <p className="text-xs text-slate-400">{items.length} records</p>
+          <p className="text-xs text-slate-400">{loadError ? "" : loading && items.length === 0 ? "…" : `${items.length} records`}</p>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-12 text-sm text-slate-400">
-            <Loader2 size={16} className="mr-2 animate-spin" aria-hidden /> Loading…
-          </div>
+        {loadError ? (
+          <ErrorState title="Couldn't load suppliers" error={loadError} onRetry={() => void refresh()} />
+        ) : loading && items.length === 0 ? (
+          <TableLoadingRows label="Loading suppliers" />
         ) : items.length === 0 ? (
           <div className="py-12 text-center text-sm text-slate-500">
             {canCreate

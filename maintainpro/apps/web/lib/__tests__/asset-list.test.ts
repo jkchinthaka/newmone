@@ -53,7 +53,7 @@ test("asset filters round-trip into a shareable query string", () => {
   assert.equal(params.get("asset"), "asset-9");
 });
 
-test("asset row links open history for the tag and a work order with the asset selected", () => {
+test("asset row links open history for the tag and a job with the asset selected", () => {
   assert.equal(assetHistoryHref("AST-9001"), "/maintenance/history?scope=asset&q=AST-9001");
   assert.equal(assetCreateWorkOrderHref("asset-9"), "/maintenance/jobs?create=1&assetId=asset-9");
   const href = assetCreateWorkOrderHref("asset-9", "AST-9001 — Air Compressor");

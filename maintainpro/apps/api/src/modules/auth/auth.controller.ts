@@ -20,6 +20,7 @@ import { Public } from "../../common/decorators/public.decorator";
 import { SelfService } from "../../common/decorators/self-service.decorator";
 import { SkipTenantContext } from "../../common/decorators/skip-tenant-context.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { AllowPendingPasswordChange } from "../../common/guards/password-change-required.guard";
 import { AUTH_LOGIN_SUCCESS_HTTP_STATUS } from "./auth-login-status.contract";
 import { AUTH_LOGOUT_SUCCESS_HTTP_STATUS } from "./auth-logout-status.contract";
 import { AuthService } from "./auth.service";
@@ -57,7 +58,9 @@ export class AuthController {
     description:
       "Successful login returns HTTP 200 OK with user + token JSON for trusted BFF/mobile clients. Browser session cookies are owned by the Next.js BFF only."
   })
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  // Per client IP. Higher than the per-account lock (5 wrong passwords) so users see the
+  // account countdown, while one device still cannot hammer many accounts.
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   async login(@Body() dto: LoginDto) {
     // Explicit status via AUTH_LOGIN_SUCCESS_HTTP_STATUS — not NestJS POST default 201.
     return this.authService.login(dto);
@@ -65,7 +68,8 @@ export class AuthController {
 
   @Public()
   @Post("refresh")
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  // Per client IP: every open tab rotates on expiry, so 5/min locked out shared offices.
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   async refresh(@Body() dto: RefreshTokenDto, @Req() req: Request) {
     const refreshTokenFromCookie = this.getCookie(req, AuthController.REFRESH_COOKIE);
     const refreshToken = dto.refreshToken ?? refreshTokenFromCookie;
@@ -80,6 +84,7 @@ export class AuthController {
   }
 
   @Public()
+  @AllowPendingPasswordChange()
   @Post("logout")
   @HttpCode(AUTH_LOGOUT_SUCCESS_HTTP_STATUS)
   @ApiOkResponse({
@@ -147,6 +152,7 @@ export class AuthController {
   @ApiBearerAuth()
   @SelfService()
   @SkipTenantContext()
+  @AllowPendingPasswordChange()
   @UseGuards(JwtAuthGuard)
   @Get("me")
   me(@Req() req: { user: { sub: string; tenantId?: string | null } }) {

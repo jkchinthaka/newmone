@@ -35,7 +35,7 @@ export function QaDashboardPage() {
         <div>
           <h2 className="page-title">QA & Incidents</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Software quality register, incident tracking, RCA, regression, and release readiness.
+            Software quality register, incident tracking, why it broke, regression, and release readiness.
           </p>
         </div>
         <Link

@@ -301,14 +301,14 @@ export function ReportsDashboardPage() {
         <div className="flex flex-wrap items-center gap-2 p-2">
           <DateField bare label="Date from" value={filters.startDate} onChange={(startDate) => setFilters({ ...filters, startDate, page: 1 })} />
           <DateField bare label="Date to" value={filters.endDate} onChange={(endDate) => setFilters({ ...filters, endDate, page: 1 })} />
-          <select aria-label="Work order status" className="h-10 rounded-md border px-2 text-sm" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value, page: 1 })}>
+          <select aria-label="Job status" className="h-10 rounded-md border px-2 text-sm" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value, page: 1 })}>
             <option value="">Status</option>
             {(report?.filterOptions.statuses ?? ["OPEN", "IN_PROGRESS", "COMPLETED", "CLOSED", "CANCELLED"]).map((status) => (
               <option key={status} value={status}>{status}</option>
             ))}
           </select>
           <input aria-label="Category" placeholder="Category" className="h-10 w-32 rounded-md border px-2 text-sm" value={filters.category} onChange={(event) => setFilters({ ...filters, category: event.target.value, page: 1 })} />
-          <input aria-label="Search reports" placeholder="WO, asset, vehicle, technician" className="h-10 min-w-[12rem] flex-1 rounded-md border px-2 text-sm" value={draft} onChange={(event) => setDraft(event.target.value)} />
+          <input aria-label="Search reports" placeholder="Job, asset, vehicle, technician" className="h-10 min-w-[12rem] flex-1 rounded-md border px-2 text-sm" value={draft} onChange={(event) => setDraft(event.target.value)} />
           <button type="button" className="h-10 px-2 text-sm font-medium" aria-expanded={more} onClick={() => setMore((open) => !open)}>
             More filters
           </button>
