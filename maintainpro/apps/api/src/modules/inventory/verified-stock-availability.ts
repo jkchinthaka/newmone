@@ -82,6 +82,21 @@ type WarehouseRow = {
   erpWarehouseCode?: string | null;
   lastErpValidatedAt?: Date | null;
   isDefault?: boolean;
+  stockSource?: string | null;
+};
+
+export const MAINTAINPRO_STOCK_SOURCE = "MAINTAINPRO";
+
+export function isMaintainProOwnedWarehouse(warehouse: { stockSource?: string | null } | null | undefined): boolean {
+  return String(warehouse?.stockSource ?? "").toUpperCase() === MAINTAINPRO_STOCK_SOURCE;
+}
+
+export type VerifiedIssueCheck = {
+  available: number;
+  warehouseId: string;
+  verifiedAt: Date | null;
+  /** MAINTAINPRO: the caller must lower on-hand through the stock engine in the same transaction. */
+  source: "ERP" | "MAINTAINPRO";
 };
 
 type BalanceRow = { id: string; onHand: number; reserved: number; available: number };
@@ -94,9 +109,18 @@ type BalanceRow = { id: string; onHand: number; reserved: number; available: num
 export async function assertVerifiedIssueAllowed(
   tx: Prisma.TransactionClient,
   input: { tenantId: string; partId: string; quantity: number; warehouseId?: string | null }
-) {
+): Promise<VerifiedIssueCheck> {
   assertWholePositiveIssueQuantity(input.quantity);
   const warehouse = await selectVerifiedWarehouse(tx, input);
+  if (isMaintainProOwnedWarehouse(warehouse) && warehouse) {
+    // Goods-in recorded in MaintainPro is the stock truth here: available = on hand - reserved.
+    const balance = await lockBalance(tx, input.tenantId, warehouse.id, input.partId);
+    const available = balance ? Math.max(0, balance.onHand - balance.reserved) : 0;
+    if (input.quantity > available) {
+      throw new BadRequestException(insufficientVerifiedStockMessage(available, input.quantity));
+    }
+    return { available, warehouseId: warehouse.id, verifiedAt: null, source: "MAINTAINPRO" };
+  }
   if (!warehouse?.erpWarehouseCode || !warehouse.lastErpValidatedAt) {
     throw new BadRequestException(MISSING_ERP_PROVENANCE_MESSAGE);
   }
@@ -128,7 +152,7 @@ export async function assertVerifiedIssueAllowed(
   if (input.quantity > available) {
     throw new BadRequestException(insufficientVerifiedStockMessage(available, input.quantity));
   }
-  return { available, warehouseId: warehouse.id, verifiedAt: warehouse.lastErpValidatedAt };
+  return { available, warehouseId: warehouse.id, verifiedAt: warehouse.lastErpValidatedAt, source: "ERP" };
 }
 
 /** A part request is rejected only when a verified balance exists and the quantity is above it. */
@@ -151,23 +175,39 @@ export async function assertRequestWithinVerifiedStock(
 
 async function selectVerifiedWarehouse(
   tx: Prisma.TransactionClient,
-  input: { tenantId: string; warehouseId?: string | null }
+  input: { tenantId: string; partId?: string; warehouseId?: string | null }
 ): Promise<WarehouseRow | null> {
   if (input.warehouseId) {
     return tx.warehouse.findFirst({
       where: { id: input.warehouseId, tenantId: input.tenantId, isActive: true }
     });
   }
-  const rows = await tx.warehouse.findMany({
+  const rows = (await tx.warehouse.findMany({
     where: {
       tenantId: input.tenantId,
       isActive: true,
-      erpWarehouseCode: { not: null },
-      lastErpValidatedAt: { not: null }
+      OR: [
+        { erpWarehouseCode: { not: null }, lastErpValidatedAt: { not: null } },
+        { stockSource: MAINTAINPRO_STOCK_SOURCE }
+      ]
     },
     orderBy: [{ isDefault: "desc" }, { lastErpValidatedAt: "desc" }]
-  });
-  return rows[0] ?? null;
+  })) as WarehouseRow[];
+  if (rows.length <= 1) return rows[0] ?? null;
+  // A MaintainPro store that holds this part wins, so a part received there can be issued
+  // even when an ERP warehouse is also mapped.
+  const owned = rows.filter((row) => isMaintainProOwnedWarehouse(row));
+  if (owned.length > 0 && input.partId) {
+    const balances = await tx.warehouseItemBalance.findMany({
+      where: { tenantId: input.tenantId, partId: input.partId, warehouseId: { in: owned.map((row) => row.id) } },
+      select: { warehouseId: true, onHand: true, reserved: true }
+    });
+    const best = balances
+      .map((balance) => ({ id: balance.warehouseId, free: balance.onHand - balance.reserved }))
+      .sort((a, b) => b.free - a.free)[0];
+    if (best && best.free > 0) return owned.find((row) => row.id === best.id) ?? rows[0];
+  }
+  return rows[0];
 }
 
 async function lockBalance(

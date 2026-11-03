@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Route } from "next";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { PendingApprovalsInbox } from "@/components/approvals/pending-approvals-inbox";
@@ -13,7 +15,8 @@ import {
   type ApprovalInboxCounts,
   type ApprovalInboxItem
 } from "@/lib/approvals-api";
-import type { InboxTabId, InboxViewItem } from "@/lib/approval-inbox-view";
+import { INBOX_TAB_LABELS, type InboxTabId, type InboxViewItem } from "@/lib/approval-inbox-view";
+import { useLiveRefresh } from "@/lib/live-data";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { clampPage, createRequestSequencer, isAbortError, readServerTotal } from "@/lib/list-query-state";
 
@@ -43,13 +46,25 @@ function toView(item: ApprovalInboxItem): InboxViewItem {
 
 const DEFAULT_PAGE_SIZE = 25;
 
+function initialInboxTab(): InboxTabId {
+  if (typeof window === "undefined") return "all";
+  const requested = new URLSearchParams(window.location.search).get("tab");
+  return INBOX_TAB_LABELS.some((entry) => entry.id === requested) ? (requested as InboxTabId) : "all";
+}
+
 export default function ApprovalsInboxPage() {
+  const router = useRouter();
   const [items, setItems] = useState<InboxViewItem[]>([]);
   const [counts, setCounts] = useState<ApprovalInboxCounts | undefined>();
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // ?tab=parts (for example from the dashboard Approvals card) opens that category.
   const [tab, setTab] = useState<InboxTabId>("all");
+  useEffect(() => {
+    const requested = initialInboxTab();
+    if (requested !== "all") setTab(requested);
+  }, []);
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState("");
   const [site, setSite] = useState("");
@@ -62,9 +77,10 @@ export default function ApprovalsInboxPage() {
   const sequencer = useRef(createRequestSequencer());
 
   // Search and Site are committed by debounced inputs in the inbox, so typing does not fire per keystroke.
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options: { silent?: boolean } = {}) => {
     const request = sequencer.current.begin();
-    setLoading(true);
+    // Automatic updates keep the list on screen while fetching; filter changes show the spinner.
+    if (!options.silent) setLoading(true);
     setError(null);
     try {
       const data = await fetchApprovalInbox({
@@ -85,6 +101,8 @@ export default function ApprovalsInboxPage() {
       setTotal(readServerTotal(data, rows.length));
     } catch (err) {
       if (!sequencer.current.isLatest(request.id) || isAbortError(err)) return;
+      // A failed background refresh keeps the rows already shown.
+      if (options.silent) return;
       setError(getApiErrorMessage(err, "Request failed"));
     } finally {
       if (sequencer.current.isLatest(request.id)) setLoading(false);
@@ -94,6 +112,9 @@ export default function ApprovalsInboxPage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // New approvals from other people, and decisions made in other tabs, appear without a reload.
+  useLiveRefresh(() => refresh({ silent: true }));
 
   useEffect(() => {
     const sequence = sequencer.current;
@@ -133,7 +154,13 @@ export default function ApprovalsInboxPage() {
       await refresh();
     } catch (err) {
       const message = getApiErrorMessage(err, "Request failed");
-      toast.error(message.includes("Refresh") ? "This approval changed. Refresh and try again." : message);
+      if (item.kind === "request" && /asset, vehicle, or functional location|canonical machine/i.test(message)) {
+        toast.error("Set the machine, vehicle or location on this request first.", {
+          action: { label: "Open request", onClick: () => router.push(`/requests/${item.id}` as Route) }
+        });
+      } else {
+        toast.error(message.includes("Refresh") ? "This approval changed. Refresh and try again." : message);
+      }
       if (message.includes("Refresh")) await refresh();
     } finally {
       setBusyIds((current) => current.filter((id) => id !== item.id));

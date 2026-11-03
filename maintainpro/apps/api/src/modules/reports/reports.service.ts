@@ -20,6 +20,7 @@ import { csvEscapeCell, neutralizeSpreadsheetValue } from "./report-export-safet
 import { colomboMonthKey, resolveBusinessDateRange } from "./report-timezone.util";
 import { ErpMonitoringService } from "./erp-monitoring.service";
 import { isReportCompleted, REPORT_COMPLETED_STATUSES, sumAmounts } from "./report-completion";
+import { displayJobNumbersDeep } from "../../common/job-number-display";
 
 export type ReportModuleKey =
   | "operations"
@@ -665,7 +666,8 @@ export class ReportsService {
   async exportModule(actor: ReportActor, module: ReportModuleKey, format: ReportExportFormat, query: ReportQuery = {}): Promise<ReportExportFile & { truncated?: boolean; exportedRowCount?: number; totalMatchedCount?: number }> {
     actor = await this.withCurrentPermissions(actor);
     assertCanExportReport(actor, module);
-    const report = await this.moduleReport(actor, module, { ...query, page: 1, pageSize: MAX_EXPORT_ROWS });
+    // Exported files show job order numbers as JO-…, like the screens.
+    const report = displayJobNumbersDeep(await this.moduleReport(actor, module, { ...query, page: 1, pageSize: MAX_EXPORT_ROWS }));
     const totalMatchedCount = report.table.pagination.total;
     const truncated = totalMatchedCount > report.table.rows.length;
     const organizationName = await this.organizationName(actor);
@@ -1256,7 +1258,7 @@ export class ReportsService {
       ],
       table: {
         columns: [
-          { key: "woNumber", label: "WO Number" },
+          { key: "woNumber", label: "Job order no" },
           { key: "title", label: "Title" },
           { key: "status", label: "Status" },
           { key: "priority", label: "Priority" },

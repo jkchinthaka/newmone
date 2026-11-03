@@ -6,7 +6,7 @@ import { visibleLoginRoles } from "../visible-login-roles";
 import { humanWorkOrderActionMessage } from "../work-order-action-messages";
 import { primaryWorkOrderAction, secondaryWorkOrderActions, selectableWorkOrderStatuses } from "../work-order-next-action";
 
-test("login role dropdown lists the six go-live roles and can repeat a role", () => {
+test("login role dropdown lists the seven go-live roles and can repeat a role", () => {
   const roles = [
     { id: "1", name: "FINANCE" },
     { id: "2", name: "ADMIN" },
@@ -15,13 +15,15 @@ test("login role dropdown lists the six go-live roles and can repeat a role", ()
     { id: "5", name: "SECURITY_OFFICER" },
     { id: "6", name: "MANAGER" },
     { id: "7", name: "SUPER_ADMIN" },
-    { id: "8", name: "DRIVER" }
+    { id: "8", name: "DRIVER" },
+    { id: "9", name: "SUPERVISOR" },
+    { id: "10", name: "VIEWER" }
   ];
   assert.deepEqual(
     visibleLoginRoles(roles).map((role) => role.name),
-    ["ADMIN", "INVENTORY_KEEPER", "TECHNICIAN", "SECURITY_OFFICER", "MANAGER", "SUPER_ADMIN"]
+    ["ADMIN", "INVENTORY_KEEPER", "TECHNICIAN", "SECURITY_OFFICER", "MANAGER", "SUPER_ADMIN", "SUPERVISOR"]
   );
-  assert.deepEqual(visibleLoginRoles(roles, "1").map((role) => role.id), ["1", "2", "3", "4", "5", "6", "7"]);
+  assert.deepEqual(visibleLoginRoles(roles, "1").map((role) => role.id), ["1", "2", "3", "4", "5", "6", "7", "9"]);
 });
 
 test("primary job action follows status and role", () => {

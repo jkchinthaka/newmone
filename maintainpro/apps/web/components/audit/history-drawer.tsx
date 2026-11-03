@@ -15,7 +15,7 @@ interface HistoryDrawerProps {
   entityId: string | null;
   open: boolean;
   onClose: () => void;
-  /** Optional friendly title for the entity, e.g. "Job WO-12345". */
+  /** Optional friendly title for the entity, e.g. "Job JO-12345". */
   title?: string;
 }
 

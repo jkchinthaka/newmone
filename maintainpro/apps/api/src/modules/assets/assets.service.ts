@@ -29,6 +29,7 @@ import type {
 import { ASSET_TAG_FORMAT_MESSAGE, isValidAssetTag, normalizeAssetTag } from "./dto/asset-tag";
 import { PrismaService } from "../../database/prisma.service";
 import { normalizeDepartmentName } from "../departments/department-master-list";
+import { assetTagTypeCode } from "./asset-tag-type-code";
 import { AssetRegistryService } from "./asset-registry.service";
 import { EvidenceStorageProviderService } from "../evidence/evidence-storage-provider.service";
 import {
@@ -71,6 +72,7 @@ interface AssetMutationInput {
   manufacturer?: string | null;
   model?: string | null;
   serialNumber?: string | null;
+  fixedAssetCode?: string | null;
   meterReading?: number | null;
   lastServiceDate?: Date | null;
   nextServiceDate?: Date | null;
@@ -887,6 +889,26 @@ export class AssetsService {
     };
   }
 
+  /** QR label sheet: tag, name, site and an SVG QR code for each asset (max 200 per call). */
+  async qrLabels(tenantId: string | null | undefined, ids: string[]) {
+    const tid = requireTenantId(tenantId);
+    const unique = Array.from(new Set(ids.filter((id) => typeof id === "string" && id))).slice(0, 200);
+    if (!unique.length) return [];
+    const assets = await this.prisma.asset.findMany({
+      where: { tenantId: tid, id: { in: unique } },
+      select: { id: true, assetTag: true, name: true, site: { select: { name: true } } }
+    });
+    const byId = new Map(assets.map((asset) => [asset.id, asset]));
+    const labels = [];
+    for (const id of unique) {
+      const asset = byId.get(id);
+      if (!asset) continue;
+      const svg = await QRCode.toString(this.getAssetScanUrl(asset.id), { errorCorrectionLevel: "M", margin: 0, type: "svg" });
+      labels.push({ id: asset.id, assetTag: asset.assetTag, name: asset.name, site: asset.site?.name ?? null, svg });
+    }
+    return labels;
+  }
+
   async getQrCodeFile(id: string, tenantId?: string | null, format: "png" | "svg" = "png") {
     const asset = await this.findOne(id, tenantId);
     if (format === "svg") {
@@ -1297,6 +1319,7 @@ export class AssetsService {
         { manufacturer: { contains: query.search } },
         { model: { contains: query.search } },
         { serialNumber: { contains: query.search } },
+        { fixedAssetCode: { contains: query.search } },
         { supplier: { contains: query.search } },
         { department: { contains: query.search } },
         { ownerName: { contains: query.search } }
@@ -1348,6 +1371,7 @@ export class AssetsService {
       manufacturer: this.toNullableString(data.manufacturer),
       model: this.toNullableString(data.model),
       serialNumber: this.toNullableString(data.serialNumber),
+      fixedAssetCode: this.toNullableString(data.fixedAssetCode),
       meterReading: this.toNullableNumber(data.meterReading),
       lastServiceDate: this.toNullableDate(data.lastServiceDate),
       nextServiceDate: this.toNullableDate(data.nextServiceDate),
@@ -1380,6 +1404,7 @@ export class AssetsService {
       manufacturer: this.toNullableString(data.manufacturer) ?? null,
       model: this.toNullableString(data.model) ?? null,
       serialNumber: this.toNullableString(data.serialNumber) ?? null,
+      fixedAssetCode: this.toNullableString(data.fixedAssetCode) ?? null,
       meterReading: this.toNullableNumber(data.meterReading) ?? null,
       lastServiceDate: this.toNullableDate(data.lastServiceDate) ?? null,
       nextServiceDate: this.toNullableDate(data.nextServiceDate) ?? null,
@@ -1919,17 +1944,5 @@ export class AssetsService {
 }
 
 /** Short type code used inside suggested asset tags (AST-MCH0001, AST-EQP0001, ...). */
-export function assetTagTypeCode(category?: string | null): string {
-  const codes: Record<string, string> = {
-    MACHINE: "MCH",
-    EQUIPMENT: "EQP",
-    TOOL: "TOL",
-    INFRASTRUCTURE: "BLD",
-    VEHICLE: "VEH",
-    OTHER: "OTH"
-  };
-  const key = String(category ?? "").trim().toUpperCase();
-  if (codes[key]) return codes[key];
-  const letters = key.replace(/[^A-Z]/g, "").slice(0, 3);
-  return letters.length === 3 ? letters : "AST";
-}
+
+export { assetTagTypeCode };

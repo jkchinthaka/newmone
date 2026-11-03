@@ -10,6 +10,7 @@ import {
 } from "@/lib/password-change-required";
 import { shareAccessTokenRefresh } from "@/lib/access-token-refresh";
 import { isUpstreamUnavailableError, markUpstreamDegraded, markUpstreamHealthy } from "@/lib/upstream-status";
+import { notifyDataChanged, shouldAnnounceWrite } from "@/lib/live-data";
 
 const DEFAULT_API_TIMEOUT_MS = 60_000;
 const CSRF_COOKIE_KEY = "maintainpro_csrf";
@@ -266,6 +267,9 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 apiClient.interceptors.response.use(
   (response) => {
     markUpstreamHealthy();
+    // A saved change refreshes the other screens, badges and open tabs (see lib/live-data.ts).
+    const path = normalizeRequestPath(response.config?.url);
+    if (shouldAnnounceWrite(response.config?.method, path)) notifyDataChanged(path);
     return response;
   },
   async (error: AxiosError) => {

@@ -74,6 +74,7 @@ export class AssetTaxonomyController {
   }
 
   // ── Domain CRUD ──────────────────────────────────────────────────────────────
+  @Get("domains")
   @Roles(...READ_ROLES)
   async listDomains(@Req() req: AuthedRequest, @Query() query: TaxonomyListQueryDto) {
     const data = await this.taxonomy.listDomains(req.user?.tenantId ?? null, query);

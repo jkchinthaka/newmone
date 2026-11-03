@@ -234,8 +234,8 @@ export class InboxDecisionDto {
   @IsString()
   id!: string;
 
-  @IsIn(["approval", "request", "part", "vendor_quotation", "vendor_invoice", "emergency"])
-  kind!: "approval" | "request" | "part" | "vendor_quotation" | "vendor_invoice" | "emergency";
+  @IsIn(["approval", "work_order", "request", "part", "vendor_quotation", "vendor_invoice", "emergency"])
+  kind!: "approval" | "work_order" | "request" | "part" | "vendor_quotation" | "vendor_invoice" | "emergency";
 
   @IsIn(["APPROVED", "REJECTED", "RETURNED"])
   decision!: "APPROVED" | "REJECTED" | "RETURNED";
@@ -256,8 +256,8 @@ export class BulkApproveItemDto {
   @IsString()
   id!: string;
 
-  @IsIn(["approval", "request", "part", "vendor_quotation", "vendor_invoice", "emergency"])
-  kind!: "approval" | "request" | "part" | "vendor_quotation" | "vendor_invoice" | "emergency";
+  @IsIn(["approval", "work_order", "request", "part", "vendor_quotation", "vendor_invoice", "emergency"])
+  kind!: "approval" | "work_order" | "request" | "part" | "vendor_quotation" | "vendor_invoice" | "emergency";
 
   @IsNumber()
   expectedVersion!: number;

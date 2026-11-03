@@ -97,6 +97,8 @@ export interface ReadingFormValues {
   readingValue: number;
   notes?: string;
   images?: string;
+  /** Photo of the meter (proof of the reading). */
+  photo?: File | null;
 }
 
 export interface BillFormValues {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, Circle, Loader2, RefreshCw, X } from "lucide-react";
 
@@ -219,6 +219,29 @@ export function CompleteWorkOrderModal({
     isVehicle,
     odometer: completionMeterReading
   });
+  const productionImpactField = (<label className="space-y-1 text-sm text-slate-700">
+                  <span className="font-medium">Production impact</span>
+                  <select
+                    value={productionImpact}
+                    onChange={(e) => setProductionImpact(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  >
+                    <option value="NONE">No production impact</option>
+                    <option value="REDUCED">Production reduced</option>
+                    <option value="STOPPED">Production stopped</option>
+                  </select>
+                </label>);
+
+  // Technician's one question; it sets the test result and fixed / temporary fix underneath.
+  const working: "" | "YES" | "PARTLY" | "NO" =
+    functionalTestResult === "PASS" ? "YES" : functionalTestResult === "PARTIAL" ? "PARTLY" : functionalTestResult === "FAIL" ? "NO" : "";
+  const chooseWorking = (value: "YES" | "PARTLY" | "NO") => {
+    setFunctionalTestResult(value === "YES" ? "PASS" : value === "PARTLY" ? "PARTIAL" : "FAIL");
+    setCompletionCondition(value === "YES" ? "FIXED" : value === "PARTLY" ? "TEMPORARY_FIX" : "NOT_FIXED");
+    setFollowUpRequired(value === "PARTLY");
+  };
+  const technicianChoiceMissing = technicianMode && (working === "" || working === "NO");
+
   const blockReason = checklistData.loading ? "Checking what is needed..." : completionBlockReason(checklist);
 
   return (
@@ -344,10 +367,50 @@ export function CompleteWorkOrderModal({
               </div>
 
               {technicianMode ? (
-                <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
-                  Actual hours and cost are calculated by the server from labour sessions and parts.
-                  Failed tests block completion/release.
-                </div>
+                <fieldset>
+                  <legend className="text-sm font-medium text-slate-800">Is it fixed and working now? (required)</legend>
+                  <div className="mt-2 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Is it fixed and working now?">
+                    {(
+                      [
+                        ["YES", "Yes", "border-emerald-500 bg-emerald-50 text-emerald-900"],
+                        ["PARTLY", "Partly", "border-amber-500 bg-amber-50 text-amber-900"],
+                        ["NO", "No", "border-red-500 bg-red-50 text-red-900"]
+                      ] as const
+                    ).map(([value, label, selectedClass]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        aria-checked={working === value}
+                        onClick={() => chooseWorking(value)}
+                        className={`min-h-12 rounded-lg border-2 text-base font-semibold ${working === value ? selectedClass : "border-slate-200 text-slate-700"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {working === "NO" ? (
+                    <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900" role="alert">
+                      A job that is not working cannot be finished. Press Cancel and use <strong>Hold</strong> with the reason (for example waiting for a part).
+                    </p>
+                  ) : null}
+                  {working === "PARTLY" ? (
+                    <label className="mt-2 block space-y-1 text-sm text-slate-700">
+                      <span className="font-medium">What still needs doing, and any limit until then? (required)</span>
+                      <textarea
+                        rows={2}
+                        required
+                        value={operatingRestriction || followUpNote}
+                        onChange={(e) => {
+                          setOperatingRestriction(e.target.value);
+                          setFollowUpNote(e.target.value);
+                        }}
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                        placeholder="e.g. Seal is temporary, run at half speed until the new seal comes"
+                      />
+                    </label>
+                  ) : null}
+                </fieldset>
               ) : null}
 
               {requiresDelayReason ? (
@@ -365,7 +428,7 @@ export function CompleteWorkOrderModal({
               ) : null}
 
               <label className="space-y-1 text-sm text-slate-700">
-                <span className="font-medium">Technician completion note (required)</span>
+                <span className="font-medium">{technicianMode ? "What did you do? (required)" : "Technician completion note (required)"}</span>
                 <textarea
                   required
                   rows={3}
@@ -376,6 +439,7 @@ export function CompleteWorkOrderModal({
                 />
               </label>
 
+              <OptionalDetails collapsed={technicianMode}>
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="space-y-1 text-sm text-slate-700">
                   <span className="font-medium">Failure</span>
@@ -437,6 +501,8 @@ export function CompleteWorkOrderModal({
                   </select>
                 </label>
               </div>
+              {isMachinery && technicianMode ? productionImpactField : null}
+              </OptionalDetails>
 
               {(isVehicle || isMachinery) && (
                 <label className="space-y-1 text-sm text-slate-700">
@@ -456,21 +522,10 @@ export function CompleteWorkOrderModal({
                 </label>
               )}
 
-              {isMachinery ? (
-                <label className="space-y-1 text-sm text-slate-700">
-                  <span className="font-medium">Production impact</span>
-                  <select
-                    value={productionImpact}
-                    onChange={(e) => setProductionImpact(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                  >
-                    <option value="NONE">No production impact</option>
-                    <option value="REDUCED">Production reduced</option>
-                    <option value="STOPPED">Production stopped</option>
-                  </select>
-                </label>
-              ) : null}
+              {isMachinery && !technicianMode ? productionImpactField : null}
 
+              {technicianMode ? null : (
+                <>
               <label className="space-y-1 text-sm text-slate-700">
                 <span className="font-medium">Completion condition</span>
                 <select
@@ -516,6 +571,9 @@ export function CompleteWorkOrderModal({
                 </>
               ) : null}
 
+                </>
+              )}
+
               {blockReason ? (
                 <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
                   {blockReason}
@@ -532,11 +590,11 @@ export function CompleteWorkOrderModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || Boolean(blockReason)}
+                  disabled={submitting || Boolean(blockReason) || technicianChoiceMissing}
                   className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                  {technicianMode ? "Submit completion for supervisor check" : "Save completion note"}
+                  {technicianMode ? "Finish job (supervisor checks it)" : "Save completion note"}
                 </button>
               </div>
             </form>
@@ -544,5 +602,16 @@ export function CompleteWorkOrderModal({
         </motion.div>
       ) : null}
     </AnimatePresence>
+  );
+}
+
+/** Technicians see extra details folded away; other roles see them open. */
+function OptionalDetails({ collapsed, children }: { collapsed: boolean; children: ReactNode }) {
+  if (!collapsed) return <>{children}</>;
+  return (
+    <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+      <summary className="min-h-10 cursor-pointer py-2 text-sm font-medium text-slate-700">More details (optional): failure, cause, tests</summary>
+      <div className="space-y-3 pb-2 pt-1">{children}</div>
+    </details>
   );
 }

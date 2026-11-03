@@ -58,7 +58,7 @@ test("roles download: permission x role grid and one line per role", () => {
 });
 
 test("requests list has a Type filter that sends jobDomain (Machinery / Vehicle / Service)", () => {
-  const source = readFileSync("app/(dashboard)/requests/page.tsx", "utf8");
+  const source = readFileSync("app/(dashboard)/requests/page.tsx", "utf8").replace(/\r\n/g, "\n");
   assert.match(source, /aria-label="Type"/);
   assert.match(source, /jobDomain: jobDomain \|\| undefined/);
   assert.match(source, /\["MACHINERY", "VEHICLE", "SERVICE"\]/);
@@ -66,7 +66,7 @@ test("requests list has a Type filter that sends jobDomain (Machinery / Vehicle 
 });
 
 test("Add Location is always clickable and asks for the site when none is selected", () => {
-  const source = readFileSync("app/(dashboard)/admin/organization/page.tsx", "utf8");
+  const source = readFileSync("app/(dashboard)/admin/organization/page.tsx", "utf8").replace(/\r\n/g, "\n");
   assert.doesNotMatch(source, /disabled=\{!selectedSiteId\}/);
   assert.match(source, /Add a site first/);
   assert.match(source, /siteId,\n/);

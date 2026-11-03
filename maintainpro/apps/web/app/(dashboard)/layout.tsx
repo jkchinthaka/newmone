@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LiveQueryInvalidator } from "@/components/pwa/live-query-invalidator";
+import { WelcomeTips } from "@/components/onboarding/welcome-tips";
+import { ConnectionStatus } from "@/components/pwa/connection-status";
 import { OfflineRequestReplayer } from "@/components/pwa/offline-request-replayer";
 import { useRouter } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -132,7 +135,9 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             onOpenCommandPalette={() => setCommandPaletteOpen(true)}
             onOpenMobileNav={() => setMobileNavOpen(true)}
           />
-          <main id="main-content" className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-brand-50 p-3 pb-24 sm:p-4 xl:pb-4">
+          <ConnectionStatus />
+          <main id="main-content" className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-page p-3 pb-24 sm:p-4 xl:pb-4">
+            <WelcomeTips />
             <NavigationRouteGuard>{children}</NavigationRouteGuard>
           </main>
         </div>
@@ -157,6 +162,7 @@ export default function DashboardLayout({
 
   return (
     <QueryClientProvider client={queryClient}>
+      <LiveQueryInvalidator />
       <TenantSessionProvider>
         <DashboardShell>{children}</DashboardShell>
       </TenantSessionProvider>

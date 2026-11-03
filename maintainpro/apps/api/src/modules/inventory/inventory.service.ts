@@ -41,9 +41,11 @@ import {
 import { Optional } from "@nestjs/common";
 import { ErpSyncProviderService } from "./erp-sync-provider.service";
 import { InventoryTransactionEngine } from "./inventory-transaction.engine";
+import { applyOwnedStockIssue } from "./owned-stock";
 import { shouldPromotePoStatusToOrdered } from "./purchase-order-status.util";
 import {
   assertVerifiedIssueAllowed,
+  type VerifiedIssueCheck,
   MISSING_ERP_PROVENANCE_MESSAGE,
   MISSING_ERP_SNAPSHOT_MESSAGE
 } from "./verified-stock-availability";
@@ -532,8 +534,9 @@ export class InventoryService {
       // (Bileeta owns the quantity), as before.
       // stockVerified=false puts the issue on the "Parts issued without ERP stock" review list.
       let stockVerified = true;
+      let check: VerifiedIssueCheck | null = null;
       try {
-        await assertVerifiedIssueAllowed(tx, { tenantId, partId: id, quantity });
+        check = await assertVerifiedIssueAllowed(tx, { tenantId, partId: id, quantity });
       } catch (error) {
         const message = error instanceof BadRequestException ? error.message : "";
         const unverified = message === MISSING_ERP_PROVENANCE_MESSAGE || message === MISSING_ERP_SNAPSHOT_MESSAGE;
@@ -562,6 +565,16 @@ export class InventoryService {
             stockVerified
           })
         }
+      });
+      // MaintainPro-owned store: the issue lowers on-hand now (ERP stores wait for Bileeta).
+      await applyOwnedStockIssue(tx, this.prisma, check, {
+        actor: actor as never,
+        partId: id,
+        quantity,
+        workOrderId: workOrder.id,
+        sourceType: "WORK_ORDER_ISSUE",
+        idempotencyKey: `owned-issue:${eventId}`,
+        notes: options.notes
       });
       if (idempotencyKey) {
         try {

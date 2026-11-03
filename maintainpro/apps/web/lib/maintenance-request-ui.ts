@@ -228,7 +228,7 @@ export function requestNextStep(request: {
   switch (request.status) {
     case "NEW":
       return isActionAllowed(actions, "startReview")
-        ? { tone: "info", title: "Ready for review", detail: "Start the review to confirm the target and priority." }
+        ? { tone: "info", title: "Ready for review", detail: "Start the review to check the priority and decide." }
         : {
             tone: "waiting",
             title: "Waiting for review",
@@ -240,8 +240,8 @@ export function requestNextStep(request: {
       if (request.targetUnresolved && isActionAllowed(actions, "triage")) {
         return {
           tone: "blocked",
-          title: "Confirm the maintenance target",
-          detail: "Choose the machine, vehicle, or functional location before accepting this request."
+          title: "Confirm the item",
+          detail: "The reporter was not sure. Choose the machine, vehicle or location in Review, save, then accept the request."
         };
       }
       return isActionAllowed(actions, "approve") || isActionAllowed(actions, "close")

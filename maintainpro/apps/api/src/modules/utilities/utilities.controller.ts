@@ -1,8 +1,12 @@
-import { BadRequestException, Body, Controller, Get, Headers, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Headers, Inject, Param, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { PROOF_PHOTO_MAX_BYTES, ProofPhotoService, type ProofPhotoUpload } from "../evidence/proof-photo.service";
 import { METER_READING_ROLES } from "./meter-reading-rules";
 import { UtilitiesService } from "./utilities.service";
 
@@ -15,7 +19,10 @@ interface AuthedRequest {
 @UseGuards(JwtAuthGuard)
 @Controller("utilities")
 export class UtilitiesController {
-  constructor(private readonly utilitiesService: UtilitiesService) {}
+  constructor(
+    private readonly utilitiesService: UtilitiesService,
+    @Inject(ProofPhotoService) private readonly proofPhotos: ProofPhotoService
+  ) {}
 
   @Get("meters")
   @Roles(...METER_READING_ROLES)
@@ -59,19 +66,31 @@ export class UtilitiesController {
     return { data, message: "Meter updated" };
   }
 
+  /** Reading with a photo of the meter (multipart field "photo"). */
   @Post("meters/:id/readings")
   @Roles(...METER_READING_ROLES)
+  @UseInterceptors(FileInterceptor("photo", { storage: memoryStorage(), limits: { fileSize: PROOF_PHOTO_MAX_BYTES } }))
   async addReading(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    @Body() body: { readingDate: string; readingValue: unknown; images?: string[]; notes?: string; resetReason?: string; idempotencyKey?: string },
+    @UploadedFile() photo: ProofPhotoUpload,
+    @Body() body: { readingDate: string; readingValue: unknown; notes?: string; resetReason?: string; idempotencyKey?: string },
     @Headers("idempotency-key") idempotencyKey?: string
   ) {
-    const data = await this.utilitiesService.addReading(id, req.user?.tenantId ?? null, {
-      ...body,
-      idempotencyKey: idempotencyKey || body.idempotencyKey,
-      recordedBy: req.user?.sub
-    });
+    const tenantId = requireTenantId(req.user?.tenantId);
+    const data = await this.utilitiesService.addReading(
+      id,
+      tenantId,
+      {
+        readingDate: body.readingDate,
+        readingValue: body.readingValue,
+        notes: body.notes,
+        resetReason: body.resetReason,
+        idempotencyKey: idempotencyKey || body.idempotencyKey,
+        recordedBy: req.user?.sub
+      },
+      () => this.proofPhotos.requireAndSave(tenantId, "meter", photo, "meter")
+    );
     return { data, message: "Reading created" };
   }
 
@@ -133,25 +152,35 @@ export class UtilitiesController {
 
   @Post("readings")
   @Roles(...METER_READING_ROLES)
+  @UseInterceptors(FileInterceptor("photo", { storage: memoryStorage(), limits: { fileSize: PROOF_PHOTO_MAX_BYTES } }))
   async addReadingByMeter(
     @Req() req: AuthedRequest,
+    @UploadedFile() photo: ProofPhotoUpload,
     @Body()
     body: {
       meterId: string;
       readingDate: string;
       readingValue: unknown;
-      images?: string[];
       notes?: string;
       resetReason?: string;
       idempotencyKey?: string;
     },
     @Headers("idempotency-key") idempotencyKey?: string
   ) {
-    const data = await this.utilitiesService.addReading(body.meterId, req.user?.tenantId ?? null, {
-      ...body,
-      idempotencyKey: idempotencyKey || body.idempotencyKey,
-      recordedBy: req.user?.sub
-    });
+    const tenantId = requireTenantId(req.user?.tenantId);
+    const data = await this.utilitiesService.addReading(
+      body.meterId,
+      tenantId,
+      {
+        readingDate: body.readingDate,
+        readingValue: body.readingValue,
+        notes: body.notes,
+        resetReason: body.resetReason,
+        idempotencyKey: idempotencyKey || body.idempotencyKey,
+        recordedBy: req.user?.sub
+      },
+      () => this.proofPhotos.requireAndSave(tenantId, "meter", photo, "meter")
+    );
     return { data, message: "Reading created" };
   }
 

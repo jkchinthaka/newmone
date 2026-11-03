@@ -30,14 +30,14 @@ services:
       TRUST_PRIVATE_PROXY_PEERS: "true"
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
-      DATABASE_PROVIDER: mongodb
+      DATABASE_PROVIDER: sqlserver
       PRIMARY_DATABASE_URL: ${PRIMARY_DATABASE_URL:?PRIMARY_DATABASE_URL is required}
-      BACKUP_DATABASE_URL: ${BACKUP_DATABASE_URL:?BACKUP_DATABASE_URL is required}
+      BACKUP_DATABASE_URL: ${BACKUP_DATABASE_URL:-}
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
-      MONGODB_URI: ${MONGODB_URI:?MONGODB_URI is required}
+      MONGODB_URI: ${MONGO_MIGRATION_SOURCE_URL:-}
       PRIMARY_DATABASE_NAME: ${PRIMARY_DATABASE_NAME:?PRIMARY_DATABASE_NAME is required}
-      BACKUP_DATABASE_NAME: ${BACKUP_DATABASE_NAME:?BACKUP_DATABASE_NAME is required}
-      MONGO_DATABASE_NAME: ${MONGO_DATABASE_NAME:?MONGO_DATABASE_NAME is required}
+      BACKUP_DATABASE_NAME: ${BACKUP_DATABASE_NAME:-}
+      MONGO_DATABASE_NAME: ${MONGO_DATABASE_NAME:-}
       REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
@@ -84,16 +84,16 @@ services:
     expose:
       - "3001"
 
-  mongo:
+  sqlserver:
+    # Database is SQL Server (Prisma). Developer edition is NOT licensed for production:
+    # set MSSQL_PID to Express, Standard, or the edition Nelna holds a licence for.
+    # If Nelna already runs a licensed SQL Server, point DATABASE_URL at it and do not start this service.
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?MONGO_INITDB_ROOT_USERNAME is required}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?MONGO_INITDB_ROOT_PASSWORD is required}
-      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:?MONGO_INITDB_DATABASE is required}
-      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:?MONGO_APP_USERNAME is required}
-      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?MONGO_APP_PASSWORD is required}
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?MSSQL_SA_PASSWORD is required}
+      MSSQL_PID: ${MSSQL_PID:?MSSQL_PID is required (Express, Standard, ...)}
     # Host access for operators only — never 0.0.0.0.
-    ports:
-      - "127.0.0.1:27018:27017"
+    ports: !override
+      - "127.0.0.1:1433:1433"
 
   redis:
     # Explicitly unpublished; Docker network only.

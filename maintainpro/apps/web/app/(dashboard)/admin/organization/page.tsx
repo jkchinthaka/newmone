@@ -4,14 +4,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, ChevronRight, Ellipsis, Loader2 } from "lucide-react";
+import { Boxes, ChevronDown, ChevronRight, Ellipsis, FileSpreadsheet, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
+import { PlacesExcelImport } from "@/components/organization/places-excel-import";
 import { ActiveFilterChips } from "@/components/operational/active-filter-chips";
 import { OperationalPageHeader } from "@/components/operational/operational-page-header";
 import { ErrorState } from "@/components/ui/page-state";
-import { getApiErrorMessage } from "@/lib/api-client";
+import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { moveTargets } from "@/lib/places-import";
 import { formatEnumLabel } from "@/lib/display-labels";
 import { isAdminConsoleRole } from "@/lib/admin-console";
 import { useCurrentUser } from "@/lib/use-current-user";
@@ -23,6 +25,7 @@ import {
   createFunctionalLocation,
   createSite,
   fetchLocationChildren,
+  fetchLocationTree,
   fetchOrganizationSummary,
   listLocations,
   listSitesPage,
@@ -78,7 +81,7 @@ function LocationBranch({
         return (
           <li key={node.id} id={`location-${node.id}`}>
             <div
-              className={`flex min-h-10 items-center gap-1 rounded-md pr-1 text-sm ${selectedId === node.id ? "bg-slate-900 text-white" : "hover:bg-slate-50"} ${node.isActive ? "" : "opacity-70"}`}
+              className={`flex min-h-10 items-center gap-1 rounded-md pr-1 text-sm ${selectedId === node.id ? "bg-brand-50 text-brand-950 ring-1 ring-brand-200" : "hover:bg-slate-50"} ${node.isActive ? "" : "opacity-70"}`}
               style={{ paddingLeft: `${8 + depth * 16}px` }}
             >
               <button
@@ -92,9 +95,9 @@ function LocationBranch({
               </button>
               <button type="button" className="min-w-0 flex-1 truncate text-left" onClick={() => onSelect(node)}>
                 <span className="font-medium">{node.name}</span>
-                <span className={`ml-2 text-xs ${selectedId === node.id ? "text-slate-200" : "text-slate-500"}`}>
-                  {node.code} · {node.type.replace(/_/g, " ")}
-                  {(node.childCount ?? 0) > 0 ? ` · ${node.childCount}` : ""}
+                <span className="ml-2 text-xs text-slate-500">
+                  {node.code} · {formatEnumLabel(node.type)}
+                  {(node.childCount ?? 0) > 0 ? ` · ${node.childCount} inside` : ""}
                   {node.isActive ? "" : " · Inactive"}
                 </span>
               </button>
@@ -162,6 +165,10 @@ export default function OrganizationAdminPage() {
   const [locationDraft, setLocationDraft] = useState({ code: "", name: "", type: "AREA" as FunctionalLocationType });
   const [moveParentId, setMoveParentId] = useState("");
   const [moveReason, setMoveReason] = useState("");
+  const [moveOptions, setMoveOptions] = useState<Array<{ id: string; label: string; depth: number }> | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [locationAssets, setLocationAssets] = useState<{ total: number; items: Array<{ id: string; assetTag: string; name: string; status: string }> } | "hidden" | null>(null);
+  const isSuperAdmin = roleName === "SUPER_ADMIN";
 
   const selectedSiteId = urlState.siteId || null;
   const selectedLocationId = urlState.locationId;
@@ -268,6 +275,68 @@ export default function OrganizationAdminPage() {
     node?.scrollIntoView({ block: "nearest" });
   }, [selectedLocationId, roots, expanded]);
 
+  // Close the site menu on a click elsewhere or Escape.
+  useEffect(() => {
+    if (!menuSite) return;
+    const onPointer = (event: PointerEvent) => {
+      const row = (event.target as Element | null)?.closest?.("[data-site-row]");
+      if (row?.getAttribute("data-site-row") !== menuSite.id) setMenuSite(null);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuSite(null);
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuSite]);
+
+  // Where a location can be moved: the site's top level or any other location of the site.
+  useEffect(() => {
+    if (dialog?.kind !== "location" || !dialog.location || !selectedSiteId) {
+      setMoveOptions(null);
+      return;
+    }
+    const movingId = dialog.location.id;
+    let cancelled = false;
+    void fetchLocationTree(selectedSiteId)
+      .then((tree) => {
+        if (!cancelled) setMoveOptions(moveTargets(tree.roots, movingId));
+      })
+      .catch(() => {
+        if (!cancelled) setMoveOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dialog, selectedSiteId]);
+
+  // F: assets at the selected location (people who cannot view assets simply do not see the box).
+  useEffect(() => {
+    if (!selectedLocationId) {
+      setLocationAssets(null);
+      return;
+    }
+    let cancelled = false;
+    setLocationAssets(null);
+    void apiClient
+      .get("/assets", { params: { functionalLocationId: selectedLocationId, limit: 8, page: 1 } })
+      .then((response) => {
+        if (cancelled) return;
+        const items = (response.data?.data ?? []) as Array<{ id: string; assetTag: string; name: string; status: string }>;
+        const total = Number((response.data?.meta as { total?: number } | undefined)?.total ?? items.length);
+        setLocationAssets({ total, items });
+      })
+      .catch(() => {
+        if (!cancelled) setLocationAssets("hidden");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedLocationId]);
+
   async function toggleNode(node: OrgLocation) {
     const next = new Set(expanded);
     if (next.has(node.id)) {
@@ -341,17 +410,15 @@ export default function OrganizationAdminPage() {
     try {
       if (dialog.location) {
         const reason = moveReason.trim();
-        const moving = Boolean(moveParentId.trim() || reason);
+        const target = moveParentId === "__root" ? null : moveParentId;
+        const moving = moveParentId !== "" && target !== (dialog.location.parentId ?? null);
         if (moving && reason.length < 3) {
-          toast.error("Enter a move reason of at least 3 characters.");
+          toast.error("Write why it is being moved (at least 3 characters).");
           return;
         }
         await updateFunctionalLocation(dialog.location.id, locationDraft);
         if (moving) {
-          await moveFunctionalLocation(dialog.location.id, {
-            parentId: moveParentId.trim() ? moveParentId.trim() : null,
-            reason
-          });
+          await moveFunctionalLocation(dialog.location.id, { parentId: target, reason });
         }
         toast.success("Location updated");
       } else {
@@ -430,13 +497,19 @@ export default function OrganizationAdminPage() {
             >
               Add Location
             </button>
-            <button type="button" className="h-10 px-2 text-sm text-slate-600" aria-expanded={tools} onClick={() => setTools((current) => !current)}>
-              More actions
+            <button type="button" className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm font-medium" onClick={() => setImportOpen(true)}>
+              <FileSpreadsheet size={16} aria-hidden /> Upload from Excel
             </button>
+            {/* Developer tool: only the technical Super Admin sees it. */}
+            {isSuperAdmin ? (
+              <button type="button" className="h-10 px-2 text-sm text-slate-500" aria-expanded={tools} onClick={() => setTools((current) => !current)}>
+                More actions
+              </button>
+            ) : null}
           </>
         }
       />
-      {tools ? (
+      {tools && isSuperAdmin ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
           <p className="font-medium">Legacy facility migration</p>
           <p className="mt-1">Dry-run only. It reports how properties, buildings, floors, and rooms would map. It does not change records until a later apply step.</p>
@@ -474,7 +547,7 @@ export default function OrganizationAdminPage() {
               <span className="mb-1 block text-xs font-medium text-slate-600">Type</span>
               <select aria-label="Site type" value={siteType} onChange={(event) => { setPage(1); setSiteType(event.target.value as "" | SiteType); }} className="h-10 rounded-md border border-slate-300 px-2 text-sm">
                 <option value="">All types</option>
-                {SITE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                {SITE_TYPES.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
               </select>
             </label>
             <button type="button" className="h-10 rounded-md border border-slate-300 px-3 text-sm" aria-expanded={more} onClick={() => setMore((current) => !current)}>More filters</button>
@@ -489,7 +562,7 @@ export default function OrganizationAdminPage() {
           <ActiveFilterChips
             chips={[
               appliedQuery ? { key: "q", label: appliedQuery } : null,
-              siteType ? { key: "type", label: siteType } : null,
+              siteType ? { key: "type", label: formatEnumLabel(siteType) } : null,
               includeInactive ? { key: "inactive", label: "Including inactive" } : null
             ].filter((chip): chip is { key: string; label: string } => Boolean(chip))}
             onRemove={(key) => {
@@ -508,36 +581,47 @@ export default function OrganizationAdminPage() {
               {appliedQuery || siteType || includeInactive ? null : <button type="button" className="mt-2 h-9 rounded-md bg-slate-900 px-3 text-sm text-white" onClick={openCreateSite}>Create Site</button>}
             </div>
           ) : (
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-3 py-2">Code</th>
-                  <th className="px-3 py-2">Name</th>
-                  <th className="hidden px-3 py-2 md:table-cell">Type</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="hidden px-3 py-2 lg:table-cell">Locations</th>
-                  <th className="px-3 py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sites.map((site) => (
-                  <tr key={site.id} className={site.id === selectedSiteId ? "bg-slate-900 text-white" : "border-t border-slate-100"}>
-                    <td className="px-3 py-2">{site.code}</td>
-                    <td className="px-3 py-2">
-                      <button type="button" className="font-medium" aria-current={site.id === selectedSiteId ? "true" : undefined} onClick={() => writeUrl(site.id, null)}>{site.name}</button>
-                    </td>
-                    <td className="hidden px-3 py-2 md:table-cell">{site.type}</td>
-                    <td className="px-3 py-2">{site.isActive ? "Active" : "Inactive"}</td>
-                    <td className="hidden px-3 py-2 lg:table-cell">{site.locationCount ?? "—"}</td>
-                    <td className="px-3 py-2">
-                      <button type="button" aria-label={`Actions for ${site.name}`} className="inline-flex h-8 w-8 items-center justify-center" onClick={() => setMenuSite(site)}>
-                        <Ellipsis size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ul className="divide-y divide-slate-100" aria-label="Sites">
+              {sites.map((site) => {
+                const selected = site.id === selectedSiteId;
+                return (
+                  <li key={site.id} data-site-row={site.id} className={`relative flex items-stretch ${selected ? "bg-brand-50" : "hover:bg-slate-50"}`}>
+                    <span aria-hidden className={`w-1 shrink-0 ${selected ? "bg-brand-600" : "bg-transparent"}`} />
+                    <button
+                      type="button"
+                      aria-current={selected ? "true" : undefined}
+                      onClick={() => writeUrl(site.id, null)}
+                      className="min-w-0 flex-1 px-3 py-2.5 text-left"
+                    >
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className={`font-medium ${selected ? "text-brand-950" : "text-slate-900"}`}>{site.name}</span>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">{formatEnumLabel(site.type)}</span>
+                        {site.isActive ? null : <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800">Inactive</span>}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-slate-500">
+                        {site.code} · {site.locationCount ?? 0} location{site.locationCount === 1 ? "" : "s"}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Actions for ${site.name}`}
+                      aria-expanded={menuSite?.id === site.id}
+                      className="inline-flex w-11 shrink-0 items-center justify-center text-slate-600 hover:text-slate-900"
+                      onClick={() => setMenuSite(menuSite?.id === site.id ? null : site)}
+                    >
+                      <Ellipsis size={18} />
+                    </button>
+                    {menuSite?.id === site.id ? (
+                      <div role="menu" aria-label={`Actions for ${site.name}`} className="absolute right-2 top-full z-30 mt-1 w-44 rounded-lg border border-slate-200 bg-white p-1 text-slate-800 shadow-lg">
+                        <button type="button" role="menuitem" className="block h-10 w-full rounded px-2 text-left text-sm hover:bg-slate-50" onClick={() => { setSiteDraft({ code: site.code, name: site.name, type: site.type }); setSiteGeo(siteGeoDraftFrom(site)); setDialog({ kind: "site", site }); setMenuSite(null); }}>Edit</button>
+                        <button type="button" role="menuitem" className="block h-10 w-full rounded px-2 text-left text-sm hover:bg-slate-50" onClick={() => { writeUrl(site.id, null); openCreateLocation(null); setMenuSite(null); }}>Add location</button>
+                        <button type="button" role="menuitem" className="block h-10 w-full rounded px-2 text-left text-sm hover:bg-slate-50" onClick={() => void setSiteActive(site, !site.isActive)}>{site.isActive ? "Deactivate" : "Activate"}</button>
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
           )}
           {siteMeta.totalPages > 1 ? (
             <div className="flex items-center justify-between border-t border-slate-200 px-3 py-2 text-sm">
@@ -602,19 +686,35 @@ export default function OrganizationAdminPage() {
               }}
             />
           )}
+          {selectedLocationId && locationAssets !== "hidden" ? (
+            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm" aria-live="polite">
+              <p className="flex items-center gap-2 font-medium text-slate-900">
+                <Boxes size={16} aria-hidden /> Assets here
+                <span className="text-slate-500">{locationAssets ? `(${locationAssets.total})` : "…"}</span>
+              </p>
+              {locationAssets && locationAssets.items.length ? (
+                <ul className="mt-2 space-y-1">
+                  {locationAssets.items.map((asset) => (
+                    <li key={asset.id}>
+                      <Link href={`/assets?asset=${encodeURIComponent(asset.id)}` as Route} className="flex min-h-9 items-center gap-2 rounded px-1 hover:bg-white">
+                        <span className="font-mono text-xs text-slate-600">{asset.assetTag}</span>
+                        <span className="truncate text-slate-900">{asset.name}</span>
+                        <span className="ml-auto text-xs text-slate-500">{formatEnumLabel(asset.status)}</span>
+                      </Link>
+                    </li>
+                  ))}
+                  {locationAssets.total > locationAssets.items.length ? (
+                    <li className="px-1 text-xs text-slate-500">and {locationAssets.total - locationAssets.items.length} more</li>
+                  ) : null}
+                </ul>
+              ) : locationAssets ? (
+                <p className="mt-1 text-xs text-slate-500">No assets at this location yet.</p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </section>
 
-      {menuSite ? (
-        <div className="fixed inset-0 z-40" onClick={() => setMenuSite(null)}>
-          <div role="menu" aria-label={`Actions for ${menuSite.name}`} className="absolute right-6 top-40 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-lg" onClick={(event) => event.stopPropagation()}>
-            <button type="button" className="block h-9 w-full rounded px-2 text-left text-sm" onClick={() => { writeUrl(menuSite.id, null); setMenuSite(null); }}>Open</button>
-            <button type="button" className="block h-9 w-full rounded px-2 text-left text-sm" onClick={() => { setSiteDraft({ code: menuSite.code, name: menuSite.name, type: menuSite.type }); setSiteGeo(siteGeoDraftFrom(menuSite)); setDialog({ kind: "site", site: menuSite }); setMenuSite(null); }}>Edit</button>
-            <button type="button" className="block h-9 w-full rounded px-2 text-left text-sm" onClick={() => { writeUrl(menuSite.id, null); openCreateLocation(null); setMenuSite(null); }}>Add Location</button>
-            <button type="button" className="block h-9 w-full rounded px-2 text-left text-sm" onClick={() => void setSiteActive(menuSite, !menuSite.isActive)}>{menuSite.isActive ? "Deactivate" : "Activate"}</button>
-          </div>
-        </div>
-      ) : null}
 
       {dialog?.kind === "site" ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" role="presentation">
@@ -624,7 +724,7 @@ export default function OrganizationAdminPage() {
             <label className="block text-sm">Name<input required value={siteDraft.name} onChange={(event) => setSiteDraft((current) => ({ ...current, name: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" /></label>
             <label className="block text-sm">Type
               <select value={siteDraft.type} onChange={(event) => setSiteDraft((current) => ({ ...current, type: event.target.value as SiteType }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2">
-                {SITE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                {SITE_TYPES.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
               </select>
             </label>
             <fieldset className="space-y-2 rounded-lg border border-slate-200 p-3">
@@ -673,8 +773,25 @@ export default function OrganizationAdminPage() {
             </label>
             {dialog.location ? (
               <>
-                <label className="block text-sm">Move under parent id<input value={moveParentId} onChange={(event) => setMoveParentId(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" placeholder="Blank with a reason moves to the site root" /></label>
-                <label className="block text-sm">Move reason<input value={moveReason} onChange={(event) => setMoveReason(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" /></label>
+                <label className="block text-sm">Where it sits
+                  <select
+                    value={moveParentId || (dialog.location.parentId ?? "__root")}
+                    onChange={(event) => setMoveParentId(event.target.value)}
+                    disabled={moveOptions === null}
+                    className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2"
+                  >
+                    <option value="__root">Top level of {selectedSite?.name ?? "the site"}</option>
+                    {(moveOptions ?? []).map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {`${"\u00a0\u00a0".repeat(option.depth)}${option.depth ? "└ " : ""}Inside ${option.label}`}
+                      </option>
+                    ))}
+                  </select>
+                  {moveOptions === null ? <span className="text-xs text-slate-500">Loading locations…</span> : null}
+                </label>
+                {moveParentId && (moveParentId === "__root" ? null : moveParentId) !== (dialog.location.parentId ?? null) ? (
+                  <label className="block text-sm">Why is it moving?<input value={moveReason} onChange={(event) => setMoveReason(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" placeholder="e.g. Machine room rebuilt inside Building B" /></label>
+                ) : null}
                 <button type="button" className="text-sm text-brand-700" onClick={() => dialog.location && openCreateLocation(dialog.location)}>Add child</button>
                 <button type="button" className="ml-3 text-sm" onClick={() => dialog.location && void setLocationActive(dialog.location, !dialog.location.isActive)}>{dialog.location.isActive ? "Deactivate" : "Activate"}</button>
               </>
@@ -685,6 +802,16 @@ export default function OrganizationAdminPage() {
             </div>
           </form>
         </div>
+      ) : null}
+      {importOpen ? (
+        <PlacesExcelImport
+          onClose={() => setImportOpen(false)}
+          onSaved={() => {
+            setChildrenById({});
+            void loadSites(page);
+            if (selectedSiteId) void loadRoots(selectedSiteId);
+          }}
+        />
       ) : null}
     </div>
   );

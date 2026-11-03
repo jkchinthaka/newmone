@@ -470,6 +470,14 @@ export class AssetRegistryService {
       throw new BadRequestException("Cannot dispose an asset that is UNDER_MAINTENANCE");
     }
 
+    // Same guard as retire: an asset with open jobs must not disappear from the register.
+    const openWorkOrders = await this.prisma.workOrder.count({
+      where: { assetId, status: { in: [...OPEN_WORK_ORDER_STATUSES] } }
+    });
+    if (openWorkOrders > 0) {
+      throw new BadRequestException("Cannot dispose asset with open work orders");
+    }
+
     const updated = await this.prisma.asset.update({
       where: { id: assetId },
       data: {

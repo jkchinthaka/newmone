@@ -27,7 +27,6 @@ function endOfDayUtc(date: Date): Date {
 const DAY_MS = 86_400_000;
 // Sri Lanka is UTC+05:30 all year (no daylight saving), so a fixed offset gives the local calendar day.
 const COLOMBO_OFFSET_MS = 330 * 60 * 1000;
-const MAX_CAPACITY_CHECK_DAYS = 31;
 
 /** Start of the Asia/Colombo calendar day that contains this instant. */
 export function colomboDayStart(date: Date): Date {
@@ -54,10 +53,6 @@ const CAPACITY_RELEASED_STATUSES: WorkOrderStatus[] = [
   WorkOrderStatus.COMPLETED,
   WorkOrderStatus.CANCELLED
 ];
-
-function formatHours(value: number): string {
-  return String(Math.round(value * 10) / 10);
-}
 
 @Injectable()
 export class WorkforcePlanningService {
@@ -177,37 +172,13 @@ export class WorkforcePlanningService {
 
     const employee = await this.prisma.employee.findUnique({
       where: { id: input.employeeId },
-      select: { dailyCapacityHours: true, active: true }
+      select: { active: true }
     });
 
     if (!employee?.active) {
       throw new BadRequestException("Inactive employees cannot be assigned");
     }
-
-    const capacity = employee?.dailyCapacityHours ?? 8;
-    // Check each day of the planned window (or the assignment day when there is no window),
-    // with the new job's hours spread over those days.
-    const windowStart = input.plannedStartAt ?? new Date();
-    const windowEnd = input.plannedStartAt && input.plannedEndAt ? input.plannedEndAt : windowStart;
-    const days = Math.min(colomboDaysSpanned(windowStart, windowEnd), MAX_CAPACITY_CHECK_DAYS);
-    const incomingPerDay = (input.estimatedHours ?? 0) / days;
-    const firstDay = colomboDayStart(windowStart).getTime();
-
-    for (let index = 0; index < days; index += 1) {
-      const day = new Date(firstDay + index * DAY_MS);
-      const allocated = await this.getAllocatedHoursForDay({
-        tenantId: input.tenantId,
-        employeeId: input.employeeId,
-        day
-      });
-      const total = allocated + incomingPerDay;
-      if (total > capacity + 1e-9) {
-        const label = new Date(day.getTime() + COLOMBO_OFFSET_MS).toISOString().slice(0, 10);
-        throw new BadRequestException(
-          `Assignment exceeds daily capacity on ${label} (${formatHours(total)}h / ${capacity}h). Reduce hours or choose another employee.`
-        );
-      }
-    }
+    // Daily capacity is not enforced: an employee can be given more work than their daily hours.
   }
 
   async listEmployeesByDesignation(tenantId: string | null | undefined, designation?: string) {
@@ -317,10 +288,9 @@ export class WorkforcePlanningService {
 
     const employee = await this.prisma.employee.findUnique({
       where: { id: input.employeeId },
-      select: { dailyCapacityHours: true, active: true }
+      select: { active: true }
     });
 
-    const capacity = employee?.dailyCapacityHours ?? 8;
     const todayAllocatedHours = await this.getAllocatedHoursForDay({
       tenantId: input.tenantId,
       employeeId: input.employeeId,
@@ -331,9 +301,7 @@ export class WorkforcePlanningService {
     return {
       onApprovedLeave,
       todayAllocatedHours,
-      dailyCapacityHours: capacity,
       incomingHours,
-      exceedsDailyCapacity: todayAllocatedHours + incomingHours > capacity,
       inactive: employee ? !employee.active : true
     };
   }

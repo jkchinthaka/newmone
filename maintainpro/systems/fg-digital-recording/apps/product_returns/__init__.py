@@ -1,1 +1,0 @@
-"""Returned-product quality application."""

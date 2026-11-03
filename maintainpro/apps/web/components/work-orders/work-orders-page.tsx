@@ -287,6 +287,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
     params.delete("wo");
     params.delete("open");
     params.delete("tab");
+    params.delete("action");
     params.delete("create");
     params.delete("assetId");
     params.delete("assetLabel");
@@ -307,6 +308,16 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
       setEditorState({ open: true, mode: "edit", workOrder: deepLinkQuery.data });
     }
   }, [deepLinkId, deepLinkQuery.data, editorState.workOrder?.id]);
+
+  // My Jobs "Finish job": /work-orders?wo=<id>&action=complete opens the finish form at once.
+  const completeOpenedFor = useRef<string | null>(null);
+  useEffect(() => {
+    const job = deepLinkQuery.data;
+    if (!deepLinkId || !job || searchParams.get("action") !== "complete" || completeOpenedFor.current === deepLinkId) return;
+    completeOpenedFor.current = deepLinkId;
+    if (job.status === "IN_PROGRESS") setCompletionTarget(job);
+    else toast.message(`${job.woNumber} cannot be finished now (${String(job.status).replace(/_/g, " ").toLowerCase()}).`);
+  }, [deepLinkId, deepLinkQuery.data, searchParams]);
 
   useEffect(() => {
     const preset = workOrderCreatePreset(searchParams);
@@ -533,6 +544,15 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
     }
     if ((selected === "close" || selected === "verify-close") && !(await partsReturnsSettled(workOrder))) {
       return;
+    }
+    if (selected === "verify-close") {
+      const photosChecked = await confirm({
+        title: "Check the photos first",
+        description: "Open the job and look at the before and after photos. Verify and close only when the work looks done.",
+        confirmLabel: "Photos checked, close it",
+        cancelLabel: "Not yet"
+      });
+      if (!photosChecked) return;
     }
     if (selected === "close") {
       try {
@@ -942,21 +962,14 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
       )}
 
       {view === "queues" ? null : (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Job counts">
-          {(
-            [
-              ["Open", workOrdersQuery.stats.open, "text-slate-900"],
-              ["In progress", workOrdersQuery.stats.inProgress, "text-slate-900"],
-              ["Overdue", workOrdersQuery.stats.overdue, workOrdersQuery.stats.overdue > 0 ? "text-red-700" : "text-slate-900"],
-              ["Completed", workOrdersQuery.stats.completed, "text-slate-900"]
-            ] as Array<[string, number, string]>
-          ).map(([label, value, tone]) => (
-            <article key={label} className="rounded-card border border-slate-200 bg-white p-4 shadow-card">
-              <p className="text-sm font-medium text-slate-600">{label}</p>
-              <p className={`mt-3 text-2xl font-semibold tabular-nums ${tone}`}>{value}</p>
-            </article>
-          ))}
-        </div>
+        <p className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-sm text-slate-600" aria-label="Job counts">
+          <span><strong className="tabular-nums text-slate-900">{workOrdersQuery.stats.open}</strong> open</span>
+          <span><strong className="tabular-nums text-slate-900">{workOrdersQuery.stats.inProgress}</strong> in progress</span>
+          <span className={workOrdersQuery.stats.overdue > 0 ? "font-semibold text-red-700" : ""}>
+            <strong className="tabular-nums">{workOrdersQuery.stats.overdue}</strong> late
+          </span>
+          <span><strong className="tabular-nums text-slate-900">{workOrdersQuery.stats.completed}</strong> done</span>
+        </p>
       )}
 
       <motion.section

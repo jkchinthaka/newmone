@@ -191,9 +191,6 @@ export function WorkOrderDomainPanel({
       ) : null}
 
       <dl className="grid gap-3 rounded-xl border border-brand-100 bg-brand-50 p-3 sm:grid-cols-2">
-        <Field label="Open jobs on target" value={data.openJobsOnTarget} />
-        <Field label="Critical open jobs" value={data.criticalOpenWorkOrders} />
-        <Field label="Functional test" value={data.completion.functionalTestResult} />
         <Field label="Road / workshop test" value={data.completion.roadTestResult} />
         <Field label="Completion meter" value={data.completion.completionMeterReading} />
         <Field label="Operating restriction" value={data.completion.operatingRestriction} />

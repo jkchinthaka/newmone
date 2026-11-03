@@ -3,7 +3,11 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, FileSpreadsheet, PlusSquare, QrCode, type LucideIcon } from "lucide-react";
+
+import { AssetExcelImport } from "@/components/assets/asset-excel-import";
+import { AssetTagAssign } from "@/components/assets/asset-tag-assign";
+import { LABEL_IDS_STORAGE_KEY } from "@/lib/asset-register-import";
 
 import { DepartmentSelect } from "@/components/departments/department-select";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
@@ -24,7 +28,81 @@ import { useCurrentUser } from "@/lib/use-current-user";
 
 const field = "mt-1 min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm";
 
-export default function RegisterAssetPage() {
+type AddTab = "one" | "excel" | "tags";
+
+const ADD_TABS: Array<{ id: AddTab; label: string; help: string; icon: LucideIcon }> = [
+  { id: "one", label: "One asset", help: "Fill a short form", icon: PlusSquare },
+  { id: "excel", label: "Many from Excel", help: "Whole site or company", icon: FileSpreadsheet },
+  { id: "tags", label: "Assign QR tags", help: "Assets already in the system", icon: QrCode }
+];
+
+function initialTab(): AddTab {
+  if (typeof window === "undefined") return "one";
+  const value = new URLSearchParams(window.location.search).get("tab");
+  return value === "excel" || value === "tags" ? value : "one";
+}
+
+/** Add assets: one on the form, many from an Excel file, or QR tags for existing ones (Admin). */
+export default function AddAssetsPage() {
+  const user = useCurrentUser();
+  const isAdmin = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
+  const [tab, setTab] = useState<AddTab>("one");
+
+  useEffect(() => setTab(initialTab()), []);
+
+  const choose = (next: AddTab) => {
+    setTab(next);
+    const url = new URL(window.location.href);
+    if (next === "one") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
+    window.history.replaceState(window.history.state, "", url.toString());
+  };
+
+  if (!isAdmin) {
+    return (
+      <div className="space-y-4 p-4">
+        <PageBreadcrumbs items={[{ label: "Admin", href: "/admin" }, { label: "Add assets" }]} />
+        <PermissionState title="Admin access required" description="Only an Admin can add assets." />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`mx-auto space-y-4 p-1 sm:p-2 ${tab === "one" ? "max-w-2xl" : "max-w-6xl"}`}>
+      <PageBreadcrumbs items={[{ label: "Admin", href: "/admin" }, { label: "Add assets" }]} />
+      <header>
+        <h1 className="page-title">Add assets</h1>
+        <p className="mt-1 text-sm text-slate-600">Machines, equipment, IT, building items, tools and everything else the company maintains.</p>
+      </header>
+      <div role="tablist" aria-label="How to add" className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
+        {ADD_TABS.map((entry) => {
+          const Icon = entry.icon;
+          return (
+            <button
+              key={entry.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === entry.id}
+              onClick={() => choose(entry.id)}
+              className={`flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-center text-sm sm:flex-row sm:gap-2 ${
+                tab === entry.id ? "bg-white font-semibold text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Icon size={16} aria-hidden />
+              <span>
+                {entry.label}
+                <span className="hidden text-xs font-normal text-slate-500 sm:block">{entry.help}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {tab === "one" ? <OneAssetForm /> : tab === "excel" ? <AssetExcelImport /> : <AssetTagAssign />}
+    </div>
+  );
+}
+
+function OneAssetForm() {
   const user = useCurrentUser();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<AssetRegisterForm>(EMPTY_ASSET_REGISTER_FORM);
@@ -84,18 +162,9 @@ export default function RegisterAssetPage() {
     }
   }
 
-  if (!isAdmin) {
-    return (
-      <div className="space-y-4 p-4">
-        <PageBreadcrumbs items={[{ label: "Admin", href: "/admin" }, { label: "Add Machine" }]} />
-        <PermissionState title="Admin access required" description="Only an Admin can register machines and equipment." />
-      </div>
-    );
-  }
-
   if (created) {
     return (
-      <main className="mx-auto max-w-xl space-y-4 p-4">
+      <div className="space-y-4">
         <section className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900">
           <p className="flex items-center gap-2 text-base font-semibold">
             <CheckCircle2 size={18} aria-hidden /> {created.assetTag} saved as a draft
@@ -109,6 +178,20 @@ export default function RegisterAssetPage() {
               type="button"
               className="font-medium underline"
               onClick={() => {
+                try {
+                  sessionStorage.setItem(LABEL_IDS_STORAGE_KEY, JSON.stringify([created.id]));
+                  window.open("/admin/assets/labels", "_blank", "noopener");
+                } catch {
+                  // Storage blocked: the label can still be printed from the asset page.
+                }
+              }}
+            >
+              Print QR label
+            </button>
+            <button
+              type="button"
+              className="font-medium underline"
+              onClick={() => {
                 setCreated(null);
                 setForm(EMPTY_ASSET_REGISTER_FORM);
                 setStep(0);
@@ -118,17 +201,13 @@ export default function RegisterAssetPage() {
             </button>
           </div>
         </section>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="mx-auto max-w-2xl space-y-4 p-4">
-      <PageBreadcrumbs items={[{ label: "Admin", href: "/admin" }, { label: "Add Machine" }]} />
-      <header>
-        <h1 className="page-title">Add machine or equipment</h1>
-        <p className="mt-1 text-sm text-slate-600">It is saved as a draft. A manager approves it before jobs can use it.</p>
-      </header>
+    <div className="space-y-4">
+      <p className="text-sm text-slate-600">It is saved as a draft. A manager approves it before jobs can use it.</p>
 
       <ol className="flex flex-wrap items-center gap-2 text-xs" aria-label="Register steps">
         {ASSET_REGISTER_STEPS.map((label, index) => (
@@ -165,6 +244,7 @@ export default function RegisterAssetPage() {
             <label className="text-sm sm:col-span-2">Name *<input className={field} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Vacuum filler line 2" /></label>
             <label className="text-sm">Asset tag *<input className={field} value={form.assetTag} onChange={(e) => set("assetTag", e.target.value.toUpperCase())} /><span className="text-xs text-slate-500">Suggested automatically. Printed on the QR label.</span></label>
             <label className="text-sm">Serial number<input className={field} value={form.serialNumber} onChange={(e) => set("serialNumber", e.target.value)} /></label>
+            <label className="text-sm">ERP / fixed asset code<input className={field} value={form.fixedAssetCode} maxLength={64} onChange={(e) => set("fixedAssetCode", e.target.value)} /><span className="text-xs text-slate-500">From the finance asset register, if it has one.</span></label>
             <label className="text-sm">Make (manufacturer)<input className={field} value={form.manufacturer} onChange={(e) => set("manufacturer", e.target.value)} /></label>
             <label className="text-sm">Model<input className={field} value={form.model} onChange={(e) => set("model", e.target.value)} /></label>
             <label className="text-sm sm:col-span-2">Notes<textarea className={`${field} min-h-20 py-2`} value={form.description} onChange={(e) => set("description", e.target.value)} /></label>
@@ -241,6 +321,6 @@ export default function RegisterAssetPage() {
           )}
         </div>
       </section>
-    </main>
+    </div>
   );
 }

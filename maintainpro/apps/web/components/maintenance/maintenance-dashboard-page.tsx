@@ -34,6 +34,9 @@ import {
 } from "@/lib/maintenance-dashboard-view";
 import { maintenanceRefetchInterval, shouldRetryMaintenanceQuery } from "@/lib/maintenance-dashboard-query";
 import { withTenantScope } from "@/lib/tenant-query";
+import { fetchApprovalInbox } from "@/lib/approvals-api";
+import { approvalsSummary, type ApprovalsSummary } from "@/lib/approvals-summary";
+import { canFetchApprovalBadge } from "@/lib/use-nav-badges";
 import { useCurrentUser } from "@/lib/use-current-user";
 
 type PriorityWorkOrder = {
@@ -199,6 +202,15 @@ export function MaintenanceDashboardPage() {
     refetchInterval: maintenanceRefetchInterval
   });
 
+  // Same source and filters as the Approvals page, so the card and the page always agree.
+  const approvalsQuery = useQuery({
+    queryKey: withTenantScope(["approvals", "dashboard-summary"]),
+    queryFn: ({ signal }) => fetchApprovalInbox({ page: 1, pageSize: 1 }, { signal }),
+    select: (data) => approvalsSummary(data.meta?.counts, data.meta?.total),
+    enabled: !technicianView && canFetchApprovalBadge(user.role, user.permissions),
+    retry: false
+  });
+
   const query = technicianView ? myJobsQuery : dashboardQuery;
 
   if (query.isLoading) {
@@ -244,7 +256,7 @@ export function MaintenanceDashboardPage() {
         ) : null}
         {technicianView && myJobsQuery.data ? <TechnicianDashboard counts={myJobsQuery.data} /> : null}
         {!technicianView && dashboardQuery.data ? (
-          <ManagerDashboard data={dashboardQuery.data} role={user.role} />
+          <ManagerDashboard data={dashboardQuery.data} role={user.role} approvals={approvalsQuery.data ?? null} />
         ) : null}
       </PageShell>
     </div>
@@ -264,7 +276,52 @@ function TechnicianDashboard({ counts }: { counts: MyJobCounts }) {
   );
 }
 
-function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: string | null }) {
+function ApprovalsCard({ summary }: { summary: ApprovalsSummary }) {
+  return (
+    <Link
+      href={"/approvals" as never}
+      aria-label={`Approvals: ${summary.total} pending. Open Approvals`}
+      className="block rounded-card border border-slate-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+            <ClipboardCheck size={20} aria-hidden />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Approvals</p>
+            <p className="text-xs text-slate-500">Waiting for a decision</p>
+          </div>
+        </div>
+        <p className="text-3xl font-semibold tabular-nums text-slate-900">
+          {summary.total}
+          <span className="ml-1 text-sm font-medium text-slate-500">pending</span>
+        </p>
+      </div>
+      <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="Pending approvals by category">
+        {summary.categories.map((category) => (
+          <li
+            key={category.id}
+            className={`rounded-lg border px-3 py-2 text-sm ${category.count > 0 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-100 bg-slate-50 text-slate-500"}`}
+          >
+            <span className="block truncate text-xs">{category.label}</span>
+            <span className="text-lg font-semibold tabular-nums">{category.count}</span>
+          </li>
+        ))}
+      </ul>
+    </Link>
+  );
+}
+
+function ManagerDashboard({
+  data,
+  role,
+  approvals
+}: {
+  data: MaintenanceDashboard;
+  role: string | null;
+  approvals: ApprovalsSummary | null;
+}) {
   const counts: Record<string, number> = {
     overdueJobs: data.overdueJobs,
     unassignedJobs: data.unassignedJobs,
@@ -278,6 +335,7 @@ function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: st
 
   return (
     <div className="space-y-4">
+      {approvals ? <ApprovalsCard summary={approvals} /> : null}
       <SectionCard description="The four queues to clear first." title="Needs attention">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {dashboardCardsForRole(role, MANAGER_ACTION_CARDS).map((card) => {
@@ -342,14 +400,11 @@ function ManagerDashboard({ data, role }: { data: MaintenanceDashboard; role: st
         />
       </SectionCard>
 
-      <SectionCard description="Requests, preventive work, and approvals that can unblock jobs." title="Pipeline">
+      <SectionCard description="Requests and preventive work that can unblock jobs." title="Pipeline">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <LinkedKpi compact href="/requests?stage=open" id="requests" label="Requests awaiting action" value={data.requestsOpen} />
           <LinkedKpi compact href={PM_DUE_SOON_HREF} id="pm-due" label="Scheduled service due soon" value={data.pmDueSoon} />
           <LinkedKpi compact href={PM_OVERDUE_HREF} id="pm-overdue" label="Scheduled service overdue" value={data.pmOverdue ?? 0} />
-          {data.availability.approvals && data.pendingApprovals != null ? (
-            <LinkedKpi compact href="/approvals" id="approvals" label="Approvals pending" value={data.pendingApprovals} />
-          ) : null}
         </div>
       </SectionCard>
     </div>

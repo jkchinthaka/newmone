@@ -79,7 +79,7 @@ export default function MaintenanceSupplyPage() {
                       {row.part?.partNumber ?? "—"} · {row.part?.name ?? "Tool"}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
-                      WO {row.workOrderId.slice(-6)} · outstanding {row.outstandingQuantity} of{" "}
+                      Job {row.workOrderId.slice(-6)} · outstanding {row.outstandingQuantity} of{" "}
                       {row.quantity}
                     </p>
                     <p className="mt-1 text-xs text-slate-600">

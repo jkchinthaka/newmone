@@ -52,7 +52,6 @@ export const POLICY_MESSAGES: Record<string, string> = {
   TECHNICIAN_ON_LEAVE: "Technician is on approved leave",
   TECHNICIAN_CERTIFICATION_REQUIRED: "This job requires a valid certification",
   TECHNICIAN_SKILL_MISMATCH: "Technician skills do not match the job",
-  TECHNICIAN_OVER_CAPACITY: "Technician does not have remaining capacity",
   BUSINESS_APPROVAL_REQUIRED: "Hazardous work requires an approved permit or authorized override",
   BUDGET_EXCEEDED: "Requested amount exceeds available budget",
   VENDOR_INACTIVE: "Vendor is not active",

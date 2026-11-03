@@ -166,8 +166,8 @@ test("maintenance queries do not retry terminal auth or unavailable responses", 
   assert.equal(shouldRetryMaintenanceQuery(0, { response: { status: 503 } }), false);
   assert.equal(shouldRetryMaintenanceQuery(0, new Error("network")), true);
   assert.equal(shouldRetryMaintenanceQuery(1, new Error("network")), false);
-  // A failed poll no longer stops polling; the dashboard keeps its last data and retries next minute.
-  assert.equal(maintenanceRefetchInterval({ state: { error: new Error("down") } }), 60_000);
+  // A failed poll no longer stops polling; the dashboard keeps its last data and retries on the next live refresh.
+  assert.equal(maintenanceRefetchInterval({ state: { error: new Error("down") } }), 30_000);
   assert.equal(maintenanceRefetchInterval({ state: { error: { response: { status: 403 } } } }), false);
-  assert.equal(maintenanceRefetchInterval({ state: { error: null } }), 60_000);
+  assert.equal(maintenanceRefetchInterval({ state: { error: null } }), 30_000);
 });

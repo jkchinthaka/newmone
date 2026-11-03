@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { isDatabaseUnavailableError } from "@/lib/api-client";
+import { LIVE_REFRESH_INTERVAL_MS } from "@/lib/live-data";
 import { fetchApprovalInbox } from "@/lib/approvals-api";
 import { fetchWorkOrderQueueSummary } from "@/lib/work-order-queues-api";
 import type { NavBadgeKey } from "@/lib/navigation";
@@ -75,7 +76,7 @@ export function useNavBadges(enabled: boolean, roleName?: string | null, permiss
       }
       return failureCount < 1;
     },
-    refetchInterval: (q) => (q.state.error ? false : 120_000)
+    refetchInterval: (q) => (q.state.error ? false : LIVE_REFRESH_INTERVAL_MS)
   });
 
   return {

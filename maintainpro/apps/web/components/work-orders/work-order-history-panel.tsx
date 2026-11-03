@@ -187,7 +187,7 @@ export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
             rows={data.previousPartsUsed.slice(0, 12).map((row) => ({
               key: `${row.workOrderId}-${row.partId}`,
               primary: String(row.partName ?? row.partNumber),
-              secondary: `WO ${String(row.woNumber ?? "")} · Qty ${String(row.quantity ?? "")}`,
+              secondary: `Job ${String(row.woNumber ?? "")} · Qty ${String(row.quantity ?? "")}`,
               meta: typeof row.totalCost === "number" ? formatMoney(row.totalCost) : undefined
             }))}
           />

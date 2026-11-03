@@ -83,10 +83,12 @@ test("row menus open upward near the bottom and stay on screen", () => {
   assert.equal(narrow.left, 8);
 });
 
-test("query defaults suit slow networks: one retry, no focus refetch, no background polling", () => {
+test("query defaults suit slow networks: one retry, stale-only focus refetch, no background polling", () => {
   const queries = APP_QUERY_DEFAULT_OPTIONS.queries;
   assert.equal(queries.staleTime, 30_000);
-  assert.equal(queries.refetchOnWindowFocus, false);
+  // Automatic updates: focus refetches only data older than staleTime; visible screens poll every 30s.
+  assert.equal(queries.refetchOnWindowFocus, true);
+  assert.equal(queries.refetchInterval, 30_000);
   assert.equal(queries.refetchIntervalInBackground, false);
   assert.equal(QUERY_RETRY_LIMIT, 1);
   const network = { code: "ERR_NETWORK" };

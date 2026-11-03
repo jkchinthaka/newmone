@@ -81,6 +81,7 @@ export default function MeterReadingsPage() {
   const [rejectedDraft, setRejectedDraft] = useState("");
   const [readingAt, setReadingAt] = useState(() => readingTimeNow());
   const [note, setNote] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
   const [reset, setReset] = useState(false);
   const [resetReason, setResetReason] = useState("");
   const [warning, setWarning] = useState("");
@@ -272,18 +273,21 @@ export default function MeterReadingsPage() {
     const savedValue = value.trim();
     const savedAt = readingAt;
     try {
-      const response = await apiClient.post(`/utilities/meters/${selected.id}/readings`, {
-        readingDate: new Date(readingAt).toISOString(),
-        readingValue: savedValue,
-        notes: note,
-        resetReason: reset ? resetReason.trim() : undefined,
-        idempotencyKey
-      });
+      // Multipart so the meter photo goes with the reading.
+      const form = new FormData();
+      form.append("readingDate", new Date(readingAt).toISOString());
+      form.append("readingValue", savedValue);
+      if (note) form.append("notes", note);
+      if (reset) form.append("resetReason", resetReason.trim());
+      form.append("idempotencyKey", idempotencyKey);
+      if (photo) form.append("photo", photo);
+      const response = await apiClient.post(`/utilities/meters/${selected.id}/readings`, form);
       const saved = response.data?.data as { warning?: string | null };
       setWarning(saved?.warning ? HIGH_USAGE_COPY : "");
       setMessage(savedReadingMessage(selected.meterNumber, savedValue, selected.unit, savedAt));
       setValue("");
       setNote("");
+      setPhoto(null);
       setReset(false);
       setResetReason("");
       setReadingAt(readingTimeNow());
@@ -349,6 +353,8 @@ export default function MeterReadingsPage() {
             onResetReason={setResetReason}
             note={note}
             onNote={setNote}
+            photo={photo}
+            onPhoto={setPhoto}
             warning={preview?.warning || warning}
             lowerWarning={lowerWarning}
             message={message}

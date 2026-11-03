@@ -52,27 +52,9 @@ describe("allocated hours for one day", () => {
   });
 });
 
-describe("capacity check on assignment", () => {
-  it("allows a job when other work is on another day", async () => {
-    const { service } = build((where) =>
-      // Bookings exist only on 24 Oct.
-      (where.OR as any[])[0].plannedEndAt.gte.toISOString().startsWith("2026-10-23T18:30")
-        ? [{ estimatedHours: 8, plannedStartAt: new Date("2026-10-24T03:00:00Z"), plannedEndAt: new Date("2026-10-24T11:00:00Z") }]
-        : []
-    );
-    await expect(
-      service.assertAssignmentAvailability({
-        tenantId: "t1",
-        employeeId: "e1",
-        plannedStartAt: new Date("2026-10-23T03:00:00Z"),
-        plannedEndAt: new Date("2026-10-23T09:00:00Z"),
-        estimatedHours: 6
-      })
-    ).resolves.toBeUndefined();
-  });
-
-  it("blocks when the same day is over capacity and names the day", async () => {
-    const { service } = build([{ estimatedHours: 5, plannedStartAt: null, plannedEndAt: null }]);
+describe("assignment is not limited by daily capacity", () => {
+  it("allows a job that takes the day over the employee's daily hours", async () => {
+    const { service, findMany } = build([{ estimatedHours: 20, plannedStartAt: null, plannedEndAt: null }]);
     await expect(
       service.assertAssignmentAvailability({
         tenantId: "t1",
@@ -81,20 +63,22 @@ describe("capacity check on assignment", () => {
         plannedEndAt: new Date("2026-10-23T09:00:00Z"),
         estimatedHours: 4
       })
-    ).rejects.toThrow(new BadRequestException("Assignment exceeds daily capacity on 2026-10-23 (9h / 8h). Reduce hours or choose another employee."));
+    ).resolves.toBeUndefined();
+    // No allocated-hours lookup is needed any more.
+    expect(findMany).not.toHaveBeenCalled();
   });
 
-  it("spreads a 12h job over a two-day window instead of putting 12h on day one", async () => {
-    const { service, findMany } = build([]);
-    await expect(
-      service.assertAssignmentAvailability({
-        tenantId: "t1",
-        employeeId: "e1",
-        plannedStartAt: new Date("2026-10-23T03:00:00Z"),
-        plannedEndAt: new Date("2026-10-24T11:00:00Z"),
-        estimatedHours: 12
-      })
-    ).resolves.toBeUndefined();
-    expect(findMany).toHaveBeenCalledTimes(2);
+  it("still refuses an inactive employee", async () => {
+    const { service } = build([]);
+    (service as unknown as { prisma: { employee: { findUnique: jest.Mock } } }).prisma.employee.findUnique.mockResolvedValue({ active: false });
+    await expect(service.assertAssignmentAvailability({ tenantId: "t1", employeeId: "e1" })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("assignment preview no longer reports a capacity warning", async () => {
+    const { service } = build([{ estimatedHours: 20, plannedStartAt: null, plannedEndAt: null }]);
+    const preview = await service.previewAssignment({ tenantId: "t1", employeeId: "e1", estimatedHours: 4 });
+    expect(preview).not.toHaveProperty("exceedsDailyCapacity");
+    expect(preview).not.toHaveProperty("dailyCapacityHours");
+    expect(preview).toMatchObject({ todayAllocatedHours: 20, incomingHours: 4, inactive: false });
   });
 });

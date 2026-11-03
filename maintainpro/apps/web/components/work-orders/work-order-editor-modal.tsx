@@ -394,7 +394,7 @@ export function WorkOrderEditorModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={drawerMotion}
-          className="fixed inset-0 z-[80] flex justify-end bg-[#104D2B]/45"
+          className="fixed inset-0 z-[80] flex justify-end bg-[#103D2D]/45"
         >
           <motion.div
             ref={panelRef}
@@ -497,6 +497,7 @@ export function WorkOrderEditorModal({
                 onChange={setActiveTab}
                 showAudit={showAuditTab}
                 showAssignment={currentUser.role !== "TECHNICIAN" && currentUser.role !== "MECHANIC"}
+                hideTabs={currentUser.role === "TECHNICIAN" || currentUser.role === "MECHANIC" ? ["safety", "vendor-repair"] : undefined}
                 counts={{
                   evidence: evidenceItems.some((item) => item.status === "UPLOADED")
                     ? evidenceItems.filter((item) => item.status === "UPLOADED").length
@@ -958,7 +959,8 @@ export function WorkOrderEditorModal({
                         role: actorRole,
                         approvalStatus: workOrder.approvalStatus
                       });
-                      return next.kind === "action" ? (
+                      // On the Assignment tab "Assign technician" would only reload the tab the person is already on.
+                      return next.kind === "action" && !(next.actionId === "assign" && activeTab === "assignment") ? (
                         <button
                           type="button"
                           onClick={() => onPrimaryAction(workOrder, next.actionId)}

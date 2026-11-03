@@ -1,6 +1,7 @@
 "use client";
 
 import { DateField } from "@/components/forms/date-fields";
+import { BulkImportButton } from "@/components/bulk-import/bulk-import-button";
 import Link from "next/link";
 import {
   useCallback,
@@ -36,6 +37,7 @@ import { ButtonSpinner, InlineLoadingState, TableLoadingRows } from "@/component
 import { ErrorState } from "@/components/ui/page-state";
 import { apiClient } from "@/lib/api-client";
 import { colomboTodayYmd } from "@/lib/colombo-datetime";
+import { loadRememberedFilters, saveRememberedFilters } from "@/lib/remembered-filters";
 import { formatDate as formatColomboDate, formatDateTime } from "@/lib/localization";
 import {
   getStoredPermissions,
@@ -58,6 +60,9 @@ type VehicleOwnershipType = "OWNED" | "LEASED" | "RENTED" | "THIRD_PARTY";
 type VehicleServiceStatus = "ON_SCHEDULE" | "DUE_SOON" | "OVERDUE";
 type SortBy = "createdAt" | "mileage" | "nextServiceDate" | "year";
 type SortDir = "asc" | "desc";
+const VEHICLE_SORT_FIELDS: SortBy[] = ["createdAt", "mileage", "nextServiceDate", "year"];
+const VEHICLE_FILTER_MEMORY_KEY = "maintainpro:vehicles-filters";
+const VEHICLE_FILTER_MEMORY_FIELDS = ["selectedStatuses", "sortBy", "sortDir", "pageSize"] as const;
 
 interface Vehicle {
   id: string;
@@ -183,6 +188,33 @@ export default function VehiclesPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(9);
+  const [filtersRestored, setFiltersRestored] = useState(false);
+
+  // Bring back this person's last status filter, sort and page size (never the search text or page).
+  useEffect(() => {
+    const saved = loadRememberedFilters<{ selectedStatuses: string[]; sortBy: string; sortDir: string; pageSize: number }>(
+      VEHICLE_FILTER_MEMORY_KEY,
+      VEHICLE_FILTER_MEMORY_FIELDS
+    );
+    if (Array.isArray(saved.selectedStatuses)) {
+      setSelectedStatuses(
+        saved.selectedStatuses.filter((status) => (VEHICLE_STATUSES as readonly string[]).includes(status)) as VehicleStatus[]
+      );
+    }
+    if (typeof saved.sortBy === "string" && VEHICLE_SORT_FIELDS.includes(saved.sortBy as SortBy)) {
+      setSortBy(saved.sortBy as SortBy);
+    }
+    if (saved.sortDir === "asc" || saved.sortDir === "desc") setSortDir(saved.sortDir);
+    if (typeof saved.pageSize === "number" && (PAGE_SIZE_OPTIONS as readonly number[]).includes(saved.pageSize)) {
+      setPageSize(saved.pageSize);
+    }
+    setFiltersRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersRestored) return;
+    saveRememberedFilters(VEHICLE_FILTER_MEMORY_KEY, { selectedStatuses, sortBy, sortDir, pageSize }, VEHICLE_FILTER_MEMORY_FIELDS);
+  }, [filtersRestored, selectedStatuses, sortBy, sortDir, pageSize]);
 
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Vehicle | null>(null);
@@ -617,7 +649,7 @@ export default function VehiclesPage() {
           <p className="text-sm font-semibold uppercase tracking-wide text-brand-800">Fleet</p>
           <h1 className="page-title">Vehicle Management</h1>
           <p className="max-w-3xl text-sm text-brand-800">
-            Search, filter, and track vehicles. Actions stay limited to your role.
+            Find a vehicle, check its status and next service. Tap Details for the full record.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -626,9 +658,11 @@ export default function VehiclesPage() {
           </button>
           {(role === "SUPER_ADMIN" || role === "ADMIN") ? (
             <Link href="/admin/vehicles/new" className="btn-quiet">
-              Register in Admin
+              Add vehicle
             </Link>
           ) : null}
+          {/* Many vehicles from Excel (existing bulk import; Super Admin only). */}
+          <BulkImportButton entity="vehicle" entityLabel="Vehicles" onImported={refreshAll} />
         </div>
       </header>
       {!canCreate && !canEdit ? (
@@ -690,7 +724,7 @@ export default function VehiclesPage() {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 lg:grid-cols-[1.5fr,1fr,1fr,auto]">
+        <div>
           <label className="relative block">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">Search</span>
             <Search size={14} className="pointer-events-none absolute left-3 top-[35px] text-slate-400" />
@@ -705,7 +739,11 @@ export default function VehiclesPage() {
             />
           </label>
 
-          <label>
+        </div>
+        <details className="mt-3">
+          <summary className="inline-flex min-h-10 cursor-pointer items-center text-sm font-medium text-brand-700">More options (sort, rows per page)</summary>
+          <div className="mt-2 grid gap-3 sm:grid-cols-3">
+            <label>
             <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">Sort By</span>
             <div className="relative">
               <ArrowUpDown size={14} className="pointer-events-none absolute left-3 top-2.5 text-slate-400" />
@@ -726,7 +764,7 @@ export default function VehiclesPage() {
             </div>
           </label>
 
-          <label>
+            <label>
             <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">Order</span>
             <select
               value={sortDir}
@@ -741,7 +779,7 @@ export default function VehiclesPage() {
             </select>
           </label>
 
-          <label>
+            <label>
             <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">Rows</span>
             <select
               value={pageSize}
@@ -758,7 +796,8 @@ export default function VehiclesPage() {
               ))}
             </select>
           </label>
-        </div>
+          </div>
+        </details>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
@@ -944,30 +983,8 @@ export default function VehiclesPage() {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800">Fleet Data Exports</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Download the current filtered vehicle view for offline analysis, audit sharing, or printable reporting.
-        </p>
-        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <FutureFeatureCard
-            title="Fuel Management"
-            description="Track fuel cost, usage, and efficiency trends per vehicle from the details page."
-            icon={Fuel}
-            tone="bg-emerald-50 text-emerald-800"
-          />
-          <FutureFeatureCard
-            title="GPS & Route History"
-            description="Trips tab is future-ready for real-time map trails and route playback."
-            icon={CarFront}
-            tone="bg-sky-50 text-sky-800"
-          />
-          <FutureFeatureCard
-            title="Predictive Maintenance"
-            description="Alerts panel is aligned for AI-driven anomaly and service risk notifications."
-            icon={CircleAlert}
-            tone="bg-violet-50 text-violet-800"
-          />
-        </div>
+        <h3 className="text-sm font-semibold text-slate-800">Download this list</h3>
+        <p className="mt-1 text-sm text-slate-600">Gets the vehicles you see now, with your filters applied.</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -1049,27 +1066,6 @@ function SummaryCard({
       <span className="font-semibold tabular-nums">{value == null ? "–" : value.toLocaleString("en-LK")}</span>
       <span>{title}</span>
     </span>
-  );
-}
-
-function FutureFeatureCard({
-  title,
-  description,
-  icon: Icon,
-  tone
-}: {
-  title: string;
-  description: string;
-  icon: LucideIcon;
-  tone: string;
-}) {
-  return (
-    <article className={`rounded-xl p-3 ${tone}`}>
-      <p className="flex items-center gap-2 text-sm font-semibold">
-        <Icon size={14} /> {title}
-      </p>
-      <p className="mt-1 text-xs opacity-90">{description}</p>
-    </article>
   );
 }
 

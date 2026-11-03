@@ -25,6 +25,16 @@ test("search finds modules without loading entity lists, and quick actions are e
   assert.equal(searchAdminModules("system health", "VIEWER").length, 0);
   assert.deepEqual(
     ADMIN_QUICK_ACTIONS.map((action) => action.href),
-    ["/admin/invitations?create=1", "/master-data/departments", "/procurement/vendors", "/admin/roles", "/admin/organization"]
+    [
+      "/admin/invitations?create=1",
+      "/master-data/departments",
+      "/procurement/vendors",
+      "/admin/roles",
+      "/admin/organization",
+      "/admin/assets/new",
+      "/admin/vehicles/new",
+      "/admin/asset-tags",
+      "/maintenance-supply"
+    ]
   );
 });

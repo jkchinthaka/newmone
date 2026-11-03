@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
+import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { withTenantScope } from "@/lib/tenant-query";
 
@@ -23,6 +24,7 @@ type MaintenanceTemplate = {
 
 export default function AdminMaintenanceTemplatesPage() {
   const qc = useQueryClient();
+  const { prompt, dialog: promptDialog } = usePromptDialog();
   const [form, setForm] = useState({
     code: "",
     name: "",
@@ -76,7 +78,13 @@ export default function AdminMaintenanceTemplatesPage() {
 
   const reviseMutation = useMutation({
     mutationFn: async (tpl: MaintenanceTemplate) => {
-      const reason = window.prompt(`Reason for revising ${tpl.code} v${tpl.version}?`, "Template update");
+      const reason = await prompt({
+        title: `Revise ${tpl.code} v${tpl.version}`,
+        description: "Earlier job snapshots stay frozen. A new version is created.",
+        label: "Reason for the change",
+        defaultValue: "Template update",
+        submitLabel: "Create new version"
+      });
       if (!reason) return;
       await apiClient.post(`/admin/maintenance-config/maintenance-templates/${tpl.id}/revise`, {
         changeReason: reason
@@ -107,6 +115,7 @@ export default function AdminMaintenanceTemplatesPage() {
 
   return (
     <div className="space-y-6">
+      {promptDialog}
       <PageBreadcrumbs
         items={[
           { label: "Admin", href: "/admin" },

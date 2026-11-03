@@ -1,3 +1,4 @@
+import { ProofPhotoService } from "../src/modules/evidence/proof-photo.service";
 import "reflect-metadata";
 
 import { INestApplication, Module } from "@nestjs/common";
@@ -169,6 +170,7 @@ const buildVehicle = (overrides: Record<string, unknown> = {}) => ({
   providers: [
     VehiclesService,
     Reflector,
+    { provide: ProofPhotoService, useValue: { requireAndSave: jest.fn().mockResolvedValue(null) } },
     {
       provide: PrismaService,
       useValue: prisma

@@ -126,7 +126,7 @@ export class AssetTagImportService {
     const [assets, vehicles] = await Promise.all([
       this.prisma.asset.findMany({
         where: { tenantId },
-        select: { id: true, assetTag: true, name: true, serialNumber: true }
+        select: { id: true, assetTag: true, name: true, serialNumber: true, fixedAssetCode: true }
       }),
       this.prisma.vehicle.findMany({
         where: { tenantId },
@@ -141,7 +141,7 @@ export class AssetTagImportService {
         assetTag: asset.assetTag,
         assetCode: asset.assetTag,
         serialNumber: asset.serialNumber,
-        erpCode: null
+        erpCode: asset.fixedAssetCode
       })),
       ...vehicles.map((vehicle) => ({
         id: vehicle.id,

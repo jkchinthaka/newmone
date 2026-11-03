@@ -21,6 +21,7 @@ export type InboxTab = (typeof INBOX_TABS)[number];
 
 export type InboxKind =
   | "approval"
+  | "work_order"
   | "request"
   | "part"
   | "vendor_quotation"
@@ -41,6 +42,7 @@ export function inboxTab(input: { kind: InboxKind; processType?: string | null; 
   if (input.kind === "vendor_quotation") return "vendor_quotations";
   if (input.kind === "vendor_invoice") return "vendor_invoices";
   if (input.kind === "request") return "requests";
+  if (input.kind === "work_order") return "work_orders";
   if (input.processType && WORK_ORDER_PROCESS_TYPES.has(input.processType)) return "work_orders";
   return "requests";
 }
@@ -68,6 +70,8 @@ export function assertKindPermission(
 ) {
   const perms = actor.permissions ?? [];
   if (perms.length === 0 || perms.includes("approvals.decide")) return;
+  // Job approval is the PATCH /work-orders/:id/approve permission.
+  if (kind === "work_order" && perms.includes("work_orders.manage")) return;
   const needed =
     kind === "part"
       ? partStage === "FINANCE"

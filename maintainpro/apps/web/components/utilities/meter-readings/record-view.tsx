@@ -1,5 +1,6 @@
 "use client";
 
+import { ProofPhotoInput } from "@/components/ui/proof-photo-input";
 import type { FormEvent } from "react";
 import { Droplets, Flame, Gauge, QrCode, Search, Zap, type LucideIcon } from "lucide-react";
 
@@ -45,6 +46,8 @@ export function RecordView({
   onResetReason,
   note,
   onNote,
+  photo,
+  onPhoto,
   warning,
   lowerWarning,
   message,
@@ -80,6 +83,9 @@ export function RecordView({
   onResetReason: (value: string) => void;
   note: string;
   onNote: (value: string) => void;
+  /** Photo of the meter showing the number (proof of the reading). */
+  photo: File | null;
+  onPhoto: (file: File | null) => void;
   warning: string;
   /** Shown before submit when the value is below the last reading. */
   lowerWarning?: string | null;
@@ -267,6 +273,10 @@ export function RecordView({
                 <p className="mt-1 text-sm text-slate-600">Required. Explain why this reading is lower than the previous one.</p>
               </div>
             ) : null}
+
+            <div className="mt-4">
+              <ProofPhotoInput label="Photo of the meter" hint="Needed to save. The number must be readable in the photo." file={photo} onChange={onPhoto} disabled={saving} />
+            </div>
 
             <div className="mt-4">
               <div className="flex items-baseline justify-between gap-2">

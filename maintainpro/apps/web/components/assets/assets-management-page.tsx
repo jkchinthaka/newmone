@@ -36,6 +36,7 @@ import {
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { loadRememberedFilters, saveRememberedFilters } from "@/lib/remembered-filters";
 import { apiClient } from "@/lib/api-client";
 import { formatDate as formatDateLk, formatDateTime as formatDateTimeLk } from "@/lib/localization";
 import { USER_KEY } from "@/lib/auth-storage";
@@ -857,6 +858,9 @@ function collectActivityChanges(event: AssetActivityEvent) {
     }));
 }
 
+const ASSET_FILTER_MEMORY_KEY = "maintainpro:assets-filters";
+const ASSET_FILTER_MEMORY_FIELDS = ["status", "category", "location", "departmentId", "condition", "sortBy", "sortOrder", "pageSize"] as const;
+
 export default function AssetsManagementPage() {
   const queryClient = useQueryClient();
   const currentUser = useCurrentUser();
@@ -928,7 +932,10 @@ export default function AssetsManagementPage() {
     const asset = params.get("asset");
     if (!urlReady.current) {
       urlReady.current = true;
-      setFilters(parsed);
+      // A link with filters in the address wins; otherwise bring back this person's last filters.
+      const urlHasFilters = ASSET_FILTER_MEMORY_FIELDS.some((key) => params.has(key)) || params.has("q");
+      const remembered = urlHasFilters ? {} : (loadRememberedFilters<Record<string, unknown>>(ASSET_FILTER_MEMORY_KEY, ASSET_FILTER_MEMORY_FIELDS) as Partial<typeof filters>);
+      setFilters({ ...parsed, ...remembered });
       setSearchDraft(parsed.search);
       if (asset) setDetailsAssetId(asset);
       lastWrittenQuery.current = assetSearchFromFilters(parsed, asset);
@@ -947,6 +954,11 @@ export default function AssetsManagementPage() {
       router.replace((fromFilters ? `${pathname}?${fromFilters}` : pathname) as Route);
     }
   }, [detailsAssetId, filters, params, pathname, router, setFilters]);
+
+  useEffect(() => {
+    if (!urlReady.current) return;
+    saveRememberedFilters(ASSET_FILTER_MEMORY_KEY, filters as unknown as Record<string, unknown>, ASSET_FILTER_MEMORY_FIELDS);
+  }, [filters]);
 
   useEffect(() => {
     if (filters.search !== debouncedSearch) {
@@ -1352,7 +1364,7 @@ export default function AssetsManagementPage() {
         <OperationalPageHeader
           eyebrow="Assets"
           title="Machines & Equipment"
-          description="Register of equipment, tools, and facilities."
+          description="Every machine, tool and facility. Use the counts below to see what is active or under maintenance."
           actions={
             <>
               <button
@@ -1430,8 +1442,8 @@ export default function AssetsManagementPage() {
               )}
 
               {(currentUser.role === "SUPER_ADMIN" || currentUser.role === "ADMIN") && (
-                <Link href="/admin/assets/new" className="inline-flex h-10 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700">
-                  Register in Admin
+                <Link href="/admin/assets/new" className="inline-flex h-10 items-center rounded-lg bg-brand-600 px-3 text-sm font-medium text-white">
+                  Add assets
                 </Link>
               )}
             </>
@@ -1473,19 +1485,6 @@ export default function AssetsManagementPage() {
               />
             </label>
             <label className="text-sm">
-              <span className="mb-1 block text-xs font-medium text-slate-600">Status</span>
-              <select
-                aria-label="Status"
-                value={filters.status}
-                onChange={(event) => setFilters({ status: event.target.value as AssetStatusFilter })}
-                className="h-10 rounded-md border border-slate-300 px-2 text-sm"
-              >
-                {STATUS_FILTER_OPTIONS.map((option) => (
-                  <option key={option.value || "ALL"} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="text-sm">
               <span className="mb-1 block text-xs font-medium text-slate-600">Category</span>
               <select
                 aria-label="Category"
@@ -1515,19 +1514,34 @@ export default function AssetsManagementPage() {
             <button type="button" className="h-10 rounded-md border border-slate-300 px-3 text-sm" aria-expanded={moreFilters} onClick={() => setMoreFilters((current) => !current)}>
               More filters
             </button>
-            <button
-              type="button"
-              className="h-10 px-2 text-sm font-medium text-brand-700"
-              onClick={() => {
-                clearFilters();
-                setSearchDraft("");
-              }}
-            >
-              Clear
-            </button>
+            {filters.status || filters.category || filters.location || filters.departmentId || filters.condition || filters.search || searchDraft ? (
+              <button
+                type="button"
+                className="h-10 px-2 text-sm font-medium text-brand-700"
+                onClick={() => {
+                  clearFilters();
+                  setSearchDraft("");
+                }}
+              >
+                Clear
+              </button>
+            ) : null}
           </div>
           {moreFilters ? (
             <div className="grid gap-2 border-t border-slate-200 p-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="text-sm">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Status</span>
+                <select
+                  aria-label="Status"
+                  value={filters.status}
+                  onChange={(event) => setFilters({ status: event.target.value as AssetStatusFilter })}
+                  className="h-10 w-full rounded-md border border-slate-300 px-2 text-sm"
+                >
+                  {STATUS_FILTER_OPTIONS.map((option) => (
+                    <option key={option.value || "ALL"} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
               <DepartmentSelect
                 label="Department"
                 value={filters.departmentId || null}
@@ -1712,7 +1726,7 @@ export default function AssetsManagementPage() {
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
             <div>
               <h3 className="text-lg font-semibold text-slate-900">Asset registry</h3>
-              <p className="text-sm text-slate-500">Server-side search, filtering, sorting, and pagination.</p>
+              <p className="text-sm text-slate-500">Tap a machine to see its details, jobs and QR tag.</p>
             </div>
             <div ref={columnPickerRef} className="relative">
               <button

@@ -61,6 +61,11 @@ export type StockOpInput = {
   importRunId?: string;
   consumeReservation?: boolean;
   reversalOfMovementId?: string;
+  /**
+   * The warehouse is MaintainPro-owned (stockSource MAINTAINPRO): an issue lowers the part's
+   * on-hand too. For ERP warehouses an issue never changes the ERP-mirrored on-hand.
+   */
+  ownedStock?: boolean;
 };
 
 @Injectable()
@@ -483,7 +488,7 @@ export class InventoryTransactionEngine {
         tx,
         tenantId,
         part.id,
-        operation === "issue" || operation === "issueReserved"
+        (operation === "issue" || operation === "issueReserved") && !input.ownedStock
       );
 
       let movement: { id: string; type: MovementType; quantity: number } | undefined;

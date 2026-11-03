@@ -16,7 +16,7 @@ export function Spark({ points }: { points: Array<{ value: number }> }) {
     >
       <polyline
         fill="none"
-        stroke="#176B3A"
+        stroke="#166534"
         strokeWidth={2}
         strokeLinejoin="round"
         strokeLinecap="round"

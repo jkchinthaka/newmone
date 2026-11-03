@@ -8,7 +8,9 @@ import {
   PartRequestStatus,
   VendorInvoiceStatus,
   VendorQuotationStatus,
-  VendorRepairStatus
+  VendorRepairStatus,
+  WorkOrderApprovalStatus,
+  WorkOrderStatus
 } from "@prisma/client";
 
 import { PrismaService } from "../../database/prisma.service";
@@ -99,6 +101,14 @@ const OPERATIONS_ROLES = new Set([
   "FACILITY_MANAGER",
   "FINANCE"
 ]);
+
+/** Same roles as PATCH /work-orders/:id/approve and /reject. */
+const WORK_ORDER_APPROVER_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER"]);
+const FINISHED_WORK_ORDER_STATUSES = [
+  WorkOrderStatus.CLOSED,
+  WorkOrderStatus.COMPLETED,
+  WorkOrderStatus.CANCELLED
+];
 
 @Injectable()
 export class ApprovalInboxService {
@@ -222,6 +232,8 @@ export class ApprovalInboxService {
   }
 
   private async amountFor(actor: Actor, item: { id: string; kind: InboxKind }) {
+    // A job's estimate is information, not a spend limit (vendor limits apply to vendor documents).
+    if (item.kind === "work_order") return null;
     const { rows } = await this.collect(actor, this.tenant(actor));
     return rows.find((row) => row.id === item.id && row.kind === item.kind)?.amount ?? null;
   }
@@ -254,6 +266,24 @@ export class ApprovalInboxService {
         );
       }
       return requests.reject(tenantId, input.id, input.actor, { reasonType: "OTHER", reason: input.reason!.trim() });
+    }
+
+    if (input.kind === "work_order") {
+      // A job waiting for manager approval (submitted for approval, no approval rule request).
+      const current = await this.prisma.workOrder.findFirst({ where: { id: input.id, tenantId } });
+      if (!current) throw new BadRequestException("Job not found");
+      if (!WORK_ORDER_APPROVER_ROLES.has(String(input.actor.role ?? ""))) {
+        throw new BadRequestException("Only an Admin, Manager or Operations Manager can approve a job");
+      }
+      assertNotOwnRequest(current.createdById, input.actor.sub);
+      assertExpectedVersion(versionFromDate(current.updatedAt), input.expectedVersion);
+      if (input.decision === "RETURNED") {
+        throw new BadRequestException("Return for information is only available for approval requests and maintenance requests");
+      }
+      const workOrders = await this.workOrders();
+      return input.decision === "APPROVED"
+        ? workOrders.approveWorkOrder(input.id, input.reason, withEmail(input.actor) as never)
+        : workOrders.rejectWorkOrder(input.id, input.reason!.trim(), withEmail(input.actor) as never);
     }
 
     const workOrderId = input.workOrderId;
@@ -330,7 +360,7 @@ export class ApprovalInboxService {
           })
     };
 
-    const [approvalsRaw, requestsRaw, partsRaw, quotationsRaw, invoicesRaw, emergenciesRaw] = await Promise.all([
+    const [approvalsRaw, requestsRaw, partsRaw, quotationsRaw, invoicesRaw, emergenciesRaw, pendingJobsRaw] = await Promise.all([
       this.prisma.approvalRequest.findMany({
         where: approvalWhere,
         include: {
@@ -398,9 +428,36 @@ export class ApprovalInboxService {
             take: INBOX_SOURCE_CEILING + 1,
             orderBy: { createdAt: "asc" }
           })
+        : [],
+      // Jobs submitted for manager approval. Jobs held by an approval rule already appear as
+      // that rule's approval request and are skipped below.
+      seeOperations
+        ? this.prisma.workOrder.findMany({
+            where: {
+              tenantId,
+              approvalStatus: WorkOrderApprovalStatus.PENDING,
+              status: { notIn: FINISHED_WORK_ORDER_STATUSES }
+            },
+            select: {
+              id: true,
+              woNumber: true,
+              title: true,
+              priority: true,
+              siteId: true,
+              createdById: true,
+              createdAt: true,
+              updatedAt: true,
+              estimatedCost: true,
+              createdBy: { select: { firstName: true, lastName: true } },
+              asset: { select: { name: true } },
+              vehicle: { select: { registrationNo: true } }
+            },
+            take: INBOX_SOURCE_CEILING + 1,
+            orderBy: { createdAt: "asc" }
+          })
         : []
     ]);
-    const sources = [approvalsRaw, requestsRaw, partsRaw, quotationsRaw, invoicesRaw, emergenciesRaw] as unknown[][];
+    const sources = [approvalsRaw, requestsRaw, partsRaw, quotationsRaw, invoicesRaw, emergenciesRaw, pendingJobsRaw] as unknown[][];
     const truncated = sources.some((rows) => rows.length > INBOX_SOURCE_CEILING);
     const approvals = approvalsRaw.slice(0, INBOX_SOURCE_CEILING);
     const requests = requestsRaw.slice(0, INBOX_SOURCE_CEILING);
@@ -580,6 +637,37 @@ export class ApprovalInboxService {
       );
     }
 
+    const jobsWithApprovalRequest = new Set(
+      approvals.filter((item) => item.subjectEntityType === "WorkOrder").map((item) => item.subjectEntityId)
+    );
+    for (const item of pendingJobsRaw.slice(0, INBOX_SOURCE_CEILING)) {
+      if (jobsWithApprovalRequest.has(item.id)) continue;
+      rows.push(
+        this.row({
+          id: item.id,
+          kind: "work_order",
+          reference: item.woNumber,
+          title: item.title,
+          requesterName: person(item.createdBy),
+          requesterId: item.createdById,
+          assetLabel: item.asset?.name ?? item.vehicle?.registrationNo ?? null,
+          amount: numberOrNull(item.estimatedCost),
+          taxRatePercent: null,
+          priority: item.priority,
+          siteId: item.siteId,
+          requestedAt: item.updatedAt ?? item.createdAt,
+          dueAt: null,
+          version: versionFromDate(item.updatedAt),
+          canDecide: WORK_ORDER_APPROVER_ROLES.has(String(actor.role ?? "")) && item.createdById !== actor.sub,
+          canReturn: false,
+          workOrderId: item.id,
+          partStage: null,
+          status: "PENDING",
+          now
+        })
+      );
+    }
+
     for (const item of emergencies) {
       rows.push(
         this.row({
@@ -668,20 +756,30 @@ export class ApprovalInboxService {
     return actor.tenantId;
   }
 
+  // Loaded lazily to avoid a module cycle. `require` resolves the same way under ts-node (local
+  // dev), ts-jest and the compiled build; `import("...js")` only worked in the compiled build, so
+  // every request / part / vendor decision failed with "Cannot find module" in local dev.
   private async workOrders() {
-    const loaded = await import("../work-orders/work-orders.service.js");
+    const loaded = lazyModule<typeof import("../work-orders/work-orders.service")>("../work-orders/work-orders.service");
     return this.moduleRef.get(loaded.WorkOrdersService, { strict: false });
   }
 
   private async vendorRepair() {
-    const loaded = await import("../work-orders/vendor-repair.service.js");
+    const loaded = lazyModule<typeof import("../work-orders/vendor-repair.service")>("../work-orders/vendor-repair.service");
     return this.moduleRef.get(loaded.VendorRepairService, { strict: false });
   }
 
   private async requests() {
-    const loaded = await import("../maintenance-requests/maintenance-requests.service.js");
+    const loaded = lazyModule<typeof import("../maintenance-requests/maintenance-requests.service")>(
+      "../maintenance-requests/maintenance-requests.service"
+    );
     return this.moduleRef.get(loaded.MaintenanceRequestsService, { strict: false });
   }
+}
+
+function lazyModule<T>(path: string): T {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require(path) as T;
 }
 
 function person(user?: { firstName?: string | null; lastName?: string | null } | null) {

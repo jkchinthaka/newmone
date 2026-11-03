@@ -129,7 +129,7 @@ export default function AdminWorkPermitsPage() {
       <div className="grid max-w-xl gap-3 rounded-lg border border-slate-200 bg-white p-4">
         <input
           className="rounded border border-slate-300 px-3 py-2 text-sm"
-          placeholder="Job number, e.g. WO-2026-0007"
+          placeholder="Job number, e.g. JO-2026-0007"
           value={form.workOrderId}
           onChange={(e) => setForm((f) => ({ ...f, workOrderId: e.target.value }))}
         />

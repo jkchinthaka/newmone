@@ -766,6 +766,8 @@ model Asset {
   manufacturer     String?
   model            String?
   serialNumber     String?
+  /// Finance fixed asset register / ERP asset code (matches the company asset register)
+  fixedAssetCode   String?     @db.NVarChar(64)
   /// Compatibility/summary meter only — Phase 8 owns multi-meter engine
   meterReading     Float?
   /// Compatibility service dates — Phase 8 owns PM plans
@@ -841,6 +843,7 @@ model Asset {
   @@index([tenantId, parentAssetId])
   @@index([tenantId, criticalityLevel])
   @@index([tenantId, serialNumber])
+  @@index([tenantId, fixedAssetCode])
   @@index([tenantId, isActive])
 }
 
@@ -1658,6 +1661,9 @@ model WorkOrder {
   @@index([tenantId, jobDomain, status])
   @@index([tenantId, jobCategoryId])
   @@index([tenantId, maintenanceTemplateId])
+  @@index([tenantId, vehicleId])
+  @@index([tenantId, departmentId])
+  @@index([tenantId, createdById])
   @@index([status])
   @@index([priority])
   @@index([technicianId])
@@ -1987,6 +1993,9 @@ model Warehouse {
   /// Official Bileeta/ERP warehouse code when mapped.
   erpWarehouseCode   String?
   lastErpValidatedAt DateTime?
+  /// ERP: on-hand comes from ERP snapshots. MAINTAINPRO: on-hand comes from goods-in recorded in
+  /// MaintainPro, and job issues reduce it directly.
+  stockSource        String    @default("ERP") @db.NVarChar(16)
   isDefault          Boolean   @default(false)
   isActive           Boolean   @default(true)
   createdAt          DateTime  @default(now())

@@ -4,24 +4,25 @@
 
 :root {
   color-scheme: light;
-  --nelna-green: #176b3a;
-  --nelna-yellow: #f4c430;
-  --nelna-green-dark: #104d2b;
+  --nelna-green: #166534;
+  --nelna-yellow: #f4c542;
+  --nelna-green-dark: #103d2d;
   --nelna-green-light: #eaf5ed;
   --nelna-white: #ffffff;
-  --nelna-charcoal: #263238;
+  --nelna-charcoal: #1e293b;
+  --page-bg: #f8fafc;
   --control-height: 2.5rem;
   --page-pad: 1rem;
 }
 
 body {
-  background: var(--nelna-green-light);
+  background: var(--page-bg);
   color: var(--nelna-charcoal);
   font-family: "Segoe UI", "Inter", sans-serif;
   @apply antialiased;
 }
 
-/* slate-500 (#64748b) is 4.26:1 on brand-50 (#eaf5ed). #475569 is 6.78:1. */
+/* slate-500 (#64748b) is 4.26:1 on tinted brand-50 (#eaf5ed) panels. #475569 is 6.78:1. */
 main .text-slate-500 {
   color: #475569;
 }

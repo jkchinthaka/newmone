@@ -1,9 +1,13 @@
-import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { PROOF_PHOTO_MAX_BYTES, ProofPhotoService, type ProofPhotoUpload } from "../evidence/proof-photo.service";
 import { CreateVehicleDto } from "./dto/create-vehicle.dto";
 import { VehiclesService } from "./vehicles.service";
 
@@ -12,7 +16,10 @@ import { VehiclesService } from "./vehicles.service";
 @UseGuards(JwtAuthGuard)
 @Controller("vehicles")
 export class VehiclesController {
-  constructor(@Inject(VehiclesService) private readonly vehiclesService: VehiclesService) {}
+  constructor(
+    @Inject(VehiclesService) private readonly vehiclesService: VehiclesService,
+    @Inject(ProofPhotoService) private readonly proofPhotos: ProofPhotoService
+  ) {}
 
   @Get()
   @Permissions("vehicles.view")
@@ -272,21 +279,39 @@ export class VehiclesController {
     return { data, message: "Driver assigned" };
   }
 
+  /** Fuel entry with the receipt photo (multipart field "receipt"); numbers may arrive as text. */
   @Post(":id/fuel-log")
   @Permissions("vehicles.operate")
+  @UseInterceptors(FileInterceptor("receipt", { storage: memoryStorage(), limits: { fileSize: PROOF_PHOTO_MAX_BYTES } }))
   async fuelLog(
+    @Req() req: { user?: { tenantId?: string | null } },
     @Param("id") id: string,
+    @UploadedFile() receipt: ProofPhotoUpload,
     @Body()
     body: {
       driverId?: string;
-      liters: number;
-      costPerLiter: number;
-      mileageAtFuel: number;
+      liters: number | string;
+      costPerLiter: number | string;
+      mileageAtFuel: number | string;
       fuelStation?: string;
       notes?: string;
+      priceReason?: string;
     }
   ) {
-    const data = await this.vehiclesService.fuelLog(id, body);
+    const tenantId = requireTenantId(req.user?.tenantId);
+    const data = await this.vehiclesService.fuelLog(
+      id,
+      {
+        driverId: body.driverId || undefined,
+        liters: Number(body.liters),
+        costPerLiter: Number(body.costPerLiter),
+        mileageAtFuel: Number(body.mileageAtFuel),
+        fuelStation: body.fuelStation || undefined,
+        notes: body.notes || undefined,
+        priceReason: body.priceReason || undefined
+      },
+      () => this.proofPhotos.requireAndSave(tenantId, "fuel", receipt, "fuel receipt")
+    );
     return { data, message: "Fuel log recorded" };
   }
 

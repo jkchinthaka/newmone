@@ -342,6 +342,12 @@ export class CreateAssetDto {
   @MaxLength(120)
   serialNumber?: string;
 
+  @ApiPropertyOptional({ description: "Finance fixed asset register / ERP asset code" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  fixedAssetCode?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Type(() => Number)

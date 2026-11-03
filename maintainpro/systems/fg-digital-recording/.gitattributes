@@ -1,7 +1,0 @@
-# Auto detect text files and perform LF normalization
-* text=auto
-
-*.sh text eol=lf
-scripts/*.py text eol=lf
-infra/docker/* text eol=lf
-

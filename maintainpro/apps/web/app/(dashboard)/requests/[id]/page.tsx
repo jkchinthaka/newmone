@@ -8,11 +8,12 @@ import { useParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
-import { EntityPicker } from "@/components/ui/entity-picker";
 import { ResponsivePageHeader } from "@/components/ui/responsive-page-header";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { ConfirmFixedCard } from "@/components/requests/confirm-fixed-card";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { useLiveRefresh } from "@/lib/live-data";
 import { canAnswerConfirmation, confirmationAnsweredLabel } from "@/lib/requester-confirmation";
 import { useCurrentUser } from "@/lib/use-current-user";
 import {
@@ -43,6 +44,8 @@ import {
   requesterFacingStatus
 } from "@/lib/maintenance-request-ui";
 
+
+/** What a reviewer can confirm for a "Not sure" request. */
 type TargetKind = "asset" | "vehicle" | "location";
 
 type Detail = Record<string, unknown> & {
@@ -127,24 +130,25 @@ export default function RequestDetailPage() {
   const [requesterResponse, setRequesterResponse] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [triageNotes, setTriageNotes] = useState("");
-  const [priority, setPriority] = useState("MEDIUM");
-  const [priorityReason, setPriorityReason] = useState("");
   const [targetKind, setTargetKind] = useState<TargetKind>("asset");
   const [targetId, setTargetId] = useState<string | null>(null);
+  const [priority, setPriority] = useState("MEDIUM");
+  const [priorityReason, setPriorityReason] = useState("");
   const [dupes, setDupes] = useState<MaintenanceRequestListItem[]>([]);
   const [canonicalDupId, setCanonicalDupId] = useState("");
   const [dupReason, setDupReason] = useState("");
 
-  const load = useCallback(async () => {
-    setError(null);
+  const load = useCallback(async (options: { silent?: boolean } = {}) => {
+    if (!options.silent) setError(null);
     try {
       const data = (await getMaintenanceRequest(id)) as Detail;
       setDetail(data);
+      // A background refresh updates the request but keeps what the reviewer is typing.
+      if (options.silent) return;
       setPriority(String(data.priority || "MEDIUM"));
       setPriorityReason("");
       setTriageNotes(String(data.triageNotes || ""));
       setTargetId(null);
-      setTargetKind(data.vehicle ? "vehicle" : data.asset ? "asset" : data.functionalLocation ? "location" : "asset");
       if (isActionAllowed(data.allowedActions, "markDuplicate")) {
         try {
           const candidates = await fetchDuplicateCandidates(id);
@@ -156,9 +160,10 @@ export default function RequestDetailPage() {
         setDupes([]);
       }
     } catch (err) {
-      setError(getApiErrorMessage(err, "Unable to load this request."));
+      // A failed background refresh keeps the request already on screen.
+      if (!options.silent) setError(getApiErrorMessage(err, "Unable to load this request."));
     } finally {
-      setLoading(false);
+      if (!options.silent) setLoading(false);
     }
   }, [id]);
 
@@ -166,6 +171,8 @@ export default function RequestDetailPage() {
     setLoading(true);
     void load();
   }, [load]);
+
+  useLiveRefresh(() => load({ silent: true }), { enabled: !busy });
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
@@ -241,6 +248,9 @@ export default function RequestDetailPage() {
           ? `Not sure${detail.approximateLocation ? ` · ${detail.approximateLocation}` : ""}`
           : "—";
 
+  // The item picker is shown only when the reporter chose "Not sure" (or no item is linked).
+  const needsTarget = Boolean(detail.targetUnresolved) || !hasTarget;
+
   const saveTriage = () => {
     const body: Record<string, unknown> = {
       priority,
@@ -248,15 +258,15 @@ export default function RequestDetailPage() {
       reason: priorityChanged ? priorityReason.trim() : undefined,
       isEmergency: detail.isEmergency
     };
-    if (targetId) {
-      // A newly confirmed target replaces the previous one; site is re-derived from an asset.
+    if (needsTarget && targetId) {
+      // Only a "Not sure" request gets its item here; the site is re-derived from a machine.
       body.assetId = targetKind === "asset" ? targetId : null;
       body.vehicleId = targetKind === "vehicle" ? targetId : null;
       body.functionalLocationId = targetKind === "location" ? targetId : null;
       if (targetKind === "asset") body.siteId = null;
       body.targetUnresolved = false;
     }
-    void run(() => triageRequest(id, body), targetId ? "Review saved and target confirmed" : "Review saved");
+    void run(() => triageRequest(id, body), needsTarget && targetId ? "Item confirmed and review saved" : "Review saved");
   };
 
   const governancePanel =
@@ -491,74 +501,78 @@ export default function RequestDetailPage() {
 
               {allowed("triage") ? (
                 <div className="space-y-2">
-                  <fieldset className="space-y-2">
-                    <legend className="text-sm font-medium">
-                      {detail.targetUnresolved || !hasTarget ? "Confirm the maintenance target" : "Change the maintenance target"}
-                    </legend>
-                    <div className="grid grid-cols-3 gap-1" role="radiogroup" aria-label="Target type">
-                      {(
-                        [
-                          ["asset", "Machine"],
-                          ["vehicle", "Vehicle"],
-                          ["location", "Location"]
-                        ] as const
-                      ).map(([kind, label]) => (
-                        <button
-                          key={kind}
-                          type="button"
-                          role="radio"
-                          aria-checked={targetKind === kind}
-                          className={`min-h-11 rounded-lg border text-sm ${
-                            targetKind === kind ? "border-brand-500 bg-white font-semibold" : "border-slate-200 bg-white/60"
-                          }`}
-                          onClick={() => {
-                            setTargetKind(kind);
-                            setTargetId(null);
-                          }}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    {targetKind === "asset" ? (
-                      <EntityPicker
-                        key="asset"
-                        endpoint="/assets"
-                        searchParam="search"
-                        pageSizeParam="limit"
-                        value={targetId}
-                        onChange={(value) => setTargetId(value)}
-                        displayField="name"
-                        secondaryField="assetTag"
-                        placeholder="Search machines by name or tag"
-                      />
-                    ) : targetKind === "vehicle" ? (
-                      <EntityPicker
-                        key="vehicle"
-                        endpoint="/vehicles"
-                        value={targetId}
-                        onChange={(value) => setTargetId(value)}
-                        displayField="registrationNo"
-                        secondaryField="vehicleModel"
-                        placeholder="Search vehicles by registration"
-                      />
-                    ) : (
-                      <EntityPicker
-                        key="location"
-                        // Request-scoped lookup: reviewers need not hold organization.view.
-                        endpoint="/maintenance-requests/location-lookup"
-                        searchParam="q"
-                        value={targetId}
-                        onChange={(value) => setTargetId(value)}
-                        displayField="name"
-                        secondaryField="code"
-                        placeholder="Search functional locations"
-                      />
-                    )}
-                    {detail.approximateLocation ? (
-                      <p className="text-xs text-slate-600">Requester described: {detail.approximateLocation}</p>
-                    ) : null}
-                  </fieldset>
+                  {needsTarget ? (
+                    <fieldset className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <legend className="px-1 text-sm font-semibold text-amber-950">Confirm the item</legend>
+                      <p className="text-xs text-amber-900">
+                        The reporter was not sure which machine, vehicle or location has the problem. Choose it, then
+                        save the review before accepting.
+                      </p>
+                      {detail.approximateLocation ? (
+                        <p className="text-xs text-slate-700">Reporter described: {detail.approximateLocation}</p>
+                      ) : null}
+                      <div className="grid grid-cols-3 gap-1" role="radiogroup" aria-label="Item type">
+                        {(
+                          [
+                            ["asset", "Machine"],
+                            ["vehicle", "Vehicle"],
+                            ["location", "Location"]
+                          ] as const
+                        ).map(([kind, label]) => (
+                          <button
+                            key={kind}
+                            type="button"
+                            role="radio"
+                            aria-checked={targetKind === kind}
+                            className={`min-h-11 rounded-lg border text-sm ${
+                              targetKind === kind ? "border-brand-500 bg-white font-semibold" : "border-slate-200 bg-white/60"
+                            }`}
+                            onClick={() => {
+                              setTargetKind(kind);
+                              setTargetId(null);
+                            }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      {targetKind === "asset" ? (
+                        <EntityPicker
+                          key="asset"
+                          endpoint="/assets"
+                          searchParam="search"
+                          pageSizeParam="limit"
+                          value={targetId}
+                          onChange={(value) => setTargetId(value)}
+                          displayField="name"
+                          secondaryField="assetTag"
+                          placeholder="Search machines by name or tag"
+                        />
+                      ) : targetKind === "vehicle" ? (
+                        <EntityPicker
+                          key="vehicle"
+                          endpoint="/vehicles"
+                          value={targetId}
+                          onChange={(value) => setTargetId(value)}
+                          displayField="registrationNo"
+                          secondaryField="vehicleModel"
+                          placeholder="Search vehicles by registration"
+                        />
+                      ) : (
+                        <EntityPicker
+                          key="location"
+                          // Request-scoped lookup: reviewers need not hold organization.view.
+                          endpoint="/maintenance-requests/location-lookup"
+                          searchParam="q"
+                          value={targetId}
+                          onChange={(value) => setTargetId(value)}
+                          displayField="name"
+                          secondaryField="code"
+                          placeholder="Search functional locations"
+                        />
+                      )}
+                    </fieldset>
+                  ) : null}
 
                   <label className="block text-sm font-medium">
                     Priority

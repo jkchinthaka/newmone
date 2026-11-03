@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { loadRememberedFilters, saveRememberedFilters } from "@/lib/remembered-filters";
 import { AlertTriangle, MoreHorizontal, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,6 +18,7 @@ import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui/dashboard"
 import { usePromptDialog } from "@/components/ui/use-prompt-dialog";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { clampPage, createRequestSequencer, isAbortError, totalPagesFor } from "@/lib/list-query-state";
+import { useLiveRefresh } from "@/lib/live-data";
 import {
   approveRequest,
   cancelRequest,
@@ -116,6 +118,9 @@ function StatusBadge({ status, workOrderStatus, ownOnly }: { status: string; wor
 }
 
 type RowAction = { id: string; label: string; href?: string; run?: () => Promise<boolean> };
+
+const REQUEST_FILTER_MEMORY_KEY = "maintainpro:requests-filters";
+const REQUEST_FILTER_MEMORY_FIELDS = ["priority", "type", "sort", "dir"] as const;
 
 function ActionMenu({
   item,
@@ -253,7 +258,7 @@ export default function RequestsPage() {
   const converted = searchParams.get("converted") ?? "";
 
   const [draftQuery, setDraftQuery] = useState(queryText);
-  const [advanced, setAdvanced] = useState(Boolean(reporter || from || converted));
+  const [advanced, setAdvanced] = useState(Boolean(reporter || from || converted || priority || jobDomain));
   const [items, setItems] = useState<MaintenanceRequestListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<MaintenanceRequestSummary>(EMPTY_SUMMARY);
@@ -287,6 +292,28 @@ export default function RequestsPage() {
     router.replace((view === "all" ? pathname : `${pathname}?view=${view}`) as Route);
   }, [pathname, router, view]);
 
+  // Remember Priority / Type / sort on this device for this person (never search text or page).
+  const filtersRestored = useRef(false);
+  useEffect(() => {
+    if (filtersRestored.current) return;
+    filtersRestored.current = true;
+    const hasExplicit = ["priority", "type", "sort", "dir", "q", "status", "stage", "asset", "reporter", "from", "converted"].some((key) => searchParams.has(key));
+    if (hasExplicit) return;
+    const saved = loadRememberedFilters<{ priority: string; type: string; sort: string; dir: string }>(REQUEST_FILTER_MEMORY_KEY, REQUEST_FILTER_MEMORY_FIELDS);
+    const patch: Record<string, string | null> = {};
+    if (saved.priority) patch.priority = saved.priority;
+    if (saved.type && parseJobDomain(saved.type)) patch.type = saved.type;
+    if (saved.sort && saved.sort !== "reportedAt") patch.sort = saved.sort;
+    if (saved.dir === "asc") patch.dir = "asc";
+    if (Object.keys(patch).length > 0) writeQuery(patch, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!filtersRestored.current) return;
+    saveRememberedFilters(REQUEST_FILTER_MEMORY_KEY, { priority, type: jobDomain, sort: sortBy, dir: sortDirection }, REQUEST_FILTER_MEMORY_FIELDS);
+  }, [jobDomain, priority, sortBy, sortDirection]);
+
   useEffect(() => {
     setDraftQuery(queryText);
   }, [queryText]);
@@ -304,10 +331,12 @@ export default function RequestsPage() {
   // Scope is enforced by the API (non-managers only ever get their own requests, triage needs
   // permission), so the request does not wait on capabilities. Depending on canViewAll made admins
   // fetch twice: once before and once after the first summary arrived.
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options: { silent?: boolean } = {}) => {
     const request = sequencer.current.begin();
-    setLoading(true);
-    setError(null);
+    if (!options.silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const triage = view === "triage";
       const [result, counts] = await Promise.all([
@@ -337,6 +366,8 @@ export default function RequestsPage() {
       setSummary(counts);
     } catch (err) {
       if (!sequencer.current.isLatest(request.id) || isAbortError(err)) return;
+      // A failed background refresh keeps the rows already on screen.
+      if (options.silent) return;
       const message = getApiErrorMessage(err, "We couldn't load maintenance requests.");
       if (view === "triage" && /triage permission/i.test(message)) {
         writeQuery({ view: "mine", stage: null, status: null });
@@ -351,6 +382,8 @@ export default function RequestsPage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useLiveRefresh(() => refresh({ silent: true }));
 
   useEffect(() => {
     const sequence = sequencer.current;
@@ -555,31 +588,10 @@ export default function RequestsPage() {
         ))}
       </div>
       ) : null}
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Status filters">
-        <button
-          type="button"
-          aria-pressed={!status && !stage}
-          className={`min-h-11 rounded-full border px-3 text-sm ${!status && !stage ? "border-brand-600 bg-brand-50 text-brand-800" : "border-slate-200 bg-white text-slate-700"}`}
-          onClick={() => writeQuery({ status: null, stage: null })}
-        >
-          All
-        </button>
-        {STATUS_OPTIONS.map((value) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={status === value}
-            className={`min-h-11 rounded-full border px-3 text-sm ${status === value ? "border-brand-600 bg-brand-50 text-brand-800" : "border-slate-200 bg-white text-slate-700"}`}
-            onClick={() => writeQuery({ status: value, stage: null })}
-          >
-            {requestStatusLabel(value)}
-          </button>
-        ))}
-      </div>
       {view === "triage" ? <p className="text-sm text-slate-600">{requestTriageExplanation()}</p> : null}
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-3" aria-label="Filters">
-        <div className="grid gap-2 lg:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,0.7fr))_auto]">
+        <div className="grid gap-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto]">
           <label className="relative block">
             <span className="sr-only">Search requests</span>
             <Search aria-hidden size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -605,31 +617,6 @@ export default function RequestsPage() {
               </option>
             ))}
           </select>
-          <select
-            aria-label="Priority"
-            className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
-            value={priority}
-            onChange={(event) => writeQuery({ priority: event.target.value || null })}
-          >
-            <option value="">Any priority</option>
-            <option value="CRITICAL">Critical</option>
-            <option value="HIGH">High</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LOW">Low</option>
-          </select>
-          <select
-            aria-label="Type"
-            className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
-            value={jobDomain}
-            onChange={(event) => writeQuery({ type: event.target.value || null })}
-          >
-            <option value="">Any type</option>
-            {REQUEST_TYPE_FILTER_ORDER.map((value) => (
-              <option key={value} value={value}>
-                {REQUEST_TYPE_FILTER_LABELS[value]}
-              </option>
-            ))}
-          </select>
           <input
             aria-label="Asset, vehicle or location"
             value={assetQuery}
@@ -648,6 +635,31 @@ export default function RequestsPage() {
         </div>
         {advanced ? (
           <div className="grid gap-2 md:grid-cols-3">
+            <select
+                aria-label="Priority"
+              className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
+              value={priority}
+              onChange={(event) => writeQuery({ priority: event.target.value || null })}
+            >
+              <option value="">Any priority</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+            </select>
+            <select
+                aria-label="Type"
+              className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
+              value={jobDomain}
+              onChange={(event) => writeQuery({ type: event.target.value || null })}
+            >
+              <option value="">Any type</option>
+              {REQUEST_TYPE_FILTER_ORDER.map((value) => (
+                <option key={value} value={value}>
+                  {REQUEST_TYPE_FILTER_LABELS[value]}
+                </option>
+              ))}
+            </select>
             <input
               aria-label="Reported by"
               value={reporter}

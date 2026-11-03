@@ -1,5 +1,6 @@
 "use client";
 
+import { ProofPhotoInput } from "@/components/ui/proof-photo-input";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -197,6 +198,7 @@ export default function UtilitiesDashboard() {
   const createMeterMutation = useCreateUtilityMeterMutation();
   const updateMeterMutation = useUpdateUtilityMeterMutation();
   const createReadingMutation = useCreateUtilityReadingMutation();
+  const [readingPhoto, setReadingPhoto] = useState<File | null>(null);
   const createBillMutation = useCreateUtilityBillMutation();
   const markBillPaidMutation = useMarkBillPaidMutation();
 
@@ -492,8 +494,9 @@ export default function UtilitiesDashboard() {
     }
 
     try {
-      await createReadingMutation.mutateAsync(values);
+      await createReadingMutation.mutateAsync({ ...values, photo: readingPhoto });
       toast.success("Meter reading added");
+      setReadingPhoto(null);
       setReadingModalOpen(false);
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -1027,14 +1030,7 @@ export default function UtilitiesDashboard() {
             <span className="mt-1 block text-xs text-rose-600">{readingForm.formState.errors.readingValue?.message}</span>
           </label>
 
-          <label className="text-sm text-slate-700">
-            Image URLs
-            <input
-              {...readingForm.register("images")}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              placeholder="https://... (comma separated)"
-            />
-          </label>
+          <ProofPhotoInput label="Photo of the meter" hint="Needed to save. The number must be readable." file={readingPhoto} onChange={setReadingPhoto} />
 
           <label className="text-sm text-slate-700 md:col-span-2">
             Notes

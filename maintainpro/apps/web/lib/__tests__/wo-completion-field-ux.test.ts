@@ -125,10 +125,13 @@ test("completion modal shows checklist, loads existing endpoints, keeps typed fi
   assert.match(modal, /apiClient\.get\(`\/work-orders\/\$\{id\}\/evidence`\)/);
   assert.match(modal, /listWorkOrderPartLines\(id\)/);
   assert.match(modal, /getWorkOrderPartsSummary\(id\)/);
-  assert.match(modal, /disabled=\{submitting \|\| Boolean\(blockReason\)\}/);
+  assert.match(modal, /disabled=\{submitting \|\| Boolean\(blockReason\) \|\| technicianChoiceMissing\}/);
   assert.match(modal, /\{blockReason\}/);
   assert.match(modal, /readCompletionDraft<CompletionDraftValues>\(workOrderId, workOrderStatus\)/);
   assert.doesNotMatch(modal, /setCompletionNote\(""\)/);
+  // Technicians answer one question; codes and tests are folded under More details.
+  assert.match(modal, /Is it fixed and working now\? \(required\)/);
+  assert.match(modal, /<OptionalDetails collapsed=\{technicianMode\}>/);
 });
 
 test("photos type moves to After once a before photo exists or was just uploaded", () => {

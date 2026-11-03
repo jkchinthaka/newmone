@@ -15,7 +15,8 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
-  BadRequestException
+  BadRequestException,
+  Inject
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiConsumes, ApiOkResponse, ApiTags } from "@nestjs/swagger";
@@ -24,8 +25,11 @@ import { memoryStorage } from "multer";
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { PROOF_PHOTO_MAX_BYTES, ProofPhotoService, type ProofPhotoUpload } from "../evidence/proof-photo.service";
 import type { JwtPayload } from "../auth/auth.types";
 import { InventoryService } from "./inventory.service";
+import { GoodsInService, type GoodsInLineInput } from "./goods-in.service";
 import { ErpStockSyncService } from "./erp-stock-sync.service";
 import { InventoryExcelImportService } from "./inventory-excel-import.service";
 import { InventoryDailyService } from "./inventory-daily.service";
@@ -68,7 +72,9 @@ export class InventoryController {
     private readonly excelImportService: InventoryExcelImportService,
     private readonly dailyService: InventoryDailyService,
     private readonly stockCountService: StockCountService,
-    private readonly erpExcelImportService: ErpExcelImportService
+    private readonly erpExcelImportService: ErpExcelImportService,
+    private readonly goodsIn: GoodsInService,
+    @Inject(ProofPhotoService) private readonly proofPhotos: ProofPhotoService
   ) {}
 
   @Get("parts")
@@ -161,6 +167,51 @@ export class InventoryController {
   async removePart(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.inventoryService.removePart(id, req.user);
     return { data, message: "Part deleted" };
+  }
+
+  /** Goods in (GRN) preview: checks lines from the form or an Excel file without saving. */
+  @Post("goods-in/preview")
+  @Roles("SUPER_ADMIN", "ADMIN", "INVENTORY_KEEPER")
+  @Permissions("inventory.manage")
+  async previewGoodsIn(@Req() req: AuthedRequest, @Body() body: { lines: GoodsInLineInput[] }) {
+    const data = await this.goodsIn.preview(req.user, body?.lines ?? []);
+    return { data, message: "Goods in checked" };
+  }
+
+  /** Goods in (GRN): raises on-hand in the MaintainPro store; new part codes become parts. */
+  @Post("goods-in")
+  @Roles("SUPER_ADMIN", "ADMIN", "INVENTORY_KEEPER")
+  @Permissions("inventory.manage")
+  @UseInterceptors(FileInterceptor("grnPhoto", { storage: memoryStorage(), limits: { fileSize: PROOF_PHOTO_MAX_BYTES } }))
+  async receiveGoodsIn(
+    @Req() req: AuthedRequest,
+    @UploadedFile() grnPhoto: ProofPhotoUpload,
+    @Body()
+    raw: {
+      /** Multipart: the delivery as JSON text next to the GRN photo. */
+      payload?: string;
+      lines?: GoodsInLineInput[];
+      referenceNo?: string;
+      supplierName?: string;
+      receivedDate?: string;
+      notes?: string;
+      warehouseId?: string;
+      idempotencyKey?: string;
+    }
+  ) {
+    let body = raw ?? {};
+    if (typeof raw?.payload === "string") {
+      try {
+        body = JSON.parse(raw.payload) as typeof body;
+      } catch {
+        throw new BadRequestException("The delivery could not be read. Try again.");
+      }
+    }
+    const tenantId = requireTenantId(req.user?.tenantId);
+    const data = await this.goodsIn.receive(req.user, { ...body, lines: body?.lines ?? [] }, () =>
+      this.proofPhotos.requireAndSave(tenantId, "goods-in", grnPhoto, "GRN / invoice")
+    );
+    return { data, message: `Goods received: ${data.totalQuantity} item(s) on ${data.lines} line(s)` };
   }
 
   @Post("parts/:id/stock-in")
