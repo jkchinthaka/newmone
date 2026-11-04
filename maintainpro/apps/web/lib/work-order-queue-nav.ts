@@ -42,6 +42,7 @@ const MORE_ORDER = [
   "finance-vendor-pending",
   "triage",
   "cancelled",
+  "rejected",
   "all"
 ];
 

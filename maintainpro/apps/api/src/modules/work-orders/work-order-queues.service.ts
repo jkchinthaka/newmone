@@ -359,6 +359,8 @@ export class WorkOrderQueuesService {
       // Finished work: verified, closed, and legacy COMPLETED rows.
       completed: { where: { status: { in: FINISHED_STATUSES } } },
       cancelled: { where: { status: WorkOrderStatus.CANCELLED } },
+      // Jobs a manager turned down at the approval step; the requester sees why and can raise a new one.
+      rejected: { where: { approvalStatus: WorkOrderApprovalStatus.REJECTED, status: { not: WorkOrderStatus.CANCELLED } } },
       all: { where: {} }
     };
 
@@ -1041,7 +1043,7 @@ export class WorkOrderQueuesService {
       });
     }
 
-    const fetchCap = queue === "all" || queue === "completed" || queue === "cancelled" ? 2000 : 1000;
+    const fetchCap = queue === "all" || queue === "completed" || queue === "cancelled" || queue === "rejected" ? 2000 : 1000;
     const rows = await this.prisma.workOrder.findMany({
       where,
       include: listInclude,
@@ -1244,6 +1246,8 @@ export class WorkOrderQueuesService {
         return { AND: [where, { status: { in: FINISHED_STATUSES } }] };
       case "cancelled":
         return { AND: [where, { status: WorkOrderStatus.CANCELLED }] };
+      case "rejected":
+        return { AND: [where, { approvalStatus: WorkOrderApprovalStatus.REJECTED, status: { not: WorkOrderStatus.CANCELLED } }] };
       case "in-progress":
         return { AND: [where, inProgressQueueWhere()] };
       case "rework-required":
@@ -1706,6 +1710,8 @@ export class WorkOrderQueuesService {
       }
       case "cancelled":
         return row.status === WorkOrderStatus.CANCELLED;
+      case "rejected":
+        return row.approvalStatus === WorkOrderApprovalStatus.REJECTED && row.status !== WorkOrderStatus.CANCELLED;
       case "all":
         return true;
       default:
