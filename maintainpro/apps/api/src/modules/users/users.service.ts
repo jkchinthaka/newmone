@@ -42,6 +42,7 @@ export const PUBLIC_USER_RESPONSE_FIELDS = [
   "isActive",
   "tenantId",
   "departmentId",
+  "siteId",
   "designation",
   "mustChangePassword",
   "role"

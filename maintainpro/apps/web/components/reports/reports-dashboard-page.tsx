@@ -177,7 +177,6 @@ export function ReportsDashboardPage() {
     <div className="min-w-0 space-y-3 p-4 md:p-6">
       <PageBreadcrumbs />
       <OperationalPageHeader
-        eyebrow="Reports"
         title="Reports"
         description={REPORT_PAGE_DESCRIPTION}
         actions={
