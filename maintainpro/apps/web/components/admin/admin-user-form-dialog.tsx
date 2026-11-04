@@ -39,6 +39,10 @@ interface FormState {
   tenantId: string;
   departmentId: string | null;
   departmentDisplay: string;
+  siteId: string | null;
+  siteDisplay: string;
+  employeeId: string | null;
+  employeeDisplay: string;
   designation: string;
   password: string;
 }
@@ -52,6 +56,10 @@ const EMPTY_FORM: FormState = {
   tenantId: "",
   departmentId: null,
   departmentDisplay: "",
+  siteId: null,
+  siteDisplay: "",
+  employeeId: null,
+  employeeDisplay: "",
   designation: "",
   password: ""
 };
@@ -72,6 +80,7 @@ export function AdminUserFormDialog({
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [tenants, setTenants] = useState<Array<{ id: string; name: string; isActive: boolean }>>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useFocusTrap(open, panelRef, { onEscape: submitting ? undefined : onClose });
@@ -79,6 +88,7 @@ export function AdminUserFormDialog({
   useEffect(() => {
     if (!open) return;
     setErrors({});
+    setMoreOpen(false);
     setForm(
       user
         ? {
@@ -90,6 +100,10 @@ export function AdminUserFormDialog({
             tenantId: user.tenantId ?? "",
             departmentId: user.departmentId ?? null,
             departmentDisplay: "",
+            siteId: user.siteId ?? null,
+            siteDisplay: "",
+            employeeId: null,
+            employeeDisplay: "",
             designation: user.designation ?? "",
             password: ""
           }
@@ -141,6 +155,8 @@ export function AdminUserFormDialog({
           roleId: form.roleId,
           tenantId: form.tenantId || undefined,
           departmentId: form.departmentId ?? undefined,
+          siteId: form.siteId ?? undefined,
+          employeeId: form.employeeId ?? undefined,
           designation: form.designation.trim() || undefined
         };
         await updateAdminUser(user.id, payload);
@@ -154,6 +170,8 @@ export function AdminUserFormDialog({
           phone: form.phone.trim() || undefined,
           tenantId: form.tenantId || undefined,
           departmentId: form.departmentId ?? undefined,
+          siteId: form.siteId ?? undefined,
+          employeeId: form.employeeId ?? undefined,
           designation: form.designation.trim() || undefined,
           password: form.password || undefined
         };
@@ -237,7 +255,8 @@ export function AdminUserFormDialog({
                 ))}
               </select>
             </Field>
-            <Field label="Tenant">
+            {tenants.filter((t) => t.isActive).length > 1 ? (
+            <Field label="Company">
               <select
                 value={form.tenantId}
                 onChange={(e) => setForm((c) => ({ ...c, tenantId: e.target.value }))}
@@ -251,6 +270,7 @@ export function AdminUserFormDialog({
                 ))}
               </select>
             </Field>
+            ) : null}
             <div className="space-y-1 text-sm text-slate-700 sm:col-span-2">
               <span className="block font-medium">Department</span>
               <EntityPicker
@@ -265,6 +285,53 @@ export function AdminUserFormDialog({
                 }
               />
             </div>
+            <div className="space-y-1 text-sm text-slate-700">
+              <span className="block font-medium">Location</span>
+              <EntityPicker
+                endpoint="/organization/sites"
+                placeholder="Search locations…"
+                value={form.siteId}
+                initialDisplay={form.siteDisplay || undefined}
+                displayField="name"
+                secondaryField="code"
+                onChange={(id, entity: any) => setForm((c) => ({ ...c, siteId: id, siteDisplay: entity ? `${entity.code} — ${entity.name}` : "" }))}
+              />
+            </div>
+            {!isEditing ? (
+              <div className="space-y-1 text-sm text-slate-700 sm:col-span-2">
+                <span className="block font-medium">Employee record (optional)</span>
+                <EntityPicker
+                  endpoint="/workforce/employees"
+                  placeholder="Search employees to link this login…"
+                  value={form.employeeId}
+                  initialDisplay={form.employeeDisplay || undefined}
+                  displayField="fullName"
+                  secondaryField="employeeNo"
+                  extraParams={{ active: true }}
+                  onChange={(id, entity: any) =>
+                    setForm((c) => ({
+                      ...c,
+                      employeeId: id,
+                      employeeDisplay: entity ? `${entity.employeeNo ? entity.employeeNo + " — " : ""}${entity.fullName}` : "",
+                      ...(entity && !c.firstName && !c.lastName
+                        ? { firstName: String(entity.fullName).split(" ")[0] ?? "", lastName: String(entity.fullName).split(" ").slice(1).join(" ") }
+                        : {}),
+                      ...(entity && !c.email && entity.email ? { email: entity.email } : {}),
+                      ...(entity && !c.phone && entity.phone ? { phone: entity.phone } : {}),
+                      ...(entity && !c.designation && entity.designation ? { designation: entity.designation } : {})
+                    }))
+                  }
+                />
+                <span className="block text-xs text-slate-500">Picking an employee fills in the name, email and phone, and gives them a login.</span>
+              </div>
+            ) : null}
+            <div className="sm:col-span-2">
+              <button type="button" onClick={() => setMoreOpen((v) => !v)} className="text-sm font-medium text-brand-700 hover:underline" aria-expanded={moreOpen}>
+                {moreOpen ? "Hide more options" : "More options (designation, password)"}
+              </button>
+            </div>
+            {moreOpen ? (
+              <>
             <Field label="Designation">
               <input
                 value={form.designation}
@@ -283,6 +350,8 @@ export function AdminUserFormDialog({
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
                 />
               </Field>
+            ) : null}
+              </>
             ) : null}
           </div>
         </form>

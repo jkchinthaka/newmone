@@ -348,6 +348,9 @@ model User {
   /// FK to Department master — nullable for legacy records
   departmentId               String?     @db.NVarChar(36)
   department                 Department? @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Home location (Site master) the user works at; used to default their lists and alerts.
+  siteId                     String?     @db.NVarChar(36)
+  site                       Site?       @relation("UserSite", fields: [siteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Job designation for workforce allocation (e.g. Electrician, Fitter)
   designation                String?
   /// Daily capacity in hours for workload checks (default 8)
@@ -2995,6 +2998,7 @@ model Site {
   workOrders          WorkOrder[]
   maintenanceRequests MaintenanceRequest[]
   pmPlans             PmPlan[]
+  users               User[]               @relation("UserSite")
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])

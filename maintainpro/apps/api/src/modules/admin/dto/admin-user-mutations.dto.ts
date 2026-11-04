@@ -44,6 +44,18 @@ export class CreateAdminUserDto {
   @MaxLength(160)
   designation?: string;
 
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
+  siteId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
+  employeeId?: string;
+
   @ApiPropertyOptional({ description: "Optional explicit password. When omitted, a random temporary password is generated and mustChangePassword is forced true." })
   @IsOptional()
   @IsString()
@@ -92,6 +104,18 @@ export class UpdateAdminUserDto {
   @IsString()
   @MaxLength(160)
   designation?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
+  siteId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(36)
+  employeeId?: string;
 }
 
 export class SetAdminUserPasswordDto {
