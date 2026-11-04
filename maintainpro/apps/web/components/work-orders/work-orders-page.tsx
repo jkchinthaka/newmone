@@ -34,6 +34,7 @@ import { apiClient } from "@/lib/api-client";
 import { primaryWorkOrderAction, selectableWorkOrderStatuses } from "@/lib/work-order-next-action";
 import { approveThenAssign, verifyThenClose } from "@/lib/wo-flow-phase2";
 
+import { BulkAssignDialog } from "./bulk-assign-dialog";
 import { CompleteWorkOrderModal } from "./complete-work-order-modal";
 import { approveWorkOrder, assignWorkOrder } from "./api";
 import { getErrorMessage, humanWorkOrderStatusLabel, toTitleCase } from "./helpers";
@@ -124,6 +125,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
   const { prompt, dialog: promptDialog } = usePromptDialog();
   const [view, setView] = useState<WorkOrderViewMode>("queues");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [queueStatusRows, setQueueStatusRows] = useState<BulkCancelRow[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [editorState, setEditorState] = useState<{
@@ -933,6 +935,16 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
               ))}
             </select>
           </label>
+          {canLoadTechnicians ? (
+            <button
+              type="button"
+              onClick={() => setBulkAssignOpen(true)}
+              disabled={bulkBusy}
+              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            >
+              Assign
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => void handleBulkDelete()}
@@ -942,6 +954,17 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
             Cancel open jobs
           </button>
         </div>
+      ) : null}
+      {bulkAssignOpen ? (
+        <BulkAssignDialog
+          workOrderIds={selectedIds}
+          onClose={() => setBulkAssignOpen(false)}
+          onDone={(result) => {
+            setBulkAssignOpen(false);
+            setSelectedIds(result.failed.map((row) => row.workOrderId));
+            void workOrdersQuery.refetch();
+          }}
+        />
       ) : null}
       {view === "queues" ? null : (
       <WorkOrderFiltersBar
