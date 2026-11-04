@@ -39,6 +39,6 @@ CREATE NONCLUSTERED INDEX [RequesterGroupMember_userId_idx] ON [dbo].[RequesterG
 CREATE NONCLUSTERED INDEX [SparePartCategory_tenantId_isActive_idx] ON [dbo].[SparePartCategory]([tenantId], [isActive]);
 
 ALTER TABLE [dbo].[RequesterGroup] ADD CONSTRAINT [RequesterGroup_tenantId_fkey] FOREIGN KEY ([tenantId]) REFERENCES [dbo].[Tenant]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
-ALTER TABLE [dbo].[RequesterGroupMember] ADD CONSTRAINT [RequesterGroupMember_groupId_fkey] FOREIGN KEY ([groupId]) REFERENCES [dbo].[RequesterGroup]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[RequesterGroupMember] ADD CONSTRAINT [RequesterGroupMember_groupId_fkey] FOREIGN KEY ([groupId]) REFERENCES [dbo].[RequesterGroup]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 ALTER TABLE [dbo].[RequesterGroupMember] ADD CONSTRAINT [RequesterGroupMember_userId_fkey] FOREIGN KEY ([userId]) REFERENCES [dbo].[User]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 ALTER TABLE [dbo].[SparePartCategory] ADD CONSTRAINT [SparePartCategory_tenantId_fkey] FOREIGN KEY ([tenantId]) REFERENCES [dbo].[Tenant]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
