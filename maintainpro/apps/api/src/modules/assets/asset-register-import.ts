@@ -126,7 +126,8 @@ export type AssetImportPayload = {
   serialNumber?: string;
   manufacturer?: string;
   model?: string;
-  criticalityLevel: string;
+  /** Left undefined when the sheet cell is blank so an update never overwrites the stored criticality. */
+  criticalityLevel?: string;
   status: string;
   parentAssetId?: string;
   fixedAssetCode?: string;
@@ -601,7 +602,7 @@ export function planAssetImport(
       serialNumber: serialNumber || undefined,
       manufacturer: text(input.manufacturer, 120) || undefined,
       model: text(input.model, 120) || undefined,
-      criticalityLevel: criticality.value ?? "MEDIUM",
+      criticalityLevel: criticality.value,
       status: status.value ?? "DRAFT",
       fixedAssetCode: fixedAssetCode || undefined,
       purchaseDate: purchaseDate.value,

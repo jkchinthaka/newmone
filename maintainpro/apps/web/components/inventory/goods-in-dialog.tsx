@@ -127,6 +127,10 @@ export function GoodsInDialog({ onClose, onDone }: { onClose: () => void; onDone
       setError(itemIssues[0]);
       return;
     }
+    if (newPart && !form.category.trim()) {
+      setError("Category is required for a new spare part.");
+      return;
+    }
     void save([
       newPart
         ? { partNumber: form.partNumber.trim(), name: form.name.trim(), category: form.category.trim() || undefined, unit: form.unit.trim() || undefined, quantity: Number(form.quantity), unitCost: form.unitCost.trim() ? Number(form.unitCost) : null }
@@ -263,7 +267,7 @@ export function GoodsInDialog({ onClose, onDone }: { onClose: () => void; onDone
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="text-sm"><span className="mb-1 block font-medium text-slate-700">Part code</span><input className={field} value={form.partNumber} onChange={(e) => setForm({ ...form, partNumber: e.target.value })} maxLength={64} /></label>
                   <label className="text-sm"><span className="mb-1 block font-medium text-slate-700">Part name</span><input className={field} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={200} /></label>
-                  <label className="text-sm"><span className="mb-1 block font-medium text-slate-700">Category</span><input className={field} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="General" maxLength={100} /></label>
+                  <label className="text-sm"><span className="mb-1 block font-medium text-slate-700">Category *</span><input className={field} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="General" maxLength={100} required /></label>
                   <label className="text-sm"><span className="mb-1 block font-medium text-slate-700">Unit</span><input className={field} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} maxLength={20} /></label>
                 </div>
               )}
