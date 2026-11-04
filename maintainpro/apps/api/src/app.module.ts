@@ -66,6 +66,7 @@ import { ManagementIntelligenceModule } from "./modules/management-intelligence/
 import { RolesModule } from "./modules/roles/roles.module";
 import { SettingsModule } from "./modules/settings/settings.module";
 import { DepartmentsModule } from "./modules/departments/departments.module";
+import { RequesterGroupsModule } from "./modules/requester-groups/requester-groups.module";
 import { DriverIntelligenceModule } from "./modules/driver-intelligence/driver-intelligence.module";
 import { SuppliersModule } from "./modules/suppliers/suppliers.module";
 import { TenantContextGuard } from "./modules/tenancy/tenant-context.guard";
@@ -186,6 +187,7 @@ normalizeDatabaseEnvironment();
     EvidenceModule,
     InventoryModule,
     DepartmentsModule,
+    RequesterGroupsModule,
     SuppliersModule,
     FuelModule,
     TripsModule,
