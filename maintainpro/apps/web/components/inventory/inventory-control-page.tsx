@@ -288,7 +288,7 @@ export function InventoryControlPage() {
             {canDoGoodsIn(roleName) ? (
               <button
                 type="button"
-                className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand-600 px-3 text-sm font-semibold text-white hover:bg-brand-700"
+                className="inline-flex min-h-11 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700"
                 onClick={() => setGoodsInOpen(true)}
               >
                 <PackagePlus size={16} aria-hidden /> Goods in

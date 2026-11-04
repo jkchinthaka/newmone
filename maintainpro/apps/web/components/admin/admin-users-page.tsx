@@ -151,14 +151,17 @@ export function AdminUsersPage() {
           >
             <ArrowLeft size={14} aria-hidden="true" /> Admin Console
           </Link>
-          <h2 className="mt-2 page-title">Users & Access</h2>
-          <p className="mt-1 max-w-3xl text-sm text-slate-500">
-            {isSuperAdmin
-              ? "Add, edit, and manage every user's role, tenant, department, status, and password."
-              : "Review users, roles, tenant association, and access status. Deactivate or reactivate users with confirmation."}
-          </p>
+          <h2 className="mt-2 page-title">Users</h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search users"
+            aria-label="Search users"
+            className="min-h-11 w-56 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+          />
           {isSuperAdmin ? (
             <button
               type="button"
@@ -166,9 +169,9 @@ export function AdminUsersPage() {
                 setEditingUser(null);
                 setFormOpen(true);
               }}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
             >
-              <Plus size={15} aria-hidden="true" /> Add User
+              <Plus size={15} aria-hidden="true" /> User
             </button>
           ) : null}
           <button
@@ -181,32 +184,17 @@ export function AdminUsersPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+      <div className="text-xs text-slate-500">
         {isSuperAdmin ? (
           <p>
-            <span className="font-semibold text-slate-900">SUPER_ADMIN scope:</span> showing users across all tenants
-            where the backend returns them. Every mutation here is independently re-verified against your current
-            database role — a stale session cannot bypass this.
+            Showing users across all companies.
           </p>
         ) : (
           <p>
-            <span className="font-semibold text-slate-900">Tenant scope:</span> showing and updating users associated
-            with your active tenant only. Super admin accounts cannot be modified by tenant admins. Adding users,
-            editing profiles, and resetting passwords are SUPER_ADMIN-only actions.
+            Showing users in your company. Only a super admin can add or edit users.
           </p>
         )}
       </div>
-
-      <label className="block max-w-md space-y-1">
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Search users</span>
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search name, email, role, or tenant"
-          className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-        />
-      </label>
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="Group">
         <button type="button" aria-pressed={roleFilter == null} className={`min-h-11 rounded-full border px-3 text-sm ${roleFilter == null ? "border-brand-600 bg-brand-600 text-white" : "border-slate-200 bg-white"}`} onClick={() => setRoleFilter(null)}>
