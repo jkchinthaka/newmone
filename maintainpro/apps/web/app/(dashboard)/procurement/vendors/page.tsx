@@ -133,24 +133,21 @@ export default function VendorEligibilityPage() {
 
   return (
     <div className="ops-page">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="page-title">Vendor Eligibility</h1>
-          <p className="mt-1 text-sm text-slate-600">Review vendor availability and required documents before assigning work.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="page-title">Vendors</h1>
+        <form className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2" onSubmit={(event) => { event.preventDefault(); writeQuery({ search: searchInput || null }); }}>
+          <input aria-label="Search vendors" className="min-h-11 w-full max-w-sm rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search vendors" />
           {canManage ? (
-            <Link href={"/master-data/suppliers" as Route} className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-3 text-sm">
-              Manage vendors
+            <Link href={"/master-data/suppliers" as Route} className="inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700">
+              + Vendor
             </Link>
           ) : null}
-          <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => void refresh()}>Refresh</button>
-        </div>
+        </form>
       </header>
       <div className="flex flex-wrap gap-2">
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Eligibility views">
           {VIEWS.map(([value, labelText, key]) => (
-            <button key={labelText} type="button" role="tab" aria-selected={eligibility === value} className={`min-h-11 rounded-full border px-3 text-sm ${eligibility === value ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`} onClick={() => writeQuery({ eligibility: value || null })}>
+            <button key={labelText} type="button" role="tab" aria-selected={eligibility === value} className={`min-h-11 rounded-full border px-3 text-sm ${eligibility === value ? "border-blue-600 bg-blue-50" : "border-slate-300 bg-white"}`} onClick={() => writeQuery({ eligibility: value || null })}>
               {labelText} <span className="font-semibold">{counts ? counts[key] : "—"}</span>
             </button>
           ))}
@@ -158,24 +155,16 @@ export default function VendorEligibilityPage() {
         <button type="button" aria-pressed={document === "expiring"} className={`min-h-11 rounded-full border px-3 text-sm ${document === "expiring" ? "border-amber-600 bg-amber-50" : "border-slate-300 bg-white"}`} onClick={() => writeQuery({ document: document === "expiring" ? null : "expiring" })}>
           Expiring soon <span className="font-semibold">{counts ? counts.expiringSoon : "—"}</span>
         </button>
-      </div>
-      <form className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 md:grid-cols-3" onSubmit={(event) => { event.preventDefault(); writeQuery({ search: searchInput || null }); }}>
-        <label className="text-sm">Search<input className="mt-1 w-full rounded border border-slate-300 px-3 py-2" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Vendor name or code" /></label>
-        <label className="text-sm">Availability
-          <select className="mt-1 w-full rounded border border-slate-300 px-3 py-2" value={availability} onChange={(event) => writeQuery({ availability: event.target.value || null })}>
-            <option value="">Any</option>
+        <label>
+          <span className="sr-only">Availability</span>
+          <select className="min-h-11 rounded-full border border-slate-300 bg-white px-3 text-sm" value={availability} onChange={(event) => writeQuery({ availability: event.target.value || null })}>
+            <option value="">Any availability</option>
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
             <option value="BLOCKED">Blocked</option>
           </select>
         </label>
-        <label className="text-sm">Document
-          <select className="mt-1 w-full rounded border border-slate-300 px-3 py-2" value={document} onChange={(event) => writeQuery({ document: event.target.value || null })}>
-            <option value="">Any</option>
-            <option value="expiring">Expiring soon</option>
-          </select>
-        </label>
-      </form>
+      </div>
       <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
         <span>{loading ? "Loading results" : error ? "" : `${total} vendor${total === 1 ? "" : "s"}`}</span>
         {evaluatedAt ? <span>Checked {formatDateTime(evaluatedAt)}</span> : null}
