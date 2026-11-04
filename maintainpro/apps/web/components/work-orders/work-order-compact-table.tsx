@@ -1,6 +1,7 @@
 "use client";
 
 import { TouchCheckbox } from "@/components/ui/touch-checkbox";
+import { PriorityDot } from "@/components/ui/priority-dot";
 import type { KeyboardEvent } from "react";
 
 import {
@@ -13,7 +14,6 @@ import {
   type DomainJobListRow
 } from "@/lib/domain-jobs-columns";
 import { holdReasonSuffix, queueNextControl } from "@/lib/batch-3-presentation";
-import { priorityBadgePresentation } from "@/lib/dashboard-status";
 import { formatQueueDue, nextActionLabel } from "@/lib/work-order-queue-nav";
 import type { WorkOrderQueueItem } from "@/lib/work-order-queues-api";
 import { jobDomainLabel } from "@/lib/job-domain";
@@ -88,7 +88,6 @@ export function WorkOrderCompactTable({
               const due = formatQueueDue(row.dueDate, row.overdueDays);
               const next = nextActionLabel(row);
               const control = queueNextControl({ status: row.status, role: actorRole, approvalStatus: row.approvalStatus });
-              const priority = priorityBadgePresentation(row.priority);
               const hold = holdReasonSuffix(
                 row.status,
                 (row as { holdNotes?: string | null }).holdNotes,
@@ -144,7 +143,7 @@ export function WorkOrderCompactTable({
                     <StatusBadge status={row.status} />
                     {hold ? <div className="mt-1 max-w-[12rem] text-xs text-amber-800">{hold}</div> : null}
                   </td>
-                  <td className="px-3 py-3 align-top">{priority ? <StatusBadge status={row.priority} label={priority.label} tone={priority.tone} /> : null}</td>
+                  <td className="px-3 py-3 align-top"><PriorityDot priority={row.priority} /></td>
                   <td className="max-w-[12rem] truncate px-3 py-3 align-top text-slate-700">
                     {assigneeLine(domainRow, jobDomain, getTechnicianName(row))}
                   </td>
