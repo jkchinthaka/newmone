@@ -8,7 +8,7 @@ import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { MaintenanceSettingsNav } from "@/components/admin/maintenance-settings-nav";
 import { ResponsivePageHeader } from "@/components/ui/responsive-page-header";
 import { ErrorState } from "@/components/ui/page-state";
-import { getApiErrorMessage } from "@/lib/api-client";
+import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { isAdminConsoleRole } from "@/lib/admin-console";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { extractRoleName } from "@/lib/role-redirect";
@@ -63,9 +63,18 @@ export default function AdminApprovalsPage() {
     amountThreshold: "",
     priorityScope: "CRITICAL",
     approverRole: "MANAGER",
+    requesterGroupId: "",
     slaHours: "24",
     emergencyOverrideAllowed: false
   });
+
+  const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
+  useEffect(() => {
+    apiClient
+      .get<{ data: Array<{ id: string; name: string }> }>("/master-data/requester-groups")
+      .then((res) => setGroups(res.data.data ?? []))
+      .catch(() => setGroups([]));
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -94,6 +103,7 @@ export default function AdminApprovalsPage() {
       priorityScope: form.priorityScope ? [form.priorityScope] : [],
       amountThreshold: form.amountThreshold ? Number(form.amountThreshold) : undefined,
       amountField: "estimatedCost",
+      requesterGroupId: form.requesterGroupId || undefined,
       slaHours: form.slaHours ? Number(form.slaHours) : undefined,
       emergencyOverrideAllowed: form.emergencyOverrideAllowed,
       levels: [{ level: 1, approverRole: form.approverRole }]
@@ -169,6 +179,19 @@ export default function AdminApprovalsPage() {
               value={form.priorityScope}
               onChange={(e) => setForm((f) => ({ ...f, priorityScope: e.target.value }))}
             />
+          </label>
+          <label className="text-sm">
+            Requester group
+            <select
+              className="mt-1 min-h-11 w-full rounded-lg border px-3"
+              value={form.requesterGroupId}
+              onChange={(e) => setForm((f) => ({ ...f, requesterGroupId: e.target.value }))}
+            >
+              <option value="">Everyone</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
           </label>
           <label className="text-sm">
             Amount threshold
