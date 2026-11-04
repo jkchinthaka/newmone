@@ -5052,6 +5052,60 @@ export class WorkOrdersService {
     return { success, failed };
   }
 
+  async bulkUpdate(
+    input: { workOrderIds: string[]; priority?: string; dueDate?: string; reason?: string },
+    actor?: Actor
+  ) {
+    this.assertBulkOperationalPermission(actor);
+
+    if (!Array.isArray(input.workOrderIds) || input.workOrderIds.length === 0) {
+      throw new BadRequestException("workOrderIds is required");
+    }
+    const priority = input.priority?.trim().toUpperCase();
+    if (priority && !["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(priority)) {
+      throw new BadRequestException("priority must be LOW, MEDIUM, HIGH or CRITICAL");
+    }
+    let dueDate: Date | undefined;
+    if (input.dueDate) {
+      dueDate = new Date(input.dueDate);
+      if (Number.isNaN(dueDate.getTime())) {
+        throw new BadRequestException("dueDate is not a valid date");
+      }
+    }
+    if (!priority && !dueDate) {
+      throw new BadRequestException("Provide a priority or a due date");
+    }
+
+    const success: string[] = [];
+    const failed: Array<{ workOrderId: string; reason: string }> = [];
+
+    for (const workOrderId of input.workOrderIds) {
+      try {
+        const current = await this.findOne(workOrderId, actor);
+        if (TERMINAL_WORK_ORDER_STATUSES.has(current.status)) {
+          throw new BadRequestException("Cannot change completed or cancelled work order");
+        }
+        await this.prisma.workOrder.update({
+          where: { id: workOrderId },
+          data: { ...(priority ? { priority } : {}), ...(dueDate ? { dueDate } : {}) }
+        });
+        await this.recordAudit({
+          entity: "WorkOrder",
+          entityId: workOrderId,
+          action: AuditAction.UPDATE,
+          actor,
+          reason: input.reason ?? "Bulk update",
+          metadata: { event: "work_order_bulk_update", priority: priority ?? null, dueDate: dueDate?.toISOString() ?? null }
+        });
+        success.push(workOrderId);
+      } catch (error) {
+        failed.push({ workOrderId, reason: error instanceof Error ? error.message : "Bulk update failed" });
+      }
+    }
+
+    return { success, failed };
+  }
+
   async bulkStatus(
     input: {
       items: Array<{ id: string; expectedVersion: number }>;

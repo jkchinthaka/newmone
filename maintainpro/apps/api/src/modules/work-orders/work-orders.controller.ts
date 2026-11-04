@@ -340,6 +340,17 @@ export class WorkOrdersController {
     return { data, message: "Bulk assign completed" };
   }
 
+  @Post("bulk/update")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("work_orders.manage")
+  async bulkUpdate(
+    @Req() req: AuthedRequest,
+    @Body() body: { workOrderIds: string[]; priority?: string; dueDate?: string; reason?: string }
+  ) {
+    const data = await this.workOrdersService.bulkUpdate(body, req.user);
+    return { data, message: "Bulk update completed" };
+  }
+
   @Post("bulk/status")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
   @Permissions("work_orders.manage")
