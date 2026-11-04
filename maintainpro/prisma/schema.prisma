@@ -6491,6 +6491,8 @@ model SparePartCategory {
   id        String   @id @default(cuid()) @db.NVarChar(36)
   tenantId  String   @db.NVarChar(36)
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Short code used to look the category up (e.g. BEARINGS).
+  code      String?  @db.NVarChar(64)
   name      String
   sortOrder Int      @default(0)
   isActive  Boolean  @default(true)
