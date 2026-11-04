@@ -490,6 +490,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "inspections",
+    menuHiddenFor: ["*"],
     label: "Inspections",
     href: "/maintenance/inspections",
     icon: "ClipboardCheck",
@@ -500,6 +501,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "meter-readings",
+    menuHiddenFor: ["*"],
     label: "Meter Readings",
     href: "/utilities/readings",
     icon: "Gauge",
@@ -584,6 +586,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "reliability",
+    menuHiddenFor: ["*"],
     label: "Breakdowns & Causes",
     href: "/maintenance/reliability",
     icon: "Activity",
