@@ -565,7 +565,7 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
         ) : null}
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
+      <div className="sticky bottom-0 -mx-1 flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-1 pb-1 pt-4">
         {onCancel ? (
           <button
             type="button"
@@ -582,15 +582,15 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
           type="submit"
           disabled={submitting}
           aria-busy={submitting}
-          className="min-h-11 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          className="min-h-11 rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
         >
           {submitting ? (
             <span className="inline-flex items-center gap-2">
               <Loader2 size={14} className="animate-spin" aria-hidden />
-              Creating…
+              Saving…
             </span>
           ) : (
-            "Create job"
+            "Save details"
           )}
         </button>
       </div>

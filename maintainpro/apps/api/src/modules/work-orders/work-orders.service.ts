@@ -4146,7 +4146,49 @@ export class WorkOrdersService {
       }
     });
 
+    // The storekeepers who will issue the parts are told as soon as the request is raised.
+    await this.notifyStorekeepers({
+      tenantId,
+      requesterId: requester.sub,
+      requestId: created.id,
+      workOrderId,
+      woNumber: workOrder.woNumber,
+      partName: part.name,
+      quantity: data.quantity
+    });
+
     return this.getPartRequest(workOrderId, created.id, actor);
+  }
+
+  private async notifyStorekeepers(input: {
+    tenantId: string;
+    requesterId: string;
+    requestId: string;
+    workOrderId: string;
+    woNumber: string;
+    partName: string;
+    quantity: number;
+  }) {
+    try {
+      const keepers = await this.prisma.user.findMany({
+        where: { tenantId: input.tenantId, isActive: true, role: { name: RoleName.INVENTORY_KEEPER }, id: { not: input.requesterId } },
+        select: { id: true }
+      });
+      for (const keeper of keepers) {
+        await this.notificationsService.createNotification({
+          userId: keeper.id,
+          title: "Spare parts requested",
+          message: `${input.partName} x ${input.quantity} requested for ${input.woNumber}`,
+          type: NotificationType.PART_REQUEST_SUBMITTED,
+          priority: NotificationPriority.WARNING,
+          referenceId: input.requestId,
+          referenceType: "PartRequest",
+          metadata: { workOrderId: input.workOrderId, quantity: input.quantity }
+        });
+      }
+    } catch {
+      // A failed alert must never block the request itself.
+    }
   }
 
   async approvePartRequestOperational(
