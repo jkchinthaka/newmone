@@ -67,6 +67,10 @@ export class CreateApprovalRuleDto {
   domainId?: string;
 
   @IsOptional()
+  @IsString()
+  requesterGroupId?: string;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   priorityScope?: string[];
@@ -147,6 +151,10 @@ export class SimulateApprovalDto {
   @IsOptional()
   @IsString()
   domainId?: string;
+
+  @IsOptional()
+  @IsString()
+  requesterGroupId?: string;
 
   @IsOptional()
   @IsString()

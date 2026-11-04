@@ -5355,6 +5355,8 @@ model ApprovalRule {
   siteId                   String?   @db.NVarChar(36)
   departmentId             String?   @db.NVarChar(36)
   domainId                 String?   @db.NVarChar(36)
+  /// Optional: the rule only applies to requests raised by members of this RequesterGroup.
+  requesterGroupId         String?   @db.NVarChar(36)
   priorityScope            String    @default("[]") @db.NVarChar(Max)
   workTypeScope            String    @default("[]") @db.NVarChar(Max)
   amountThreshold          Decimal?  @db.Decimal(18, 2)
