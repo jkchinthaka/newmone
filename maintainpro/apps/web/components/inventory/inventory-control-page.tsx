@@ -41,6 +41,7 @@ type PartRow = {
   name: string;
   partNumber: string;
   category?: string | null;
+  unitCost?: number | string | null;
   erpCode?: string | null;
   quantityInStock?: number | null;
   reservedQuantity?: number | null;
