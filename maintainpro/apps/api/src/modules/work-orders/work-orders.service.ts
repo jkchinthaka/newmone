@@ -4146,6 +4146,11 @@ export class WorkOrdersService {
       }
     });
 
+    // Parts for a job that is already approved need no second approval (finance limits still apply).
+    if (!requiresFinanceApproval && workOrder.approvalStatus !== WorkOrderApprovalStatus.PENDING && workOrder.approvalStatus !== WorkOrderApprovalStatus.REJECTED) {
+      await this.autoApprovePartRequest(workOrderId, created.id, data.quantity, requester.sub, actor);
+    }
+
     // The storekeepers who will issue the parts are told as soon as the request is raised.
     await this.notifyStorekeepers({
       tenantId,
@@ -4158,6 +4163,54 @@ export class WorkOrdersService {
     });
 
     return this.getPartRequest(workOrderId, created.id, actor);
+  }
+
+  private async autoApprovePartRequest(workOrderId: string, requestId: string, quantity: number, requesterId: string, actor?: Actor) {
+    const reason = "Auto-approved: parts on an approved job need no extra approval";
+    await this.prisma.$transaction(async (tx) => {
+      await tx.partRequest.update({ where: { id: requestId }, data: { approvedQuantity: quantity, status: PartRequestStatus.APPROVED, rejectionReason: null } });
+      await tx.partRequestApproval.update({
+        where: { partRequestId_stage: { partRequestId: requestId, stage: ApprovalStage.OPERATIONAL } },
+        data: { status: ApprovalDecisionStatus.APPROVED, actorId: requesterId, actedAt: new Date(), reason }
+      });
+    });
+    await this.workOrderPartsService.syncApprovedLine(requestId, quantity, requesterId, actor);
+    await this.reserveApprovedPartRequest(workOrderId, requestId, quantity, actor);
+    await this.recordAudit({
+      entity: "PART_REQUEST_APPROVAL",
+      entityId: requestId,
+      action: AuditAction.UPDATE,
+      actor,
+      reason,
+      metadata: { workOrderId, approvedQuantity: quantity, auto: true }
+    });
+  }
+
+  /** Remove a part that has not been issued yet. No approval needed: the reservation is simply released. */
+  async cancelPartRequest(workOrderId: string, requestId: string, data: { reason?: string }, actor?: Actor) {
+    const user = this.assertActor(actor);
+    const request = await this.getPartRequest(workOrderId, requestId, actor);
+    if (request.status === PartRequestStatus.ISSUED || request.status === PartRequestStatus.PARTIALLY_ISSUED || (request.issuedQuantity ?? 0) > 0) {
+      throw new BadRequestException("This part was already issued. Return it to the store instead of removing it.");
+    }
+    if (request.status === PartRequestStatus.CANCELLED || request.status === PartRequestStatus.REJECTED) {
+      throw new BadRequestException("This part request is already closed.");
+    }
+    await this.prisma.partRequest.update({
+      where: { id: requestId },
+      data: { status: PartRequestStatus.CANCELLED, rejectionReason: data.reason?.trim() || "Removed from the job" }
+    });
+    await this.releaseReservedPartRequest(requestId, actor);
+    await this.workOrderPartsService.syncRejectedLine(requestId, data.reason?.trim() || "Removed from the job", actor);
+    await this.recordAudit({
+      entity: "PART_REQUEST",
+      entityId: requestId,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: data.reason?.trim() || "Part removed from the job",
+      metadata: { workOrderId, event: "part_request_cancelled", by: user.sub }
+    });
+    return this.getPartRequest(workOrderId, requestId, actor);
   }
 
   private async notifyStorekeepers(input: {

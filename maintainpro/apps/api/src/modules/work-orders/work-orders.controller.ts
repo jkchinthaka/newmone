@@ -1219,6 +1219,18 @@ export class WorkOrdersController {
     return { data, message: "Part request rejected" };
   }
 
+  @Patch(":id/part-requests/:requestId/cancel")
+  @Roles(...PART_REQUEST_CREATE_ROLES)
+  async cancelPartRequest(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("requestId") requestId: string,
+    @Body() body: { reason?: string }
+  ) {
+    const data = await this.workOrdersService.cancelPartRequest(id, requestId, body ?? {}, req.user);
+    return { data, message: "Part removed from the job" };
+  }
+
   @Post(":id/part-requests/:requestId/issue")
   @Roles(...PART_REQUEST_ISSUE_ROLES)
   @Permissions("part_requests.issue", "inventory.stock_issue")

@@ -28,7 +28,8 @@ import {
   issuePartRequest,
   listPartRequests,
   PartRequest,
-  rejectPartRequest
+  rejectPartRequest,
+  cancelPartRequest
 } from "./part-requests-api";
 import {
   confirmPartReturn,
@@ -397,6 +398,26 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
                     className="inline-flex min-h-9 items-center gap-1 rounded-md bg-indigo-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
                   >
                     <CheckCircle2 size={12} /> Finance approve
+                  </button>
+                  ) : null}
+                  {canCreate && !readOnly && !["ISSUED", "PARTIALLY_ISSUED", "REJECTED", "CANCELLED"].includes(String(pr.status)) ? (
+                  <button
+                    type="button"
+                    disabled={busyId === pr.id}
+                    onClick={() =>
+                      withBusy(pr.id, async () => {
+                        try {
+                          await cancelPartRequest(workOrderId, pr.id);
+                          toast.success("Part removed from this job.");
+                          await refresh();
+                        } catch (err) {
+                          toast.error(getApiErrorMessage(err, "Could not remove the part."));
+                        }
+                      })
+                    }
+                    className="inline-flex min-h-9 items-center gap-1 rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 disabled:opacity-50"
+                  >
+                    Remove
                   </button>
                   ) : null}
                   {showIssue ? (
