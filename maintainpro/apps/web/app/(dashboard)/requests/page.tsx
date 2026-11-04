@@ -8,7 +8,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { loadRememberedFilters, saveRememberedFilters } from "@/lib/remembered-filters";
-import { AlertTriangle, MoreHorizontal, Plus, Search, X } from "lucide-react";
+import { MoreHorizontal, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { DateField } from "@/components/forms/date-fields";
