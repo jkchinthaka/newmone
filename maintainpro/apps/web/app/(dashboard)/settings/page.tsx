@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Building2, ChevronRight, Settings2, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
@@ -145,6 +146,12 @@ function StrengthHint({ value }: { value: string }) {
       </p>
     </div>
   );
+}
+
+function ShortcutIcon({ label }: { label: string }) {
+  const l = label.toLowerCase();
+  const Icon: LucideIcon = l.includes("user") ? Users : l.includes("role") ? ShieldCheck : l.includes("organi") ? Building2 : l.includes("technical") ? Wrench : Settings2;
+  return <Icon size={16} />;
 }
 
 function SettingsWorkspace() {
@@ -476,13 +483,22 @@ function SettingsWorkspace() {
       ) : null}
 
       {shortcuts.length > 0 ? (
-        <section className="border-t border-slate-200 pt-4">
-          <h2 className="text-sm font-medium text-slate-700">Admin shortcuts</h2>
-          <ul className="mt-2 flex flex-wrap gap-3 text-sm">
+        <section className="border-t border-slate-200 pt-5">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Admin shortcuts</h2>
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {shortcuts.map((link) => (
               <li key={link.href}>
-                <Link href={link.href as never} className="text-sky-800 underline">
-                  {link.label}
+                <Link
+                  href={link.href as never}
+                  className="group flex min-h-12 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+                >
+                  <span className="flex items-center gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600 group-hover:bg-white">
+                      <ShortcutIcon label={link.label} />
+                    </span>
+                    {link.label}
+                  </span>
+                  <ChevronRight size={16} className="text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-brand-600" />
                 </Link>
               </li>
             ))}
