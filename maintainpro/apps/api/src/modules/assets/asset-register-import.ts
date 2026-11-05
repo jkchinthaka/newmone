@@ -251,7 +251,7 @@ function parseStatus(value: unknown): { value?: string; invalid?: boolean } {
 
 function parseCriticality(value: unknown): { value?: string; invalid?: boolean } {
   const key = matchKey(value).split(" ")[0];
-  if (!key) return { value: "MEDIUM" };
+  if (!key) return {};
   const upper = key.toUpperCase();
   return (ASSET_IMPORT_CRITICALITIES as readonly string[]).includes(upper) ? { value: upper } : { invalid: true };
 }
