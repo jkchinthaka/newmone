@@ -1464,3 +1464,7 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 - Web: plans list = cards (dot preview, site, counts) with site picker on create; plan page = drag pins, state colours, pin card, find-asset list with Show, zoom/pan, rename/replace/delete (editors: SUPER_ADMIN/ADMIN/MANAGER/ASSET_MANAGER). `components/floor-plans/floor-plan-location.tsx`: WhereIsIt (asset drawer overview) + ShowOnPlanButton (job drawer status row). Sidebar item removed; reachable from Organization page "Floor plans" button and asset/job links.
 - Card previews use pin dots on a grid, not the uploaded image (images are base64 up to 3 MB; listing them all would be heavy).
 - Also updated role-ux-fixes test for the new Spare Parts KPI labels. Validation: api tsc clean, web tsc clean, web unit tests 553 pass. Not tested in a browser (drag/zoom need a manual check).
+
+## Organization & Locations redesign (branch live)
+- `apps/web/app/(dashboard)/admin/organization/page.tsx`: UI-only. Title "Sites & locations", tab row (Floor plans / Departments links), single "+ Add" menu (Site, Location, Upload from Excel), count chips, site cards, detail panel with stats and inner tabs Locations | Floor plans (from GET /floor-plans filtered by siteId) | Assets. All dialogs, Excel import, move/edit, URL state, permissions unchanged. No API/DB change.
+- Tests: web `tsc --noEmit` clean; `npm test` 553 pass. Not browser-tested.
