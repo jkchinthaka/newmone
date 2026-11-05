@@ -490,6 +490,17 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
+    id: "procedures",
+    menuHiddenFor: ["TECHNICIAN", "MECHANIC"],
+    label: "Procedures",
+    href: "/admin/checklist-templates",
+    icon: "ClipboardCheck",
+    allowedRoles: PM_ROLES,
+    category: "advanced",
+    description: "Reusable step-by-step checklists for jobs and scheduled service",
+    activeMatch: "startsWith"
+  },
+  {
     id: "inspections",
     menuHiddenFor: ["*"],
     label: "Inspections",
