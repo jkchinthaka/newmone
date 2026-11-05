@@ -1178,7 +1178,8 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
                 roadTestResult: payload.roadTestResult,
                 completionMeterReading: payload.completionMeterReading,
                 operatingRestriction: payload.operatingRestriction,
-                productionImpact: payload.productionImpact
+                productionImpact: payload.productionImpact,
+                ...(payload.overrideReason ? { overrideReason: payload.overrideReason } : {})
               }
             })
             .then(() => {

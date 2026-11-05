@@ -2302,7 +2302,7 @@ export class WorkOrdersService {
         throw new BadRequestException("expectedVersion is required");
       }
       // First start only (not resume after hold): a live before photo proves the technician is at
-      // the machine/place. Admins may start without it, with a recorded reason.
+      // the machine/place. Admins and managers may start without it, with a recorded reason (for people who have no phone or camera).
       if (current.status !== WorkOrderStatus.ON_HOLD && !current.startDate) {
         const storageEnabled = isStorageUploadsEnabled();
         const startItems = storageEnabled
@@ -2312,8 +2312,7 @@ export class WorkOrdersService {
             })
           : [];
         const startOverride =
-          Boolean(data.overrideReason?.trim()) &&
-          (actor?.role === RoleName.ADMIN || actor?.role === RoleName.SUPER_ADMIN)
+          Boolean(data.overrideReason?.trim()) && canOverrideCompletionBlock(actor?.role as RoleName)
             ? data.overrideReason
             : undefined;
         assertStartPhotoPresent({ items: startItems, storageEnabled, overrideReason: startOverride });

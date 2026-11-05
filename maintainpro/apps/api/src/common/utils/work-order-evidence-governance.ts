@@ -147,7 +147,8 @@ export function assertEvidenceForTechnicianCompletion(input: {
       "Evidence storage is unavailable. Completion is blocked while required photo evidence cannot be stored (fail closed)."
     );
   }
-  if (checklist.required && checklist.storageEnabled) {
+  // An authorised override (manager/admin, with a reason) covers people who have no phone or camera.
+  if (checklist.required && checklist.storageEnabled && !input.overrideReason?.trim()) {
     if (checklist.missingBefore) {
       throw new BadRequestException("Before photo is required before completion.");
     }

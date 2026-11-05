@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ResponsivePageHeader } from "@/components/ui/responsive-page-header";
 import { EntityPicker } from "@/components/ui/entity-picker";
+import { RequestPhotosPanel } from "@/components/requests/request-photos";
 import { ConfirmFixedCard } from "@/components/requests/confirm-fixed-card";
 import { ErrorState } from "@/components/ui/page-state";
 import { getApiErrorMessage } from "@/lib/api-client";
@@ -79,6 +80,7 @@ type Detail = Record<string, unknown> & {
   originalSubmission?: Record<string, unknown> | null;
   contextSnapshot?: Record<string, unknown> | null;
   allowedActions?: RequestAllowedActions;
+  evidence?: Array<{ id: string; fileName: string; mimeType: string; sizeBytes: number; uploadedById?: string | null }>;
   history?: Array<{
     id: string;
     action: string;
@@ -284,12 +286,23 @@ export default function RequestDetailPage() {
     .map((key) => actionBlockedReason(actions, key))
     .find((reason) => reason && /segregation of duties/i.test(reason));
 
+  const rawHeadline = String(original.description || detail.description || "").replace(/\s+/g, " ").trim();
+  const headline = rawHeadline ? (rawHeadline.length > 80 ? `${rawHeadline.slice(0, 77)}…` : rawHeadline) : detail.requestNumber;
+  const timelineIndex = detail.status === "CLOSED" || detail.workOrder?.status === "COMPLETED"
+    ? 3
+    : detail.workOrder
+      ? 2
+      : detail.status === "NEW"
+        ? 0
+        : 1;
+  const timelineStopped = detail.status === "CANCELLED" || detail.status === "REJECTED";
+
   return (
     <div className="ops-page">
       <PageBreadcrumbs />
       <ResponsivePageHeader
-        eyebrow="Maintenance request"
-        title={detail.requestNumber}
+        eyebrow={`Request ${detail.requestNumber}`}
+        title={headline}
         description={detail.problemCategoryLabel || undefined}
         actions={
           detail.workOrder && (!isOwner || governancePanel) ? (
@@ -302,6 +315,17 @@ export default function RequestDetailPage() {
           ) : null
         }
       />
+
+      {timelineStopped ? null : (
+        <ol className="flex gap-1 text-xs" aria-label="Request progress">
+          {["Reported", "In review", "Job", "Done"].map((label, index) => (
+            <li key={label} className="flex-1" aria-current={index === timelineIndex ? "step" : undefined}>
+              <span className={`block h-1.5 rounded-full ${index <= timelineIndex ? "bg-brand-600" : "bg-slate-200"}`} />
+              <span className={`mt-1 block truncate ${index === timelineIndex ? "font-semibold text-slate-900" : "text-slate-500"}`}>{label}</span>
+            </li>
+          ))}
+        </ol>
+      )}
 
       <section
         className={`rounded-xl border px-4 py-3 ${NEXT_STEP_TONES[nextStep.tone]}`}
@@ -358,10 +382,12 @@ export default function RequestDetailPage() {
                 <dt className="text-slate-500">Machine / vehicle / location</dt>
                 <dd>{targetLabel}</dd>
               </div>
-              <div>
-                <dt className="text-slate-500">Site</dt>
-                <dd>{detail.site?.name || String(snapshot.siteName || "—")}</dd>
-              </div>
+              {detail.site?.name || snapshot.siteName ? (
+                <div>
+                  <dt className="text-slate-500">Site</dt>
+                  <dd>{detail.site?.name || String(snapshot.siteName)}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt className="text-slate-500">Safety risk</dt>
                 <dd>{requestValueLabel(detail.safetyImpact || (original.safetyImpact as string | undefined))}</dd>
@@ -378,6 +404,15 @@ export default function RequestDetailPage() {
               ) : null}
             </dl>
           </section>
+
+          <RequestPhotosPanel
+            requestId={detail.id}
+            photos={detail.evidence ?? []}
+            canEdit={!["CANCELLED", "CLOSED"].includes(detail.status) && (isOwner || governancePanel)}
+            userId={user.id}
+            isReviewer={governancePanel}
+            onChanged={() => load({ silent: true })}
+          />
 
           {allowed("respond") ? (
             <section className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
@@ -790,30 +825,34 @@ export default function RequestDetailPage() {
           ) : null}
 
           {allowed("cancel") ? (
-            <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
-              <h2 className="font-semibold">{isOwner ? "Cancel my request" : "Cancel request"}</h2>
-              <input
-                className={inputClass}
-                aria-label="Cancellation reason"
-                placeholder="Reason for cancelling"
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-              />
-              <button
-                type="button"
-                disabled={busy || cancelReason.trim().length < 3}
-                className="min-h-11 w-full rounded-lg border border-red-200 text-sm text-red-700 disabled:opacity-40"
-                onClick={() =>
-                  void run(async () => {
-                    await cancelRequest(id, cancelReason.trim());
-                    setCancelReason("");
-                  }, "Request cancelled")
-                }
-              >
-                Cancel request
-              </button>
-              <p className="text-xs text-slate-500">Cancelled requests cannot be reopened.</p>
-            </section>
+            <details className="text-sm">
+              <summary className="cursor-pointer text-red-700 underline-offset-2 hover:underline">
+                {isOwner ? "Cancel this request…" : "Cancel request…"}
+              </summary>
+              <div className="mt-2 space-y-2 rounded-xl border border-slate-200 bg-white p-4">
+                <input
+                  className={inputClass}
+                  aria-label="Cancellation reason"
+                  placeholder="Reason for cancelling"
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                />
+                <button
+                  type="button"
+                  disabled={busy || cancelReason.trim().length < 3}
+                  className="min-h-11 w-full rounded-lg border border-red-200 text-sm text-red-700 disabled:opacity-40"
+                  onClick={() =>
+                    void run(async () => {
+                      await cancelRequest(id, cancelReason.trim());
+                      setCancelReason("");
+                    }, "Request cancelled")
+                  }
+                >
+                  Cancel request
+                </button>
+                <p className="text-xs text-slate-500">Cancelled requests cannot be reopened.</p>
+              </div>
+            </details>
           ) : actionBlockedReason(actions, "cancel") ? (
             <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
               {actionBlockedReason(actions, "cancel")}

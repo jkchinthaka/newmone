@@ -662,7 +662,17 @@ export class MaintenanceRequestsService {
       locationPath,
       history,
       workOrder: row.workOrder,
-      evidence: row.evidenceAttachments,
+      evidence: row.evidenceAttachments
+        .filter((item) => item.status === "UPLOADED")
+        .map((item) => ({
+          id: item.id,
+          fileName: item.fileName,
+          mimeType: item.mimeType,
+          sizeBytes: item.sizeBytes,
+          evidenceType: item.evidenceType,
+          uploadedById: item.uploadedById,
+          createdAt: item.createdAt
+        })),
       duplicateOf: row.duplicateOf,
       rejectionReasonType: row.rejectionReasonType,
       rejectionReason: row.rejectionReason,

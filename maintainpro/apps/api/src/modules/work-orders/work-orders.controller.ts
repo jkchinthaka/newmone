@@ -475,7 +475,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/evidence")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER", "OPERATIONS_MANAGER", "SUPERVISOR")
   async createEvidence(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -514,7 +514,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/evidence/upload-request")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER", "OPERATIONS_MANAGER", "SUPERVISOR")
   async createEvidenceUploadRequest(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -538,7 +538,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/evidence/:evidenceId/content")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER", "OPERATIONS_MANAGER", "SUPERVISOR")
   async storeEvidenceContent(
     @Req() req: AuthedRequest & AsyncIterable<Uint8Array>,
     @Param("id") id: string,
@@ -585,7 +585,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/evidence/confirm")
-  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER")
+  @Roles("SUPER_ADMIN", "ADMIN", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "FACILITY_MANAGER", "MANAGER", "OPERATIONS_MANAGER", "SUPERVISOR")
   async confirmEvidenceUpload(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
@@ -881,7 +881,7 @@ export class WorkOrdersController {
   async startWorkOrder(
     @Req() req: AuthedRequest,
     @Param("id") id: string,
-    // overrideReason: Admin/Super Admin only, to start without the before photo (audited).
+    // overrideReason: Admin/Manager only, to start without the before photo (audited), e.g. no phone or camera.
     @Body() body: { expectedVersion?: number; idempotencyKey?: string; overrideReason?: string }
   ) {
     const data = await this.workOrdersService.updateStatus(

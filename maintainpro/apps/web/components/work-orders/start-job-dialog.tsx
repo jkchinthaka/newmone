@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { LiveCameraCapture, type LiveCapture } from "@/components/evidence/live-camera-capture";
 import { ButtonSpinner } from "@/components/ui/loading";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { canWaivePhotos, PHOTO_WAIVER_MIN_REASON } from "@/lib/photo-waiver";
+import { useCurrentUser } from "@/lib/use-current-user";
 import { readCaptureLocation, uploadWorkOrderFile, type CaptureLocation } from "@/lib/work-order-photo-upload";
 
 export type StartJobTarget = { id: string; woNumber: string; title?: string | null; version?: number | null };
@@ -40,25 +42,31 @@ export function StartJobDialog({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const locationRef = useRef<Promise<CaptureLocation | null> | null>(null);
+  const user = useCurrentUser();
+  const canWaive = canWaivePhotos(user.role);
+  const [waiverReason, setWaiverReason] = useState("");
+
+  /** Looks for a before photo already on the job (a team lead may have taken it for this person). */
+  const checkPhoto = useCallback(async (isCancelled: () => boolean = () => false) => {
+    try {
+      const response = await apiClient.get(`/work-orders/${job.id}/evidence`);
+      const body = response.data?.data as { items?: EvidenceListItem[] } | EvidenceListItem[] | undefined;
+      const items = Array.isArray(body) ? body : body?.items ?? [];
+      if (!isCancelled()) setPhase(hasUsableBeforePhoto(items) ? "ready" : "photo");
+    } catch {
+      if (!isCancelled()) setPhase("photo");
+    }
+  }, [job.id]);
 
   useEffect(() => {
     // Ask for the phone location early so it is ready by the time the photo is taken (optional).
     locationRef.current = readCaptureLocation();
     let cancelled = false;
-    void (async () => {
-      try {
-        const response = await apiClient.get(`/work-orders/${job.id}/evidence`);
-        const body = response.data?.data as { items?: EvidenceListItem[] } | EvidenceListItem[] | undefined;
-        const items = Array.isArray(body) ? body : body?.items ?? [];
-        if (!cancelled) setPhase(hasUsableBeforePhoto(items) ? "ready" : "photo");
-      } catch {
-        if (!cancelled) setPhase("photo");
-      }
-    })();
+    void checkPhoto(() => cancelled);
     return () => {
       cancelled = true;
     };
-  }, [job.id]);
+  }, [checkPhoto]);
 
   async function useBeforePhoto(capture: LiveCapture): Promise<boolean> {
     setUploading(true);
@@ -92,11 +100,14 @@ export function StartJobDialog({
     }
   }
 
-  async function start() {
+  async function start(overrideReason?: string) {
     setPhase("starting");
     setError(null);
     try {
-      await apiClient.post(`/work-orders/${job.id}/start`, { expectedVersion: job.version ?? undefined });
+      await apiClient.post(`/work-orders/${job.id}/start`, {
+        expectedVersion: job.version ?? undefined,
+        ...(overrideReason ? { overrideReason } : {})
+      });
       toast.success(`${job.woNumber} started.`);
       await onStarted();
     } catch (cause) {
@@ -152,6 +163,48 @@ export function StartJobDialog({
                 Take a photo of the machine, vehicle or place <strong>before</strong> you start the work.
               </p>
               <LiveCameraCapture captureLabel="Take before photo" useLabel="Use photo and continue" busy={uploading} onUse={useBeforePhoto} />
+              <details className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                <summary className="cursor-pointer font-medium text-slate-800">No phone or camera?</summary>
+                {canWaive ? (
+                  <div className="mt-2 space-y-2">
+                    <p className="text-slate-700">
+                      You can start this job without a photo. The reason is saved on the job and in the audit log.
+                    </p>
+                    <input
+                      value={waiverReason}
+                      onChange={(event) => setWaiverReason(event.target.value)}
+                      placeholder="Why is there no photo? (for example: technician has no phone)"
+                      aria-label="Reason for starting without a photo"
+                      className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+                    />
+                    <button
+                      type="button"
+                      disabled={waiverReason.trim().length < PHOTO_WAIVER_MIN_REASON}
+                      onClick={() => void start(waiverReason.trim())}
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 disabled:opacity-50"
+                    >
+                      Start without a photo
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    <p className="text-slate-700">
+                      Ask your supervisor or manager to take the before photo on their phone (open this job, then Photos), or to
+                      start the job for you. Then tap Check again.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPhase("checking");
+                        void checkPhoto();
+                      }}
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-800"
+                    >
+                      Check again
+                    </button>
+                  </div>
+                )}
+              </details>
             </div>
           ) : (
             <div className="space-y-3">

@@ -10,7 +10,9 @@ const EVIDENCE_UPLOAD_ROLES = new Set<RoleName>([
   RoleName.OPERATIONS_MANAGER,
   RoleName.ASSET_MANAGER,
   RoleName.MECHANIC,
-  RoleName.TECHNICIAN
+  RoleName.TECHNICIAN,
+  // A team lead with a phone can take the photos for a technician who has none.
+  RoleName.SUPERVISOR
 ]);
 
 const EVIDENCE_REVIEW_ROLES = new Set<RoleName>([

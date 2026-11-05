@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, Circle, Loader2, RefreshCw, X } from "lucide-react";
 
 import { apiClient } from "@/lib/api-client";
+import { canWaivePhotos, PHOTO_WAIVER_MIN_REASON } from "@/lib/photo-waiver";
+import { useCurrentUser } from "@/lib/use-current-user";
 import {
   buildCompletionChecklist,
   completionBlockReason,
@@ -74,6 +76,8 @@ type CompleteWorkOrderModalProps = {
     completionMeterReading?: number;
     operatingRestriction?: string;
     productionImpact?: string;
+    /** Manager/admin only: finish without photos for someone who has no phone or camera. */
+    overrideReason?: string;
   }) => void;
   technicianMode?: boolean;
   /** Optional: lets checklist lines jump to the Evidence / Parts tab of this job. */
@@ -219,6 +223,12 @@ export function CompleteWorkOrderModal({
     isVehicle,
     odometer: completionMeterReading
   });
+  const currentUser = useCurrentUser();
+  const canWaive = canWaivePhotos(currentUser.role);
+  const [photoWaiverReason, setPhotoWaiverReason] = useState("");
+  const photosMissing = checklist.some((item) => !item.met && (item.key === "before" || item.key === "after"));
+  // A manager/admin who gives a reason can finish a job whose photos could not be taken.
+  const waiverActive = canWaive && photosMissing && photoWaiverReason.trim().length >= PHOTO_WAIVER_MIN_REASON;
   const productionImpactField = (<label className="space-y-1 text-sm text-slate-700">
                   <span className="font-medium">Production impact</span>
                   <select
@@ -242,7 +252,9 @@ export function CompleteWorkOrderModal({
   };
   const technicianChoiceMissing = technicianMode && (working === "" || working === "NO");
 
-  const blockReason = checklistData.loading ? "Checking what is needed..." : completionBlockReason(checklist);
+  const blockReason = checklistData.loading
+    ? "Checking what is needed..."
+    : completionBlockReason(waiverActive ? checklist.filter((item) => item.key !== "before" && item.key !== "after") : checklist);
 
   return (
     <AnimatePresence>
@@ -309,7 +321,8 @@ export function CompleteWorkOrderModal({
                     ? Number(completionMeterReading)
                     : undefined,
                   operatingRestriction: operatingRestriction.trim() || undefined,
-                  productionImpact: isMachinery ? productionImpact : undefined
+                  productionImpact: isMachinery ? productionImpact : undefined,
+                  overrideReason: waiverActive ? photoWaiverReason.trim() : undefined
                 });
               }}
               className="space-y-4 px-5 py-4"
@@ -363,6 +376,30 @@ export function CompleteWorkOrderModal({
                   </ul>
                 ) : !checklistData.loading ? (
                   <p className="mt-2 text-xs text-slate-600">No photos, QR scan or parts needed for this job.</p>
+                ) : null}
+                {photosMissing ? (
+                  <details className="mt-3 rounded-md border border-slate-200 bg-white p-2 text-sm">
+                    <summary className="cursor-pointer font-medium text-slate-800">No phone or camera?</summary>
+                    {canWaive ? (
+                      <div className="mt-2 space-y-2">
+                        <p className="text-xs text-slate-600">
+                          You can finish this job without photos. The reason is saved on the job and in the audit log.
+                        </p>
+                        <input
+                          value={photoWaiverReason}
+                          onChange={(event) => setPhotoWaiverReason(event.target.value)}
+                          aria-label="Reason for finishing without photos"
+                          placeholder="Why are there no photos? (for example: technician has no phone)"
+                          className="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm"
+                        />
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-xs text-slate-600">
+                        Ask your supervisor or manager to add the photos from their phone (open this job, then Photos), or to finish
+                        the job with a reason. Then tap Check again.
+                      </p>
+                    )}
+                  </details>
                 ) : null}
               </div>
 

@@ -4,14 +4,16 @@ import { FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState 
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
-import { Loader2, MapPin, QrCode, Search } from "lucide-react";
+import { Car, CheckCircle2, HelpCircle, Loader2, MapPin, QrCode, Search, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
+import { PendingPhotoPicker } from "@/components/requests/request-photos";
 import { QrScanner } from "@/components/qr/qr-scanner";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ResponsivePageHeader } from "@/components/ui/responsive-page-header";
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { createIdempotencyKey, withIdempotencyBody } from "@/lib/idempotency";
+import { getRequestPhotoLimits, uploadRequestPhoto, DEFAULT_MAX_REQUEST_PHOTOS } from "@/lib/request-photos";
 import { getBrowserNetworkState } from "@/lib/network-status";
 import { enqueueOfflineAction } from "@/lib/offline-queue";
 import { reportReviewSections, type ReportTargetKind } from "@/lib/report-issue-review";
@@ -56,6 +58,52 @@ type VehicleHit = {
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
+const STEP_LABELS = ["Type", "Which one", "Describe", "Urgency", "Review"] as const;
+
+const KIND_CARDS: ReadonlyArray<{ kind: TargetKind; label: string; hint: string; Icon: typeof Wrench }> = [
+  { kind: "MACHINE", label: "Machine / Equipment", hint: "Pumps, tractors, tools, production equipment", Icon: Wrench },
+  { kind: "VEHICLE", label: "Vehicle", hint: "Trucks, cars, bikes and other fleet vehicles", Icon: Car },
+  { kind: "FACILITY", label: "Facility / Location", hint: "A building, room, road, water line or other place", Icon: MapPin },
+  { kind: "NOT_SURE", label: "Not sure", hint: "Describe the area and a reviewer will find the right item", Icon: HelpCircle }
+];
+
+function ChoiceGroup<T extends string>({
+  label,
+  value,
+  options,
+  onChange
+}: {
+  label: string;
+  value: T;
+  options: ReadonlyArray<{ value: T; label: string }>;
+  onChange: (next: T) => void;
+}) {
+  return (
+    <fieldset>
+      <legend className="text-sm font-medium text-slate-800">{label}</legend>
+      <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={label}>
+        {options.map((option) => {
+          const active = option.value === value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => onChange(option.value)}
+              className={`min-h-11 rounded-lg border px-4 text-sm font-medium ${
+                active ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+              }`}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 function NewRequestForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -94,6 +142,10 @@ function NewRequestForm() {
   const [submitting, setSubmitting] = useState(false);
   const [pendingLocalId, setPendingLocalId] = useState<string | null>(null);
   const [openMatches, setOpenMatches] = useState<MaintenanceRequestListItem[]>([]);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoLimit, setPhotoLimit] = useState<{ enabled: boolean; maxPhotos: number } | null>(null);
+  // One idempotency key per unchanged form, so a retry after a timeout cannot create a duplicate request.
+  const submitKey = useRef<{ fingerprint: string; key: string } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -104,6 +156,12 @@ function NewRequestForm() {
         toast.error(getApiErrorMessage(err, "Unable to load sites."));
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    void getRequestPhotoLimits()
+      .then((limits) => setPhotoLimit({ enabled: limits.enabled, maxPhotos: limits.maxPhotos }))
+      .catch(() => setPhotoLimit({ enabled: false, maxPhotos: DEFAULT_MAX_REQUEST_PHOTOS }));
   }, []);
 
   useEffect(() => {
@@ -338,7 +396,24 @@ function NewRequestForm() {
       (targetKind === "NOT_SURE" && (siteId || (sitesLoaded && sites.length === 0)) && approximateLocation.trim().length >= 3)
   );
 
+  const continueHint = (() => {
+    if (canContinueTarget) return null;
+    if (targetKind === "MACHINE") return "Pick a machine from the results to continue.";
+    if (targetKind === "VEHICLE") return "Pick a vehicle from the results to continue.";
+    if (targetKind === "FACILITY") return !siteId ? "Choose a site, then a location." : "Choose a location to continue.";
+    if (targetKind === "NOT_SURE") {
+      if (!siteId && !(sitesLoaded && sites.length === 0)) return "Choose a site and describe the area (3+ characters).";
+      return "Describe the area in at least 3 characters.";
+    }
+    return null;
+  })();
+
   const chooseKind = (kind: TargetKind) => {
+    if (kind === targetKind) {
+      // Same type picked again: keep what the person already chose.
+      setStep(2);
+      return;
+    }
     setTargetKind(kind);
     setSelectedAsset(null);
     selectedMachineQuery.current = null;
@@ -364,9 +439,7 @@ function NewRequestForm() {
       return;
     }
 
-    const idempotencyKey = createIdempotencyKey("mr-create");
-    const payload = withIdempotencyBody(
-      {
+    const body = {
         assetId: targetKind === "MACHINE" ? selectedAsset?.id : undefined,
         vehicleId: targetKind === "VEHICLE" ? selectedVehicle?.id : undefined,
         functionalLocationId:
@@ -379,9 +452,13 @@ function NewRequestForm() {
         reportedUrgency,
         safetyImpact,
         productionImpact
-      },
-      idempotencyKey
-    );
+    };
+    const fingerprint = JSON.stringify(body);
+    if (!submitKey.current || submitKey.current.fingerprint !== fingerprint) {
+      submitKey.current = { fingerprint, key: createIdempotencyKey("mr-create") };
+    }
+    const idempotencyKey = submitKey.current.key;
+    const payload = withIdempotencyBody(body, idempotencyKey);
 
     const network = getBrowserNetworkState();
     if (network === "offline") {
@@ -396,14 +473,29 @@ function NewRequestForm() {
         tenantId: getActiveTenantId()
       });
       setPendingLocalId(localActionId);
-      toast.message("No internet. Saved on this device and it will be sent automatically when you are back online.");
+      toast.message(
+        photos.length > 0
+          ? "No internet. Saved on this device and it will be sent when you are back online. Photos are not saved offline, so add them on the request afterwards."
+          : "No internet. Saved on this device and it will be sent automatically when you are back online."
+      );
       return;
     }
 
     setSubmitting(true);
     try {
       const created = await createMaintenanceRequest(payload);
-      toast.success(`Request ${created.requestNumber} submitted`);
+      let photoFailures = 0;
+      if (photos.length > 0 && photoLimit?.enabled) {
+        for (const file of photos) {
+          const result = await uploadRequestPhoto(created.id, file);
+          if (!result.ok) photoFailures += 1;
+        }
+      }
+      if (photoFailures > 0) {
+        toast.warning(`Request ${created.requestNumber} submitted, but ${photoFailures} photo${photoFailures === 1 ? "" : "s"} could not be added. Add them on the request page.`);
+      } else {
+        toast.success(`Request ${created.requestNumber} submitted`);
+      }
       router.push(`/requests/${created.id}` as Route);
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Unable to submit request."));
@@ -412,50 +504,72 @@ function NewRequestForm() {
     }
   };
 
+  if (pendingLocalId) {
+    return (
+      <div className="mx-auto max-w-xl space-y-6 p-4 md:p-6">
+        <ResponsivePageHeader title="Report a problem" description="Saved on this device." />
+        <section className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950" role="status">
+          <div className="flex items-center gap-2 font-semibold">
+            <CheckCircle2 size={18} aria-hidden /> Saved on this device
+          </div>
+          <p className="text-sm">
+            There is no internet right now, so the request has not been sent yet. It will be sent automatically when
+            this device is back online and you are signed in (reference {pendingLocalId.slice(0, 8)}…).
+          </p>
+          <Link
+            href={"/requests" as Route}
+            className="inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-4 text-sm font-medium text-white"
+          >
+            Go to Requests
+          </Link>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-xl space-y-6 p-4 md:p-6">
       <PageBreadcrumbs />
       <ResponsivePageHeader
-        title="Report Issue"
-        description="Tell us what has a problem — machine, vehicle, facility, or not sure."
+        title="Report a problem"
+        description="Tell us what is wrong. It takes about a minute."
       />
 
-      {pendingLocalId ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Not sent yet, no internet (local id {pendingLocalId.slice(0, 8)}…). It is sent automatically when
-          this device is back online and you are signed in; you will see a message with the request number.
-        </div>
-      ) : null}
-
-      <div className="flex gap-1 text-xs text-slate-500">
-        {(step >= 4 ? [1, 2, 3, 4, 5] : [1, 2, 3]).map((n) => (
-          <span
-            key={n}
-            className={`h-1.5 flex-1 rounded-full ${step >= n ? "bg-brand-500" : "bg-slate-200"}`}
-          />
-        ))}
-      </div>
+      <ol className="flex gap-1 text-xs" aria-label="Progress">
+        {STEP_LABELS.map((label, index) => {
+          const n = index + 1;
+          return (
+            <li key={label} className="flex-1" aria-current={step === n ? "step" : undefined}>
+              <span className={`block h-1.5 rounded-full ${step >= n ? "bg-brand-600" : "bg-slate-200"}`} />
+              <span className={`mt-1 block truncate ${step === n ? "font-semibold text-slate-900" : "text-slate-500"}`}>{label}</span>
+            </li>
+          );
+        })}
+      </ol>
 
       {step === 1 ? (
         <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="font-semibold text-slate-900">What has a problem?</h2>
-          {(
-            [
-              ["MACHINE", "Machine / Equipment"],
-              ["VEHICLE", "Vehicle"],
-              ["FACILITY", "Facility / Location"],
-              ["NOT_SURE", "Not Sure"]
-            ] as const
-          ).map(([kind, label]) => (
-            <button
-              key={kind}
-              type="button"
-              className="min-h-11 w-full rounded-lg border border-slate-200 px-3 text-left text-sm hover:bg-slate-50"
-              onClick={() => chooseKind(kind)}
-            >
-              {label}
-            </button>
-          ))}
+          <div className="grid gap-2">
+            {KIND_CARDS.map(({ kind, label, hint, Icon }) => (
+              <button
+                key={kind}
+                type="button"
+                className={`flex min-h-14 w-full items-center gap-3 rounded-lg border px-3 py-2 text-left hover:bg-slate-50 ${
+                  targetKind === kind ? "border-brand-600 bg-brand-50" : "border-slate-200"
+                }`}
+                onClick={() => chooseKind(kind)}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+                  <Icon size={20} aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-900">{label}</span>
+                  <span className="block text-xs text-slate-600">{hint}</span>
+                </span>
+              </button>
+            ))}
+          </div>
         </section>
       ) : null}
 
@@ -583,6 +697,7 @@ function NewRequestForm() {
               ) : null}
             </div>
           ) : null}
+          {continueHint ? <p className="text-xs text-slate-500">{continueHint}</p> : null}
           <div className="flex gap-2">
             <button type="button" className="min-h-11 flex-1 rounded-lg border text-sm" onClick={() => setStep(1)}>
               Back
@@ -621,6 +736,15 @@ function NewRequestForm() {
               Search
             </button>
           </div>
+          <div aria-live="polite" className="min-h-5 text-sm text-slate-600">
+            {searching ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="animate-spin" size={14} aria-hidden /> Searching vehicles...
+              </span>
+            ) : shouldSearchMachines(vehicleQuery) && vehicleHits.length === 0 ? (
+              <p>No matching vehicles</p>
+            ) : null}
+          </div>
           {vehicleHits.length > 0 ? (
             <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100">
               {vehicleHits.map((hit) => (
@@ -651,6 +775,7 @@ function NewRequestForm() {
               </strong>
             </p>
           ) : null}
+          {continueHint ? <p className="text-xs text-slate-500">{continueHint}</p> : null}
           <div className="flex gap-2">
             <button type="button" className="min-h-11 flex-1 rounded-lg border text-sm" onClick={() => setStep(1)}>
               Back
@@ -719,6 +844,7 @@ function NewRequestForm() {
               and describe the area instead.
             </p>
           ) : null}
+          {continueHint ? <p className="text-xs text-slate-500">{continueHint}</p> : null}
           <div className="flex gap-2">
             <button type="button" className="min-h-11 flex-1 rounded-lg border text-sm" onClick={() => setStep(1)}>
               Back
@@ -764,6 +890,7 @@ function NewRequestForm() {
             onChange={(e) => setApproximateLocation(e.target.value)}
             maxLength={500}
           />
+          {continueHint ? <p className="text-xs text-slate-500">{continueHint}</p> : null}
           <div className="flex gap-2">
             <button type="button" className="min-h-11 flex-1 rounded-lg border text-sm" onClick={() => setStep(1)}>
               Back
@@ -795,6 +922,10 @@ function NewRequestForm() {
             onChange={(e) => setDescription(e.target.value)}
             maxLength={4000}
           />
+          {description.trim().length < 5 ? <p className="text-xs text-slate-500">Write at least 5 characters to continue.</p> : null}
+          {photoLimit?.enabled ? (
+            <PendingPhotoPicker files={photos} onChange={setPhotos} max={photoLimit.maxPhotos} disabled={submitting} />
+          ) : null}
           <div className="flex gap-2">
             <button type="button" className="min-h-11 flex-1 rounded-lg border text-sm" onClick={() => setStep(2)}>
               Back
@@ -810,15 +941,14 @@ function NewRequestForm() {
             <button
               type="button"
               disabled={description.trim().length < 5 || submitting || !canContinueTarget}
-              className="min-h-11 flex-[1.4] rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-medium text-white disabled:opacity-40"
+              className="min-h-11 flex-[1.4] rounded-lg bg-brand-600 hover:bg-brand-700 text-sm font-medium text-white disabled:opacity-40"
               onClick={() => void submit()}
             >
               {submitting ? "Sending…" : "Send now"}
             </button>
           </div>
           <p className="text-xs text-slate-500">
-            Urgency is set to Normal. Choose More details to change urgency or safety impact. Photos can be
-            added on the request after it is sent.
+            Urgency is set to Normal. Choose More details to change urgency or safety impact.
           </p>
         </section>
       ) : null}
@@ -826,46 +956,39 @@ function NewRequestForm() {
       {step === 4 ? (
         <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="font-semibold">Urgency and impact</h2>
-          <label className="block text-sm">
-            How urgent does this feel?
-            <select
-              className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm"
-              value={reportedUrgency}
-              onChange={(e) => setReportedUrgency(e.target.value as ReportedUrgency)}
-            >
-              <option value="NORMAL">Normal</option>
-              <option value="URGENT">Urgent</option>
-              <option value="VERY_URGENT">Very Urgent</option>
-            </select>
-          </label>
-          <label className="block text-sm">
-            Safety impact?
-            <select
-              className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm"
-              value={safetyImpact}
-              onChange={(e) => setSafetyImpact(e.target.value as SafetyImpact)}
-            >
-              <option value="NO">No</option>
-              <option value="YES">Yes</option>
-              <option value="NOT_SURE">Not Sure</option>
-            </select>
-          </label>
-          <label className="block text-sm">
-            Production / business impact?
-            <select
-              className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm"
-              value={productionImpact}
-              onChange={(e) => setProductionImpact(e.target.value as ProductionImpact)}
-            >
-              <option value="NONE">None</option>
-              <option value="REDUCED">Reduced / Partial</option>
-              <option value="STOPPED">Completely Stopped</option>
-              <option value="NOT_SURE">Not Sure</option>
-            </select>
-          </label>
+          <ChoiceGroup<ReportedUrgency>
+            label="How urgent does this feel?"
+            value={reportedUrgency}
+            onChange={setReportedUrgency}
+            options={[
+              { value: "NORMAL", label: "Normal" },
+              { value: "URGENT", label: "Urgent" },
+              { value: "VERY_URGENT", label: "Very urgent" }
+            ]}
+          />
+          <ChoiceGroup<SafetyImpact>
+            label="Is anyone's safety at risk?"
+            value={safetyImpact}
+            onChange={setSafetyImpact}
+            options={[
+              { value: "NO", label: "No" },
+              { value: "YES", label: "Yes" },
+              { value: "NOT_SURE", label: "Not sure" }
+            ]}
+          />
+          <ChoiceGroup<ProductionImpact>
+            label="Is work or production affected?"
+            value={productionImpact}
+            onChange={setProductionImpact}
+            options={[
+              { value: "NONE", label: "None" },
+              { value: "REDUCED", label: "Reduced" },
+              { value: "STOPPED", label: "Stopped" },
+              { value: "NOT_SURE", label: "Not sure" }
+            ]}
+          />
           <p className="text-xs text-slate-500">
-            Maintenance staff set the official priority during review. Photos can be attached after
-            submit when online.
+            Maintenance staff set the official priority during review.
           </p>
           <div className="flex gap-2">
             <button type="button" className="min-h-11 flex-1 rounded-lg border text-sm" onClick={() => setStep(3)}>
@@ -923,7 +1046,7 @@ function NewRequestForm() {
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-medium text-white disabled:opacity-50"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-sm font-medium text-white disabled:opacity-50"
             >
               {submitting ? <Loader2 className="animate-spin" size={14} /> : null}
               Submit Request

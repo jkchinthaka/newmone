@@ -1519,3 +1519,10 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 
 ## Requests list polish (live)
 - `requests/page.tsx`: one tab row (All, stage shortcuts that have items, My requests, Requests to review) replacing the two chip rows; search moved into the filter row; "Machine or place" placeholder; Medium priority quiet (High/Critical/Low coloured); title bold with request number below; row menu button unboxed; brand-green Report button; subtitle added. Filters/API/actions unchanged. web tests 553 pass, tsc clean; not browser-tested.
+
+## Report a problem wizard, request photos, no-phone options (branch `live`)
+- Web: `requests/new` rewritten UI: named 5-step progress, type cards with hints, stable idempotency key per unchanged form, offline "Saved on this device" lock screen, vehicle search empty/searching messages, same-type re-pick keeps selection, Continue hints, button groups for urgency/safety/production, optional photo picker (max 5, uploaded after create succeeds; skipped offline). `requests/[id]` shows description as title, progress timeline, Photos panel, cancel as collapsed link, hides empty Site.
+- API (new): `GET /maintenance-requests/photo-limits`, `POST /:id/photos?fileName&mimeType` (raw body), `GET /:id/photos/:photoId`, `DELETE /:id/photos/:photoId` (`RequestPhotosService`, image-only, reporter or reviewer, blocked on CANCELLED/CLOSED, needs evidence storage enabled). `findOne` returns safe `evidence` list.
+- No-phone options for jobs: Admin/Manager/Ops Manager can Start and Finish a job without photos by giving a reason (`overrideReason`; governance function now really waives photo checks); SUPERVISOR and OPERATIONS_MANAGER can upload evidence on behalf of a technician.
+- Tests run: web `npm test` 553 pass; web+api `tsc --noEmit` clean; API jest request-photos, work-order-evidence-governance, maintenance-requests 52 pass. Not browser-tested.
+- Next: QA crawl (safe, then mutate after DB backup), then PR live -> main.

@@ -86,6 +86,19 @@ describe("work order evidence governance", () => {
     expect(() => assertStartPhotoPresent({ items: [], storageEnabled: true, overrideReason: "Camera broken, admin started" })).not.toThrow();
   });
 
+  it("lets an authorised override complete without photos for someone who has no phone", () => {
+    expect(() =>
+      assertEvidenceForTechnicianCompletion({
+        workOrderType: WorkOrderType.CORRECTIVE,
+        items: [],
+        completionNote: "Done",
+        qrStatus: QrVerificationStatus.VERIFIED,
+        assetId: "asset-1",
+        overrideReason: "Technician has no phone; manager checked the work"
+      })
+    ).not.toThrow();
+  });
+
   it("blocks technician completion when before photo missing", () => {
     expect(() =>
       assertEvidenceForTechnicianCompletion({

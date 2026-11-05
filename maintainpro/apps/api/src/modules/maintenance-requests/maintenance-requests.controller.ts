@@ -1,13 +1,17 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
   Query,
   Req,
+  Res,
   UseGuards
 } from "@nestjs/common";
+import type { Response } from "express";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 import { Permissions } from "../../common/decorators/permissions.decorator";
@@ -30,6 +34,7 @@ import {
   TriageMaintenanceRequestDto
 } from "./dto/maintenance-request.dto";
 import { MaintenanceRequestsService } from "./maintenance-requests.service";
+import { RequestPhotosService } from "./request-photos.service";
 
 interface AuthedRequest {
   user?: {
@@ -62,7 +67,10 @@ const TRIAGE_ROLES = [
 @UseGuards(JwtAuthGuard)
 @Controller("maintenance-requests")
 export class MaintenanceRequestsController {
-  constructor(private readonly requests: MaintenanceRequestsService) {}
+  constructor(
+    private readonly requests: MaintenanceRequestsService,
+    private readonly photos: RequestPhotosService
+  ) {}
 
   @Get("problem-categories")
   @Permissions("maintenance_requests.view_own")
@@ -138,6 +146,60 @@ export class MaintenanceRequestsController {
   async create(@Req() req: AuthedRequest, @Body() body: CreateMaintenanceRequestDto) {
     const data = await this.requests.create(req.user?.tenantId ?? null, req.user!, body);
     return { data, message: "Maintenance request created" };
+  }
+
+  @Get("photo-limits")
+  @Permissions("maintenance_requests.view_own")
+  photoLimits() {
+    return { data: this.photos.getLimits(), message: "Photo limits" };
+  }
+
+  @Post(":id/photos")
+  @Permissions("maintenance_requests.view_own")
+  async addPhoto(
+    @Req() req: AuthedRequest & AsyncIterable<Uint8Array>,
+    @Param("id") id: string,
+    @Query("fileName") fileName?: string,
+    @Query("mimeType") mimeType?: string
+  ) {
+    const maxBytes = this.photos.getLimits().maxFileSizeMb * 1024 * 1024;
+    const chunks: Buffer[] = [];
+    let size = 0;
+    for await (const chunk of req) {
+      size += chunk.length;
+      if (size > maxBytes) throw new BadRequestException("The picture is larger than the allowed size.");
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    const data = await this.photos.add(
+      req.user?.tenantId ?? null,
+      id,
+      { fileName: fileName || "photo.jpg", mimeType: mimeType || "image/jpeg", bytes: Buffer.concat(chunks) },
+      req.user!
+    );
+    return { data, message: "Photo added" };
+  }
+
+  @Get(":id/photos/:photoId")
+  @Permissions("maintenance_requests.view_own")
+  async photo(
+    @Req() req: AuthedRequest,
+    @Res() res: Response,
+    @Param("id") id: string,
+    @Param("photoId") photoId: string
+  ) {
+    const file = await this.photos.read(req.user?.tenantId ?? null, id, photoId, req.user!);
+    res.setHeader("Content-Type", file.mimeType);
+    res.setHeader("Content-Length", String(file.bytes.length));
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.send(file.bytes);
+  }
+
+  @Delete(":id/photos/:photoId")
+  @Permissions("maintenance_requests.view_own")
+  async removePhoto(@Req() req: AuthedRequest, @Param("id") id: string, @Param("photoId") photoId: string) {
+    const data = await this.photos.remove(req.user?.tenantId ?? null, id, photoId, req.user!);
+    return { data, message: "Photo removed" };
   }
 
   @Get(":id")
