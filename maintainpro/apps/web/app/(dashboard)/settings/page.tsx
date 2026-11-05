@@ -70,6 +70,83 @@ function clearStoredPasswordPending() {
   }
 }
 
+const FIELD = "mt-1 min-h-10 w-full rounded-lg border border-slate-300 px-3 text-sm";
+const PRIMARY_BTN = "min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50";
+
+const CHANNEL_HINTS: Record<keyof Preferences, string> = {
+  inApp: "Bell icon inside MaintainPro",
+  email: "Sent to your email address",
+  sms: "Text message to your phone",
+  whatsapp: "WhatsApp message to your phone",
+  push: "Alerts on this device"
+};
+
+function Toggle({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-3">
+      <div>
+        <p className="text-sm font-medium text-slate-900">{label}</p>
+        {hint ? <p className="text-xs text-slate-500">{hint}</p> : null}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={onChange}
+        className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? "bg-brand-600" : "bg-slate-300"}`}
+      >
+        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? "left-[22px]" : "left-0.5"}`} />
+      </button>
+    </div>
+  );
+}
+
+function PasswordInput({ value, onChange, autoComplete }: { value: string; onChange: (value: string) => void; autoComplete: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="relative mt-1 block">
+      <input
+        type={show ? "text" : "password"}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-h-10 w-full rounded-lg border border-slate-300 px-3 pr-14 text-sm"
+      />
+      <button type="button" onClick={() => setShow((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1.5 text-xs font-medium text-slate-500 hover:text-slate-800">
+        {show ? "Hide" : "Show"}
+      </button>
+    </span>
+  );
+}
+
+function StrengthHint({ value }: { value: string }) {
+  const checks = [
+    { ok: value.length >= 8, label: "8+ characters" },
+    { ok: /[A-Z]/.test(value), label: "a capital letter" },
+    { ok: /\d/.test(value), label: "a number" },
+    { ok: /[^A-Za-z\d]/.test(value), label: "a symbol" }
+  ];
+  const score = checks.filter((c) => c.ok).length;
+  return (
+    <div className="mt-2">
+      <div className="flex gap-1" aria-hidden="true">
+        {checks.map((_, i) => (
+          <i key={i} className={`h-1 flex-1 rounded ${i < score ? (score === 4 ? "bg-emerald-500" : "bg-amber-400") : "bg-slate-200"}`} />
+        ))}
+      </div>
+      <p className="mt-1.5 text-xs text-slate-500">
+        {checks.map((c, i) => (
+          <span key={c.label} className={c.ok ? "text-emerald-600" : ""}>
+            {c.ok ? "✓" : "○"} {c.label}
+            {i < checks.length - 1 ? "  " : ""}
+          </span>
+        ))}
+      </p>
+    </div>
+  );
+}
+
 function SettingsWorkspace() {
   const user = useCurrentUser();
   const role = extractRoleName(user);
@@ -232,20 +309,20 @@ function SettingsWorkspace() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl ops-page">
+    <div className="mx-auto max-w-4xl ops-page">
       <PageBreadcrumbs />
       <header>
         <h1 className="page-title">Settings</h1>
-        <p className="mt-1 text-sm text-slate-600">Your account, notification delivery, and sign-in security.</p>
+        <p className="mt-1 text-sm text-slate-600">Your account, notifications and sign-in security.</p>
       </header>
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Settings sections">
+      <div className="flex gap-6 border-b border-slate-200" role="tablist" aria-label="Settings sections">
         {TABS.map((key) => (
           <button
             key={key}
             type="button"
             role="tab"
             aria-selected={tab === key}
-            className={`min-h-11 flex-1 rounded-md px-3 text-sm sm:flex-none ${tab === key ? "bg-slate-900 text-white" : "border border-slate-300 text-slate-700"}`}
+            className={`-mb-px min-h-11 border-b-2 px-1 text-sm ${tab === key ? "border-brand-600 font-semibold text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"}`}
             onClick={() => router.replace(`${pathname}?tab=${key}` as never)}
           >
             {key === "profile" ? "Profile" : key === "notifications" ? "Notifications" : "Security"}
@@ -265,62 +342,68 @@ function SettingsWorkspace() {
       ) : null}
 
       {tab === "profile" && profileQuery.data ? (
-        <form
-          className="space-y-3 rounded-md border border-slate-200 bg-white p-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!profileDirty || saveProfile.isPending) return;
-            if (emailChanged && !emailPassword) {
-              toast.error("Enter your current password to change your email.");
-              return;
-            }
-            saveProfile.mutate();
-          }}
-        >
-          <label className="block text-sm text-slate-700">
-            First name
-            <input value={profile.firstName} onChange={(event) => setProfile({ ...profile, firstName: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
-          </label>
-          <label className="block text-sm text-slate-700">
-            Last name
-            <input value={profile.lastName} onChange={(event) => setProfile({ ...profile, lastName: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
-          </label>
-          <label className="block text-sm text-slate-700">
-            Email
-            <input type="email" value={profile.email} onChange={(event) => setProfile({ ...profile, email: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
-          </label>
-          {emailChanged ? (
-            <label className="block text-sm text-slate-700">
-              Current password (required to change your email)
-              <input type="password" autoComplete="current-password" value={emailPassword} onChange={(event) => setEmailPassword(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
-            </label>
-          ) : null}
-          <label className="block text-sm text-slate-700">
-            Phone
-            <input value={profile.phone} onChange={(event) => setProfile({ ...profile, phone: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
-          </label>
-          <p className="text-sm text-slate-600">Role: {profileQuery.data.role}</p>
-          <button type="submit" disabled={!profileDirty || saveProfile.isPending} className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50">
-            Save changes
-          </button>
-        </form>
+        <div className="grid gap-5 md:grid-cols-[250px_1fr]">
+          <aside className="rounded-xl border border-slate-200 bg-white p-5 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-50 text-xl font-bold text-brand-700">
+              {`${profileQuery.data.firstName[0] ?? ""}${profileQuery.data.lastName[0] ?? ""}`.toUpperCase() || "?"}
+            </div>
+            <p className="mt-3 font-semibold text-slate-900">{profileQuery.data.firstName} {profileQuery.data.lastName}</p>
+            <p className="break-all text-xs text-slate-500">{profileQuery.data.email}</p>
+            <span className="mt-2 inline-block rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700">{humanize(profileQuery.data.role)}</span>
+          </aside>
+          <form
+            className="space-y-4 rounded-xl border border-slate-200 bg-white p-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!profileDirty || saveProfile.isPending) return;
+              if (emailChanged && !emailPassword) {
+                toast.error("Enter your current password to change your email.");
+                return;
+              }
+              saveProfile.mutate();
+            }}
+          >
+            <h2 className="text-sm font-semibold text-slate-900">Your details</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm font-medium text-slate-700">
+                First name
+                <input value={profile.firstName} onChange={(event) => setProfile({ ...profile, firstName: event.target.value })} className={FIELD} />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Last name
+                <input value={profile.lastName} onChange={(event) => setProfile({ ...profile, lastName: event.target.value })} className={FIELD} />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Email
+                <input type="email" value={profile.email} onChange={(event) => setProfile({ ...profile, email: event.target.value })} className={FIELD} />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Phone
+                <input value={profile.phone} onChange={(event) => setProfile({ ...profile, phone: event.target.value })} className={FIELD} />
+              </label>
+            </div>
+            {emailChanged ? (
+              <label className="block text-sm font-medium text-slate-700">
+                Current password (needed to change your email)
+                <PasswordInput autoComplete="current-password" value={emailPassword} onChange={setEmailPassword} />
+              </label>
+            ) : null}
+            <p className="text-xs text-slate-500">Changing your email asks for your password and signs out your other devices.</p>
+            <button type="submit" disabled={!profileDirty || saveProfile.isPending} className={PRIMARY_BTN}>
+              Save changes
+            </button>
+          </form>
+        </div>
       ) : null}
 
       {tab === "notifications" ? (
-        <section className="space-y-4 rounded-md border border-slate-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-slate-900">Channels</h2>
+        <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="text-sm font-semibold text-slate-900">How do you want to be told?</h2>
           {channels && available.length > 0 ? (
-            <ul className="space-y-2">
+            <ul className="divide-y divide-slate-100">
               {available.map((key) => (
                 <li key={key}>
-                  <label className="flex items-center gap-2 text-sm text-slate-800">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(channels[key])}
-                      onChange={() => setChannels({ ...channels, [key]: !channels[key] })}
-                    />
-                    {CHANNEL_LABELS[key]}
-                  </label>
+                  <Toggle label={CHANNEL_LABELS[key]} hint={CHANNEL_HINTS[key]} checked={Boolean(channels[key])} onChange={() => setChannels({ ...channels, [key]: !channels[key] })} />
                 </li>
               ))}
             </ul>
@@ -330,29 +413,27 @@ function SettingsWorkspace() {
           <button
             type="button"
             disabled={!channels || !channelsDirty || saveChannels.isPending}
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+            className={PRIMARY_BTN}
             onClick={() => channels && saveChannels.mutate(channels)}
           >
             Save channels
           </button>
-          <details className="text-sm">
-            <summary className="cursor-pointer font-medium text-slate-800">Advanced preferences</summary>
+          <details className="border-t border-slate-100 pt-3 text-sm" open>
+            <summary className="cursor-pointer font-medium text-slate-800">What to be told about</summary>
             {rules ? (
-              <div className="mt-2 space-y-2">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={rules.onlyCritical} onChange={() => setRules({ ...rules, onlyCritical: !rules.onlyCritical })} />
-                  Only critical alerts
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={rules.emailOnlyOverdue} onChange={() => setRules({ ...rules, emailOnlyOverdue: !rules.emailOnlyOverdue })} />
-                  Email only overdue alerts
-                </label>
-                <button type="button" className="rounded-md border border-slate-300 px-3 py-1.5" onClick={() => setMuteOpen(true)}>
-                  Manage muted notifications
-                </button>
-                <button type="button" className="ml-2 rounded-md bg-slate-900 px-3 py-1.5 text-white disabled:opacity-50" disabled={saveRules.isPending} onClick={() => saveRules.mutate(rules)}>
-                  Save rules
-                </button>
+              <div className="mt-2">
+                <div className="divide-y divide-slate-100">
+                  <Toggle label="Only urgent ones" hint="Skip routine updates" checked={rules.onlyCritical} onChange={() => setRules({ ...rules, onlyCritical: !rules.onlyCritical })} />
+                  <Toggle label="Email only when overdue" hint="Other alerts stay in the app" checked={rules.emailOnlyOverdue} onChange={() => setRules({ ...rules, emailOnlyOverdue: !rules.emailOnlyOverdue })} />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => setMuteOpen(true)}>
+                    Mute some types
+                  </button>
+                  <button type="button" className={PRIMARY_BTN} disabled={saveRules.isPending} onClick={() => saveRules.mutate(rules)}>
+                    Save
+                  </button>
+                </div>
               </div>
             ) : null}
           </details>
@@ -360,22 +441,35 @@ function SettingsWorkspace() {
       ) : null}
 
       {tab === "security" ? (
-        <form className="space-y-3 rounded-md border border-slate-200 bg-white p-4" onSubmit={submitPassword}>
+        <form className="space-y-4 rounded-xl border border-slate-200 bg-white p-5" onSubmit={submitPassword}>
           <h2 className="text-sm font-semibold text-slate-900">Change password</h2>
-          <label className="block text-sm text-slate-700">
-            Current password
-            <input type="password" autoComplete="current-password" value={password.current} onChange={(event) => setPassword({ ...password, current: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
-          </label>
-          <label className="block text-sm text-slate-700">
-            New password
-            <input type="password" autoComplete="new-password" value={password.next} onChange={(event) => setPassword({ ...password, next: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
-          </label>
-          <label className="block text-sm text-slate-700">
-            Confirm new password
-            <input type="password" autoComplete="new-password" value={password.confirm} onChange={(event) => setPassword({ ...password, confirm: event.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5" />
-          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-medium text-slate-700 sm:col-span-2 sm:max-w-[calc(50%-0.5rem)]">
+              Current password
+              <PasswordInput autoComplete="current-password" value={password.current} onChange={(v) => setPassword({ ...password, current: v })} />
+            </label>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">
+                New password
+                <PasswordInput autoComplete="new-password" value={password.next} onChange={(v) => setPassword({ ...password, next: v })} />
+              </label>
+              <StrengthHint value={password.next} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">
+                Confirm new password
+                <PasswordInput autoComplete="new-password" value={password.confirm} onChange={(v) => setPassword({ ...password, confirm: v })} />
+              </label>
+              {password.confirm ? (
+                <p className={`mt-1.5 text-xs ${password.confirm === password.next ? "text-emerald-600" : "text-rose-600"}`}>
+                  {password.confirm === password.next ? "✓ Matches" : "Does not match yet"}
+                </p>
+              ) : null}
+            </div>
+          </div>
           {passwordError ? <p role="alert" className="text-sm text-rose-700">{passwordError}</p> : null}
-          <button type="submit" disabled={savePassword.isPending} className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50">
+          <p className="text-xs text-slate-500">Changing your password signs out your other devices.</p>
+          <button type="submit" disabled={savePassword.isPending} className={PRIMARY_BTN}>
             Update password
           </button>
         </form>
