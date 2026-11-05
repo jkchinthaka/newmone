@@ -205,14 +205,14 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-[100dvh] bg-brand-50 lg:flex lg:items-center lg:justify-center">
-      <div className="lg:grid lg:min-h-[100dvh] lg:w-full lg:max-w-[1360px] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+      <div className="lg:grid lg:min-h-[100dvh] lg:w-full lg:max-w-[1360px] lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
       <div className="hidden lg:block lg:p-6">
         <AuthMarketingPanel />
       </div>
 
       <section className="relative flex min-h-[100dvh] flex-col items-center justify-start px-4 pb-8 pt-6 sm:justify-center sm:px-8 lg:py-10">
 
-        <div className="w-full max-w-[456px] rounded-[20px] border border-brand-100 bg-white px-5 py-7 shadow-[0_1px_2px_rgba(16,77,43,0.05),0_24px_48px_-24px_rgba(16,77,43,0.22)] sm:px-10 sm:py-10">
+        <div className="w-full max-w-[500px] rounded-[20px] border border-brand-100 bg-white px-5 py-7 shadow-[0_1px_2px_rgba(16,77,43,0.05),0_24px_48px_-24px_rgba(16,77,43,0.22)] sm:px-10 sm:py-10">
           {/* The brand panel shows the logo on large screens; the card shows it on phones and tablets. */}
           <div className="flex items-center gap-3 lg:hidden">
             <NelnaLogo decorative size="compact" />
@@ -223,10 +223,10 @@ export default function LoginPage() {
           </div>
 
           <header className="mt-7 lg:mt-0">
-            <h1 className="text-[23px] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[26px]">
+            <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[30px]">
               Sign in to Nelna Care
             </h1>
-            <p className="mt-1.5 text-[14.5px] text-slate-600">
+            <p className="mt-2 text-[15.5px] text-slate-600">
               Use the work email your administrator registered for you.
             </p>
           </header>
