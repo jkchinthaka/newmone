@@ -1506,3 +1506,7 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 - UI only. Queue tabs trimmed to Needs action / My Tasks / Open / In Progress / Waiting for parts / Overdue / Completed (Assigned, Done-waiting-for-check, Unassigned, High Priority moved to More). KPI cards -> compact inline counts. Create job button brand green. Empty queue wording. History: no Action column (row opens job), cost "—" when 0, "No asset", friendly category, From/To date labels, breadcrumb "Jobs > History".
 - Not changed (backend rule): Action Required queue does not include unassigned jobs (`actionRequiredWhere`).
 - Tests: web tsc clean, `npm test` 553 pass (queue-nav test label updated). Not browser-tested.
+
+## Approvals inbox polish + fixes (live)
+- `components/approvals/pending-approvals-inbox.tsx`: Site filter is now a site picker (was free text sent as siteId, so names matched nothing); comment box resets when the shown item changes (a comment could be sent with another item's decision); empty categories move under "More"; search/priority/site/date in one row; own requests show a "Your request" badge, no checkbox, amber notice and no comment box; Approve button brand green; comment label says required to reject/return.
+- Tests: web `npm test` 553 pass, tsc clean. Not browser-tested. API unchanged (own-request rule kept).

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DateRangeField } from "@/components/forms/date-fields";
 import { DebouncedField } from "@/components/forms/debounced-field";
 import { JobsPagination } from "@/components/operational/jobs-pagination";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { ErrorState } from "@/components/ui/page-state";
 import { TouchCheckbox } from "@/components/ui/touch-checkbox";
 import { QueueChip } from "@/components/ui/dashboard";
@@ -88,6 +89,9 @@ export function PendingApprovalsInbox({
   const [openId, setOpenId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const totals = tabCounts(items, counts);
+  // Categories with nothing pending sit under "More" so the row stays short (the open tab is always shown).
+  const primaryTabs = INBOX_TAB_LABELS.filter((entry) => entry.id === "all" || entry.id === "requests" || entry.id === tab || (totals[entry.id] ?? 0) > 0);
+  const emptyTabs = INBOX_TAB_LABELS.filter((entry) => !primaryTabs.includes(entry));
   const visible = useMemo(() => {
     const filtered = tab === "all" ? items : items.filter((item) => item.tab === tab);
     return sortOldestFirst(filtered);
@@ -105,6 +109,12 @@ export function PendingApprovalsInbox({
   }, [visibleKey]);
   const explicit = visible.find((item) => item.id === openId) ?? null;
   const desktopItem = explicit ?? visible[0] ?? null;
+  const shownId = desktopItem?.id ?? null;
+
+  // A comment typed for one item must never be sent with another item's decision.
+  useEffect(() => {
+    setReason("");
+  }, [shownId]);
 
   function toggle(id: string) {
     setSelected((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
@@ -117,11 +127,11 @@ export function PendingApprovalsInbox({
 
   return (
     <div className="min-w-0">
-      <p className="text-sm text-slate-600" data-testid="approval-total">
+      <p className="sr-only" data-testid="approval-total">
         {totals.all ?? 0} pending
       </p>
-      <div className="mt-3 flex gap-2 overflow-x-auto" role="tablist">
-        {INBOX_TAB_LABELS.map((entry) => (
+      <div className="mt-3 flex flex-wrap items-center gap-2" role="tablist">
+        {primaryTabs.map((entry) => (
           <button
             key={entry.id}
             type="button"
@@ -135,11 +145,33 @@ export function PendingApprovalsInbox({
             </QueueChip>
           </button>
         ))}
+        {emptyTabs.length > 0 ? (
+          <details className="relative">
+            <summary className="cursor-pointer list-none rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600">
+              More ▾
+            </summary>
+            <div className="absolute left-0 z-20 mt-1 w-56 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+              {emptyTabs.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === entry.id}
+                  className="flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  onClick={() => onTab(entry.id)}
+                >
+                  {entry.label}
+                  <span className="text-xs text-slate-400">{totals[entry.id] ?? 0}</span>
+                </button>
+              ))}
+            </div>
+          </details>
+        ) : null}
       </div>
-      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_11rem]">
+      <div className="mt-3 flex flex-wrap items-end gap-3">
         <DebouncedField
           type="search"
-          className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm"
+          className="min-h-11 min-w-[14rem] flex-1 rounded-lg border border-slate-300 px-3 text-sm"
           placeholder="Search reference, title, or requester"
           value={search}
           onCommit={onSearch}
@@ -151,19 +183,16 @@ export function PendingApprovalsInbox({
             <option key={value} value={value}>{priorityLabel(value)}</option>
           ))}
         </select>
-      </div>
-      <details className="mt-2">
-        <summary className="cursor-pointer text-sm font-medium text-blue-700">More filters</summary>
-        <div className="mt-2 grid max-w-3xl gap-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
-          <DebouncedField className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm" label="Site" placeholder="Site" value={site} onCommit={onSite} />
-          <DateRangeField from={from} to={to} onFromChange={onFrom} onToChange={onTo} />
+        <div className="w-52">
+          <EntityPicker endpoint="/organization/sites" placeholder="All sites" value={site} displayField="name" secondaryField="code" onChange={(id) => onSite(id ?? "")} />
         </div>
-      </details>
+        <DateRangeField from={from} to={to} onFromChange={onFrom} onToChange={onTo} />
+      </div>
       {bulk.selected.length > 0 ? (
       <div className="mt-3 flex items-center gap-2">
         <button
           type="button"
-          className="min-h-11 rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white disabled:opacity-40"
+          className="min-h-11 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white disabled:opacity-40"
           disabled={bulkBusy || !bulk.sameKind || bulk.selected.length === 0 || bulk.selected.some((item) => !item.canDecide)}
           aria-busy={bulkBusy}
           onClick={() => onBulkApprove(bulk.selected)}
@@ -205,16 +234,18 @@ export function PendingApprovalsInbox({
                 return (
                   <li key={item.id}>
                     <div className={`flex gap-3 px-4 py-3 ${active ? "bg-emerald-50/60" : ""}`}>
-                      <TouchCheckbox className="mt-0" label={item.canDecide === false ? `${item.reference}: you cannot approve this` : `Select ${item.reference}`} disabled={item.canDecide === false} checked={selected.includes(item.id)} onChange={() => toggle(item.id)} />
+                      {item.canDecide === false ? null : (
+                        <TouchCheckbox className="mt-0" label={`Select ${item.reference}`} checked={selected.includes(item.id)} onChange={() => toggle(item.id)} />
+                      )}
                       <button type="button" className="min-w-0 flex-1 text-left" data-testid="approval-card" onClick={() => setOpenId(item.id)}>
                         <span className="flex items-start justify-between gap-3">
                           <span className="min-w-0">
                             <span className="block font-medium text-slate-900">{item.title}</span>
-                            <span className="mt-0.5 block truncate text-xs text-slate-500">
+                            <span className="mt-0.5 block text-xs text-slate-500">
                               {item.reference}
                               {item.requesterName ? ` · ${item.requesterName}` : ""}
                               {item.age ? ` · ${item.age}` : ""}
-                              {item.canDecide === false ? " · can't approve (your request)" : ""}
+                              {item.canDecide === false ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">Your request</span> : null}
                             </span>
                           </span>
                           {tone ? (
@@ -321,19 +352,22 @@ function DetailPanel({
           {item.attachments.map((file) => <p key={file.id} className="text-sm">{file.label}</p>)}
         </div>
       ) : null}
-      <label className="mt-4 block text-sm">
-        Comment
-        <textarea className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Add a note for the requester..." value={reason} onChange={(event) => onReason(event.target.value)} />
-      </label>
+      {!item.canDecide && !item.canReturn ? (
+        <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          You can't decide on this one. It is your own request or waiting for someone else.
+        </p>
+      ) : (
+        <label className="mt-4 block text-sm">
+          Comment <span className="text-xs text-slate-500">(required to reject or return)</span>
+          <textarea className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Add a note for the requester..." value={reason} onChange={(event) => onReason(event.target.value)} />
+        </label>
+      )}
       <div className="mt-3 flex flex-wrap justify-end gap-2">
         {item.canDecide ? (
           <>
             <button type="button" disabled={busy} className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-800 disabled:opacity-50" onClick={() => onDecide(item, "REJECTED")}>Reject</button>
-            <button type="button" disabled={busy} aria-busy={busy} className="min-h-11 rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white disabled:opacity-50" onClick={() => onDecide(item, "APPROVED")}>{busy ? "Saving…" : "Approve"}</button>
+            <button type="button" disabled={busy} aria-busy={busy} className="min-h-11 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white disabled:opacity-50" onClick={() => onDecide(item, "APPROVED")}>{busy ? "Saving…" : "Approve"}</button>
           </>
-        ) : null}
-        {!item.canDecide && !item.canReturn ? (
-          <p className="text-sm text-slate-500">You can't decide on this one. It is your own request or waiting for someone else.</p>
         ) : null}
         {item.canReturn ? (
           <button type="button" disabled={busy} className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm disabled:opacity-50" onClick={() => onDecide(item, "RETURNED")}>Return for info</button>
