@@ -231,7 +231,7 @@ export default function AdminApprovalsPage() {
                     <span>{PROCESS_LABELS[rule.processType] ?? rule.processType}</span>
                     {rule.priorityScope?.length ? (
                       <span className="ml-2 inline-block align-middle">
-                        <StatusBadge label={formatRoleLabel(rule.priorityScope[0]!).toLowerCase().replace(/^./, (c) => c.toUpperCase())} tone={rule.priorityScope[0] === "CRITICAL" ? "red" : "amber"} />
+                        <StatusBadge status={rule.priorityScope[0]!} label={formatRoleLabel(rule.priorityScope[0]!).toLowerCase().replace(/^./, (c) => c.toUpperCase())} tone={rule.priorityScope[0] === "CRITICAL" ? "red" : "amber"} />
                       </span>
                     ) : null}
                   </td>
