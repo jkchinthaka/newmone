@@ -1,5 +1,6 @@
 "use client";
 
+import { MasterListInput } from "@/components/ui/master-list-input";
 import Link from "next/link";
 import type { Route } from "next";
 import { useEffect, useMemo, useState } from "react";
@@ -245,7 +246,7 @@ function OneAssetForm() {
             <label className="text-sm">Asset tag *<input className={field} value={form.assetTag} onChange={(e) => set("assetTag", e.target.value.toUpperCase())} /><span className="text-xs text-slate-500">Suggested automatically. Printed on the QR label.</span></label>
             <label className="text-sm">Serial number<input className={field} value={form.serialNumber} onChange={(e) => set("serialNumber", e.target.value)} /></label>
             <label className="text-sm">ERP / fixed asset code<input className={field} value={form.fixedAssetCode} maxLength={64} onChange={(e) => set("fixedAssetCode", e.target.value)} /><span className="text-xs text-slate-500">From the finance asset register, if it has one.</span></label>
-            <label className="text-sm">Make (manufacturer)<input className={field} value={form.manufacturer} onChange={(e) => set("manufacturer", e.target.value)} /></label>
+            <label className="text-sm">Make (manufacturer)<MasterListInput kind="make" className={field} value={form.manufacturer} onValueChange={(v) => set("manufacturer", v)} /></label>
             <label className="text-sm">Model<input className={field} value={form.model} onChange={(e) => set("model", e.target.value)} /></label>
             <label className="text-sm sm:col-span-2">Notes<textarea className={`${field} min-h-20 py-2`} value={form.description} onChange={(e) => set("description", e.target.value)} /></label>
           </div>

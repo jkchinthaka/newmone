@@ -91,4 +91,25 @@ export class MasterListsService {
     if (!row) throw new NotFoundException("Entry not found.");
     return this.prisma.workCalendarEntry.update({ where: { id }, data: { isActive: false } });
   }
+
+  /** Moves a date forward past any holidays in the work calendar (max 14 days). Never throws. */
+  async skipHolidays(tenantId: string, date: Date): Promise<Date> {
+    try {
+      const from = new Date(date);
+      from.setUTCHours(0, 0, 0, 0);
+      const until = new Date(from.getTime() + 15 * 86_400_000);
+      const rows = await this.prisma.workCalendarEntry.findMany({
+        where: { tenantId, kind: "HOLIDAY", isActive: true, date: { gte: from, lt: until } },
+        select: { date: true }
+      });
+      const off = new Set(rows.map((r) => r.date?.toISOString().slice(0, 10)));
+      let result = new Date(date);
+      for (let i = 0; i < 14 && off.has(result.toISOString().slice(0, 10)); i += 1) {
+        result = new Date(result.getTime() + 86_400_000);
+      }
+      return result;
+    } catch {
+      return date;
+    }
+  }
 }

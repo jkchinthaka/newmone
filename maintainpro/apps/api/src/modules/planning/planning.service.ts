@@ -50,6 +50,7 @@ import {
   type TriggerDefinition
 } from "./trigger-engine";
 import { initialPmNextDueAt } from "./pm-baseline";
+import { MasterListsService } from "../master-lists/master-lists.service";
 
 type Actor = Pick<JwtPayload, "sub" | "tenantId" | "role" | "email"> & {
   permissions?: string[];
@@ -110,7 +111,8 @@ export class PlanningService {
     @Optional() private readonly reliability?: ReliabilityService,
     @Optional()
     @Inject(EvidenceStorageProviderService)
-    private readonly evidenceStorage?: EvidenceStorageProviderService
+    private readonly evidenceStorage?: EvidenceStorageProviderService,
+    @Optional() private readonly masterLists?: MasterListsService
   ) {}
 
   // ----- PM Plans -----
@@ -615,7 +617,7 @@ export class PlanningService {
           vehicleId: plan.vehicleId ?? undefined,
           siteId: plan.siteId ?? undefined,
           functionalLocationId: plan.functionalLocationId ?? undefined,
-          dueDate: this.workOrderDueForAutoGeneration(evaluation.dueAt, ctx.now),
+          dueDate: await this.dueAvoidingHolidays(plan.tenantId, this.workOrderDueForAutoGeneration(evaluation.dueAt, ctx.now)),
           idempotencyKey: `pm:${plan.id}:${generationKey}`
         },
         {
@@ -1977,6 +1979,12 @@ export class PlanningService {
   }
 
   /** Overdue plans still generate a work order. A past plan due date is stored as the evaluation time so create validation accepts it. */
+  /** Pushes an auto-generated due date past holidays set in the work calendar. */
+  private async dueAvoidingHolidays(tenantId: string | null | undefined, iso: string | undefined): Promise<string | undefined> {
+    if (!iso || !tenantId || !this.masterLists) return iso;
+    return (await this.masterLists.skipHolidays(tenantId, new Date(iso))).toISOString();
+  }
+
   private workOrderDueForAutoGeneration(dueAt: Date | null | undefined, now?: Date): string | undefined {
     if (!dueAt) return undefined;
     const clock = now ?? new Date();

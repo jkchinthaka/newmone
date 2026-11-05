@@ -7,6 +7,7 @@ import { ReliabilityModule } from "../reliability/reliability.module";
 import { WorkOrdersModule } from "../work-orders/work-orders.module";
 import { PlanningController } from "./planning.controller";
 import { PlanningService } from "./planning.service";
+import { MasterListsModule } from "../master-lists/master-lists.module";
 import { PmAutoSchedulerService } from "./pm-auto-scheduler.service";
 
 @Module({
@@ -15,6 +16,7 @@ import { PmAutoSchedulerService } from "./pm-auto-scheduler.service";
     WorkOrdersModule,
     ApprovalsModule,
     ReliabilityModule,
+    MasterListsModule,
     forwardRef(() => MaintenanceRequestsModule)
   ],
   controllers: [PlanningController],

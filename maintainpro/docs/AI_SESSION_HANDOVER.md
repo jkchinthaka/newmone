@@ -1441,3 +1441,8 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 ## Master lists wired into forms (live)
 - `components/ui/master-list-input.tsx` (MasterListInput datalist, MasterListChips). Used: part unit (goods-in dialog, uses short form), vehicle Make (vehicles page + admin vehicles/new), Add person skills (chips). Typing free text still works.
 - "Makes & models" renamed "Makes" (models stay typed). Work calendar not yet used by due-date logic.
+
+## Work calendar + more pickers (live)
+- PM auto-generated work order due dates now skip holidays from the work calendar (`MasterListsService.skipHolidays`, injected @Optional into PlanningService; no-op if nothing set). Weekends/shifts not yet used.
+- Asset manufacturer (admin/assets/new) uses Makes picker; Employees page skills use skill chips.
+- Validation: api + web tsc clean; planning-phase08 + planning-validation jest pass (25).
