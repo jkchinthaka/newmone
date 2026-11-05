@@ -8,18 +8,14 @@ export const PRIMARY_QUEUE_KEYS = [
   "action-required",
   "my-tasks",
   "open-requests",
-  "assigned",
   "in-progress",
   "waiting-parts",
-  "supervisor-verification",
   "overdue",
-  "unassigned",
-  "high-priority",
   "completed"
 ] as const;
 
 const PRIMARY_LABELS: Record<string, string> = {
-  "action-required": "Action Required",
+  "action-required": "Needs action",
   "my-tasks": "My Tasks",
   "open-requests": "Open",
   assigned: "Assigned",
@@ -33,6 +29,10 @@ const PRIMARY_LABELS: Record<string, string> = {
 };
 
 const MORE_ORDER = [
+  "assigned",
+  "supervisor-verification",
+  "unassigned",
+  "high-priority",
   "approved-planned",
   "waiting-evidence",
   "technician-completed",

@@ -431,15 +431,18 @@ export function WorkOrderQueuePanel({
   return (
     <div className="min-w-0 space-y-4">
       {kpis.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Job summary">
+        <div className="flex flex-wrap gap-x-6 gap-y-1" aria-label="Job summary">
           {kpis.map((card) => (
             <button
               key={card.id}
               type="button"
-              className="flex h-full flex-col rounded-card text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+              className="flex items-baseline gap-1.5 rounded text-left text-sm text-slate-600 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
               onClick={() => updateFilters({ queue: card.queue, smartView: undefined, page: 1 })}
+              title={card.delta}
             >
-              <KpiCard className="h-full w-full flex-1" delta={card.delta} icon={KPI_ICONS[card.id]} label={card.label} tone={card.tone} value={String(card.value)} />
+              <span className={`text-lg font-semibold tabular-nums ${card.tone === "red" && card.value > 0 ? "text-rose-600" : "text-slate-900"}`}>{String(card.value)}</span>
+              {card.label.toLowerCase()}
+              {card.delta ? <span className="text-xs text-slate-400">· {card.delta}</span> : null}
             </button>
           ))}
         </div>
@@ -693,7 +696,14 @@ export function WorkOrderQueuePanel({
           </div>
         ) : rows.length === 0 ? (
           <OperationalEmptyState
-            onClear={clearFilters}
+            title={
+              chips.length === 0 && !filters.query
+                ? filters.queue === "action-required"
+                  ? "No jobs need action right now."
+                  : "Nothing in this list right now."
+                : undefined
+            }
+            onClear={chips.length === 0 && !filters.query ? undefined : clearFilters}
             onViewAll={
               visibleQueues.some((queue) => queue.key === "all") || summaryData.defaultQueue
                 ? () =>

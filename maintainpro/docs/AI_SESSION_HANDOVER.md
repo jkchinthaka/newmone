@@ -1501,3 +1501,8 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 ## Procedures page (branch live)
 - `admin/checklist-templates/page.tsx`: UI-only redesign. "+ New procedure" dialog (name, auto code, applies-to, multi-step list with friendly answer types, move up/down, add/remove). Edit now really edits steps and creates a new version via existing `PUT /planning/checklist-templates/:id/revise` (previously "Revise" only re-saved same items). Search + domain chips, friendly labels. No API/DB change.
 - Tests: web tsc clean, `npm test` 553 pass. Not browser-tested.
+
+## Jobs + History polish (branch live)
+- UI only. Queue tabs trimmed to Needs action / My Tasks / Open / In Progress / Waiting for parts / Overdue / Completed (Assigned, Done-waiting-for-check, Unassigned, High Priority moved to More). KPI cards -> compact inline counts. Create job button brand green. Empty queue wording. History: no Action column (row opens job), cost "—" when 0, "No asset", friendly category, From/To date labels, breadcrumb "Jobs > History".
+- Not changed (backend rule): Action Required queue does not include unassigned jobs (`actionRequiredWhere`).
+- Tests: web tsc clean, `npm test` 553 pass (queue-nav test label updated). Not browser-tested.

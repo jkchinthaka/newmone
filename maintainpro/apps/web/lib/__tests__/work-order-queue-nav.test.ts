@@ -394,7 +394,7 @@ test("primary queues stay visible and secondary queues move into More", () => {
   const split = splitQueueTabs(queues);
   assert.deepEqual(
     split.primary.map((queue) => queue.label),
-    ["Action Required", "My Tasks", "Open", "Overdue"]
+    ["Needs action", "My Tasks", "Open", "Overdue"]
   );
   assert.deepEqual(
     split.more.map((queue) => queue.key),

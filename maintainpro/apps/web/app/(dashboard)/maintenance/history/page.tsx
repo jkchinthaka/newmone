@@ -55,6 +55,7 @@ function formatWhen(value: string | null) {
 }
 
 function formatCost(value: number | null) {
+  if (!value) return "—";
   return formatNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
@@ -143,13 +144,13 @@ export default function MaintenanceHistoryPage() {
       <JobLaneTabs />
       <PageBreadcrumbs
         items={[
-          { label: "Maintenance", href: "/maintenance" },
+          { label: "Jobs", href: "/maintenance/jobs" },
           { label: "History" }
         ]}
       />
       <OperationalPageHeader
-        title="Job History"
-        description="Completed and closed work. Open a row for that job’s history. Cancelled jobs stay out of this list until you ask for them."
+        title="History"
+        description="Completed and closed jobs. Click a row to see what was done. Cancelled jobs are hidden unless you filter for them."
       />
 
       <section className="rounded-lg border border-slate-200 bg-white">
@@ -171,8 +172,8 @@ export default function MaintenanceHistoryPage() {
             <option value="asset">Assets</option>
             <option value="vehicle">Vehicles</option>
           </select>
-          <DateField bare label="Completed from" value={state.from} onChange={(from) => write({ from: from || null })} />
-          <DateField bare label="Completed to" value={state.to} onChange={(to) => write({ to: to || null })} />
+          <div><span className="mb-0.5 block text-[11px] font-medium text-slate-500">From date</span><DateField bare label="Completed from" value={state.from} onChange={(from) => write({ from: from || null })} /></div>
+          <div><span className="mb-0.5 block text-[11px] font-medium text-slate-500">To date</span><DateField bare label="Completed to" value={state.to} onChange={(to) => write({ to: to || null })} /></div>
           <select
             aria-label="Job status"
             className="h-10 rounded-md border border-slate-300 px-2 text-sm"
@@ -254,18 +255,16 @@ export default function MaintenanceHistoryPage() {
                   <tr>
                     <th className="px-3 py-2">Job No</th>
                     <th className="px-3 py-2">Asset / vehicle</th>
-                    <th className="px-3 py-2">Work performed</th>
+                    <th className="px-3 py-2">Work done</th>
                     <th className="hidden xl:table-cell px-3 py-2">Category</th>
-                    <th className="px-3 py-2">Completed / closed</th>
+                    <th className="px-3 py-2">Closed</th>
                     <th className="hidden lg:table-cell px-3 py-2">Technician</th>
-                    <th className="hidden lg:table-cell px-3 py-2">Cost</th>
+                    <th className="hidden lg:table-cell px-3 py-2">Cost (LKR)</th>
                     <th className="px-3 py-2">Status</th>
-                    <th className="px-3 py-2">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((row) => {
-                    const href = historyRecordHref(row.id);
                     return (
                       <tr
                         key={row.id}
@@ -278,7 +277,7 @@ export default function MaintenanceHistoryPage() {
                       >
                         <td className="px-3 py-2 font-medium text-slate-900">{row.woNumber}</td>
                         <td className="px-3 py-2">
-                          <div>{row.assetLabel}</div>
+                          <div className={row.assetLabel === "Unassigned" ? "text-slate-400" : undefined}>{row.assetLabel === "Unassigned" ? "No asset" : row.assetLabel}</div>
                           {row.assetCode && row.assetCode !== row.assetLabel ? (
                             <div className="text-xs text-slate-500">{row.assetCode}</div>
                           ) : null}
@@ -287,21 +286,12 @@ export default function MaintenanceHistoryPage() {
                           <div className="truncate">{row.title}</div>
                           {row.vendor ? <div className="truncate text-xs text-slate-500">{row.vendor}</div> : null}
                         </td>
-                        <td className="hidden xl:table-cell px-3 py-2 text-slate-600">{row.category}</td>
+                        <td className="hidden xl:table-cell px-3 py-2 text-slate-600">{formatEnumLabel(row.category)}</td>
                         <td className="px-3 py-2 text-slate-700">{formatWhen(row.finalizedAt)}</td>
                         <td className="hidden lg:table-cell px-3 py-2 text-slate-700">{row.technician || "—"}</td>
                         <td className="hidden lg:table-cell px-3 py-2 text-slate-700">{formatCost(row.cost)}</td>
                         <td className={`px-3 py-2 ${row.status === "CANCELLED" ? "font-medium text-rose-800" : "text-slate-700"}`}>
                           {statusLabel(row.status)}
-                        </td>
-                        <td className="px-3 py-2">
-                          <Link
-                            href={href as Route}
-                            className="font-medium text-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            Open
-                          </Link>
                         </td>
                       </tr>
                     );
