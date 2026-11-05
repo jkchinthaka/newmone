@@ -358,6 +358,7 @@ export type AssetsTableProps<T extends AssetTableRow = AssetTableRow> = {
   rows: T[];
   visibleColumns: Record<AssetColumnKey, boolean>;
   selectedIds: string[];
+  selectable?: boolean;
   highlightedRowId: string | null;
   openRowMenuId: string | null;
   statusPrompt: StatusPromptState | null;
@@ -386,6 +387,7 @@ export function AssetsTable<T extends AssetTableRow>({
   rows,
   visibleColumns,
   selectedIds,
+  selectable = true,
   highlightedRowId,
   openRowMenuId,
   statusPrompt,
@@ -461,7 +463,7 @@ export function AssetsTable<T extends AssetTableRow>({
             ) : (
               <>
                 <span className="block text-amber-700">Not placed</span>
-                <Link href={"/floor-plans" as Route} className="block text-xs font-medium text-brand-700 hover:underline" onClick={(event) => event.stopPropagation()}>
+                <Link href={"/floor-plans" as Route} className="block text-xs font-semibold !text-brand-700 hover:underline" onClick={(event) => event.stopPropagation()}>
                   Place on a floor plan →
                 </Link>
               </>
@@ -500,7 +502,8 @@ export function AssetsTable<T extends AssetTableRow>({
       });
     }
 
-    next.push({
+    const quiet = (label: string) => label === "No recent service" || label === "Active / no action";
+    if (rows.some((row) => !quiet(assetNextAction(row)))) next.push({
       id: "nextAction",
       header: "Next action",
       mobileLabel: "Next action",
@@ -513,7 +516,7 @@ export function AssetsTable<T extends AssetTableRow>({
     });
 
     return next;
-  }, [visibleColumns]);
+  }, [visibleColumns, rows]);
 
   return (
     <>
@@ -560,21 +563,23 @@ export function AssetsTable<T extends AssetTableRow>({
       getRowId={(row) => row.id}
       getRowLabel={(asset) => `Open details for ${asset.assetTag}`}
       leadingHeader={
-        <TouchCheckbox
-          label="Select all assets on this page"
-          checked={allPageSelected}
-          onChange={(event) => onTogglePageSelection(pageIds, event.target.checked)}
-        />
+        selectable ? (
+          <TouchCheckbox
+            label="Select all assets on this page"
+            checked={allPageSelected}
+            onChange={(event) => onTogglePageSelection(pageIds, event.target.checked)}
+          />
+        ) : undefined
       }
       minWidth="720px"
       onRowClick={(asset) => onOpenDetails(asset.id)}
-      renderLeadingCell={(asset) => (
+      renderLeadingCell={selectable ? (asset) => (
         <TouchCheckbox
           label={`Select ${asset.assetTag}`}
           checked={selectedIds.includes(asset.id)}
           onChange={() => onToggleRowSelection(asset.id)}
         />
-      )}
+      ) : undefined}
       renderActions={
         visibleColumns.actions
           ? (asset) => (

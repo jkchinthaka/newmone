@@ -1486,3 +1486,6 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 ## Departments page (branch live)
 - `master-data/departments/page.tsx`: UI-only. Centered max-w-6xl, flat table (Code, Name, Parent, Manager, Used by, actions), "+ Add department" opens create/edit dialog (same fields/API), search + Bulk upload row. Parent/child tree expand removed in favour of Parent column.
 - Tests: web tsc clean, `npm test` 553 pass. Not browser-tested.
+
+## Asset registry polish 2 (branch live)
+- Select mode (checkbox column hidden until "Select" pressed or rows selected), Next action column only when a row has an action, registry header slimmed, floor-plan link forced brand colour. UI only; tsc clean, web tests 553 pass.

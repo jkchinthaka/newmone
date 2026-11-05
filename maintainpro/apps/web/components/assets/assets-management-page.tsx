@@ -897,6 +897,7 @@ export default function AssetsManagementPage() {
   const [deleteTarget, setDeleteTarget] = useState<AssetListItem | null>(null);
   const [qrTarget, setQrTarget] = useState<AssetListItem | AssetDetail | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
   const [showColumnPicker, setShowColumnPicker] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
@@ -1731,12 +1732,19 @@ export default function AssetsManagementPage() {
         )}
 
         <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">Asset registry</h3>
-              <p className="text-sm text-slate-500">Tap a machine to see its details, jobs and QR tag.</p>
-            </div>
-            <div ref={columnPickerRef} className="relative">
+          <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-2.5">
+            <p className="text-sm text-slate-500">Tap a machine to see its details, jobs and QR tag.</p>
+            <div ref={columnPickerRef} className="relative flex items-center gap-2">
+              <button
+                type="button"
+                aria-pressed={selectMode}
+                onClick={() => {
+                  if (selectMode || selectedIds.length > 0) { setSelectMode(false); clearSelection(); } else setSelectMode(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+              >
+                {selectMode || selectedIds.length > 0 ? "Done selecting" : "Select"}
+              </button>
               <button
                 onClick={() => {
                   setShowColumnPicker((current) => !current);
@@ -1796,6 +1804,7 @@ export default function AssetsManagementPage() {
                 rows={rows}
                 visibleColumns={visibleColumns}
                 selectedIds={selectedIds}
+                selectable={selectMode || selectedIds.length > 0}
                 highlightedRowId={highlightedRowId}
                 openRowMenuId={openRowMenuId}
                 statusPrompt={statusPrompt}
