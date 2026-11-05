@@ -46,6 +46,9 @@ type PartRow = {
   quantityInStock?: number | null;
   reservedQuantity?: number | null;
   availableQuantity?: number | null;
+  unit?: string | null;
+  reorderPoint?: number | null;
+  minimumStock?: number | null;
   location?: string | null;
   supplier?: { id?: string; name?: string | null } | null;
   stockMovements?: Array<{ createdAt?: string; type?: string }>;
@@ -80,8 +83,19 @@ type Dashboard = {
   reserved?: number;
   available?: number;
   outOfStock?: number;
+  lowStock?: number;
   pendingImports?: number;
 };
+
+/** Stock health for one part: out, low (at or under the reorder level) or fine. */
+function stockHealth(row: PartRow): { key: "out" | "low" | "ok"; label: string; pill: string; bar: string; pct: number } {
+  const onHand = row.quantityInStock ?? 0;
+  const threshold = Math.max(row.minimumStock ?? 0, row.reorderPoint ?? 0);
+  if (onHand <= 0) return { key: "out", label: "Out of stock", pill: "bg-rose-100 text-rose-700", bar: "bg-rose-500", pct: 0 };
+  const pct = threshold > 0 ? Math.min(100, Math.round((onHand / (threshold * 2)) * 100)) : 100;
+  if (threshold > 0 && onHand <= threshold) return { key: "low", label: `Low · reorder at ${threshold}`, pill: "bg-amber-100 text-amber-700", bar: "bg-amber-500", pct };
+  return { key: "ok", label: "In stock", pill: "bg-emerald-100 text-emerald-700", bar: "bg-emerald-500", pct };
+}
 
 export function InventoryControlPage() {
   const router = useRouter();
@@ -289,15 +303,13 @@ export function InventoryControlPage() {
             {canDoGoodsIn(roleName) ? (
               <button
                 type="button"
-                className="inline-flex min-h-11 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700"
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
                 onClick={() => setGoodsInOpen(true)}
               >
                 <PackagePlus size={16} aria-hidden /> Goods in
               </button>
             ) : null}
-            <button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm" onClick={() => setReloadKey((value) => value + 1)}>Refresh</button>
-            <button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm" onClick={exportPage}>Export page</button>
-            <button type="button" className="min-h-11 rounded-md border border-slate-300 px-3 text-sm" aria-expanded={more} onClick={() => setMore((value) => !value)}>More filters</button>
+            <button type="button" className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium" onClick={exportPage}>Export page</button>
           </>
         }
       />
@@ -308,15 +320,13 @@ export function InventoryControlPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6" aria-label="Inventory summary">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Inventory summary" title={STOCK_CAPTION}>
             {(
               [
-                ["Total parts", summary?.totalItems, Package, "neutral"],
-                ["On hand", summary?.onHand, Database, "sky"],
-                ["Reserved", summary?.reserved, Lock, "amber"],
-                ["Available", summary?.available, Boxes, "emerald"],
-                ["Out of stock", summary?.outOfStock, AlertTriangle, "red"],
-                ["Pending imports", summary?.pendingImports, Upload, "neutral"]
+                ["Parts", summary?.totalItems, Package, "neutral"],
+                ["Units on hand", summary?.onHand, Database, "sky"],
+                ["Low stock", summary?.lowStock, AlertTriangle, "amber"],
+                ["Out of stock", summary?.outOfStock, AlertTriangle, "red"]
               ] as Array<[string, number | undefined, LucideIcon, StatusTone]>
             ).map(([label, value, Icon, tone]) => (
               <KpiCard
@@ -329,10 +339,14 @@ export function InventoryControlPage() {
               />
             ))}
           </div>
-          <p className="text-sm text-slate-600">{STOCK_CAPTION}</p>
         </>
       )}
-      {showPartsToIssue ? (
+      {showPartsToIssue && partsToIssue && partsToIssue.items.length === 0 && !partsToIssueError ? (
+        <p className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600">
+          No parts waiting to be issued · {summary?.pendingImports ?? 0} pending ERP imports
+        </p>
+      ) : null}
+      {showPartsToIssue && !(partsToIssue && partsToIssue.items.length === 0 && !partsToIssueError) ? (
         <SectionCard
           title={partsToIssue && partsToIssue.total > 0 ? `Parts to issue (${partsToIssue.total})` : "Parts to issue"}
           description="Approved part requests waiting for stores. Open the job to issue the parts."
@@ -388,18 +402,15 @@ export function InventoryControlPage() {
           <BarList items={topUsed.map((row) => ({ name: row.partName, value: row.quantity }))} />
         </SectionCard>
       ) : null}
-      <div className="flex flex-wrap gap-3 text-sm">
-        <button type="button" className="text-brand-800" onClick={() => write({ ...inventoryControlFromSearch(new URLSearchParams()), stock: "out", pageSize: state.pageSize })}>Show out of stock</button>
-        <Link href={"/inventory/erp-import" as never} className="text-brand-800">Pending imports</Link>
+      <div className="flex flex-wrap gap-2 text-sm" role="group" aria-label="Quick views">
+        <button type="button" aria-pressed={!state.stock} className={`rounded-full border px-3.5 py-1.5 ${!state.stock ? "border-brand-300 bg-brand-50 font-semibold text-brand-700" : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"}`} onClick={() => write({ ...state, stock: "", page: 1 })}>All</button>
+        <button type="button" aria-pressed={state.stock === "out"} className={`rounded-full border px-3.5 py-1.5 ${state.stock === "out" ? "border-brand-300 bg-brand-50 font-semibold text-brand-700" : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"}`} onClick={() => write({ ...inventoryControlFromSearch(new URLSearchParams()), stock: "out", pageSize: state.pageSize })}>Out of stock {typeof summary?.outOfStock === "number" ? <b>{summary.outOfStock}</b> : null}</button>
+        <Link href={"/inventory/erp-import" as never} className="rounded-full border border-slate-300 bg-white px-3.5 py-1.5 text-slate-600 hover:bg-slate-50">Pending imports {typeof summary?.pendingImports === "number" ? <b>{summary.pendingImports}</b> : null}</Link>
       </div>
       <section className="rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
           <label className="sr-only" htmlFor="inventory-search">Search parts</label>
           <input id="inventory-search" value={draftQuery} onChange={(event) => setDraftQuery(event.target.value)} placeholder="Part name, code, or ERP code" className="min-h-11 min-w-48 flex-1 rounded-md border border-slate-300 px-3 text-sm" />
-          <select aria-label="Stock" value={state.stock} onChange={(event) => write({ ...state, stock: event.target.value as InventoryControlState["stock"], page: 1 })} className="min-h-11 rounded-md border border-slate-300 px-2 text-sm">
-            <option value="">Any stock</option>
-            <option value="out">Out of stock</option>
-          </select>
           <select aria-label="Sort" value={`${state.sortBy}:${state.sortDir}`} onChange={(event) => {
             const [sortBy, sortDir] = event.target.value.split(":");
             write({ ...state, sortBy: sortBy as InventoryControlState["sortBy"], sortDir: sortDir === "asc" ? "asc" : "desc", page: 1 });
@@ -409,7 +420,8 @@ export function InventoryControlPage() {
             <option value="partNumber:asc">Part code</option>
             <option value="quantityInStock:asc">On hand, low to high</option>
           </select>
-          <button type="button" className="min-h-11 px-2 text-sm" onClick={() => write({ ...inventoryControlFromSearch(new URLSearchParams()), partId: state.partId })}>Clear</button>
+          <button type="button" className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm" aria-expanded={more} onClick={() => setMore((value) => !value)}>More filters</button>
+          <button type="button" className="min-h-11 px-2 text-sm text-slate-600" onClick={() => write({ ...inventoryControlFromSearch(new URLSearchParams()), partId: state.partId })}>Clear</button>
         </div>
         {more ? (
           <div className="flex flex-wrap gap-2 border-b border-slate-200 px-3 py-2">
@@ -449,9 +461,9 @@ export function InventoryControlPage() {
                   <article className={`rounded-lg border p-3 ${row.id === state.partId ? "border-brand-300 bg-brand-50" : "border-slate-200 bg-white"}`}>
                     <button type="button" className="min-h-11 text-left font-medium text-slate-900" onClick={() => write({ ...state, partId: row.id })}>{row.name}</button>
                     <p className="text-xs text-slate-500">{row.partNumber}</p>
-                    <p className="mt-1 text-xs text-slate-600">On hand {row.quantityInStock ?? 0} · Reserved {row.reservedQuantity ?? 0} · Available {row.availableQuantity ?? 0}</p>
+                    <p className="mt-1 text-xs text-slate-600">On hand {row.quantityInStock ?? 0} {row.unit?.trim() || "pcs"} · Reserved {row.reservedQuantity ?? 0} · Available {row.availableQuantity ?? 0}</p>
                     <p className="mt-1 text-xs text-slate-500">{inventoryFreshnessLabel({ updatedAt: row.updatedAt, lastMovementAt: last })}</p>
-                    <p className="mt-1 text-sm text-slate-700">{action}</p>
+                    <p className="mt-1 text-sm text-slate-700"><span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${stockHealth(row).pill}`}>{stockHealth(row).label}</span></p>
                     <button type="button" className="mt-2 text-sm text-brand-800" onClick={() => { write({ ...state, partId: row.id }); void loadMovements(row.id); }}>View usage</button>
                   </article>
                 </li>
@@ -463,33 +475,37 @@ export function InventoryControlPage() {
               <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-3 py-2">Part</th>
-                  <th className="px-3 py-2">ERP</th>
+                  <th className="hidden px-3 py-2 lg:table-cell">Category</th>
                   <th className="px-3 py-2">On hand</th>
-                  <th className="hidden px-3 py-2 md:table-cell">Reserved</th>
                   <th className="hidden px-3 py-2 md:table-cell">Available</th>
                   <th className="hidden px-3 py-2 md:table-cell">Unit cost</th>
-                  <th className="px-3 py-2">Next</th>
+                  <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => {
                   const last = row.stockMovements?.[0]?.createdAt ?? null;
-                  const action = inventoryNextAction({ erpCode: row.erpCode, quantityInStock: row.quantityInStock, lastMovementAt: last });
+                  const health = stockHealth(row);
+                  const unit = row.unit?.trim() || "pcs";
                   return (
                     <tr key={row.id} aria-selected={row.id === state.partId} className={`border-t border-slate-100 ${row.id === state.partId ? "bg-brand-50" : ""}`}>
-                      <td className="px-3 py-2">
-                        <button type="button" className="font-medium text-slate-900" onClick={() => write({ ...state, partId: row.id })}>{row.name}</button>
-                        <p className="text-xs text-slate-500">{row.partNumber}</p>
-                        <p className="text-xs text-slate-500">{inventoryFreshnessLabel({ updatedAt: row.updatedAt, lastMovementAt: last })}</p>
+                      <td className="px-3 py-3">
+                        <button type="button" className="font-semibold text-slate-900 hover:text-brand-700" onClick={() => write({ ...state, partId: row.id })}>{row.name}</button>
+                        <p className="text-xs text-slate-500">
+                          {row.partNumber} · {inventoryFreshnessLabel({ updatedAt: row.updatedAt, lastMovementAt: last })}
+                          {row.erpCode?.trim() ? <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">ERP {row.erpCode}</span> : null}
+                        </p>
                       </td>
-                      <td className="px-3 py-2">{row.erpCode?.trim() ? row.erpCode : "Unmapped"}</td>
-                      <td className="px-3 py-2">{row.quantityInStock ?? 0}</td>
-                      <td className="hidden px-3 py-2 md:table-cell">{row.reservedQuantity ?? 0}</td>
-                      <td className="hidden px-3 py-2 md:table-cell">{row.availableQuantity ?? 0}</td>
-                      <td className="hidden px-3 py-2 md:table-cell">{row.unitCost != null ? Number(row.unitCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}</td>
-                      <td className={`px-3 py-2 ${action === "Ready" ? "text-slate-600" : "font-medium"}`}>{action}</td>
-                      <td className="px-3 py-2">
+                      <td className="hidden px-3 py-3 text-slate-600 lg:table-cell">{row.category || "—"}</td>
+                      <td className="px-3 py-3">
+                        <span className="font-semibold">{row.quantityInStock ?? 0} {unit}</span>
+                        <span className="mt-1 block h-1.5 w-24 overflow-hidden rounded bg-slate-100" aria-hidden="true"><i className={`block h-full rounded ${health.bar}`} style={{ width: `${health.pct}%` }} /></span>
+                      </td>
+                      <td className="hidden px-3 py-3 md:table-cell">{row.availableQuantity ?? 0}</td>
+                      <td className="hidden px-3 py-3 md:table-cell">{row.unitCost != null ? `LKR ${Number(row.unitCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}</td>
+                      <td className="px-3 py-3"><span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${health.pill}`}>{health.label}</span></td>
+                      <td className="px-3 py-3">
                         {/* Portal menu: the table's overflow-x-auto wrapper can no longer clip it. */}
                         <PortalRowMenu
                           label={`Actions for ${row.partNumber}`}

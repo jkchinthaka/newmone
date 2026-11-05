@@ -1455,3 +1455,6 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 
 ## Reports page restyle (live)
 - `components/reports/reports-dashboard-page.tsx`: UI only. Single report tab row (library cards removed), one Pin toggle + Saved reports on the right, Export menu + blue Generate report, date presets (custom dates + save template under More filters), single-value charts hidden, bar lists instead of donuts, status pills, "Open →". Same API calls/filters/exports. Web tsc clean.
+
+## Spare parts page restyle (live)
+- `components/inventory/inventory-control-page.tsx`: UI only. 4 KPIs (Parts, Units on hand, Low stock, Out of stock), compact "nothing to issue" note, quick-view chips, table with category, on-hand + unit + stock bar, LKR cost, status pill (low = on hand <= max(minimumStock, reorderPoint)). ERP columns replaced by an ERP badge when mapped. No Low-stock filter yet (API supports stock=out only). Web tsc clean.
