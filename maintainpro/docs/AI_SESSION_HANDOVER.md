@@ -1473,3 +1473,8 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 - Fleet header now shows per-tab primary action (Report accident / New claim / Report fine / Register vehicle) linking to `/accidents|/insurance-claims|/traffic-fines?new=1`, which opens the existing create form.
 - Accident and Fine forms: Driver is now an EntityPicker on `/drivers` (API adds flat `name` to list rows). Claim form: Accident is an EntityPicker on `/accidents`. Vehicle mileage capped at 5,000,000 km.
 - Tests: web tsc clean, `npm test` 553 pass; api tsc clean. Not browser-tested.
+
+## Assets wizard + registry polish (branch live)
+- `admin/assets/new/page.tsx`: type cards with icons + selected state, done steps show ✓, step-0 warning replaced by quiet hint, Vehicle link card, brand Next button.
+- `assets-management-page.tsx`: status chips (All + statuses, clickable), brand "+ Asset". `assets-table.tsx`: "Not placed" + "Place on a floor plan" link, "Never serviced", no-op next action shown as "—". UI only.
+- Tests: web tsc clean, `npm test` 553 pass. Not browser-tested.

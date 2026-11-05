@@ -1443,7 +1443,7 @@ export default function AssetsManagementPage() {
               )}
 
               {(currentUser.role === "SUPER_ADMIN" || currentUser.role === "ADMIN") && (
-                <Link href="/admin/assets/new" className="inline-flex h-10 items-center rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700">
+                <Link href="/admin/assets/new" className="inline-flex h-10 items-center rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white hover:bg-brand-700">
                   + Asset
                 </Link>
               )}
@@ -1451,8 +1451,15 @@ export default function AssetsManagementPage() {
           }
         />
 
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-700" aria-label="Asset summary">
-          <span>Total {summaryQuery.isLoading ? "…" : summaryCounts.total}</span>
+        <div className="flex flex-wrap gap-2 text-sm text-slate-700" aria-label="Asset summary">
+          <button
+            type="button"
+            aria-pressed={!filters.status}
+            className={`rounded-full border px-3 py-1 text-xs ${!filters.status ? "border-brand-600 bg-brand-600 font-semibold text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+            onClick={() => setFilters({ status: "" })}
+          >
+            All {summaryQuery.isLoading ? "…" : summaryCounts.total}
+          </button>
           {(
             [
               ["ACTIVE", "Active", summaryCounts.active],
@@ -1465,7 +1472,7 @@ export default function AssetsManagementPage() {
               key={status}
               type="button"
               aria-pressed={filters.status === status}
-              className={`rounded px-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${filters.status === status ? "font-semibold text-slate-900" : "text-slate-600"}`}
+              className={`rounded-full border px-3 py-1 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${filters.status === status ? "border-brand-600 bg-brand-600 font-semibold text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
               onClick={() => setFilters({ status: filters.status === status ? "" : status })}
             >
               {label} {summaryQuery.isLoading ? "…" : value}

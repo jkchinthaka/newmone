@@ -4,7 +4,7 @@ import { MasterListInput } from "@/components/ui/master-list-input";
 import Link from "next/link";
 import type { Route } from "next";
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, FileSpreadsheet, PlusSquare, QrCode, type LucideIcon } from "lucide-react";
+import { Building2, CheckCircle2, Cog, FileSpreadsheet, FlaskConical, Package, PlusSquare, QrCode, Truck, Wrench, type LucideIcon } from "lucide-react";
 
 import { AssetExcelImport } from "@/components/assets/asset-excel-import";
 import { AssetTagAssign } from "@/components/assets/asset-tag-assign";
@@ -44,6 +44,8 @@ function initialTab(): AddTab {
 }
 
 /** Add assets: one on the form, many from an Excel file, or QR tags for existing ones (Admin). */
+const TYPE_ICONS: Record<string, LucideIcon> = { MACHINE: Cog, EQUIPMENT: FlaskConical, TOOL: Wrench, INFRASTRUCTURE: Building2, OTHER: Package };
+
 export default function AddAssetsPage() {
   const user = useCurrentUser();
   const isAdmin = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
@@ -213,7 +215,7 @@ function OneAssetForm() {
       <ol className="flex flex-wrap items-center gap-2 text-xs" aria-label="Register steps">
         {ASSET_REGISTER_STEPS.map((label, index) => (
           <li key={label} className={`rounded-full px-3 py-1 ${index === step ? "bg-brand-600 font-semibold text-white" : index < step ? "bg-brand-100 text-brand-800" : "bg-slate-100 text-slate-500"}`}>
-            {index + 1}. {label}
+            {index < step ? "✓ " : `${index + 1}. `}{label}
           </li>
         ))}
       </ol>
@@ -221,21 +223,32 @@ function OneAssetForm() {
       <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
         {step === 0 ? (
           <div className="grid gap-2 sm:grid-cols-2">
-            {ASSET_REGISTER_TYPES.map((type) => (
-              <button
-                key={type.value}
-                type="button"
-                aria-pressed={form.category === type.value}
-                onClick={() => set("category", type.value)}
-                className={`min-h-16 rounded-xl border p-3 text-left ${form.category === type.value ? "border-brand-500 bg-brand-50" : "border-slate-200 hover:bg-slate-50"}`}
-              >
-                <span className="block font-semibold text-slate-900">{type.label}</span>
-                <span className="block text-xs text-slate-600">{type.help}</span>
-              </button>
-            ))}
-            <Link href={"/admin/vehicles/new" as Route} className="min-h-16 rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-700 hover:bg-slate-50">
-              <span className="block font-semibold">Vehicle?</span>
-              <span className="block text-xs text-slate-600">Vehicles are added on Add Vehicle.</span>
+            {ASSET_REGISTER_TYPES.map((type) => {
+              const Icon = TYPE_ICONS[type.value] ?? Package;
+              const selected = form.category === type.value;
+              return (
+                <button
+                  key={type.value}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => set("category", type.value)}
+                  className={`flex min-h-16 items-center gap-3 rounded-xl border p-3 text-left ${selected ? "border-2 border-brand-600 bg-brand-50" : "border-slate-200 hover:bg-slate-50"}`}
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700"><Icon size={18} aria-hidden /></span>
+                  <span>
+                    <span className="block font-semibold text-slate-900">{type.label}</span>
+                    <span className="block text-xs text-slate-600">{type.help}</span>
+                  </span>
+                </button>
+              );
+            })}
+            <Link href={"/admin/vehicles/new" as Route} className="flex min-h-16 items-center gap-3 rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-700 hover:bg-slate-50">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600"><Truck size={18} aria-hidden /></span>
+              <span>
+                <span className="block font-semibold">Vehicle?</span>
+                <span className="block text-xs text-slate-600">Vehicles have their own form.</span>
+                <span className="block text-xs font-semibold text-brand-700">Go to Add Vehicle →</span>
+              </span>
             </Link>
           </div>
         ) : null}
@@ -299,7 +312,10 @@ function OneAssetForm() {
           </dl>
         ) : null}
 
-        {issues.length ? (
+        {issues.length && step === 0 ? (
+          <p className="text-xs text-slate-500" aria-live="polite">{issues[0]}</p>
+        ) : null}
+        {issues.length && step !== 0 ? (
           <ul className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" aria-live="polite">
             {issues.map((issue) => <li key={issue}>• {issue}</li>)}
           </ul>
@@ -309,7 +325,7 @@ function OneAssetForm() {
         <div className="flex justify-between gap-2">
           <button type="button" disabled={step === 0 || saving} onClick={() => setStep((s) => s - 1)} className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm disabled:opacity-40">Back</button>
           {step < last ? (
-            <button type="button" disabled={issues.length > 0} onClick={() => setStep((s) => s + 1)} className="min-h-11 rounded-lg bg-slate-900 px-4 text-sm font-medium text-white disabled:opacity-40">Next</button>
+            <button type="button" disabled={issues.length > 0} onClick={() => setStep((s) => s + 1)} className="min-h-11 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-40">Next →</button>
           ) : (
             <button
               type="button"

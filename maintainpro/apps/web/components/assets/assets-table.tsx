@@ -456,7 +456,16 @@ export function AssetsTable<T extends AssetTableRow>({
         mobileLabel: "Location",
         cell: (asset) => (
           <span className="block">
-            <span className="block">{asset.location || "—"}</span>
+            {asset.location ? (
+              <span className="block">{asset.location}</span>
+            ) : (
+              <>
+                <span className="block text-amber-700">Not placed</span>
+                <Link href={"/floor-plans" as Route} className="block text-xs font-medium text-brand-700 hover:underline" onClick={(event) => event.stopPropagation()}>
+                  Place on a floor plan →
+                </Link>
+              </>
+            )}
             {asset.department ? <span className="block text-xs text-slate-500">{asset.department}</span> : null}
           </span>
         )
@@ -487,7 +496,7 @@ export function AssetsTable<T extends AssetTableRow>({
         hideOnMobile: true,
         headerClassName: "hidden lg:table-cell",
         className: "hidden lg:table-cell",
-        cell: (asset) => formatDate(asset.lastServiceDate)
+        cell: (asset) => (asset.lastServiceDate ? formatDate(asset.lastServiceDate) : <span className="text-slate-500">Never serviced</span>)
       });
     }
 
@@ -498,6 +507,7 @@ export function AssetsTable<T extends AssetTableRow>({
       cell: (asset) => {
         const label = assetNextAction(asset);
         const loud = label === "Under maintenance" || label === "Service overdue" || label === "Needs attention";
+        if (label === "No recent service") return <span className="text-slate-400">—</span>;
         return <span className={loud ? "font-medium text-amber-800" : "text-slate-600"}>{label}</span>;
       }
     });
