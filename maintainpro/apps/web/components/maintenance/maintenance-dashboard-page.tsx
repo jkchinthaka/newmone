@@ -10,7 +10,6 @@ import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import {
   BarList,
   DataTable,
-  EmptyState,
   ErrorState,
   KpiCard,
   PageShell,
@@ -252,7 +251,17 @@ export function MaintenanceDashboardPage() {
           />
         ) : null}
         {!technicianView && dashboardQuery.data ? (
-          <p className="text-xs text-slate-500">Updated {lkDateTime(dashboardQuery.data.generatedAt)}</p>
+          <p className="flex items-center gap-2 text-sm text-slate-500">
+            Updated {lkDateTime(dashboardQuery.data.generatedAt)}
+            <button
+              type="button"
+              onClick={() => void dashboardQuery.refetch()}
+              disabled={dashboardQuery.isFetching}
+              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 disabled:opacity-50"
+            >
+              {dashboardQuery.isFetching ? "Refreshing…" : "Refresh"}
+            </button>
+          </p>
         ) : null}
         {technicianView && myJobsQuery.data ? <TechnicianDashboard counts={myJobsQuery.data} /> : null}
         {!technicianView && dashboardQuery.data ? (
@@ -290,7 +299,7 @@ function ApprovalsCard({ summary }: { summary: ApprovalsSummary }) {
           </span>
           <div>
             <p className="text-sm font-semibold text-slate-900">Approvals</p>
-            <p className="text-xs text-slate-500">Waiting for a decision</p>
+            <p className="text-sm text-slate-500">Waiting for a decision</p>
           </div>
         </div>
         <p className="text-3xl font-semibold tabular-nums text-slate-900">
@@ -298,17 +307,17 @@ function ApprovalsCard({ summary }: { summary: ApprovalsSummary }) {
           <span className="ml-1 text-sm font-medium text-slate-500">pending</span>
         </p>
       </div>
-      <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="Pending approvals by category">
-        {summary.categories.map((category) => (
-          <li
-            key={category.id}
-            className={`rounded-lg border px-3 py-2 text-sm ${category.count > 0 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-100 bg-slate-50 text-slate-500"}`}
-          >
-            <span className="block truncate text-xs">{category.label}</span>
-            <span className="text-lg font-semibold tabular-nums">{category.count}</span>
-          </li>
-        ))}
+      <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6 empty:hidden" aria-label="Pending approvals by category">
+        {summary.categories
+          .filter((category) => category.count > 0)
+          .map((category) => (
+            <li key={category.id} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <span className="block truncate text-sm">{category.label}</span>
+              <span className="text-xl font-semibold tabular-nums">{category.count}</span>
+            </li>
+          ))}
       </ul>
+      {summary.total === 0 ? <p className="mt-2 text-sm text-slate-500">Nothing is waiting for a decision.</p> : null}
     </Link>
   );
 }
@@ -332,17 +341,24 @@ function ManagerDashboard({
     onHoldJobs: data.onHoldJobs
   };
   const priority = data.priorityWorkList ?? [];
+  const attentionCards = dashboardCardsForRole(role, MANAGER_ACTION_CARDS).filter((card) => (counts[card.countKey] ?? 0) > 0);
+  const attentionIds = new Set<string>(attentionCards.map((card) => card.id));
+  // Chips already shown as cards above are not repeated here.
+  const workloadCards = dashboardCardsForRole(role, WORKLOAD_CARDS).filter((card) => !attentionIds.has(card.id));
 
   return (
     <div className="space-y-4">
       {approvals ? <ApprovalsCard summary={approvals} /> : null}
-      <SectionCard description="The four queues to clear first." title="Needs attention">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {dashboardCardsForRole(role, MANAGER_ACTION_CARDS).map((card) => {
-            const value = counts[card.countKey] ?? 0;
-            return <LinkedKpi key={card.id} href={card.href} id={card.id} label={card.label} value={value} />;
-          })}
-        </div>
+      <SectionCard description="Queues to clear first. Queues with nothing in them are hidden." title="Needs attention">
+        {attentionCards.length === 0 ? (
+          <p className="text-sm text-slate-600">All clear: no overdue, unassigned, waiting or unchecked jobs.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {attentionCards.map((card) => (
+              <LinkedKpi key={card.id} href={card.href} id={card.id} label={card.label} value={counts[card.countKey] ?? 0} />
+            ))}
+          </div>
+        )}
       </SectionCard>
 
       <SectionCard
@@ -358,7 +374,7 @@ function ManagerDashboard({
         title="Priority jobs"
       >
         {priority.length === 0 ? (
-          <EmptyState description="No overdue or high-priority jobs right now." title="Nothing urgent" />
+          <p className="text-sm text-slate-600">Nothing urgent: no overdue or high-priority jobs right now.</p>
         ) : (
           <DataTable ariaLabel="Priority jobs" columns={priorityColumns} getRowId={(wo) => wo.id} minWidth="720px" rows={priority} />
         )}
@@ -366,7 +382,7 @@ function ManagerDashboard({
 
       <SectionCard description="Open load by stage. Each chip opens that stage." title="Workload">
         <div className="flex flex-wrap gap-2">
-          {dashboardCardsForRole(role, WORKLOAD_CARDS).map((card) => {
+          {workloadCards.map((card) => {
             const value = counts[card.countKey] ?? 0;
             return (
               <Link
@@ -391,7 +407,9 @@ function ManagerDashboard({
             ["Machinery", data.machineryJobs, "/maintenance/jobs/machinery?queue=open-load"],
             ["Vehicle", data.vehicleJobs, "/maintenance/jobs/vehicle?queue=open-load"],
             ["Service", data.serviceJobs, "/maintenance/jobs/service?queue=open-load"]
-          ].map(([label, value, href]) => ({
+          ]
+            .filter(([, value]) => Number(value) > 0)
+            .map(([label, value, href]) => ({
             name: String(label),
             value: Number(value),
             href: String(href),
@@ -402,7 +420,7 @@ function ManagerDashboard({
 
       <SectionCard description="Requests and preventive work that can unblock jobs." title="Pipeline">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <LinkedKpi compact href="/requests?stage=open" id="requests" label="Requests awaiting action" value={data.requestsOpen} />
+          <LinkedKpi compact href="/requests?stage=open" id="requests" label="Open requests (all stages)" value={data.requestsOpen} />
           <LinkedKpi compact href={PM_DUE_SOON_HREF} id="pm-due" label="Scheduled service due soon" value={data.pmDueSoon} />
           <LinkedKpi compact href={PM_OVERDUE_HREF} id="pm-overdue" label="Scheduled service overdue" value={data.pmOverdue ?? 0} />
         </div>
