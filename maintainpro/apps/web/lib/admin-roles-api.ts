@@ -32,3 +32,12 @@ export async function updateRolePermissions(roleId: string, permissionIds: strin
     throw new Error(getApiErrorMessage(error, "Unable to update role permissions"));
   }
 }
+
+export async function createRole(input: { name: string; tenantId?: string | null; permissionIds: string[] }) {
+  try {
+    const response = await apiClient.post<ApiEnvelope<{ id: string; name: string }>>("/roles", input);
+    return response.data.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, "Unable to create the role"));
+  }
+}

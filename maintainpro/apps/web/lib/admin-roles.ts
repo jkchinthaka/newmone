@@ -164,3 +164,30 @@ export function rolesPermissionsExportSheets(matrix: Pick<AdminRolesPermissionsM
   ];
   return { grid, roles };
 }
+
+/** "maintenance_requests.view_own" -> "View own". Plain label for the permission switch rows. */
+export function humanizePermissionKey(key: string): string {
+  const action = key.includes(".") ? key.slice(key.indexOf(".") + 1) : key;
+  const text = action.replace(/[._]+/g, " ").trim();
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : key;
+}
+
+const ROLE_GROUP_RULES: Array<{ title: string; match: RegExp }> = [
+  { title: "Admins", match: /^(SUPER_ADMIN|ADMIN)$/ },
+  { title: "Managers", match: /(MANAGER|SUPERVISOR|OFFICER_MANAGER)/ },
+  { title: "Field staff", match: /^(TECHNICIAN|MECHANIC|DRIVER|CLEANER|FIELD|HARVEST|IRRIGATION|FARM_WORKER)/ },
+  { title: "Report only", match: /^(REQUESTER|SECURITY_OFFICER)$/ },
+  { title: "Stores & finance", match: /(INVENTORY|PROCUREMENT|FINANCE|STOREKEEPER)/ }
+];
+
+/** Groups roles for the left list; anything unmatched lands in "Other". Order is stable. */
+export function groupRolesForList<T extends { name: string }>(roles: T[]): Array<{ title: string; roles: T[] }> {
+  const buckets = new Map<string, T[]>([...ROLE_GROUP_RULES.map((rule) => [rule.title, [] as T[]] as [string, T[]]), ["Other", []]]);
+  for (const role of roles) {
+    const rule = ROLE_GROUP_RULES.find((candidate) => candidate.match.test(role.name));
+    buckets.get(rule?.title ?? "Other")!.push(role);
+  }
+  return [...buckets.entries()]
+    .filter(([, list]) => list.length > 0)
+    .map(([title, list]) => ({ title, roles: [...list].sort((a, b) => a.name.localeCompare(b.name)) }));
+}
