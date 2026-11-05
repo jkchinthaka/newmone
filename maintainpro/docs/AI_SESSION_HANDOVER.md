@@ -1,3 +1,14 @@
+## CURRENT (2026-11-05) - GitHub merges done; Admin Console simplified (PR #153)
+
+- main @ b09d887 now contains PR #148 (quick wins + Codex fixes), #149, #150, #151 and #152 (UI simplify, floor plans, procedures). `feat/ui-simplify` branch was deleted after merge.
+- Codex fixes in #148 (0d4e273): close labour session if job start fails after it opened; offline replay keeps temporary failures replayable (retry capped at 4, permanent = 5); `sanitizeWorkOrder` keeps `sourceRequest`.
+- New PR #153 `feat/admin-console-simplify`: Admin Console now 3 quick actions (Invite user, Add location, Add asset), 3 tiles (Active users, Pending approvals, Data issues), 5 groups (People, Company, Job setup, Assets & vendors, Security) plus "More settings". Section ids and routes unchanged. Files: `lib/admin-console.ts`, `components/admin/admin-console-page.tsx`, `lib/__tests__/admin-command.test.ts`.
+- Tests actually run: web tsc clean; web `npm test` 553 pass / 0 fail; API jest admin-console + breadcrumbs + navigation 40 pass.
+- DB (apply on the real SQL Server with `npm run db:migrate:deploy`): 20261104120000_user_home_site, 20261104130000_spare_part_category_code, 20261105100000_floor_plans.
+- PR #126 (Access & Form Studio, base `develop`, conflicts) intentionally NOT merged; decide later (retarget to main or close).
+- Laptop: `git checkout main && git pull origin main && npm install && npm run db:generate && npm run db:migrate:deploy && npm run dev:current` (ports 3040/3041; kill stale PIDs if EADDRINUSE).
+- NEXT: merge #153 after checks; then browser QA crawl of every sidebar page on the laptop (Claude Code login needed, use Sonnet, low effort); duplicate employee cleanup in live DB; non-dev items below stay open.
+
 ## CURRENT (2026-11-04) - Change Request (23 items) + ClickMaint-style UI simplification
 
 - Branch/HEAD: `feat/ui-simplify` @ e999fa0 (pushed). Lineage: p1 `feat/cr-p1-quick-wins` (PR #148) and p2 `feat/cr-p2-master-data` (PR #149) and p3 `feat/cr-p3-rejected-queue` (PR #150) are each off main; `feat/cr-p4-approval-group` is off p2; `feat/ui-simplify` is off p4 and carries everything. main was 61c8422a at start.
