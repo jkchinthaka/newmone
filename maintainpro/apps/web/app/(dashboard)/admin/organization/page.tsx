@@ -832,10 +832,10 @@ export default function OrganizationAdminPage() {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" role="presentation">
           <form role="dialog" aria-modal="true" aria-labelledby="site-dialog-title" className="max-h-[90dvh] w-full max-w-md space-y-3 overflow-y-auto rounded-xl bg-white p-4" onSubmit={(event) => { event.preventDefault(); void saveSite(); }}>
             <h2 id="site-dialog-title" className="text-base font-semibold">{dialog.site ? "Edit site" : "Add site"}</h2>
-            <label className="block text-sm">Code<input required value={siteDraft.code} onChange={(event) => setSiteDraft((current) => ({ ...current, code: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" /></label>
-            <label className="block text-sm">Name<input required value={siteDraft.name} onChange={(event) => setSiteDraft((current) => ({ ...current, name: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" /></label>
-            <label className="block text-sm">Type
-              <select value={siteDraft.type} onChange={(event) => setSiteDraft((current) => ({ ...current, type: event.target.value as SiteType }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2">
+            <label className="block text-sm font-medium text-slate-700">Code <span className="text-red-600">*</span><input required placeholder="e.g. HO-01" value={siteDraft.code} onChange={(event) => setSiteDraft((current) => ({ ...current, code: event.target.value }))} className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" /></label>
+            <label className="block text-sm font-medium text-slate-700">Name <span className="text-red-600">*</span><input required placeholder="e.g. Head Office" value={siteDraft.name} onChange={(event) => setSiteDraft((current) => ({ ...current, name: event.target.value }))} className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" /></label>
+            <label className="block text-sm font-medium text-slate-700">Type
+              <select value={siteDraft.type} onChange={(event) => setSiteDraft((current) => ({ ...current, type: event.target.value as SiteType }))} className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
                 {SITE_TYPES.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
               </select>
             </label>
@@ -843,15 +843,15 @@ export default function OrganizationAdminPage() {
               <legend className="px-1 text-sm font-medium">Site location (optional)</legend>
               <p className="text-xs text-slate-500">Used to flag job photos taken far from this site. Stand at the site and tap the button, or type it in.</p>
               <div className="grid grid-cols-2 gap-2">
-                <label className="block text-sm">Latitude<input inputMode="decimal" value={siteGeo.latitude} onChange={(event) => setSiteGeo((current) => ({ ...current, latitude: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" placeholder="6.8412" /></label>
-                <label className="block text-sm">Longitude<input inputMode="decimal" value={siteGeo.longitude} onChange={(event) => setSiteGeo((current) => ({ ...current, longitude: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" placeholder="80.0034" /></label>
+                <label className="block text-sm">Latitude<input inputMode="decimal" value={siteGeo.latitude} onChange={(event) => setSiteGeo((current) => ({ ...current, latitude: event.target.value }))} className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" placeholder="6.8412" /></label>
+                <label className="block text-sm">Longitude<input inputMode="decimal" value={siteGeo.longitude} onChange={(event) => setSiteGeo((current) => ({ ...current, longitude: event.target.value }))} className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" placeholder="80.0034" /></label>
               </div>
-              <label className="block text-sm">Allowed distance (metres)<input inputMode="numeric" value={siteGeo.geoRadiusMeters} onChange={(event) => setSiteGeo((current) => ({ ...current, geoRadiusMeters: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" placeholder="500" /></label>
+              <label className="block text-sm">Allowed distance (metres)<input inputMode="numeric" value={siteGeo.geoRadiusMeters} onChange={(event) => setSiteGeo((current) => ({ ...current, geoRadiusMeters: event.target.value }))} className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" placeholder="500" /></label>
               <button type="button" disabled={locating} onClick={useMyLocationForSite} className="h-10 rounded-lg border border-slate-300 px-3 text-sm disabled:opacity-60">{locating ? "Reading location…" : "Use my current location"}</button>
             </fieldset>
-            <div className="flex justify-end gap-2">
-              <button type="button" className="h-10 px-3 text-sm" onClick={() => setDialog(null)}>Cancel</button>
-              <button type="submit" className="h-10 rounded-lg bg-slate-900 px-3 text-sm text-white">Save</button>
+            <div className="sticky bottom-0 -mx-4 -mb-4 flex justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">
+              <button type="button" className="h-10 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => setDialog(null)}>Cancel</button>
+              <button type="submit" className="h-10 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700">Save</button>
             </div>
           </form>
         </div>
@@ -859,12 +859,12 @@ export default function OrganizationAdminPage() {
 
       {dialog?.kind === "location" ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" role="presentation">
-          <form role="dialog" aria-modal="true" aria-labelledby="location-dialog-title" className="w-full max-w-md space-y-3 rounded-xl bg-white p-4" onSubmit={(event) => { event.preventDefault(); void saveLocation(); }}>
+          <form role="dialog" aria-modal="true" aria-labelledby="location-dialog-title" className="max-h-[90dvh] w-full max-w-md space-y-3 overflow-y-auto rounded-xl bg-white p-4" onSubmit={(event) => { event.preventDefault(); void saveLocation(); }}>
             <h2 id="location-dialog-title" className="text-base font-semibold">{dialog.location ? "Edit location" : dialog.parent ? `Add child under ${dialog.parent.name}` : "Add location"}</h2>
             {!dialog.location && !dialog.parent ? (
               sites.length > 0 ? (
-                <label className="block text-sm">Site
-                  <select required value={locationSiteId} onChange={(event) => setLocationSiteId(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2">
+                <label className="block text-sm font-medium text-slate-700">Site
+                  <select required value={locationSiteId} onChange={(event) => setLocationSiteId(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
                     <option value="" disabled>Choose a site</option>
                     {sites.map((site) => <option key={site.id} value={site.id}>{site.name} ({site.code})</option>)}
                   </select>
@@ -876,21 +876,21 @@ export default function OrganizationAdminPage() {
                 </p>
               )
             ) : null}
-            <label className="block text-sm">Code<input required value={locationDraft.code} onChange={(event) => setLocationDraft((current) => ({ ...current, code: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" /></label>
-            <label className="block text-sm">Name<input required value={locationDraft.name} onChange={(event) => setLocationDraft((current) => ({ ...current, name: event.target.value }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" /></label>
-            <label className="block text-sm">Type
-              <select value={locationDraft.type} onChange={(event) => setLocationDraft((current) => ({ ...current, type: event.target.value as FunctionalLocationType }))} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2">
+            <label className="block text-sm font-medium text-slate-700">Code <span className="text-red-600">*</span><input required placeholder="e.g. HO-01" value={locationDraft.code} onChange={(event) => setLocationDraft((current) => ({ ...current, code: event.target.value }))} className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" /></label>
+            <label className="block text-sm font-medium text-slate-700">Name <span className="text-red-600">*</span><input required placeholder="e.g. Head Office" value={locationDraft.name} onChange={(event) => setLocationDraft((current) => ({ ...current, name: event.target.value }))} className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" /></label>
+            <label className="block text-sm font-medium text-slate-700">Type
+              <select value={locationDraft.type} onChange={(event) => setLocationDraft((current) => ({ ...current, type: event.target.value as FunctionalLocationType }))} className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
                 {FUNCTIONAL_LOCATION_TYPES.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
               </select>
             </label>
             {dialog.location ? (
               <>
-                <label className="block text-sm">Where it sits
+                <label className="block text-sm font-medium text-slate-700">Where it sits
                   <select
                     value={moveParentId || (dialog.location.parentId ?? "__root")}
                     onChange={(event) => setMoveParentId(event.target.value)}
                     disabled={moveOptions === null}
-                    className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2"
+                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                   >
                     <option value="__root">Top level of {selectedSite?.name ?? "the site"}</option>
                     {(moveOptions ?? []).map((option) => (
@@ -902,15 +902,15 @@ export default function OrganizationAdminPage() {
                   {moveOptions === null ? <span className="text-xs text-slate-500">Loading locations…</span> : null}
                 </label>
                 {moveParentId && (moveParentId === "__root" ? null : moveParentId) !== (dialog.location.parentId ?? null) ? (
-                  <label className="block text-sm">Why is it moving?<input value={moveReason} onChange={(event) => setMoveReason(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2" placeholder="e.g. Machine room rebuilt inside Building B" /></label>
+                  <label className="block text-sm">Why is it moving?<input value={moveReason} onChange={(event) => setMoveReason(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" placeholder="e.g. Machine room rebuilt inside Building B" /></label>
                 ) : null}
-                <button type="button" className="text-sm text-brand-700" onClick={() => dialog.location && openCreateLocation(dialog.location)}>Add child</button>
-                <button type="button" className="ml-3 text-sm" onClick={() => dialog.location && void setLocationActive(dialog.location, !dialog.location.isActive)}>{dialog.location.isActive ? "Deactivate" : "Activate"}</button>
+                <button type="button" className="h-9 rounded-lg border border-slate-300 px-3 text-sm text-brand-700" onClick={() => dialog.location && openCreateLocation(dialog.location)}>＋ Add child location</button>
+                <button type="button" className="ml-2 h-9 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => dialog.location && void setLocationActive(dialog.location, !dialog.location.isActive)}>{dialog.location.isActive ? "Deactivate" : "Activate"}</button>
               </>
             ) : null}
-            <div className="flex justify-end gap-2">
-              <button type="button" className="h-10 px-3 text-sm" onClick={() => setDialog(null)}>Cancel</button>
-              <button type="submit" className="h-10 rounded-lg bg-slate-900 px-3 text-sm text-white">Save</button>
+            <div className="sticky bottom-0 -mx-4 -mb-4 flex justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">
+              <button type="button" className="h-10 rounded-lg border border-slate-300 px-3 text-sm" onClick={() => setDialog(null)}>Cancel</button>
+              <button type="submit" className="h-10 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700">Save</button>
             </div>
           </form>
         </div>
