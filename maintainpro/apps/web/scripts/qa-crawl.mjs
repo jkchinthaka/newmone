@@ -19,8 +19,13 @@ function seedPassword() {
   return m?.[1]?.trim().replace(/^"|"$/g, "") ?? "";
 }
 
-// Anything that changes data, leaves the app or ends the session is never clicked.
-const UNSAFE = /delete|remove|approve|reject|submit|save|create|send|confirm|log ?out|sign ?out|disable|enable|archive|cancel|close|import|upload|reset|revoke|invite|assign|finish|start|complete|verify|add |\badd\b|\bnew\b|^\+|post|publish|pay|issue|renew|sync|run |generate|apply|merge|return for info|accept|decline|deactivate|activate|clear|discard|mark/i;
+// Default (safe) mode never clicks anything that changes data. With QA_MUTATE=1 it also clicks
+// Save/Create/Approve/Reject/Delete/Assign/Start/Finish/... buttons (this CHANGES the local database).
+// Even then it never ends the session, wipes an account/tenant, or touches passwords/access.
+const MUTATE = process.env.QA_MUTATE === "1";
+const HARD_BLOCK = /log ?out|sign ?out|delete (account|tenant|all)|purge|wipe|deactivate|disable user|reset password|revoke|change password|tenant|factory/i;
+const UNSAFE = /delete|remove|approve|reject|submit|save|create|send|confirm|disable|enable|archive|cancel|close|import|upload|reset|invite|assign|finish|start|complete|verify|add |\badd\b|\bnew\b|^\+|post|publish|pay|issue|renew|sync|run |generate|apply|merge|return for info|accept|decline|activate|clear|discard|mark/i;
+const isBlocked = (label) => HARD_BLOCK.test(label) || (!MUTATE && UNSAFE.test(label));
 
 const password = seedPassword();
 if (!password) {
@@ -102,8 +107,8 @@ async function visit(route) {
   for (let i = 0; i < n; i += 1) {
     const b = buttons.nth(i);
     const label = ((await b.innerText().catch(() => "")) || (await b.getAttribute("aria-label").catch(() => "")) || "").trim();
-    if (!label || UNSAFE.test(label)) continue;
-    if ((await b.getAttribute("type").catch(() => "")) === "submit") continue;
+    if (!label || isBlocked(label)) continue;
+    if (!MUTATE && (await b.getAttribute("type").catch(() => "")) === "submit") continue;
     if (await b.isDisabled().catch(() => true)) continue;
     try {
       await b.click({ timeout: 2500 });
@@ -122,7 +127,8 @@ async function visit(route) {
 try {
   await login();
   const routes = await collectRoutes();
-  console.log(`Crawling ${routes.length} pages as ${EMAIL} ...`);
+  console.log(`Crawling ${routes.length} pages as ${EMAIL} (${MUTATE ? "MUTATE mode: data WILL change" : "safe mode"}) ...`);
+  page.on("dialog", (d) => d.dismiss().catch(() => {}));
   let done = 0;
   for (const r of routes) {
     await visit(r);
