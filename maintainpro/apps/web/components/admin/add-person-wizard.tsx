@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
@@ -19,7 +19,7 @@ import { extractRoleName } from "@/lib/role-redirect";
 import { useCurrentUser } from "@/lib/use-current-user";
 import { visibleLoginRoles } from "@/lib/visible-login-roles";
 
-type WizardState = {
+type PersonForm = {
   employeeNo: string;
   fullName: string;
   phone: string;
@@ -42,7 +42,7 @@ type WizardState = {
   confirmPassword: string;
 };
 
-const INITIAL: WizardState = {
+const INITIAL: PersonForm = {
   employeeNo: "",
   fullName: "",
   phone: "",
@@ -69,8 +69,8 @@ export function AddPersonWizard() {
   const user = useCurrentUser();
   const roleName = extractRoleName(user);
   const isAdmin = isAdminConsoleRole(roleName);
-  const [step, setStep] = useState(1);
-  const [form, setForm] = useState<WizardState>(INITIAL);
+  const [created, setCreated] = useState(false);
+  const [form, setForm] = useState<PersonForm>(INITIAL);
   const [oneTimeSecret, setOneTimeSecret] = useState<string | null>(null);
 
   const rolesQuery = useQuery({
@@ -83,12 +83,6 @@ export function AddPersonWizard() {
   });
 
   const loginIssues = useMemo(() => personLoginIssues(form), [form]);
-  const warnings = useMemo(() => {
-    const list: string[] = [...loginIssues];
-    if (form.isTechnician && !form.skills.trim()) list.push("Technician selected but skills missing");
-    return list;
-  }, [form, loginIssues]);
-
   const createMutation = useMutation({
     mutationFn: (payload: CreatePersonPayload) => createPerson(payload),
     onSuccess: (result) => {
@@ -100,7 +94,7 @@ export function AddPersonWizard() {
         toast.message("Email provider is not configured. Please use Copy Invite Link or Temporary Password.");
       }
       toast.success("Person created successfully");
-      setStep(5);
+      setCreated(true);
     },
     onError: (error) => toast.error(getApiErrorMessage(error, "Could not create person"))
   });
@@ -136,117 +130,14 @@ export function AddPersonWizard() {
     );
   }
 
-  return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <PageBreadcrumbs />
-      <header>
-        <Link href={"/admin/people" as Route} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
-          <ArrowLeft className="h-4 w-4" />
-          Back to People
-        </Link>
-        <h2 className="mt-2 page-title">Add Person</h2>
-        <p className="mt-1 text-sm text-slate-500">Step {step} of 5</p>
-      </header>
+  const input = "h-10 w-full rounded-md border border-slate-300 px-3 text-sm";
+  const label = "mb-1 block text-sm font-medium text-slate-700";
+  const canSave = !createMutation.isPending && loginIssues.length === 0 && form.fullName.trim().length > 0;
 
-      {step === 1 ? (
-        <section className="space-y-4 rounded-xl border bg-white p-5">
-          <h3 className="font-semibold">Basic Info</h3>
-          <input placeholder="Employee No (optional)" value={form.employeeNo} onChange={(e) => setForm({ ...form, employeeNo: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-          <input placeholder="Full Name *" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-          <input placeholder="Mobile" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-          <input type="email" placeholder="Email (optional, needed only if this person will log in)" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-          <input placeholder="Branch *" value={form.branchName} onChange={(e) => setForm({ ...form, branchName: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-          <DepartmentSelect value={form.departmentId} onChange={(departmentId) => setForm({ ...form, departmentId })} />
-          <select value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} className="w-full rounded border px-3 py-2 text-sm">
-            {ASSIGNABLE_WORKFORCE_DESIGNATIONS.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Active</label>
-        </section>
-      ) : null}
-
-      {step === 2 ? (
-        <section className="space-y-4 rounded-xl border bg-white p-5">
-          <h3 className="font-semibold">Work Profile</h3>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isTechnician} onChange={(e) => setForm({ ...form, isTechnician: e.target.checked })} /> Technician</label>
-          {form.isTechnician ? (
-            <>
-              <input placeholder="Skills (comma separated)" value={form.skills} onChange={(e) => setForm({ ...form, skills: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-              <input placeholder="Work categories" value={form.workCategories} onChange={(e) => setForm({ ...form, workCategories: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-              <input placeholder="Shift" value={form.shift} onChange={(e) => setForm({ ...form, shift: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.canReceiveWorkOrders} onChange={(e) => setForm({ ...form, canReceiveWorkOrders: e.target.checked })} /> Can receive jobs</label>
-              <select value={form.availabilityStatus} onChange={(e) => setForm({ ...form, availabilityStatus: e.target.value })} className="w-full rounded border px-3 py-2 text-sm">
-                <option value="AVAILABLE">Available</option>
-                <option value="ON_LEAVE">On leave</option>
-                <option value="INACTIVE">Inactive</option>
-              </select>
-            </>
-          ) : null}
-        </section>
-      ) : null}
-
-      {step === 3 ? (
-        <section className="space-y-4 rounded-xl border bg-white p-5">
-          <h3 className="font-semibold">Login Access</h3>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.canLogin} onChange={(e) => setForm({ ...form, canLogin: e.target.checked })} /> Can login to the system</label>
-          {form.canLogin ? (
-            <>
-              <input type="email" required autoComplete="off" placeholder="Login email *" aria-label="Login email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-              <select value={form.roleId} onChange={(e) => setForm({ ...form, roleId: e.target.value })} className="w-full rounded border px-3 py-2 text-sm">
-                <option value="">Select role</option>
-                {(visibleLoginRoles(rolesQuery.data ?? [], form.roleId)).map((role) => (
-                  <option key={role.id} value={role.id}>{role.name}</option>
-                ))}
-              </select>
-              <input placeholder="Branch scope" value={form.branchScope} onChange={(e) => setForm({ ...form, branchScope: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-              <label className="block text-sm font-medium text-slate-700" htmlFor="person-invite-method">How will they get their first password?</label>
-              <select id="person-invite-method" value={form.inviteMethod} onChange={(e) => setForm({ ...form, inviteMethod: e.target.value as PersonInviteMethod, initialPassword: "", confirmPassword: "" })} className="w-full rounded border px-3 py-2 text-sm">
-                {(Object.keys(PERSON_INVITE_METHOD_LABELS) as PersonInviteMethod[]).map((method) => (
-                  <option key={method} value={method}>{PERSON_INVITE_METHOD_LABELS[method]}</option>
-                ))}
-              </select>
-              {form.inviteMethod === "SET_PASSWORD" ? (
-                <>
-                  <input type="password" required autoComplete="new-password" placeholder="Password *" aria-label="Password" value={form.initialPassword} onChange={(e) => setForm({ ...form, initialPassword: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-                  <input type="password" required autoComplete="new-password" placeholder="Confirm password *" aria-label="Confirm password" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
-                  <p className="text-xs text-slate-500">At least 8 characters with an uppercase letter, a number and a symbol. They must change it the first time they sign in.</p>
-                </>
-              ) : null}
-              {loginIssues.length ? (
-                <ul className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" aria-live="polite">
-                  {loginIssues.map((issue) => (
-                    <li key={issue}>• {issue}</li>
-                  ))}
-                </ul>
-              ) : null}
-            </>
-          ) : (
-            <p className="text-sm text-slate-500">Email and password are only needed when this person will log in.</p>
-          )}
-        </section>
-      ) : null}
-
-      {step === 4 ? (
-        <section className="space-y-3 rounded-xl border bg-white p-5 text-sm">
-          <h3 className="font-semibold">Review</h3>
-          <p><strong>Name:</strong> {form.fullName}</p>
-          <p><strong>Designation:</strong> {form.designation}</p>
-          <p><strong>Branch:</strong> {form.branchName || "—"}</p>
-          <p><strong>Technician:</strong> {form.isTechnician ? "Yes" : "No"}</p>
-          <p><strong>Login:</strong> {form.canLogin ? "Yes" : "No"}</p>
-          {form.canLogin ? <p><strong>First password:</strong> {PERSON_INVITE_METHOD_LABELS[form.inviteMethod]}</p> : null}
-          {warnings.length ? (
-            <ul className="rounded border border-amber-200 bg-amber-50 p-3 text-amber-900">
-              {warnings.map((w) => (
-                <li key={w}>• {w}</li>
-              ))}
-            </ul>
-          ) : null}
-        </section>
-      ) : null}
-
-      {step === 5 ? (
+  if (created) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-5">
+        <PageBreadcrumbs />
         <section className="space-y-3 rounded-xl border border-green-200 bg-green-50 p-5 text-sm text-green-900">
           <div className="flex items-center gap-2 font-semibold"><CheckCircle2 className="h-5 w-5" /> Person created</div>
           {form.canLogin && form.inviteMethod === "SET_PASSWORD" ? (
@@ -258,36 +149,153 @@ export function AddPersonWizard() {
               <p className="mt-1 break-all font-mono text-xs">{oneTimeSecret}</p>
             </div>
           ) : null}
-          <Link href={"/admin/people" as Route} className="inline-block underline">Return to People list</Link>
+          <Link href={"/admin/people" as Route} className="inline-block font-medium underline">Back to people</Link>
         </section>
-      ) : null}
+      </div>
+    );
+  }
 
-      {step < 5 ? (
-        <div className="flex justify-between">
-          <button type="button" disabled={step === 1} className="rounded border px-4 py-2 text-sm disabled:opacity-40" onClick={() => setStep((s) => s - 1)}>
-            Back
-          </button>
-          {step < 4 ? (
-            <button
-              type="button"
-              disabled={step === 3 && loginIssues.length > 0}
-              className="inline-flex items-center gap-2 rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-40"
-              onClick={() => setStep((s) => s + 1)}
-            >
-              Next <ArrowRight className="h-4 w-4" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={createMutation.isPending || warnings.length > 0 || !form.fullName.trim()}
-              className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-40"
-              onClick={() => createMutation.mutate(payload)}
-            >
-              {createMutation.isPending ? "Creating…" : "Create Person"}
-            </button>
-          )}
+  return (
+    <form
+      className="mx-auto max-w-2xl space-y-5 pb-24"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (canSave) createMutation.mutate(payload);
+      }}
+    >
+      <PageBreadcrumbs />
+      <header>
+        <Link href={"/admin/people" as Route} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
+          <ArrowLeft className="h-4 w-4" />
+          Back to people
+        </Link>
+        <h2 className="mt-2 page-title">Add person</h2>
+        <p className="mt-1 text-sm text-slate-500">Only the name is required. Add a login only if this person will use the app.</p>
+      </header>
+
+      <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
+        <h3 className="font-semibold text-slate-900">Person</h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className={label} htmlFor="person-name">Full name *</label>
+            <input id="person-name" required autoFocus value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className={input} />
+          </div>
+          <div>
+            <label className={label} htmlFor="person-no">Employee no</label>
+            <input id="person-no" value={form.employeeNo} onChange={(e) => setForm({ ...form, employeeNo: e.target.value })} className={input} />
+          </div>
+          <div>
+            <label className={label} htmlFor="person-phone">Mobile</label>
+            <input id="person-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={input} />
+          </div>
+          <div>
+            <label className={label} htmlFor="person-branch">Branch</label>
+            <input id="person-branch" value={form.branchName} onChange={(e) => setForm({ ...form, branchName: e.target.value })} className={input} />
+          </div>
+          <div>
+            <span className={label}>Department</span>
+            <DepartmentSelect value={form.departmentId} onChange={(departmentId) => setForm({ ...form, departmentId })} />
+          </div>
+          <div>
+            <label className={label} htmlFor="person-designation">Designation</label>
+            <select id="person-designation" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} className={input}>
+              {ASSIGNABLE_WORKFORCE_DESIGNATIONS.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 self-end pb-2 text-sm"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Active</label>
         </div>
-      ) : null}
-    </div>
+      </section>
+
+      <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
+        <label className="flex items-center gap-2 font-semibold text-slate-900"><input type="checkbox" checked={form.isTechnician} onChange={(e) => setForm({ ...form, isTechnician: e.target.checked })} /> Technician (can be given jobs)</label>
+        {form.isTechnician ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className={label} htmlFor="person-skills">Skills (comma separated)</label>
+              <input id="person-skills" value={form.skills} onChange={(e) => setForm({ ...form, skills: e.target.value })} className={input} />
+            </div>
+            <div>
+              <label className={label} htmlFor="person-categories">Work categories</label>
+              <input id="person-categories" value={form.workCategories} onChange={(e) => setForm({ ...form, workCategories: e.target.value })} className={input} />
+            </div>
+            <div>
+              <label className={label} htmlFor="person-shift">Shift</label>
+              <input id="person-shift" value={form.shift} onChange={(e) => setForm({ ...form, shift: e.target.value })} className={input} />
+            </div>
+            <div>
+              <label className={label} htmlFor="person-availability">Availability</label>
+              <select id="person-availability" value={form.availabilityStatus} onChange={(e) => setForm({ ...form, availabilityStatus: e.target.value })} className={input}>
+                <option value="AVAILABLE">Available</option>
+                <option value="ON_LEAVE">On leave</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+            </div>
+            <label className="flex items-center gap-2 self-end pb-2 text-sm"><input type="checkbox" checked={form.canReceiveWorkOrders} onChange={(e) => setForm({ ...form, canReceiveWorkOrders: e.target.checked })} /> Can receive jobs</label>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
+        <label className="flex items-center gap-2 font-semibold text-slate-900"><input type="checkbox" checked={form.canLogin} onChange={(e) => setForm({ ...form, canLogin: e.target.checked })} /> Can log in to the app</label>
+        {form.canLogin ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={label} htmlFor="person-email">Login email *</label>
+              <input id="person-email" type="email" required autoComplete="off" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={input} />
+            </div>
+            <div>
+              <label className={label} htmlFor="person-role">Role *</label>
+              <select id="person-role" required value={form.roleId} onChange={(e) => setForm({ ...form, roleId: e.target.value })} className={input}>
+                <option value="">Select role</option>
+                {visibleLoginRoles(rolesQuery.data ?? [], form.roleId).map((role) => (
+                  <option key={role.id} value={role.id}>{role.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className={label} htmlFor="person-invite-method">How will they get their first password?</label>
+              <select id="person-invite-method" value={form.inviteMethod} onChange={(e) => setForm({ ...form, inviteMethod: e.target.value as PersonInviteMethod, initialPassword: "", confirmPassword: "" })} className={input}>
+                {(Object.keys(PERSON_INVITE_METHOD_LABELS) as PersonInviteMethod[]).map((method) => (
+                  <option key={method} value={method}>{PERSON_INVITE_METHOD_LABELS[method]}</option>
+                ))}
+              </select>
+            </div>
+            {form.inviteMethod === "SET_PASSWORD" ? (
+              <>
+                <div>
+                  <label className={label} htmlFor="person-password">Password *</label>
+                  <input id="person-password" type="password" required autoComplete="new-password" value={form.initialPassword} onChange={(e) => setForm({ ...form, initialPassword: e.target.value })} className={input} />
+                </div>
+                <div>
+                  <label className={label} htmlFor="person-password2">Confirm password *</label>
+                  <input id="person-password2" type="password" required autoComplete="new-password" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} className={input} />
+                </div>
+                <p className="text-xs text-slate-500 sm:col-span-2">At least 8 characters with an uppercase letter, a number and a symbol. They must change it the first time they sign in.</p>
+              </>
+            ) : null}
+            {loginIssues.length ? (
+              <ul className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2" aria-live="polite">
+                {loginIssues.map((issue) => (
+                  <li key={issue}>• {issue}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">No login: this person can be given jobs but cannot open the app.</p>
+        )}
+      </section>
+
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-2xl items-center justify-end gap-3">
+          <Link href={"/admin/people" as Route} className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700">Cancel</Link>
+          <button type="submit" disabled={!canSave} className="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">
+            {createMutation.isPending ? "Saving…" : "Create person"}
+          </button>
+        </div>
+      </div>
+    </form>
   );
 }
