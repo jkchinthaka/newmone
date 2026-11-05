@@ -1,5 +1,6 @@
 "use client";
 
+import { MasterListChips } from "@/components/ui/master-list-input";
 import { PERSON_INVITE_METHOD_LABELS, personLoginIssues, type PersonInviteMethod } from "@/lib/person-login";
 import Link from "next/link";
 import type { Route } from "next";
@@ -215,6 +216,7 @@ export function AddPersonWizard() {
             <div className="sm:col-span-2">
               <label className={label} htmlFor="person-skills">Skills (comma separated)</label>
               <input id="person-skills" value={form.skills} onChange={(e) => setForm({ ...form, skills: e.target.value })} className={input} />
+              <MasterListChips kind="skill" value={form.skills} onValueChange={(v) => setForm({ ...form, skills: v })} />
             </div>
             <div>
               <label className={label} htmlFor="person-categories">Work categories</label>

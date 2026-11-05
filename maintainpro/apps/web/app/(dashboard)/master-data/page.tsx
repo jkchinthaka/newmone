@@ -31,7 +31,7 @@ const GROUPS: { title: string; cards: Card[] }[] = [
       { label: "Assets", description: "Machinery, equipment, infrastructure.", href: "/assets" },
       { label: "Vehicles", description: "Fleet with make, model, registration.", href: "/vehicles" },
       { label: "Meters", description: "Odometers, hour-meters, fuel gauges.", href: "/utilities" },
-      { label: "Makes & models", description: "Manufacturers to pick instead of typing.", href: "/master-data/makes", countFrom: "/master-data/lists/make" },
+      { label: "Makes", description: "Vehicle manufacturers to pick instead of typing.", href: "/master-data/makes", countFrom: "/master-data/lists/make" },
     ],
   },
   {

@@ -1,5 +1,6 @@
 "use client";
 
+import { MasterListInput } from "@/components/ui/master-list-input";
 import Link from "next/link";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
@@ -150,13 +151,14 @@ export default function RegisterVehiclePage() {
           </select>
         </Field>
         <Field id="make" label="Make" hint="e.g. Tata" error={fieldErrors.make} required>
-          <input
+          <MasterListInput
             id="make"
+            kind="make"
             className={fieldClass}
             required
             value={form.make}
             aria-invalid={Boolean(fieldErrors.make)}
-            onChange={(event) => update("make", event.target.value)}
+            onValueChange={(v) => update("make", v)}
           />
         </Field>
         <Field id="model" label="Model" hint="e.g. Ace" error={fieldErrors.vehicleModel} required>

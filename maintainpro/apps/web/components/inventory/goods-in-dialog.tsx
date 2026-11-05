@@ -1,5 +1,6 @@
 "use client";
 
+import { MasterListInput } from "@/components/ui/master-list-input";
 import { ProofPhotoInput } from "@/components/ui/proof-photo-input";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, FileSpreadsheet, PackagePlus, X } from "lucide-react";
@@ -279,7 +280,7 @@ export function GoodsInDialog({ onClose, onDone }: { onClose: () => void; onDone
                     <input className={field} list="spare-part-categories" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Pick or type a category" maxLength={100} required />
                     <datalist id="spare-part-categories">{categoryOptions.map((c) => <option key={c} value={c} />)}</datalist>
                   </></label>
-                  <label className="text-sm"><span className="mb-1 block font-medium text-slate-700">Unit</span><input className={field} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} maxLength={20} /></label>
+                  <label className="text-sm"><span className="mb-1 block font-medium text-slate-700">Unit</span><MasterListInput kind="unit" useCode className={field} value={form.unit} onValueChange={(v) => setForm({ ...form, unit: v })} maxLength={20} /></label>
                 </div>
               )}
               <label className="inline-flex min-h-11 items-center gap-2 text-sm text-slate-700">
