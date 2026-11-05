@@ -810,7 +810,7 @@ function NewRequestForm() {
             <button
               type="button"
               disabled={description.trim().length < 5 || submitting || !canContinueTarget}
-              className="min-h-11 flex-[1.4] rounded-lg bg-brand-600 text-sm font-medium text-white disabled:opacity-40"
+              className="min-h-11 flex-[1.4] rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-medium text-white disabled:opacity-40"
               onClick={() => void submit()}
             >
               {submitting ? "Sending…" : "Send now"}
@@ -923,7 +923,7 @@ function NewRequestForm() {
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-brand-600 text-sm font-medium text-white disabled:opacity-50"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-medium text-white disabled:opacity-50"
             >
               {submitting ? <Loader2 className="animate-spin" size={14} /> : null}
               Submit Request

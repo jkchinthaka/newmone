@@ -68,6 +68,8 @@ export interface WorkOrderVehicleRef {
 export interface WorkOrder {
   id: string;
   woNumber: string;
+  /** The reported request this job came from (detail view only). */
+  sourceRequest?: { id: string; requestNumber: string } | null;
   title: string;
   description: string;
   priority: WorkOrderPriority;

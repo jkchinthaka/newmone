@@ -24,6 +24,7 @@ export const WORK_ORDER_QUEUE_KEYS = [
   "triage",
   "completed",
   "cancelled",
+  "rejected",
   "all"
 ] as const;
 
@@ -50,11 +51,12 @@ export const WORK_ORDER_QUEUE_LABELS: Record<WorkOrderQueueKey, string> = {
   triage: "Triage / Not Sure",
   completed: "Completed",
   cancelled: "Cancelled",
+  rejected: "Rejected",
   all: "All"
 };
 
 export const OPERATIONAL_QUEUE_KEYS: WorkOrderQueueKey[] = WORK_ORDER_QUEUE_KEYS.filter(
-  (key) => key !== "completed" && key !== "cancelled" && key !== "all"
+  (key) => key !== "completed" && key !== "cancelled" && key !== "rejected" && key !== "all"
 );
 
 /**
@@ -137,7 +139,7 @@ export function roleCanAccessQueue(role: RoleName | string | undefined, queue: W
     return ["waiting-parts", "my-tasks", "action-required", "assigned", "in-progress", "unassigned", "open-load"].includes(queue);
   }
   if (FINANCE_ROLES.has(r)) {
-    return ["finance-vendor-pending", "high-risk", "action-required", "completed", "cancelled"].includes(queue);
+    return ["finance-vendor-pending", "high-risk", "action-required", "completed", "cancelled", "rejected"].includes(queue);
   }
   if (TECHNICIAN_ROLES.has(r)) {
     return !["all", "finance-vendor-pending", "supervisor-verification", "high-priority"].includes(queue);

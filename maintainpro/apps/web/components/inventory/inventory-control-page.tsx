@@ -41,6 +41,7 @@ type PartRow = {
   name: string;
   partNumber: string;
   category?: string | null;
+  unitCost?: number | string | null;
   erpCode?: string | null;
   quantityInStock?: number | null;
   reservedQuantity?: number | null;
@@ -466,6 +467,7 @@ export function InventoryControlPage() {
                   <th className="px-3 py-2">On hand</th>
                   <th className="hidden px-3 py-2 md:table-cell">Reserved</th>
                   <th className="hidden px-3 py-2 md:table-cell">Available</th>
+                  <th className="hidden px-3 py-2 md:table-cell">Unit cost</th>
                   <th className="px-3 py-2">Next</th>
                   <th className="px-3 py-2"><span className="sr-only">Actions</span></th>
                 </tr>
@@ -485,6 +487,7 @@ export function InventoryControlPage() {
                       <td className="px-3 py-2">{row.quantityInStock ?? 0}</td>
                       <td className="hidden px-3 py-2 md:table-cell">{row.reservedQuantity ?? 0}</td>
                       <td className="hidden px-3 py-2 md:table-cell">{row.availableQuantity ?? 0}</td>
+                      <td className="hidden px-3 py-2 md:table-cell">{row.unitCost != null ? Number(row.unitCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}</td>
                       <td className={`px-3 py-2 ${action === "Ready" ? "text-slate-600" : "font-medium"}`}>{action}</td>
                       <td className="px-3 py-2">
                         {/* Portal menu: the table's overflow-x-auto wrapper can no longer clip it. */}
@@ -512,7 +515,7 @@ export function InventoryControlPage() {
       {selected ? (
         <section id="inventory-detail" className="rounded-lg border border-slate-200 bg-white p-4 text-sm" aria-live="polite">
           <h2 className="font-semibold">{selected.name}</h2>
-          <p className="text-slate-600">{selected.partNumber} · {selected.erpCode?.trim() ? `ERP ${selected.erpCode}` : "Unmapped"} · {selected.supplier?.name || "No supplier"} · {selected.location || "No location"}</p>
+          <p className="text-slate-600">{selected.partNumber} · {selected.erpCode?.trim() ? `ERP ${selected.erpCode}` : "Unmapped"} · {selected.supplier?.name || "No supplier"} · {selected.location || "No location"} · {selected.category || "No category"} · Unit cost {selected.unitCost != null ? Number(selected.unitCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}</p>
           <p className="mt-2">On hand {selected.quantityInStock ?? 0}. Reserved {selected.reservedQuantity ?? 0}. Available {selected.availableQuantity ?? 0}. Reserved parts are held for jobs.</p>
           <p className="mt-1 text-slate-600">{inventoryFreshnessLabel({ updatedAt: selected.updatedAt, lastMovementAt: selected.stockMovements?.[0]?.createdAt ?? null })}</p>
           {movementsError ? (

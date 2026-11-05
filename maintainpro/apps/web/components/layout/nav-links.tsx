@@ -386,7 +386,7 @@ export function NavLinks({ onNavigate, className = "", compact = false, tone = "
                 key={`favorite-${item.id}`}
                 item={item}
                 active={isNavItemActive(pathname, item, search)}
-                activeClass={tone === "inverse" ? "bg-accent-500 font-semibold text-brand-900" : "bg-accent-100 font-semibold text-accent-700"}
+                activeClass={tone === "inverse" ? "font-semibold text-white" : "font-semibold text-slate-900"}
                 idleClass={tone === "inverse" ? "text-white/90 hover:bg-white/10" : "text-slate-700 hover:bg-amber-50"}
                 badgeCount={item.badgeKey ? badges[item.badgeKey as NavBadgeKey] : undefined}
                 isFavorite

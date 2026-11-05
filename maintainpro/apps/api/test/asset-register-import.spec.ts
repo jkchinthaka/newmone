@@ -67,9 +67,11 @@ describe("asset register import: rows", () => {
       responsiblePersonId: "u1",
       purchaseDate: "2024-03-15",
       purchasePrice: 1250000,
-      status: "DRAFT",
-      criticalityLevel: "MEDIUM"
+      status: "DRAFT"
     });
+    // A blank Criticality cell stays unset so "Update existing" never overwrites a stored HIGH/CRITICAL;
+    // the service applies MEDIUM only when it creates the asset.
+    expect(first.payload?.criticalityLevel).toBeUndefined();
     // IT hardware has no fixed category: equipment prefix.
     expect(second).toMatchObject({ status: "NEW", assetTag: "AST-EQP0001" });
     expect(second.display).toMatchObject({ site: "Kiridiwela Outlet", category: "Laptop" });
