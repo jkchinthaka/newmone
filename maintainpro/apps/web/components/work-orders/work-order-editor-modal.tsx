@@ -412,6 +412,7 @@ export function WorkOrderEditorModal({
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-brand-800">
                   {isCreateMode ? "New job" : workOrder?.woNumber || "Job"}
+                  {!isCreateMode && workOrder?.sourceRequest?.requestNumber ? ` · Request ${workOrder.sourceRequest.requestNumber}` : ""}
                 </p>
                 <h3 id="work-order-editor-title" className="page-title break-words">
                   {isCreateMode ? "Create an open job" : workOrder ? drawerTitle(workOrder) : "Job"}

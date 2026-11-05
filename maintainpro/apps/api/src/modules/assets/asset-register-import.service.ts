@@ -113,7 +113,7 @@ export class AssetRegisterImportService {
       }
       try {
         if (line.status === "NEW") {
-          const created = (await this.assets.create(tenantId, actor.sub, payload as unknown as CreateAssetDto)) as { id: string; assetTag: string };
+          const created = (await this.assets.create(tenantId, actor.sub, { ...payload, criticalityLevel: payload.criticalityLevel ?? "MEDIUM" } as unknown as CreateAssetDto)) as { id: string; assetTag: string };
           createdByTag.set(created.assetTag.toUpperCase(), created.id);
           results.push({ ...base, status: "CREATED", assetId: created.id, assetTag: created.assetTag });
         } else {
