@@ -806,7 +806,8 @@ export class WorkOrdersService {
       }
     }
 
-    return workOrder;
+    const sourceRequest = await this.linkedRequest(workOrder.id, tenantId);
+    return { ...workOrder, sourceRequest: sourceRequest ? { id: sourceRequest.id, requestNumber: sourceRequest.requestNumber } : null };
   }
 
   async create(
@@ -2260,9 +2261,6 @@ export class WorkOrdersService {
         }
       }
 
-      if (this.workOrderDomain) {
-        await this.workOrderDomain.syncTargetUnderMaintenance(id, actor);
-      }
     }
 
     if (
@@ -2331,6 +2329,18 @@ export class WorkOrdersService {
         }
       }
       await this.startLabourSession(id, labourActorId, tenantId);
+      // Only after every start check (permit, approval, live before photo) has passed: a rejected
+      // start must not leave the asset or vehicle marked UNDER_MAINTENANCE.
+      if (this.workOrderDomain) {
+        try {
+          await this.workOrderDomain.syncTargetUnderMaintenance(id, actor);
+        } catch (error) {
+          // The start failed after the labour session opened: close it so the job stays startable
+          // and the technician is not blocked from starting another job.
+          await this.closeActiveLabourSessions(id, undefined, tenantId);
+          throw error;
+        }
+      }
     }
 
     if (targetStatus === WorkOrderStatus.CANCELLED) {
