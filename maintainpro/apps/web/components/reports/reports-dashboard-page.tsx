@@ -12,6 +12,7 @@ import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { ActiveFilterChips } from "@/components/operational/active-filter-chips";
 import { JobsPagination } from "@/components/operational/jobs-pagination";
 import { OperationalPageHeader } from "@/components/operational/operational-page-header";
+import { DonutChart } from "@/components/ui/donut-chart";
 import { BarList, EmptyState, ErrorState, KpiCard, SectionCard, SkeletonCard } from "@/components/ui/dashboard";
 import { getApiErrorMessage } from "@/lib/api-client";
 import {
@@ -177,7 +178,6 @@ export function ReportsDashboardPage() {
     <div className="min-w-0 space-y-3 p-4 md:p-6">
       <PageBreadcrumbs />
       <OperationalPageHeader
-        eyebrow="Reports"
         title="Reports"
         description={REPORT_PAGE_DESCRIPTION}
         actions={
@@ -267,9 +267,10 @@ export function ReportsDashboardPage() {
           {report.charts.map((chart) => {
             const nameKey = chart.xKey ?? chart.nameKey ?? "name";
             const valueKey = chart.yKeys?.[0] ?? chart.valueKey ?? "value";
+            const chartItems = chart.data.map((row, index) => ({ name: String(row[nameKey] ?? index), value: Number(row[valueKey] ?? 0) || 0 }));
             return (
               <SectionCard key={chart.id} title={chart.title}>
-                <BarList items={chart.data.map((row, index) => ({ name: String(row[nameKey] ?? index), value: Number(row[valueKey] ?? 0) || 0 }))} />
+                {chartItems.length > 0 && chartItems.length <= 8 && chartItems.some((item) => item.value > 0) ? <DonutChart items={chartItems} /> : <BarList items={chartItems} />}
               </SectionCard>
             );
           })}

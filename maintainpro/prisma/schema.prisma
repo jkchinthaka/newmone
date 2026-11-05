@@ -105,6 +105,7 @@ model Tenant {
   organizationUnits            OrganizationUnit[]
   requestProblemCategories     RequestProblemCategory[]
   requesterGroups              RequesterGroup[]
+  floorPlans                   FloorPlan[]
   sparePartCategories          SparePartCategory[]
   maintenanceAnalysisCodes     MaintenanceAnalysisCode[]
   workOrderHoldHistories       WorkOrderHoldHistory[]
@@ -348,6 +349,9 @@ model User {
   /// FK to Department master — nullable for legacy records
   departmentId               String?     @db.NVarChar(36)
   department                 Department? @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Home location (Site master) the user works at; used to default their lists and alerts.
+  siteId                     String?     @db.NVarChar(36)
+  site                       Site?       @relation("UserSite", fields: [siteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Job designation for workforce allocation (e.g. Electrician, Fitter)
   designation                String?
   /// Daily capacity in hours for workload checks (default 8)
@@ -2995,6 +2999,7 @@ model Site {
   workOrders          WorkOrder[]
   maintenanceRequests MaintenanceRequest[]
   pmPlans             PmPlan[]
+  users               User[]               @relation("UserSite")
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])
@@ -6487,6 +6492,8 @@ model SparePartCategory {
   id        String   @id @default(cuid()) @db.NVarChar(36)
   tenantId  String   @db.NVarChar(36)
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Short code used to look the category up (e.g. BEARINGS).
+  code      String?  @db.NVarChar(64)
   name      String
   sortOrder Int      @default(0)
   isActive  Boolean  @default(true)
@@ -6495,4 +6502,35 @@ model SparePartCategory {
 
   @@unique([tenantId, name])
   @@index([tenantId, isActive])
+}
+
+/// A floor-plan image with assets pinned on it (x/y are percentages of the image, 0-100).
+model FloorPlan {
+  id        String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId  String   @db.NVarChar(36)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name      String
+  siteId    String?  @db.NVarChar(36)
+  /// data:image/...;base64 URL (uploads are capped at 3 MB).
+  imageData String   @db.NVarChar(Max)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pins FloorPlanPin[]
+
+  @@index([tenantId, isActive])
+}
+
+model FloorPlanPin {
+  id          String    @id @default(cuid()) @db.NVarChar(36)
+  floorPlanId String    @db.NVarChar(36)
+  floorPlan   FloorPlan @relation(fields: [floorPlanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assetId     String    @db.NVarChar(36)
+  x           Float
+  y           Float
+  createdAt   DateTime  @default(now())
+
+  @@unique([floorPlanId, assetId])
+  @@index([assetId])
 }

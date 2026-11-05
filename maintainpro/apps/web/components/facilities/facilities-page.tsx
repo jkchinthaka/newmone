@@ -440,11 +440,8 @@ export function FacilitiesPage() {
         <div>
           <div className="flex items-center gap-2">
             <Building2 className="h-6 w-6 text-brand-700" aria-hidden="true" />
-            <h1 className="page-title">Facilities</h1>
+            <h1 className="page-title">Locations</h1>
           </div>
-          <p className="mt-1 max-w-3xl text-sm text-slate-500">
-            Manage the property → building → floor → room hierarchy for your tenant. Select a row to drill down.
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {canViewReports ? (
@@ -467,7 +464,7 @@ export function FacilitiesPage() {
             <button
               type="button"
               onClick={openCreateDialog}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
             >
               <Plus size={16} aria-hidden="true" />
               Add {currentLevelSingular.toLowerCase()}

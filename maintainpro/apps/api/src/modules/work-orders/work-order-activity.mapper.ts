@@ -135,8 +135,16 @@ export function historyActivityLabel(action: string): string | null {
       return "Verified";
     case "CLOSED":
       return "Closed";
-    default:
+    case "CREATED":
+      // The "Job created" entry already covers this.
       return null;
+    case "REWORK_REQUIRED":
+      return "Rework requested";
+    case "CANCEL_INSTEAD_OF_DELETE":
+      return "Cancelled";
+    default:
+      // Every other recorded action (approvals, starts, part returns, ...) still shows in the history.
+      return /^[A-Z][A-Z0-9_]*$/.test(action) ? action.charAt(0) + action.slice(1).toLowerCase().replaceAll("_", " ") : null;
   }
 }
 

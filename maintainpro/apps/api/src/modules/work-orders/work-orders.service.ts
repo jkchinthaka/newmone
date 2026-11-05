@@ -4156,7 +4156,102 @@ export class WorkOrdersService {
       }
     });
 
+    // Parts for a job that is already approved need no second approval (finance limits still apply).
+    if (!requiresFinanceApproval && workOrder.approvalStatus !== WorkOrderApprovalStatus.PENDING && workOrder.approvalStatus !== WorkOrderApprovalStatus.REJECTED) {
+      await this.autoApprovePartRequest(workOrderId, created.id, data.quantity, requester.sub, actor);
+    }
+
+    // The storekeepers who will issue the parts are told as soon as the request is raised.
+    await this.notifyStorekeepers({
+      tenantId,
+      requesterId: requester.sub,
+      requestId: created.id,
+      workOrderId,
+      woNumber: workOrder.woNumber,
+      partName: part.name,
+      quantity: data.quantity
+    });
+
     return this.getPartRequest(workOrderId, created.id, actor);
+  }
+
+  private async autoApprovePartRequest(workOrderId: string, requestId: string, quantity: number, requesterId: string, actor?: Actor) {
+    const reason = "Auto-approved: parts on an approved job need no extra approval";
+    await this.prisma.$transaction(async (tx) => {
+      await tx.partRequest.update({ where: { id: requestId }, data: { approvedQuantity: quantity, status: PartRequestStatus.APPROVED, rejectionReason: null } });
+      await tx.partRequestApproval.update({
+        where: { partRequestId_stage: { partRequestId: requestId, stage: ApprovalStage.OPERATIONAL } },
+        data: { status: ApprovalDecisionStatus.APPROVED, actorId: requesterId, actedAt: new Date(), reason }
+      });
+    });
+    await this.workOrderPartsService.syncApprovedLine(requestId, quantity, requesterId, actor);
+    await this.reserveApprovedPartRequest(workOrderId, requestId, quantity, actor);
+    await this.recordAudit({
+      entity: "PART_REQUEST_APPROVAL",
+      entityId: requestId,
+      action: AuditAction.UPDATE,
+      actor,
+      reason,
+      metadata: { workOrderId, approvedQuantity: quantity, auto: true }
+    });
+  }
+
+  /** Remove a part that has not been issued yet. No approval needed: the reservation is simply released. */
+  async cancelPartRequest(workOrderId: string, requestId: string, data: { reason?: string }, actor?: Actor) {
+    const user = this.assertActor(actor);
+    const request = await this.getPartRequest(workOrderId, requestId, actor);
+    if (request.status === PartRequestStatus.ISSUED || request.status === PartRequestStatus.PARTIALLY_ISSUED || (request.issuedQuantity ?? 0) > 0) {
+      throw new BadRequestException("This part was already issued. Return it to the store instead of removing it.");
+    }
+    if (request.status === PartRequestStatus.CANCELLED || request.status === PartRequestStatus.REJECTED) {
+      throw new BadRequestException("This part request is already closed.");
+    }
+    await this.prisma.partRequest.update({
+      where: { id: requestId },
+      data: { status: PartRequestStatus.CANCELLED, rejectionReason: data.reason?.trim() || "Removed from the job" }
+    });
+    await this.releaseReservedPartRequest(requestId, actor);
+    await this.workOrderPartsService.syncRejectedLine(requestId, data.reason?.trim() || "Removed from the job", actor);
+    await this.recordAudit({
+      entity: "PART_REQUEST",
+      entityId: requestId,
+      action: AuditAction.UPDATE,
+      actor,
+      reason: data.reason?.trim() || "Part removed from the job",
+      metadata: { workOrderId, event: "part_request_cancelled", by: user.sub }
+    });
+    return this.getPartRequest(workOrderId, requestId, actor);
+  }
+
+  private async notifyStorekeepers(input: {
+    tenantId: string;
+    requesterId: string;
+    requestId: string;
+    workOrderId: string;
+    woNumber: string;
+    partName: string;
+    quantity: number;
+  }) {
+    try {
+      const keepers = await this.prisma.user.findMany({
+        where: { tenantId: input.tenantId, isActive: true, role: { name: RoleName.INVENTORY_KEEPER }, id: { not: input.requesterId } },
+        select: { id: true }
+      });
+      for (const keeper of keepers) {
+        await this.notificationsService.createNotification({
+          userId: keeper.id,
+          title: "Spare parts requested",
+          message: `${input.partName} x ${input.quantity} requested for ${input.woNumber}`,
+          type: NotificationType.PART_REQUEST_SUBMITTED,
+          priority: NotificationPriority.WARNING,
+          referenceId: input.requestId,
+          referenceType: "PartRequest",
+          metadata: { workOrderId: input.workOrderId, quantity: input.quantity }
+        });
+      }
+    } catch {
+      // A failed alert must never block the request itself.
+    }
   }
 
   async approvePartRequestOperational(
@@ -4961,6 +5056,60 @@ export class WorkOrdersService {
           workOrderId,
           reason: error instanceof Error ? error.message : "Bulk assign failed"
         });
+      }
+    }
+
+    return { success, failed };
+  }
+
+  async bulkUpdate(
+    input: { workOrderIds: string[]; priority?: string; dueDate?: string; reason?: string },
+    actor?: Actor
+  ) {
+    this.assertBulkOperationalPermission(actor);
+
+    if (!Array.isArray(input.workOrderIds) || input.workOrderIds.length === 0) {
+      throw new BadRequestException("workOrderIds is required");
+    }
+    const priority = input.priority?.trim().toUpperCase();
+    if (priority && !["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(priority)) {
+      throw new BadRequestException("priority must be LOW, MEDIUM, HIGH or CRITICAL");
+    }
+    let dueDate: Date | undefined;
+    if (input.dueDate) {
+      dueDate = new Date(input.dueDate);
+      if (Number.isNaN(dueDate.getTime())) {
+        throw new BadRequestException("dueDate is not a valid date");
+      }
+    }
+    if (!priority && !dueDate) {
+      throw new BadRequestException("Provide a priority or a due date");
+    }
+
+    const success: string[] = [];
+    const failed: Array<{ workOrderId: string; reason: string }> = [];
+
+    for (const workOrderId of input.workOrderIds) {
+      try {
+        const current = await this.findOne(workOrderId, actor);
+        if (TERMINAL_WORK_ORDER_STATUSES.has(current.status)) {
+          throw new BadRequestException("Cannot change completed or cancelled work order");
+        }
+        await this.prisma.workOrder.update({
+          where: { id: workOrderId },
+          data: { ...(priority ? { priority } : {}), ...(dueDate ? { dueDate } : {}) }
+        });
+        await this.recordAudit({
+          entity: "WorkOrder",
+          entityId: workOrderId,
+          action: AuditAction.UPDATE,
+          actor,
+          reason: input.reason ?? "Bulk update",
+          metadata: { event: "work_order_bulk_update", priority: priority ?? null, dueDate: dueDate?.toISOString() ?? null }
+        });
+        success.push(workOrderId);
+      } catch (error) {
+        failed.push({ workOrderId, reason: error instanceof Error ? error.message : "Bulk update failed" });
       }
     }
 

@@ -8,7 +8,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { loadRememberedFilters, saveRememberedFilters } from "@/lib/remembered-filters";
-import { AlertTriangle, MoreHorizontal, Plus, Search, X } from "lucide-react";
+import { MoreHorizontal, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { DateField } from "@/components/forms/date-fields";
@@ -93,17 +93,11 @@ function subject(item: MaintenanceRequestListItem) {
 }
 
 function PriorityBadge({ priority }: { priority: string }) {
-  const tone =
-    priority === "CRITICAL"
-      ? "border-rose-300 bg-rose-50 text-rose-900"
-      : priority === "HIGH"
-        ? "border-amber-300 bg-amber-50 text-amber-950"
-        : priority === "LOW"
-          ? "border-slate-200 bg-slate-50 text-slate-700"
-          : "border-sky-200 bg-sky-50 text-sky-900";
+  const dot =
+    priority === "CRITICAL" ? "bg-rose-600" : priority === "HIGH" ? "bg-amber-500" : priority === "LOW" ? "bg-slate-400" : "bg-sky-500";
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${tone}`}>
-      {priority === "CRITICAL" ? <AlertTriangle aria-hidden size={12} /> : null}
+    <span className="inline-flex items-center gap-2 text-sm text-slate-700">
+      <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${dot}`} />
       {requestValueLabel(priority)}
     </span>
   );
@@ -519,31 +513,30 @@ export default function RequestsPage() {
   return (
     <div className="ops-page">
       <PageBreadcrumbs />
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="page-title">{ownOnly ? "My Requests" : "Maintenance Requests"}</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            {ownOnly
-              ? "Report a maintenance issue and follow your own requests."
-              : "Report issues, then review and accept them before a job is created."}
-          </p>
-        </div>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="page-title">{ownOnly ? "My Requests" : "Requests"}</h1>
+        <label className="relative order-3 block w-full sm:order-2 sm:w-auto sm:min-w-[22rem] sm:flex-1 sm:max-w-xl">
+          <span className="sr-only">Search requests</span>
+          <Search aria-hidden size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={draftQuery}
+            onChange={(event) => setDraftQuery(event.target.value)}
+            placeholder="Search requests"
+            className="min-h-11 w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm"
+          />
+        </label>
         {canReport ? (
           <Link
             href={"/requests/new" as Route}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
+            className="order-2 inline-flex min-h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 sm:order-3"
           >
             <Plus size={16} aria-hidden /> Report a problem
           </Link>
         ) : null}
       </header>
 
-      <section aria-labelledby="request-overview-heading" className="space-y-2">
-        <h2 id="request-overview-heading" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          {summary.scope === "mine" ? "Overview of your requests" : "Overview of all requests"}
-          <span className="font-normal normal-case tracking-normal"> · select a card to list those requests</span>
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section aria-label="Request overview">
+        <div className="flex flex-wrap gap-2">
           {requestStageCards(summary).map((card) => {
             const active = stage === card.stage && view !== "triage";
             return (
@@ -558,12 +551,12 @@ export default function RequestsPage() {
                     view: view === "triage" ? null : view === "all" ? null : view
                   })
                 }
-                className={`rounded-card border bg-white p-4 text-left shadow-card focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 ${
-                  active ? "border-brand-600" : "border-slate-200"
+                className={`inline-flex min-h-9 items-center gap-2 rounded-full border px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 ${
+                  active ? "border-blue-600 bg-blue-50 font-semibold text-blue-800" : "border-slate-200 bg-white text-slate-700"
                 }`}
               >
-                <span className="block text-sm font-medium text-slate-600">{card.label}</span>
-                <span className="mt-2 block text-2xl font-semibold tabular-nums text-slate-900">{loading && !capabilities ? "–" : card.value}</span>
+                {card.label}
+                <span className="tabular-nums text-slate-500">{loading && !capabilities ? "–" : card.value}</span>
               </button>
             );
           })}
@@ -590,18 +583,8 @@ export default function RequestsPage() {
       ) : null}
       {view === "triage" ? <p className="text-sm text-slate-600">{requestTriageExplanation()}</p> : null}
 
-      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-3" aria-label="Filters">
-        <div className="grid gap-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto]">
-          <label className="relative block">
-            <span className="sr-only">Search requests</span>
-            <Search aria-hidden size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={draftQuery}
-              onChange={(event) => setDraftQuery(event.target.value)}
-              placeholder="Search request number, issue, asset or location..."
-              className="min-h-11 w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm"
-            />
-          </label>
+      <section className="space-y-3" aria-label="Filters">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             aria-label="Status"
             className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
@@ -616,6 +599,31 @@ export default function RequestsPage() {
                 {requestStatusLabel(value)}
               </option>
             ))}
+          </select>
+          <select
+                aria-label="Priority"
+              className="min-h-11 rounded-lg border border-slate-200 bg-white px-2 text-sm"
+              value={priority}
+              onChange={(event) => writeQuery({ priority: event.target.value || null })}
+            >
+              <option value="">Any priority</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+          </select>
+          <select
+                aria-label="Type"
+              className="min-h-11 rounded-lg border border-slate-200 bg-white px-2 text-sm"
+              value={jobDomain}
+              onChange={(event) => writeQuery({ type: event.target.value || null })}
+            >
+              <option value="">Any type</option>
+              {REQUEST_TYPE_FILTER_ORDER.map((value) => (
+                <option key={value} value={value}>
+                  {REQUEST_TYPE_FILTER_LABELS[value]}
+                </option>
+              ))}
           </select>
           <input
             aria-label="Asset, vehicle or location"
@@ -635,31 +643,6 @@ export default function RequestsPage() {
         </div>
         {advanced ? (
           <div className="grid gap-2 md:grid-cols-3">
-            <select
-                aria-label="Priority"
-              className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
-              value={priority}
-              onChange={(event) => writeQuery({ priority: event.target.value || null })}
-            >
-              <option value="">Any priority</option>
-              <option value="CRITICAL">Critical</option>
-              <option value="HIGH">High</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="LOW">Low</option>
-            </select>
-            <select
-                aria-label="Type"
-              className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm"
-              value={jobDomain}
-              onChange={(event) => writeQuery({ type: event.target.value || null })}
-            >
-              <option value="">Any type</option>
-              {REQUEST_TYPE_FILTER_ORDER.map((value) => (
-                <option key={value} value={value}>
-                  {REQUEST_TYPE_FILTER_LABELS[value]}
-                </option>
-              ))}
-            </select>
             <input
               aria-label="Reported by"
               value={reporter}

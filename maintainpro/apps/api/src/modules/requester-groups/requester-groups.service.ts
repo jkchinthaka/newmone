@@ -10,10 +10,15 @@ const slug = (value: string) => value.trim().toUpperCase().replace(/[^A-Z0-9]+/g
 export class RequesterGroupsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listGroups(tenantIdRaw: string | null, includeInactive = false) {
+  async listGroups(tenantIdRaw: string | null, includeInactive = false, q?: string) {
     const tenantId = requireTenantId(tenantIdRaw);
+    const term = q?.trim();
     const rows = await this.prisma.requesterGroup.findMany({
-      where: { tenantId, ...(includeInactive ? {} : { isActive: true }) },
+      where: {
+        tenantId,
+        ...(includeInactive ? {} : { isActive: true }),
+        ...(term ? { OR: [{ name: { contains: term } }, { code: { contains: term } }] } : {})
+      },
       orderBy: { name: "asc" },
       include: { members: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } } }
     });
@@ -77,11 +82,17 @@ export class RequesterGroupsService {
     return users.map((u) => u.id);
   }
 
-  async listPartCategories(tenantIdRaw: string | null, includeInactive = false) {
+  async listPartCategories(tenantIdRaw: string | null, includeInactive = false, q?: string) {
     const tenantId = requireTenantId(tenantIdRaw);
     await this.seedPartCategoriesFromParts(tenantId);
+    await this.backfillCategoryCodes(tenantId);
+    const term = q?.trim();
     return this.prisma.sparePartCategory.findMany({
-      where: { tenantId, ...(includeInactive ? {} : { isActive: true }) },
+      where: {
+        tenantId,
+        ...(includeInactive ? {} : { isActive: true }),
+        ...(term ? { OR: [{ name: { contains: term } }, { code: { contains: term } }] } : {})
+      },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
     });
   }
@@ -95,7 +106,7 @@ export class RequesterGroupsService {
       if (existing.isActive) throw new BadRequestException(`"${name}" already exists.`);
       return this.prisma.sparePartCategory.update({ where: { id: existing.id }, data: { isActive: true } });
     }
-    return this.prisma.sparePartCategory.create({ data: { tenantId, name: name.slice(0, 100) } });
+    return this.prisma.sparePartCategory.create({ data: { tenantId, name: name.slice(0, 100), code: slug(name) || null } });
   }
 
   async updatePartCategory(tenantIdRaw: string | null, id: string, input: { name?: string; isActive?: boolean }) {
@@ -106,6 +117,29 @@ export class RequesterGroupsService {
       where: { id },
       data: { ...(input.name?.trim() ? { name: input.name.trim().slice(0, 100) } : {}), ...(input.isActive !== undefined ? { isActive: input.isActive } : {}) }
     });
+  }
+
+  /** Look a group up by its code (case-insensitive). */
+  async groupByCode(tenantIdRaw: string | null, code: string) {
+    const tenantId = requireTenantId(tenantIdRaw);
+    const row = await this.prisma.requesterGroup.findFirst({ where: { tenantId, code: code.trim().toUpperCase() } });
+    if (!row) throw new NotFoundException("No requester group has that code.");
+    return row;
+  }
+
+  async partCategoryByCode(tenantIdRaw: string | null, code: string) {
+    const tenantId = requireTenantId(tenantIdRaw);
+    await this.backfillCategoryCodes(tenantId);
+    const row = await this.prisma.sparePartCategory.findFirst({ where: { tenantId, code: code.trim().toUpperCase() } });
+    if (!row) throw new NotFoundException("No spare part category has that code.");
+    return row;
+  }
+
+  private async backfillCategoryCodes(tenantId: string) {
+    const missing = await this.prisma.sparePartCategory.findMany({ where: { tenantId, code: null }, select: { id: true, name: true } });
+    for (const row of missing) {
+      await this.prisma.sparePartCategory.update({ where: { id: row.id }, data: { code: slug(row.name) || null } });
+    }
   }
 
   /** First open: turn the free-text categories already on parts into the master list. */

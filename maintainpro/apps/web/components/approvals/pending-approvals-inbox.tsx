@@ -136,7 +136,7 @@ export function PendingApprovalsInbox({
           </button>
         ))}
       </div>
-      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_11rem_11rem]">
+      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_11rem]">
         <DebouncedField
           type="search"
           className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm"
@@ -151,15 +151,19 @@ export function PendingApprovalsInbox({
             <option key={value} value={value}>{priorityLabel(value)}</option>
           ))}
         </select>
-        <DebouncedField className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm" label="Site" placeholder="Site" value={site} onCommit={onSite} />
       </div>
-      <div className="mt-3 max-w-xl">
-        <DateRangeField from={from} to={to} onFromChange={onFrom} onToChange={onTo} />
-      </div>
+      <details className="mt-2">
+        <summary className="cursor-pointer text-sm font-medium text-blue-700">More filters</summary>
+        <div className="mt-2 grid max-w-3xl gap-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
+          <DebouncedField className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm" label="Site" placeholder="Site" value={site} onCommit={onSite} />
+          <DateRangeField from={from} to={to} onFromChange={onFrom} onToChange={onTo} />
+        </div>
+      </details>
+      {bulk.selected.length > 0 ? (
       <div className="mt-3 flex items-center gap-2">
         <button
           type="button"
-          className="min-h-11 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white disabled:opacity-40"
+          className="min-h-11 rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white disabled:opacity-40"
           disabled={bulkBusy || !bulk.sameKind || bulk.selected.length === 0 || bulk.selected.some((item) => !item.canDecide)}
           aria-busy={bulkBusy}
           onClick={() => onBulkApprove(bulk.selected)}
@@ -168,6 +172,7 @@ export function PendingApprovalsInbox({
         </button>
         {!bulk.sameKind ? <span className="text-sm text-amber-700">Select one type</span> : null}
       </div>
+      ) : null}
 
       {error ? (
         <div className="mt-4">
@@ -192,14 +197,6 @@ export function PendingApprovalsInbox({
                 <h2 className="text-sm font-semibold text-slate-900">Pending ({total ?? visible.length})</h2>
                 <p className="text-xs text-slate-500">Oldest first</p>
               </div>
-              <label className="text-sm text-slate-600">
-                <span className="sr-only">Type</span>
-                <select aria-label="Type" className="min-h-11 rounded-md border border-slate-300 bg-white px-2 text-sm" value={tab} onChange={(event) => onTab(event.target.value as InboxTabId)}>
-                  {INBOX_TAB_LABELS.map((entry) => (
-                    <option key={entry.id} value={entry.id}>{entry.label}</option>
-                  ))}
-                </select>
-              </label>
             </div>
             <ul className="divide-y divide-slate-100">
               {visible.map((item) => {
@@ -208,7 +205,7 @@ export function PendingApprovalsInbox({
                 return (
                   <li key={item.id}>
                     <div className={`flex gap-3 px-4 py-3 ${active ? "bg-emerald-50/60" : ""}`}>
-                      <TouchCheckbox className="mt-0" label={`Select ${item.reference}`} checked={selected.includes(item.id)} onChange={() => toggle(item.id)} />
+                      <TouchCheckbox className="mt-0" label={item.canDecide === false ? `${item.reference}: you cannot approve this` : `Select ${item.reference}`} disabled={item.canDecide === false} checked={selected.includes(item.id)} onChange={() => toggle(item.id)} />
                       <button type="button" className="min-w-0 flex-1 text-left" data-testid="approval-card" onClick={() => setOpenId(item.id)}>
                         <span className="flex items-start justify-between gap-3">
                           <span className="min-w-0">
@@ -217,6 +214,7 @@ export function PendingApprovalsInbox({
                               {item.reference}
                               {item.requesterName ? ` · ${item.requesterName}` : ""}
                               {item.age ? ` · ${item.age}` : ""}
+                              {item.canDecide === false ? " · can't approve (your request)" : ""}
                             </span>
                           </span>
                           {tone ? (
@@ -331,8 +329,11 @@ function DetailPanel({
         {item.canDecide ? (
           <>
             <button type="button" disabled={busy} className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-800 disabled:opacity-50" onClick={() => onDecide(item, "REJECTED")}>Reject</button>
-            <button type="button" disabled={busy} aria-busy={busy} className="min-h-11 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white disabled:opacity-50" onClick={() => onDecide(item, "APPROVED")}>{busy ? "Saving…" : "Approve"}</button>
+            <button type="button" disabled={busy} aria-busy={busy} className="min-h-11 rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white disabled:opacity-50" onClick={() => onDecide(item, "APPROVED")}>{busy ? "Saving…" : "Approve"}</button>
           </>
+        ) : null}
+        {!item.canDecide && !item.canReturn ? (
+          <p className="text-sm text-slate-500">You can't decide on this one. It is your own request or waiting for someone else.</p>
         ) : null}
         {item.canReturn ? (
           <button type="button" disabled={busy} className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm disabled:opacity-50" onClick={() => onDecide(item, "RETURNED")}>Return for info</button>

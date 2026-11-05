@@ -16,6 +16,7 @@ interface Person {
 }
 interface Group {
   id: string;
+  code?: string | null;
   name: string;
   description?: string | null;
   isActive: boolean;
@@ -132,7 +133,7 @@ export default function RequesterGroupsPage() {
         {groups.map((g) => (
           <li key={g.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
             <div className="min-w-0">
-              <p className={`font-medium ${g.isActive ? "" : "text-slate-400 line-through"}`}>{g.name}</p>
+              <p className={`font-medium ${g.isActive ? "" : "text-slate-400 line-through"}`}>{g.name}{g.code ? <span className="ml-2 font-mono text-xs text-slate-500">{g.code}</span> : null}</p>
               <p className="text-xs text-slate-500">{g.members.length} member(s){g.description ? ` · ${g.description}` : ""}</p>
             </div>
             <div className="flex gap-3 text-xs">

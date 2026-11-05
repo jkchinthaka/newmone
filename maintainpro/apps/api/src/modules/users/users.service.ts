@@ -24,6 +24,7 @@ export type PublicUserResponse = {
   isActive: boolean;
   tenantId: string | null;
   departmentId: string | null;
+  siteId?: string | null;
   designation: string | null;
   mustChangePassword: boolean;
   role: {
@@ -41,6 +42,7 @@ export const PUBLIC_USER_RESPONSE_FIELDS = [
   "isActive",
   "tenantId",
   "departmentId",
+  "siteId",
   "designation",
   "mustChangePassword",
   "role"
@@ -82,6 +84,7 @@ export class UsersService {
     isActive: boolean;
     tenantId?: string | null;
     departmentId?: string | null;
+    siteId?: string | null;
     designation?: string | null;
     mustChangePassword?: boolean;
     role: { id: string; name: RoleName };
@@ -95,6 +98,7 @@ export class UsersService {
       isActive: user.isActive,
       tenantId: user.tenantId ?? null,
       departmentId: user.departmentId ?? null,
+      siteId: user.siteId ?? null,
       designation: user.designation ?? null,
       mustChangePassword: user.mustChangePassword ?? false,
       role: {
@@ -661,6 +665,28 @@ export class UsersService {
     }
   }
 
+  private async assertSiteExists(tenantId: string | null, siteId: string): Promise<void> {
+    const site = await this.prisma.site.findFirst({ where: { id: siteId, ...(tenantId ? { tenantId } : {}) }, select: { id: true } });
+    if (!site) {
+      throw new BadRequestException("Location not found for the selected tenant");
+    }
+  }
+
+  /** The employee record a new login belongs to: must exist in the tenant and not already have a login. */
+  private async assertEmployeeFree(tenantId: string | null, employeeId: string) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: employeeId, ...(tenantId ? { tenantId } : {}) },
+      select: { id: true, linkedUserId: true, departmentId: true, designation: true, phone: true }
+    });
+    if (!employee) {
+      throw new BadRequestException("Employee not found for the selected tenant");
+    }
+    if (employee.linkedUserId) {
+      throw new BadRequestException("This employee already has a login");
+    }
+    return employee;
+  }
+
   async createForAdminConsole(dto: CreateAdminUserDto, actor: Actor) {
     const email = dto.email.toLowerCase().trim();
     const existing = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
@@ -676,6 +702,10 @@ export class UsersService {
     if (dto.departmentId) {
       await this.assertDepartmentExists(tenantId, dto.departmentId);
     }
+    if (dto.siteId) {
+      await this.assertSiteExists(tenantId, dto.siteId);
+    }
+    const employee = dto.employeeId ? await this.assertEmployeeFree(tenantId, dto.employeeId) : null;
 
     const generatedPassword = dto.password ? null : `Tmp-${randomBytes(6).toString("hex")}A1!`;
     const passwordHash = await bcrypt.hash(dto.password ?? generatedPassword!, 12);
@@ -690,12 +720,17 @@ export class UsersService {
           phone: dto.phone?.trim() || undefined,
           roleId: dto.roleId,
           tenantId: tenantId ?? undefined,
-          departmentId: dto.departmentId ?? undefined,
-          designation: dto.designation?.trim() || undefined,
+          departmentId: dto.departmentId ?? employee?.departmentId ?? undefined,
+          siteId: dto.siteId ?? undefined,
+          designation: dto.designation?.trim() || employee?.designation || undefined,
           mustChangePassword: !dto.password
         },
         include: { role: { select: this.userRoleSelect }, tenant: { select: { id: true, name: true } } }
       });
+
+      if (employee) {
+        await tx.employee.update({ where: { id: employee.id }, data: { linkedUserId: created.id, canLogin: true } });
+      }
 
       if (tenantId) {
         await tx.tenantMembership.create({
@@ -737,6 +772,10 @@ export class UsersService {
     if (dto.departmentId !== undefined) {
       await this.assertDepartmentExists(nextTenantId ?? target.tenantId, dto.departmentId);
     }
+    if (dto.siteId) {
+      await this.assertSiteExists(nextTenantId ?? target.tenantId, dto.siteId);
+    }
+    const linkEmployee = dto.employeeId ? await this.assertEmployeeFree(nextTenantId ?? target.tenantId, dto.employeeId) : null;
 
     let normalizedEmail: string | undefined;
     if (dto.email) {
@@ -774,6 +813,7 @@ export class UsersService {
         roleId: dto.roleId,
         tenantId: nextTenantId,
         departmentId: dto.departmentId,
+        siteId: dto.siteId,
         designation: dto.designation?.trim() || undefined,
         // Role, home tenant or sign-in email changes revoke existing sessions.
         ...(nextRole ||
@@ -784,6 +824,10 @@ export class UsersService {
       },
       include: { role: { select: this.userRoleSelect } }
     });
+
+    if (linkEmployee) {
+      await this.prisma.employee.update({ where: { id: linkEmployee.id }, data: { linkedUserId: id, canLogin: true } });
+    }
 
     if (normalizedEmail && normalizedEmail !== target.email) {
       await writeAuditTrail(this.prisma, {

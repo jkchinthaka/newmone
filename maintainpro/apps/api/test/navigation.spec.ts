@@ -183,7 +183,7 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(NAVIGATION_ITEMS.some((item) => item.id === "planning")).toBe(false);
   });
 
-  it("keeps inspections out of the primary maintenance menu", () => {
+  it("keeps inspections off the side menu (still reachable by route and search)", () => {
     const groups = getNavigationGroups("MANAGER");
     const maintenance = groups.find((group) => group.category === "operations");
     const planning = groups.find((group) => group.category === "advanced");
@@ -191,7 +191,7 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
 
     expect(maintenance?.items.some((item) => item.id === "inspections")).toBe(false);
     expect(planning?.label).toBe("Jobs");
-    expect(planning?.items.map((item) => item.href)).toContain("/maintenance/inspections");
+    expect(planning?.items.map((item) => item.href)).not.toContain("/maintenance/inspections");
     expect(inspections?.allowedRoles).toEqual(
       NAVIGATION_ITEMS.find((item) => item.id === "all-jobs")?.allowedRoles
     );
@@ -212,7 +212,7 @@ describe("navigation config (Phase 1 CMMS scope)", () => {
     expect(categoryOf("preventive-maintenance")).toBe("advanced");
     expect(categoryOf("my-jobs")).toBe("operations");
     expect(analysis?.label).toBe("Reports & Analysis");
-    expect(analysis?.items.map((item) => item.href)).toContain("/maintenance/reliability");
+    expect(analysis?.items.map((item) => item.href)).not.toContain("/maintenance/reliability");
     expect(getVisibleNavigationItems("MANAGER").some((item) => item.id === "reliability")).toBe(true);
     expect(getVisibleNavigationItems("TECHNICIAN").some((item) => item.id === "reliability")).toBe(false);
     expect(canAccessNavigationPath("/maintenance/reliability", "MANAGER", [])).toBe(true);

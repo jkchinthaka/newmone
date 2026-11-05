@@ -52,6 +52,8 @@ export type GuidedCreateValues = {
   currentOdometer?: number;
   /** Master-data MaintenanceJobCategory (Service / Problem Category). */
   jobCategoryId?: string;
+  /** Optional main assignee, applied right after the job is created. */
+  assigneeEmployeeId?: string;
 };
 
 type Props = {
@@ -89,6 +91,7 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
   const [jobCategoryId, setJobCategoryId] = useState("");
   const [currentOdometer, setCurrentOdometer] = useState("");
   const [showMore, setShowMore] = useState(false);
+  const [assigneeId, setAssigneeId] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -199,6 +202,7 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
       functionalLocationId: functionalLocationId || undefined,
       jobDomain: domain,
       jobCategoryId: jobCategoryId || undefined,
+      assigneeEmployeeId: assigneeId || undefined,
       currentOdometer:
         domain === "VEHICLE" && currentOdometer.trim()
           ? Number(currentOdometer)
@@ -557,15 +561,25 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
                 />
               </div>
             ) : null}
+            <div className="space-y-1">
+              <span className="text-sm font-medium text-slate-700">Assign to (optional)</span>
+              <EntityPicker
+                endpoint="/workforce/employees"
+                value={assigneeId || null}
+                displayField="fullName"
+                placeholder="Search person..."
+                onChange={(id) => setAssigneeId(id ?? "")}
+              />
+            </div>
             <p className="text-xs text-slate-500">
-              Technician assignment, planned start, parts, work permits, and vendor repair are handled in
-              Planning after the job is created as Open.
+              Planned start, parts, work permits, and vendor repair are handled in
+              Planning after the job is created.
             </p>
           </div>
         ) : null}
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
+      <div className="sticky bottom-0 -mx-1 flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-1 pb-1 pt-4">
         {onCancel ? (
           <button
             type="button"
@@ -582,15 +596,15 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
           type="submit"
           disabled={submitting}
           aria-busy={submitting}
-          className="min-h-11 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          className="min-h-11 rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
         >
           {submitting ? (
             <span className="inline-flex items-center gap-2">
               <Loader2 size={14} className="animate-spin" aria-hidden />
-              Creating…
+              Saving…
             </span>
           ) : (
-            "Create job"
+            "Save details"
           )}
         </button>
       </div>

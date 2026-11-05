@@ -16,6 +16,7 @@ export type AdminUserDetail = {
   isActive: boolean;
   tenantId: string | null;
   departmentId: string | null;
+  siteId?: string | null;
   designation: string | null;
   mustChangePassword: boolean;
   role: { id: string; name: string };
@@ -29,6 +30,8 @@ export interface CreateAdminUserPayload {
   phone?: string;
   tenantId?: string;
   departmentId?: string;
+  siteId?: string;
+  employeeId?: string;
   designation?: string;
   password?: string;
 }
@@ -41,6 +44,8 @@ export interface UpdateAdminUserPayload {
   roleId?: string;
   tenantId?: string;
   departmentId?: string;
+  siteId?: string;
+  employeeId?: string;
   designation?: string;
 }
 

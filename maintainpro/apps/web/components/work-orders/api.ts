@@ -365,6 +365,17 @@ export async function bulkAssignWorkOrders(payload: {
   return unwrapData(response.data);
 }
 
+export async function bulkUpdateWorkOrders(payload: {
+  workOrderIds: string[];
+  priority?: string;
+  dueDate?: string;
+}): Promise<{ success: string[]; failed: Array<{ workOrderId: string; reason: string }> }> {
+  const response = await apiClient.post<
+    ApiEnvelope<{ success: string[]; failed: Array<{ workOrderId: string; reason: string }> }>
+  >("/work-orders/bulk/update", payload);
+  return unwrapData(response.data);
+}
+
 export async function approveWorkOrder(id: string, notes?: string): Promise<WorkOrder> {
   const response = await apiClient.patch<ApiEnvelope<WorkOrder>>(`/work-orders/${id}/approve`, { notes });
   return sanitizeWorkOrder(unwrapData(response.data));

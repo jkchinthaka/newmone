@@ -141,14 +141,14 @@ export default function AdminChecklistTemplatesPage() {
         items={[
           { label: "Admin", href: "/admin" },
           { label: "Maintenance Configuration", href: "/admin/maintenance-config" },
-          { label: "Checklist Templates" }
+          { label: "Procedures" }
         ]}
       />
       <div>
-        <h1 className="page-title">Checklist Templates</h1>
+        <h1 className="page-title">Procedures</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Versioned checklists for scheduled service and jobs. Starting a checklist freezes the template
-          snapshot so later revisions do not change historical results.
+          Reusable step-by-step checklists for jobs and scheduled service. Editing a procedure creates a new
+          version; finished jobs keep the version they used.
         </p>
       </div>
 

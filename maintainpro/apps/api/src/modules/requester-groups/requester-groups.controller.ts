@@ -19,8 +19,8 @@ export class RequesterGroupsController {
 
   @Get("requester-groups")
   @Roles(...READ)
-  async groups(@Req() req: AuthedRequest, @Query("includeInactive") includeInactive?: string) {
-    return { data: await this.service.listGroups(req.user?.tenantId ?? null, includeInactive === "true"), message: "Requester groups fetched" };
+  async groups(@Req() req: AuthedRequest, @Query("includeInactive") includeInactive?: string, @Query("q") q?: string) {
+    return { data: await this.service.listGroups(req.user?.tenantId ?? null, includeInactive === "true", q), message: "Requester groups fetched" };
   }
 
   @Post("requester-groups")
@@ -35,10 +35,22 @@ export class RequesterGroupsController {
     return { data: await this.service.updateGroup(req.user?.tenantId ?? null, id, body), message: "Requester group updated" };
   }
 
+  @Get("requester-groups/by-code/:code")
+  @Roles(...READ)
+  async groupByCode(@Req() req: AuthedRequest, @Param("code") code: string) {
+    return { data: await this.service.groupByCode(req.user?.tenantId ?? null, code), message: "Requester group fetched" };
+  }
+
+  @Get("part-categories/by-code/:code")
+  @Roles(...READ)
+  async partCategoryByCode(@Req() req: AuthedRequest, @Param("code") code: string) {
+    return { data: await this.service.partCategoryByCode(req.user?.tenantId ?? null, code), message: "Category fetched" };
+  }
+
   @Get("part-categories")
   @Roles(...READ)
-  async partCategories(@Req() req: AuthedRequest, @Query("includeInactive") includeInactive?: string) {
-    return { data: await this.service.listPartCategories(req.user?.tenantId ?? null, includeInactive === "true"), message: "Spare part categories fetched" };
+  async partCategories(@Req() req: AuthedRequest, @Query("includeInactive") includeInactive?: string, @Query("q") q?: string) {
+    return { data: await this.service.listPartCategories(req.user?.tenantId ?? null, includeInactive === "true", q), message: "Spare part categories fetched" };
   }
 
   @Post("part-categories")

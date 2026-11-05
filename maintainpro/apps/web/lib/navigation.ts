@@ -223,6 +223,7 @@ const REPORT_ROLES = mergeRoles(
 /** Routes still valid for redirects / deep links (not all appear in primary nav). */
 export const EXISTING_NAV_ROUTES = new Set<string>([
   "/action-center",
+  "/floor-plans",
   "/workspace",
   "/dashboard",
   "/requests",
@@ -489,7 +490,19 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
+    id: "procedures",
+    menuHiddenFor: ["TECHNICIAN", "MECHANIC"],
+    label: "Procedures",
+    href: "/admin/checklist-templates",
+    icon: "ClipboardCheck",
+    allowedRoles: PM_ROLES,
+    category: "advanced",
+    description: "Reusable step-by-step checklists for jobs and scheduled service",
+    activeMatch: "startsWith"
+  },
+  {
     id: "inspections",
+    menuHiddenFor: ["*"],
     label: "Inspections",
     href: "/maintenance/inspections",
     icon: "ClipboardCheck",
@@ -500,6 +513,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "meter-readings",
+    menuHiddenFor: ["*"],
     label: "Meter Readings",
     href: "/utilities/readings",
     icon: "Gauge",
@@ -563,6 +577,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
+    id: "floor-plans",
+    label: "Floor Plans",
+    href: "/floor-plans",
+    icon: "Building2",
+    allowedRoles: mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES, FACILITY_ROLES, ASSET_ROLES),
+    category: "core",
+    description: "Floor plan images with assets pinned on them",
+    activeMatch: "startsWith"
+  },
+  {
     id: "spare-parts",
     label: "Spare Parts",
     href: "/inventory",
@@ -584,6 +608,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   },
   {
     id: "reliability",
+    menuHiddenFor: ["*"],
     label: "Breakdowns & Causes",
     href: "/maintenance/reliability",
     icon: "Activity",

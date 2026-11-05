@@ -10,6 +10,7 @@ import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 
 interface Category {
   id: string;
+  code?: string | null;
   name: string;
   isActive: boolean;
 }
@@ -80,7 +81,7 @@ export default function PartCategoriesPage() {
         {items.length === 0 ? <li className="p-4 text-sm text-slate-500">No categories yet.</li> : null}
         {items.map((item) => (
           <li key={item.id} className="flex items-center justify-between px-4 py-2 text-sm">
-            <span className={item.isActive ? "" : "text-slate-400 line-through"}>{item.name}</span>
+            <span className={item.isActive ? "" : "text-slate-400 line-through"}>{item.name}{item.code ? <span className="ml-2 font-mono text-xs text-slate-500">{item.code}</span> : null}</span>
             <button type="button" onClick={() => void toggle(item)} className="inline-flex items-center gap-1 text-xs text-slate-600 hover:text-slate-900">
               <Power size={12} /> {item.isActive ? "Turn off" : "Turn on"}
             </button>

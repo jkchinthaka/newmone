@@ -1,5 +1,6 @@
 "use client";
 
+import { PriorityDot } from "@/components/ui/priority-dot";
 import {
   assigneeLine,
   odometerLine,
@@ -10,7 +11,6 @@ import {
 } from "@/lib/domain-jobs-columns";
 import { StatusBadge } from "@/components/ui/dashboard";
 import { holdReasonSuffix, queueNextControl } from "@/lib/batch-3-presentation";
-import { priorityBadgePresentation } from "@/lib/dashboard-status";
 import { formatQueueDue } from "@/lib/work-order-queue-nav";
 import type { WorkOrderQueueItem } from "@/lib/work-order-queues-api";
 
@@ -31,7 +31,6 @@ export function WorkOrderMobileCardList({ rows, onOpen, onAction, actorRole, job
       {rows.map((row) => {
         const due = formatQueueDue(row.dueDate, row.overdueDays);
         const control = queueNextControl({ status: row.status, role: actorRole, approvalStatus: row.approvalStatus });
-        const priority = priorityBadgePresentation(row.priority);
         const hold = holdReasonSuffix(
           row.status,
           (row as { holdNotes?: string | null }).holdNotes,
@@ -43,7 +42,7 @@ export function WorkOrderMobileCardList({ rows, onOpen, onAction, actorRole, job
           <article key={row.id} className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="flex items-start justify-between gap-2">
               <span className="font-semibold text-slate-900">{row.woNumber}</span>
-              {priority ? <StatusBadge status={row.priority} label={priority.label} tone={priority.tone} /> : null}
+              <PriorityDot priority={row.priority} />
             </div>
             <p className="mt-1 font-medium text-slate-900">{row.title}</p>
             <p className="text-sm text-slate-500">{workSubtitle(domainRow, jobDomain)}</p>

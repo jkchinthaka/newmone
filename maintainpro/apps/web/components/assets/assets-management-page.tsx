@@ -1442,8 +1442,8 @@ export default function AssetsManagementPage() {
               )}
 
               {(currentUser.role === "SUPER_ADMIN" || currentUser.role === "ADMIN") && (
-                <Link href="/admin/assets/new" className="inline-flex h-10 items-center rounded-lg bg-brand-600 px-3 text-sm font-medium text-white">
-                  Add assets
+                <Link href="/admin/assets/new" className="inline-flex h-10 items-center rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700">
+                  + Asset
                 </Link>
               )}
             </>

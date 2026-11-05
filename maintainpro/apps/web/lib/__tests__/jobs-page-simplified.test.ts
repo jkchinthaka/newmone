@@ -5,14 +5,16 @@ import test from "node:test";
 
 const read = (file: string) => readFileSync(path.resolve(__dirname, "../../components/work-orders", file), "utf8").replace(/\r\n/g, "\n");
 
-test("Jobs queue page keeps only search and status up front; the rest sits under More filters", () => {
+test("Jobs queue page keeps search, status, priority and assignee up front; the rest sits under More filters", () => {
   const panel = read("work-order-queue-panel.tsx");
   const detailsAt = panel.indexOf('<details className="relative">');
   assert.ok(detailsAt > 0);
-  for (const label of ["Priority", "Assigned to", "Type of job", "Saved views"]) {
+  for (const label of ["Type of job", "Saved views"]) {
     assert.ok(panel.indexOf(`${label}\n`, detailsAt) > detailsAt, `${label} should be inside More filters`);
   }
   assert.ok(panel.indexOf('<span className="sr-only">Status</span>') < detailsAt);
+  assert.ok(panel.indexOf('<span className="sr-only">Priority</span>') < detailsAt);
+  assert.ok(panel.indexOf('<span className="sr-only">Assigned to</span>') < detailsAt);
 });
 
 test("Jobs list view: priority and assignee are under More filters, counts are one line", () => {

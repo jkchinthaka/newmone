@@ -93,6 +93,11 @@ export async function rejectPartRequest(
   return unwrap(res.data, {} as PartRequest);
 }
 
+export async function cancelPartRequest(workOrderId: string, partRequestId: string, reason?: string): Promise<PartRequest> {
+  const res = await apiClient.patch(`/work-orders/${workOrderId}/part-requests/${partRequestId}/cancel`, { reason });
+  return unwrap(res.data, {} as PartRequest);
+}
+
 export async function issuePartRequest(
   workOrderId: string,
   partRequestId: string,

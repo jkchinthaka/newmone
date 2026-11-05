@@ -16,12 +16,12 @@ test("Scheduled Service: only search up front; Status, Trigger and Due window si
   assert.match(page, /aria-pressed=\{item\.pressed\}/); // summary buttons still filter by due state
 });
 
-test("Requests list: duplicate status chip row is gone; Priority and Type are under More filters and open from the URL", () => {
+test("Requests list: duplicate status chip row is gone; Status, Priority and Type sit in the main filter row; reporter and date stay under More filters", () => {
   const page = read("requests/page.tsx");
   assert.doesNotMatch(page, /aria-label="Status filters"/);
   const more = page.indexOf("{advanced ? (");
-  assert.ok(page.indexOf('aria-label="Priority"') > more);
-  assert.ok(page.indexOf('aria-label="Type"') > more);
+  assert.ok(page.indexOf('aria-label="Priority"') < more, "Priority stays in the main row");
+  assert.ok(page.indexOf('aria-label="Type"') < more, "Type stays in the main row");
   assert.match(page, /useState\(Boolean\(reporter \|\| from \|\| converted \|\| priority \|\| jobDomain\)\)/);
   assert.ok(page.indexOf('aria-label="Status"') < more, "Status select stays in the main row");
 });

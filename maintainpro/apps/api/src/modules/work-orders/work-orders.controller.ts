@@ -340,6 +340,17 @@ export class WorkOrdersController {
     return { data, message: "Bulk assign completed" };
   }
 
+  @Post("bulk/update")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
+  @Permissions("work_orders.manage")
+  async bulkUpdate(
+    @Req() req: AuthedRequest,
+    @Body() body: { workOrderIds: string[]; priority?: string; dueDate?: string; reason?: string }
+  ) {
+    const data = await this.workOrdersService.bulkUpdate(body, req.user);
+    return { data, message: "Bulk update completed" };
+  }
+
   @Post("bulk/status")
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "SUPERVISOR")
   @Permissions("work_orders.manage")
@@ -1217,6 +1228,18 @@ export class WorkOrdersController {
   ) {
     const data = await this.workOrdersService.rejectPartRequest(id, requestId, body, req.user);
     return { data, message: "Part request rejected" };
+  }
+
+  @Patch(":id/part-requests/:requestId/cancel")
+  @Roles(...PART_REQUEST_CREATE_ROLES)
+  async cancelPartRequest(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("requestId") requestId: string,
+    @Body() body: { reason?: string }
+  ) {
+    const data = await this.workOrdersService.cancelPartRequest(id, requestId, body ?? {}, req.user);
+    return { data, message: "Part removed from the job" };
   }
 
   @Post(":id/part-requests/:requestId/issue")
