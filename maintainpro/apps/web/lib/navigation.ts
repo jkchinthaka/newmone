@@ -350,6 +350,7 @@ export const ROLE_DEFAULT_FAVORITE_NAV_IDS: Record<string, readonly string[]> = 
   ADMIN: ["admin"],
   // The fleet overview is hidden for security officers; they report problems through Requests.
   SECURITY_OFFICER: ["requests", "report-issue"],
+  REQUESTER: ["report-issue", "requests"],
   FLEET_MANAGER: ["fleet", "vehicle-jobs"],
   DRIVER: ["fleet"],
   VIEWER: ["reports"],
