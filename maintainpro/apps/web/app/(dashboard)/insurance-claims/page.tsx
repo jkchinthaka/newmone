@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState, type FormEvent } from "react";
+import { Suspense, useMemo, useState, type FormEvent, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, RefreshCw } from "lucide-react";
@@ -54,6 +54,10 @@ export default function InsuranceClaimsPage() {
 function InsuranceClaimsRegister() {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
+  useEffect(() => {
+    // Deep link from the Fleet tabs: /path?new=1 opens the create form.
+    if (new URLSearchParams(window.location.search).get("new") === "1") setShowCreate(true);
+  }, []);
   const [status, setStatus] = useState("");
   const [activeId, setActiveId] = useRecordParam();
 
@@ -226,11 +230,14 @@ function CreateClaimDialog({
               onChange={(id) => setForm((current) => ({ ...current, vehicleId: id ?? "" }))}
             />
           </Field>
-          <Field label="Accident ID">
-            <input
-              value={form.accidentId}
-              onChange={(e) => setForm({ ...form, accidentId: e.target.value })}
-              className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
+          <Field label="Accident">
+            <EntityPicker<{ id: string; reportNumber?: string; location?: string }>
+              endpoint="/accidents"
+              value={form.accidentId || null}
+              displayField="reportNumber"
+              secondaryField="location"
+              placeholder="Link to an accident (optional)"
+              onChange={(id) => setForm((current) => ({ ...current, accidentId: id ?? "" }))}
             />
           </Field>
           <Field label="Policy number *">

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState, type FormEvent } from "react";
+import { Suspense, useMemo, useState, type FormEvent, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { DateField } from "@/components/forms/date-fields";
@@ -73,6 +73,10 @@ export default function TrafficFinesPage() {
 function TrafficFinesRegister() {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
+  useEffect(() => {
+    // Deep link from the Fleet tabs: /path?new=1 opens the create form.
+    if (new URLSearchParams(window.location.search).get("new") === "1") setShowCreate(true);
+  }, []);
   const [activeId, setActiveId] = useRecordParam();
   const [paymentStatus, setPaymentStatus] = useState("");
   const [responsibility, setResponsibility] = useState("");
@@ -295,11 +299,14 @@ function CreateFineDialog({
               onChange={(id) => setForm((current) => ({ ...current, vehicleId: id ?? "" }))}
             />
           </Field>
-          <Field label="Driver ID">
-            <input
-              value={form.driverId}
-              onChange={(e) => setForm({ ...form, driverId: e.target.value })}
-              className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
+          <Field label="Driver">
+            <EntityPicker<{ id: string; name?: string; licenseNumber?: string }>
+              endpoint="/drivers"
+              value={form.driverId || null}
+              displayField="name"
+              secondaryField="licenseNumber"
+              placeholder="Search driver..."
+              onChange={(id) => setForm((current) => ({ ...current, driverId: id ?? "" }))}
             />
           </Field>
           <Field label="Fine date *">

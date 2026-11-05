@@ -68,6 +68,10 @@ function AccidentsRegister() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
+  useEffect(() => {
+    // Deep link from the Fleet tabs: /path?new=1 opens the create form.
+    if (new URLSearchParams(window.location.search).get("new") === "1") setShowCreate(true);
+  }, []);
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const activeId = searchParams.get("id");
@@ -268,11 +272,14 @@ function CreateAccidentDialog({
               onChange={(id) => setForm((current) => ({ ...current, vehicleId: id ?? "" }))}
             />
           </Field>
-          <Field label="Driver ID">
-            <input
-              value={form.driverId}
-              onChange={(e) => setForm({ ...form, driverId: e.target.value })}
-              className="w-full rounded border border-slate-200 px-2 py-1 text-sm"
+          <Field label="Driver">
+            <EntityPicker<{ id: string; name?: string; licenseNumber?: string }>
+              endpoint="/drivers"
+              value={form.driverId || null}
+              displayField="name"
+              secondaryField="licenseNumber"
+              placeholder="Search driver..."
+              onChange={(id) => setForm((current) => ({ ...current, driverId: id ?? "" }))}
             />
           </Field>
           <Field label="Occurred at *">
