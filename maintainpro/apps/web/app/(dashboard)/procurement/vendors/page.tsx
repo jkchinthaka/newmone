@@ -1,6 +1,7 @@
 "use client";
 
 import { TableLoadingRows } from "@/components/ui/loading";
+import { StatusBadge } from "@/components/ui/dashboard";
 import { formatDateTime } from "@/lib/localization";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -192,20 +193,16 @@ export default function VendorEligibilityPage() {
               <th className="px-3 py-2">Vendor</th>
               <th className="px-3 py-2">Availability</th>
               <th className="px-3 py-2">Eligibility</th>
-              <th className="px-3 py-2">Contract</th>
-              <th className="px-3 py-2">Insurance</th>
-              <th className="px-3 py-2">Next action</th>
+              <th className="px-3 py-2">Contract / insurance</th>
             </tr>
           </thead>
           <tbody>
             {items.map((vendor) => (
               <tr key={vendor.id} className="border-b">
                 <td className="px-3 py-3"><button type="button" className="font-medium text-brand-700 underline" aria-label={vendor.name?.trim() || vendor.vendorCode || "Open vendor"} onClick={() => setSelected(vendor)}>{vendor.name?.trim() || vendor.vendorCode || "Open vendor"}</button><div className="text-xs text-slate-500">{vendor.vendorCode || "No code"}</div></td>
-                <td className="px-3 py-3">{label(vendor.availability)}</td>
-                <td className="px-3 py-3">{label(vendor.eligibility)}<div className="text-xs text-slate-600">{vendor.reasons[0]?.message || "Meets the rules currently enforced."}</div></td>
-                <td className="px-3 py-3">{label(vendor.contract.state)}</td>
-                <td className="px-3 py-3">{label(vendor.insurance.state)}</td>
-                <td className="px-3 py-3">{vendor.assignmentAllowed ? "Available to assign" : "Resolve before assigning"}</td>
+                <td className="px-3 py-3"><StatusBadge status={vendor.availability} label={label(vendor.availability)} /></td>
+                <td className="px-3 py-3"><StatusBadge status={vendor.eligibility} label={label(vendor.eligibility)} /><div className="mt-1 text-xs text-slate-600">{vendor.assignmentAllowed ? "Can be assigned" : "Resolve before assigning"}</div><div className="text-xs text-slate-600">{vendor.reasons[0]?.message || "Meets the rules currently enforced."}</div></td>
+                <td className="px-3 py-3">{label(vendor.contract.state)}<div className="text-xs text-slate-600">Insurance: {label(vendor.insurance.state)}</div></td>
               </tr>
             ))}
           </tbody>

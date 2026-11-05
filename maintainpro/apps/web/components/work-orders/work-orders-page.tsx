@@ -36,7 +36,7 @@ import { approveThenAssign, verifyThenClose } from "@/lib/wo-flow-phase2";
 
 import { BulkAssignDialog } from "./bulk-assign-dialog";
 import { CompleteWorkOrderModal } from "./complete-work-order-modal";
-import { approveWorkOrder, assignWorkOrder } from "./api";
+import { approveWorkOrder, assignWorkOrder, bulkAssignWorkOrders } from "./api";
 import { getErrorMessage, humanWorkOrderStatusLabel, toTitleCase } from "./helpers";
 import { HoldWorkOrderModal } from "./hold-work-order-modal";
 import {
@@ -1059,13 +1059,22 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
             createIdempotencyKey.current = crypto.randomUUID();
           }
 
+          const { assigneeEmployeeId, ...createValues } = values;
           createMutation
             .mutateAsync({
-              ...values,
+              ...createValues,
               createdById: currentUserId,
               idempotencyKey: createIdempotencyKey.current
             })
-            .then(() => {
+            .then(async (created) => {
+              if (assigneeEmployeeId && created?.id) {
+                try {
+                  await bulkAssignWorkOrders({ workOrderIds: [created.id], assigneeEmployeeIds: [assigneeEmployeeId] });
+                  void workOrdersQuery.refetch();
+                } catch (assignError) {
+                  toast.error(`Job created, but assigning failed: ${getErrorMessage(assignError)}`);
+                }
+              }
               toast.success("Job created");
               closeEditorModal();
             })

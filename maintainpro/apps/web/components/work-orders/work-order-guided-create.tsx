@@ -52,6 +52,8 @@ export type GuidedCreateValues = {
   currentOdometer?: number;
   /** Master-data MaintenanceJobCategory (Service / Problem Category). */
   jobCategoryId?: string;
+  /** Optional main assignee, applied right after the job is created. */
+  assigneeEmployeeId?: string;
 };
 
 type Props = {
@@ -89,6 +91,7 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
   const [jobCategoryId, setJobCategoryId] = useState("");
   const [currentOdometer, setCurrentOdometer] = useState("");
   const [showMore, setShowMore] = useState(false);
+  const [assigneeId, setAssigneeId] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -199,6 +202,7 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
       functionalLocationId: functionalLocationId || undefined,
       jobDomain: domain,
       jobCategoryId: jobCategoryId || undefined,
+      assigneeEmployeeId: assigneeId || undefined,
       currentOdometer:
         domain === "VEHICLE" && currentOdometer.trim()
           ? Number(currentOdometer)
@@ -557,9 +561,19 @@ export function WorkOrderGuidedCreate({ submitting, jobDomain: lockedDomain, ini
                 />
               </div>
             ) : null}
+            <div className="space-y-1">
+              <span className="text-sm font-medium text-slate-700">Assign to (optional)</span>
+              <EntityPicker
+                endpoint="/workforce/employees"
+                value={assigneeId || null}
+                displayField="fullName"
+                placeholder="Search person..."
+                onChange={(id) => setAssigneeId(id ?? "")}
+              />
+            </div>
             <p className="text-xs text-slate-500">
-              Technician assignment, planned start, parts, work permits, and vendor repair are handled in
-              Planning after the job is created as Open.
+              Planned start, parts, work permits, and vendor repair are handled in
+              Planning after the job is created.
             </p>
           </div>
         ) : null}

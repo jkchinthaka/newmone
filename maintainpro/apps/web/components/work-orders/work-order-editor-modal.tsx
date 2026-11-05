@@ -70,6 +70,7 @@ type WorkOrderCreateFormValue = {
   jobDomain?: string;
   currentOdometer?: number;
   jobCategoryId?: string;
+  assigneeEmployeeId?: string;
 };
 
 type WorkOrderEditFormValue = UpdateWorkOrderInput;
@@ -540,7 +541,8 @@ export function WorkOrderEditorModal({
                       functionalLocationId: values.functionalLocationId,
                       jobDomain: values.jobDomain,
                       jobCategoryId: values.jobCategoryId,
-                      currentOdometer: values.currentOdometer
+                      currentOdometer: values.currentOdometer,
+                      assigneeEmployeeId: values.assigneeEmployeeId
                     });
                   }}
                 />
