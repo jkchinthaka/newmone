@@ -360,7 +360,7 @@ export class WorkOrderQueuesService {
       completed: { where: { status: { in: FINISHED_STATUSES } } },
       cancelled: { where: { status: WorkOrderStatus.CANCELLED } },
       // Jobs a manager turned down at the approval step; the requester sees why and can raise a new one.
-      rejected: { where: { approvalStatus: WorkOrderApprovalStatus.REJECTED, status: { not: WorkOrderStatus.CANCELLED } } },
+      rejected: { where: { approvalStatus: WorkOrderApprovalStatus.REJECTED } },
       all: { where: {} }
     };
 
@@ -1247,7 +1247,7 @@ export class WorkOrderQueuesService {
       case "cancelled":
         return { AND: [where, { status: WorkOrderStatus.CANCELLED }] };
       case "rejected":
-        return { AND: [where, { approvalStatus: WorkOrderApprovalStatus.REJECTED, status: { not: WorkOrderStatus.CANCELLED } }] };
+        return { AND: [where, { approvalStatus: WorkOrderApprovalStatus.REJECTED }] };
       case "in-progress":
         return { AND: [where, inProgressQueueWhere()] };
       case "rework-required":
@@ -1711,7 +1711,7 @@ export class WorkOrderQueuesService {
       case "cancelled":
         return row.status === WorkOrderStatus.CANCELLED;
       case "rejected":
-        return row.approvalStatus === WorkOrderApprovalStatus.REJECTED && row.status !== WorkOrderStatus.CANCELLED;
+        return row.approvalStatus === WorkOrderApprovalStatus.REJECTED;
       case "all":
         return true;
       default:
