@@ -1513,3 +1513,6 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 
 ## My jobs functional fixes (live)
 - `work-orders/my/page.tsx`: "Start work" no longer stays disabled after cancelling the start dialog (removed direct DOM disable); list requests are sequenced/aborted so an older response can't overwrite a newer tab/search; coming back online reloads at once. API unchanged. web tests 553 pass, tsc clean; not browser-tested.
+
+## My jobs UI polish (live)
+- `components/operational/queue-tab-bar.tsx` (shared with Jobs queues): More is an outline button with a popover (was a green button + in-flow rows); optional `hideZeroCounts` and `tone: "alert"` (red count pill). `work-orders/my/page.tsx`: hides 0 counts, red Late / Fix again, subtitle reworded, empty state "You're all caught up" + "See all jobs" link. Logic/API unchanged. web tests 553 pass, tsc clean; not browser-tested.

@@ -292,7 +292,7 @@ export default function MyJobsPage() {
     <div className="ops-page pb-24 md:pb-0">
       <OperationalPageHeader
         title="My jobs"
-        description="Your jobs, most urgent first. Tap the green button to do the next step."
+        description="Jobs assigned to you, most urgent first."
         actions={
           <button type="button" aria-label="Refresh" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-300" onClick={() => void refresh()}>
             <RefreshCw size={16} aria-hidden />
@@ -300,8 +300,9 @@ export default function MyJobsPage() {
         }
       />
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="rounded-xl border border-slate-200 bg-white">
         <QueueTabBar
+          hideZeroCounts
           label="My jobs"
           selectedKey={view}
           moreOpen={moreViewsOpen}
@@ -310,7 +311,7 @@ export default function MyJobsPage() {
           primary={[
             ...MAIN_VIEWS,
             ...ATTENTION_VIEWS.filter(([key, , countKey]) => (counts?.[countKey] ?? 0) > 0 || view === key)
-          ].map(([key, label, countKey]) => ({ key, label, count: counts ? counts[countKey] : undefined }))}
+          ].map(([key, label, countKey]) => ({ key, label, count: counts ? counts[countKey] : undefined, tone: key === "overdue" || key === "rework-required" ? ("alert" as const) : undefined }))}
           more={[
             ...ATTENTION_VIEWS.filter(([key, , countKey]) => !((counts?.[countKey] ?? 0) > 0 || view === key)),
             ...OTHER_VIEWS
@@ -377,9 +378,9 @@ export default function MyJobsPage() {
 
       {!loading && !error && items.length === 0 && !filtersActive ? (
         <EmptyState
-          title="No jobs assigned to you"
-          description="When a job is assigned to your user, it will appear here."
-          action={<button type="button" className="min-h-11 rounded border border-slate-300 px-3 text-sm" onClick={() => void refresh()}>Refresh</button>}
+          title="You're all caught up"
+          description="No jobs are assigned to you right now. New jobs show up here as soon as they're assigned."
+          action={<Link href={"/maintenance/jobs" as Route} className="inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white">See all jobs</Link>}
         />
       ) : null}
       {!loading && !error && items.length === 0 && filtersActive ? (
