@@ -23,6 +23,7 @@ export type WorkOrderQueueKey =
   | "triage"
   | "completed"
   | "cancelled"
+  | "rejected"
   | "all";
 
 export type RiskSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -83,6 +84,7 @@ export const FALLBACK_QUEUE_SUMMARY: WorkOrderQueueSummary = {
     { key: "triage", label: "Review / Not Sure", count: 0 },
     { key: "completed", label: "Completed", count: 0 },
     { key: "cancelled", label: "Cancelled", count: 0 },
+    { key: "rejected", label: "Rejected", count: 0 },
     { key: "all", label: "All", count: 0 }
   ],
   defaultQueue: "action-required",
