@@ -39,6 +39,8 @@ export class SuppliersController {
       website?: string;
       taxNumber?: string;
       serviceCategories?: string[];
+      insuranceRequired?: boolean;
+      insuranceExpiresAt?: string | null;
       notes?: string;
       tenantId?: string;
     }
@@ -70,6 +72,8 @@ export class SuppliersController {
       website: string;
       taxNumber: string;
       serviceCategories: string[];
+      insuranceRequired: boolean;
+      insuranceExpiresAt: string | null;
       notes: string;
       isActive: boolean;
       performanceScore: number;

@@ -15,6 +15,15 @@ const VENDOR_MANAGE_ROLES = new Set<RoleName>([
   RoleName.ASSET_MANAGER
 ]);
 
+function parseOptionalDate(value?: string | null): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new BadRequestException("Insurance expiry must be a valid date.");
+  }
+  return parsed;
+}
+
 @Injectable()
 export class SuppliersService {
   constructor(private readonly prisma: PrismaService) {}
@@ -68,6 +77,8 @@ export class SuppliersService {
       website?: string;
       taxNumber?: string;
       serviceCategories?: string[];
+      insuranceRequired?: boolean;
+      insuranceExpiresAt?: string | null;
       notes?: string;
       tenantId?: string;
     },
@@ -96,6 +107,8 @@ export class SuppliersService {
         website: data.website,
         taxNumber: data.taxNumber,
         serviceCategories: data.serviceCategories ?? [],
+        insuranceRequired: data.insuranceRequired ?? false,
+        insuranceExpiresAt: parseOptionalDate(data.insuranceExpiresAt),
         notes: data.notes,
         tenantId,
         createdById: actor?.sub ?? null
@@ -118,6 +131,8 @@ export class SuppliersService {
       website: string;
       taxNumber: string;
       serviceCategories: string[];
+      insuranceRequired: boolean;
+      insuranceExpiresAt: string | null;
       notes: string;
       isActive: boolean;
       performanceScore: number;
@@ -137,7 +152,14 @@ export class SuppliersService {
       throw new NotFoundException("Supplier not found");
     }
 
-    const updated = await this.prisma.supplier.update({ where: { id }, data });
+    const { insuranceExpiresAt, ...rest } = data;
+    const updated = await this.prisma.supplier.update({
+      where: { id },
+      data: {
+        ...rest,
+        ...(insuranceExpiresAt !== undefined ? { insuranceExpiresAt: parseOptionalDate(insuranceExpiresAt) } : {})
+      }
+    });
     await this.recordAudit(actor, "vendor_updated", id, data);
     return updated;
   }

@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/ui/dashboard";
 import { formatDateTime } from "@/lib/localization";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { VendorFormDialog } from "@/components/procurement/vendor-form-dialog";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -59,6 +60,7 @@ export default function VendorEligibilityPage() {
   const [selected, setSelected] = useState<VendorRow | null>(null);
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const canManage = ["SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER"].includes(user.role ?? "");
 
@@ -139,9 +141,9 @@ export default function VendorEligibilityPage() {
         <form className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2" onSubmit={(event) => { event.preventDefault(); writeQuery({ search: searchInput || null }); }}>
           <input aria-label="Search vendors" className="min-h-11 w-full max-w-sm rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search vendors" />
           {canManage ? (
-            <Link href={"/master-data/suppliers" as Route} className="inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700">
-              + Vendor
-            </Link>
+            <button type="button" onClick={() => setAddOpen(true)} className="inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white hover:bg-brand-700">
+              + Add vendor
+            </button>
           ) : null}
         </form>
       </header>
@@ -178,6 +180,11 @@ export default function VendorEligibilityPage() {
         <div className="rounded-xl border border-slate-200 bg-white p-6">
           <h2 className="font-semibold">No vendors configured</h2>
           <p className="mt-1 text-sm text-slate-600">Add a vendor before checking assignment eligibility.</p>
+          {canManage ? (
+            <button type="button" onClick={() => setAddOpen(true)} className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700">
+              + Add vendor
+            </button>
+          ) : null}
         </div>
       ) : null}
       {!loading && !error && !configured && items.length === 0 ? (
@@ -239,6 +246,7 @@ export default function VendorEligibilityPage() {
           ) : null}
         </section>
       ) : null}
+      <VendorFormDialog open={addOpen} onClose={() => setAddOpen(false)} onSaved={() => void refresh()} />
     </div>
   );
 }

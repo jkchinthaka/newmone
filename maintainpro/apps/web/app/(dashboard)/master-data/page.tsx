@@ -39,7 +39,7 @@ const GROUPS: { title: string; cards: Card[] }[] = [
     cards: [
       { label: "Spare parts", description: "Catalogue, stock levels, reorder alerts.", href: "/inventory" },
       { label: "Part categories", description: "The list every new part picks from.", href: "/master-data/part-categories", countFrom: "/master-data/part-categories" },
-      { label: "Suppliers", description: "Vendors with categories and terms.", href: "/master-data/suppliers" },
+      { label: "Vendors", description: "Suppliers and outside repair companies.", href: "/master-data/suppliers" },
       { label: "Units of measure", description: "pcs, litre, kg, metre for parts and fuel.", href: "/master-data/units", countFrom: "/master-data/lists/unit" },
     ],
   },

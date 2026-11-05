@@ -1492,3 +1492,8 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 
 ## Asset row menu opened twice (branch live)
 - `assets-table.tsx` AssetRowActions: mobile card + desktop row both rendered the portal menu; now only the instance whose button is visible opens it. tsc clean, web tests 553 pass.
+
+## Vendor = Supplier unification (branch live)
+- Same entity (Supplier table), now called "Vendor" everywhere in UI. New shared `components/procurement/vendor-form-dialog.tsx` (Basic / What they do / More details; create + edit) used by `procurement/vendors` ("+ Add vendor", empty-state button) and `master-data/suppliers` (renamed Vendors, Edit column). Master-data hub label "Vendors".
+- API: `suppliers` create/update accept `insuranceRequired`, `insuranceExpiresAt` (no schema change, columns existed).
+- Tests: web tsc clean, `npm test` 553 pass; api tsc clean, 5 vendor jest suites (38 tests) pass. Not browser-tested.
