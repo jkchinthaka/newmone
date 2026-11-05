@@ -1,3 +1,9 @@
+## CURRENT (2026-11-05, later) - Live workflow + QA plan before handover
+
+- main has #153 (Admin Console simplified). Laptop runs branch `live` (auto-pull every 15s); Claude pushes every change to `live`, PRs to main are separate. Migrations are NOT auto-applied.
+- Plan agreed with user: (1) user clicks through the app manually and reports changes; Claude fixes each on `live`; (2) only after that, run the QA crawl `maintainpro/apps/web/scripts/qa-crawl.mjs` on the laptop (safe mode first, then `QA_MUTATE=1` only after a DB backup); fix findings; (3) then hand over. DO NOT forget the QA crawl before handover.
+- Laptop gotchas: stale `.git\*.lock` files, `package-lock.json` local change blocks pull (stash/restore it), EPERM on `db:generate` when node processes hold the Prisma DLL (taskkill /IM node.exe /F or restart), ghost port 3041.
+
 ## CURRENT (2026-11-05) - GitHub merges done; Admin Console simplified (PR #153)
 
 - main @ b09d887 now contains PR #148 (quick wins + Codex fixes), #149, #150, #151 and #152 (UI simplify, floor plans, procedures). `feat/ui-simplify` branch was deleted after merge.
