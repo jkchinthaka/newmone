@@ -107,6 +107,8 @@ model Tenant {
   requesterGroups              RequesterGroup[]
   floorPlans                   FloorPlan[]
   sparePartCategories          SparePartCategory[]
+  masterListItems              MasterListItem[]
+  workCalendarEntries          WorkCalendarEntry[]
   maintenanceAnalysisCodes     MaintenanceAnalysisCode[]
   workOrderHoldHistories       WorkOrderHoldHistory[]
   workOrderLabourEntries       WorkOrderLabourEntry[]
@@ -6533,4 +6535,38 @@ model FloorPlanPin {
 
   @@unique([floorPlanId, assetId])
   @@index([assetId])
+}
+
+/// Simple pick-lists: kind = UNIT (units of measure), SKILL (skills & trades), MAKE (makes & models).
+model MasterListItem {
+  id        String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId  String   @db.NVarChar(36)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  kind      String   @db.NVarChar(20)
+  name      String   @db.NVarChar(200)
+  /// Short form, e.g. "kg" for a unit.
+  code      String?  @db.NVarChar(40)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, kind, name])
+  @@index([tenantId, kind, isActive])
+}
+
+/// Work calendar: kind = HOLIDAY (uses date) or SHIFT (uses startTime/endTime as HH:mm).
+model WorkCalendarEntry {
+  id        String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId  String    @db.NVarChar(36)
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  kind      String    @db.NVarChar(20)
+  name      String    @db.NVarChar(200)
+  date      DateTime?
+  startTime String?   @db.NVarChar(5)
+  endTime   String?   @db.NVarChar(5)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([tenantId, kind, isActive])
 }

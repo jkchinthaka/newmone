@@ -68,6 +68,7 @@ import { SettingsModule } from "./modules/settings/settings.module";
 import { DepartmentsModule } from "./modules/departments/departments.module";
 import { FloorPlansModule } from "./modules/floor-plans/floor-plans.module";
 import { RequesterGroupsModule } from "./modules/requester-groups/requester-groups.module";
+import { MasterListsModule } from "./modules/master-lists/master-lists.module";
 import { DriverIntelligenceModule } from "./modules/driver-intelligence/driver-intelligence.module";
 import { SuppliersModule } from "./modules/suppliers/suppliers.module";
 import { TenantContextGuard } from "./modules/tenancy/tenant-context.guard";
@@ -189,6 +190,7 @@ normalizeDatabaseEnvironment();
     InventoryModule,
     DepartmentsModule,
     RequesterGroupsModule,
+    MasterListsModule,
     FloorPlansModule,
     SuppliersModule,
     FuelModule,
