@@ -8,7 +8,6 @@ import Link from "next/link";
 
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import {
-  BarList,
   DataTable,
   ErrorState,
   KpiCard,
@@ -290,7 +289,7 @@ function ApprovalsCard({ summary }: { summary: ApprovalsSummary }) {
     <Link
       href={"/approvals" as never}
       aria-label={`Approvals: ${summary.total} pending. Open Approvals`}
-      className="block rounded-card border border-slate-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+      className="block rounded-card border border-slate-200 bg-white p-4 shadow-sm transition lg:col-span-1 hover:border-brand-300 hover:shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -346,31 +345,35 @@ function ManagerDashboard({
   // Chips already shown as cards above are not repeated here.
   const workloadCards = dashboardCardsForRole(role, WORKLOAD_CARDS).filter((card) => !attentionIds.has(card.id));
 
+  const domains: Array<[string, number, string]> = [
+    ["Machinery", data.machineryJobs, "/maintenance/jobs/machinery?queue=open-load"],
+    ["Vehicle", data.vehicleJobs, "/maintenance/jobs/vehicle?queue=open-load"],
+    ["Service", data.serviceJobs, "/maintenance/jobs/service?queue=open-load"]
+  ];
+
+  // Two columns on wide screens so the whole dashboard fits one screen without scrolling.
   return (
-    <div className="space-y-4">
+    <div className="grid gap-3 lg:grid-cols-2">
       {approvals ? <ApprovalsCard summary={approvals} /> : null}
-      <SectionCard description="Queues to clear first. Queues with nothing in them are hidden." title="Needs attention">
+      <SectionCard title="Needs attention">
         {attentionCards.length === 0 ? (
           <p className="text-sm text-slate-600">All clear: no overdue, unassigned, waiting or unchecked jobs.</p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3">
             {attentionCards.map((card) => (
-              <LinkedKpi key={card.id} href={card.href} id={card.id} label={card.label} value={counts[card.countKey] ?? 0} />
+              <LinkedKpi compact key={card.id} href={card.href} id={card.id} label={card.label} value={counts[card.countKey] ?? 0} />
             ))}
           </div>
         )}
       </SectionCard>
 
+<div className={priority.length > 0 ? "lg:col-span-2" : ""}>
       <SectionCard
         action={
-          <Link
-            href={"/work-orders?filter=open" as never}
-            className="btn-quiet"
-          >
+          <Link href={"/work-orders?filter=open" as never} className="btn-quiet">
             View all
           </Link>
         }
-        description="The five most urgent open jobs."
         title="Priority jobs"
       >
         {priority.length === 0 ? (
@@ -379,8 +382,9 @@ function ManagerDashboard({
           <DataTable ariaLabel="Priority jobs" columns={priorityColumns} getRowId={(wo) => wo.id} minWidth="720px" rows={priority} />
         )}
       </SectionCard>
+      </div>
 
-      <SectionCard description="Open load by stage. Each chip opens that stage." title="Workload">
+      <SectionCard title="Workload">
         <div className="flex flex-wrap gap-2">
           {workloadCards.map((card) => {
             const value = counts[card.countKey] ?? 0;
@@ -398,33 +402,33 @@ function ManagerDashboard({
               </Link>
             );
           })}
+          {domains
+            .filter(([, value]) => value > 0)
+            .map(([label, value, href]) => (
+              <Link
+                key={label}
+                href={href as never}
+                aria-label={`${label}: ${value} open jobs`}
+                className="rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+              >
+                <QueueChip>
+                  <span>{label}</span>
+                  <span className="font-semibold tabular-nums">{value}</span>
+                </QueueChip>
+              </Link>
+            ))}
         </div>
       </SectionCard>
 
-      <SectionCard description="Open jobs by domain." title="Domain breakdown">
-        <BarList
-          items={[
-            ["Machinery", data.machineryJobs, "/maintenance/jobs/machinery?queue=open-load"],
-            ["Vehicle", data.vehicleJobs, "/maintenance/jobs/vehicle?queue=open-load"],
-            ["Service", data.serviceJobs, "/maintenance/jobs/service?queue=open-load"]
-          ]
-            .filter(([, value]) => Number(value) > 0)
-            .map(([label, value, href]) => ({
-            name: String(label),
-            value: Number(value),
-            href: String(href),
-            ariaLabel: `${label}: ${value} open jobs`
-          }))}
-        />
-      </SectionCard>
-
-      <SectionCard description="Requests and preventive work that can unblock jobs." title="Pipeline">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <LinkedKpi compact href="/requests?stage=open" id="requests" label="Open requests (all stages)" value={data.requestsOpen} />
-          <LinkedKpi compact href={PM_DUE_SOON_HREF} id="pm-due" label="Scheduled service due soon" value={data.pmDueSoon} />
-          <LinkedKpi compact href={PM_OVERDUE_HREF} id="pm-overdue" label="Scheduled service overdue" value={data.pmOverdue ?? 0} />
-        </div>
-      </SectionCard>
+      <div className="lg:col-span-2">
+        <SectionCard title="Pipeline">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <LinkedKpi compact href="/requests?stage=open" id="requests" label="Open requests (all stages)" value={data.requestsOpen} />
+            <LinkedKpi compact href={PM_DUE_SOON_HREF} id="pm-due" label="Scheduled service due soon" value={data.pmDueSoon} />
+            <LinkedKpi compact href={PM_OVERDUE_HREF} id="pm-overdue" label="Scheduled service overdue" value={data.pmOverdue ?? 0} />
+          </div>
+        </SectionCard>
+      </div>
     </div>
   );
 }
