@@ -25,6 +25,12 @@ export class FloorPlansController {
     return { data: await this.service.list(req.user?.tenantId ?? null, q), message: "Floor plans fetched" };
   }
 
+  @Get("by-asset/:assetId")
+  @Roles(...READ)
+  async byAsset(@Req() req: AuthedRequest, @Param("assetId") assetId: string) {
+    return { data: await this.service.byAsset(req.user?.tenantId ?? null, assetId), message: "Floor plan location fetched" };
+  }
+
   @Get(":id")
   @Roles(...READ)
   async get(@Req() req: AuthedRequest, @Param("id") id: string) {
@@ -41,8 +47,16 @@ export class FloorPlansController {
 
   @Patch(":id")
   @Roles(...MANAGE)
-  async rename(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { name: string }) {
-    return { data: await this.service.rename(req.user?.tenantId ?? null, id, body.name), message: "Floor plan renamed" };
+  async update(@Req() req: AuthedRequest, @Param("id") id: string, @Body() body: { name?: string; siteId?: string | null }) {
+    return { data: await this.service.update(req.user?.tenantId ?? null, id, body), message: "Floor plan updated" };
+  }
+
+  @Post(":id/image")
+  @Roles(...MANAGE)
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: 3 * 1024 * 1024 } }))
+  async replaceImage(@Req() req: AuthedRequest, @Param("id") id: string, @UploadedFile() file?: Express.Multer.File) {
+    return { data: await this.service.replaceImage(req.user?.tenantId ?? null, id, file), message: "Floor plan image replaced" };
   }
 
   @Delete(":id")

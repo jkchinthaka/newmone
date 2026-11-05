@@ -1458,3 +1458,9 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 
 ## Spare parts page restyle (live)
 - `components/inventory/inventory-control-page.tsx`: UI only. 4 KPIs (Parts, Units on hand, Low stock, Out of stock), compact "nothing to issue" note, quick-view chips, table with category, on-hand + unit + stock bar, LKR cost, status pill (low = on hand <= max(minimumStock, reorderPoint)). ERP columns replaced by an ERP badge when mapped. No Low-stock filter yet (API supports stock=out only). Web tsc clean.
+
+## Floor plans upgrade (live)
+- API (`modules/floor-plans`): list returns siteName/pinCount/openJobPins/dots; get returns pin state (OPEN_JOB/OK/RETIRED), open job count, latest job; new `GET floor-plans/by-asset/:assetId`, `PATCH :id` (name, siteId), `POST :id/image` (replace image). No schema change (siteId already on FloorPlan).
+- Web: plans list = cards (dot preview, site, counts) with site picker on create; plan page = drag pins, state colours, pin card, find-asset list with Show, zoom/pan, rename/replace/delete (editors: SUPER_ADMIN/ADMIN/MANAGER/ASSET_MANAGER). `components/floor-plans/floor-plan-location.tsx`: WhereIsIt (asset drawer overview) + ShowOnPlanButton (job drawer status row). Sidebar item removed; reachable from Organization page "Floor plans" button and asset/job links.
+- Card previews use pin dots on a grid, not the uploaded image (images are base64 up to 3 MB; listing them all would be heavy).
+- Also updated role-ux-fixes test for the new Spare Parts KPI labels. Validation: api tsc clean, web tsc clean, web unit tests 553 pass. Not tested in a browser (drag/zoom need a manual check).

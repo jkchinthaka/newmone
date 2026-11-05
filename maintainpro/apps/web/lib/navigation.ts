@@ -582,16 +582,6 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
-    id: "floor-plans",
-    label: "Floor Plans",
-    href: "/floor-plans",
-    icon: "Building2",
-    allowedRoles: mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES, FACILITY_ROLES, ASSET_ROLES),
-    category: "core",
-    description: "Floor plan images with assets pinned on them",
-    activeMatch: "startsWith"
-  },
-  {
     id: "spare-parts",
     label: "Spare Parts",
     href: "/inventory",

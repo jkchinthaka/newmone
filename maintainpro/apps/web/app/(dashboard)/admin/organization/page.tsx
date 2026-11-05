@@ -487,6 +487,9 @@ export default function OrganizationAdminPage() {
             <Link href={DEPARTMENTS_HREF as Route} className="inline-flex h-10 items-center rounded-lg border border-slate-300 px-3 text-sm font-medium">
               Departments
             </Link>
+            <Link href={"/floor-plans" as Route} className="inline-flex h-10 items-center rounded-lg border border-slate-300 px-3 text-sm font-medium">
+              Floor plans
+            </Link>
             <button type="button" className="h-10 rounded-lg border border-slate-300 px-3 text-sm font-medium" onClick={openCreateSite}>
               Add Site
             </button>

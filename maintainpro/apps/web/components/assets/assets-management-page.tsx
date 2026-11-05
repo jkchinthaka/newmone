@@ -1,5 +1,6 @@
 "use client";
 
+import { WhereIsIt } from "@/components/floor-plans/floor-plan-location";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -2865,6 +2866,7 @@ function AssetDetailsDrawer({
                   )}
                 </div>
 
+                <div className="mb-4"><WhereIsIt assetId={asset.id} canPin={canDelete} /></div>
                 <div className="grid gap-3 md:grid-cols-2">
                   <InfoRow label="Asset Tag" value={asset.assetTag} />
                   <InfoRow label="Name" value={asset.name} />
