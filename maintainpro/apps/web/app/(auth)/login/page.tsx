@@ -204,7 +204,8 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-[100dvh] bg-brand-50 lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+    <main className="min-h-[100dvh] bg-brand-50 lg:flex lg:items-center lg:justify-center">
+      <div className="lg:grid lg:min-h-[100dvh] lg:w-full lg:max-w-[1360px] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
       <div className="hidden lg:block lg:p-6">
         <AuthMarketingPanel />
       </div>
@@ -263,6 +264,7 @@ export default function LoginPage() {
                       aria-describedby={errors.email ? "login-email-error" : undefined}
                       aria-invalid={errors.email ? "true" : "false"}
                       autoComplete="email"
+                      autoFocus
                       className={fieldClass}
                       disabled={busy}
                       id="login-email"
@@ -414,6 +416,7 @@ export default function LoginPage() {
           )}
         </div>
       </section>
+      </div>
     </main>
   );
 }
