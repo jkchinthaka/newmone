@@ -26,7 +26,7 @@ test("formatStockCountVariance signs positive deltas", () => {
 });
 
 test("STOCK_COUNT_SOURCE_HELP documents both quantity sources", () => {
-  assert.match(STOCK_COUNT_SOURCE_HELP, /MaintainPro Ledger Qty/i);
+  assert.match(STOCK_COUNT_SOURCE_HELP, /Nelna Care Ledger Qty/i);
   assert.match(STOCK_COUNT_SOURCE_HELP, /ERP Snapshot Qty/i);
   assert.match(STOCK_COUNT_SOURCE_HELP, /never copied into Expected/i);
 });

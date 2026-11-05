@@ -390,7 +390,7 @@ test.describe("authentication", () => {
     await page.goto("/dashboard");
 
     await expect(page).toHaveURL(/\/login\?reason=session_expired/);
-    await expect(page.getByRole("heading", { name: "Sign in to MaintainPro" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sign in to Nelna Care" })).toBeVisible();
   });
 
   test("legacy /home route shows archive label and dashboard link", async ({ page }) => {
@@ -402,7 +402,7 @@ test.describe("authentication", () => {
     await page.goto("/home");
 
     await expect(page.getByText("Legacy FMS Workspace").first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /Go to MaintainPro Dashboard/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /Go to Nelna Care Dashboard/i }).first()).toBeVisible();
     await expect(page).toHaveURL(/\/home$/);
   });
 
@@ -527,6 +527,6 @@ test.describe("authentication", () => {
     await expect(page).toHaveURL(/\/login/);
     await page.goBack({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.getByRole("heading", { name: "Sign in to MaintainPro" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sign in to Nelna Care" })).toBeVisible();
   });
 });

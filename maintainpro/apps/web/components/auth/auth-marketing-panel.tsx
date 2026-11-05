@@ -42,7 +42,7 @@ export function AuthMarketingPanel() {
         <span className="inline-flex rounded-2xl bg-white p-3 shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
           <NelnaLogo priority size="lg" />
         </span>
-        <h2 className="mt-7 text-4xl font-semibold tracking-tight">MaintainPro</h2>
+        <h2 className="mt-7 text-4xl font-semibold tracking-tight">Nelna Care</h2>
         <p className="mt-1 text-lg font-medium text-amber-300">Maintenance Management System</p>
         <p className="mt-3 max-w-md text-base leading-7 text-brand-100/90">
           Plan maintenance, manage assets and facilities, and keep every farm and factory running.

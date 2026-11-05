@@ -60,7 +60,7 @@ describe("evidence storage readiness", () => {
         NODE_ENV: "development",
         STORAGE_MODE: "local",
         STORAGE_UPLOADS_ENABLED: true,
-        STORAGE_LOCAL_ROOT: "C:\\MaintainPro\\evidence-objects"
+        STORAGE_LOCAL_ROOT: "C:\\Nelna Care\\evidence-objects"
       })
     );
 

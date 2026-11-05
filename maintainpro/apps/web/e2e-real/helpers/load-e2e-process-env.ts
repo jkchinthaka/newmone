@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 /**
- * Resolve MaintainPro root from apps/web cwd or nested helpers.
+ * Resolve Nelna Care root from apps/web cwd or nested helpers.
  * Never loads production .env files.
  */
 function resolveLoader() {

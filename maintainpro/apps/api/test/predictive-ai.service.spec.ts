@@ -36,7 +36,7 @@ describe("PredictiveAiService", () => {
     global.fetch = jest.fn() as unknown as typeof fetch;
 
     const result = await service.copilotChat({
-      message: "Say hello to MaintainPro in one short sentence.",
+      message: "Say hello to Nelna Care in one short sentence.",
       focusArea: "GENERAL",
       mode: "CHAT",
       markdown: true
@@ -44,7 +44,7 @@ describe("PredictiveAiService", () => {
 
     expect(global.fetch).not.toHaveBeenCalled();
     expect(result.response.conversationId).toBeNull();
-    expect(result.response.text).toContain("Hello from MaintainPro");
+    expect(result.response.text).toContain("Hello from Nelna Care");
     expect(result.response.raw).toMatchObject({
       source: "maintainpro-local-fallback",
       code: "assistant_not_configured"
@@ -73,7 +73,7 @@ describe("PredictiveAiService", () => {
       code: "upstream_403",
       reason: "You are not subscribed to this API."
     });
-    expect(result.response.text).toContain("Built-in MaintainPro guidance for maintenance operations");
+    expect(result.response.text).toContain("Built-in Nelna Care guidance for maintenance operations");
   });
 
   it("returns the upstream assistant response when the provider succeeds", async () => {

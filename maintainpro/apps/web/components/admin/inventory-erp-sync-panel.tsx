@@ -86,7 +86,7 @@ export function InventoryErpSyncPanel() {
             Bileeta read-only stock sync
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Compare Bileeta stock balances with MaintainPro inventory using dry-run only. No ERP writes. Local apply
+            Compare Bileeta stock balances with Nelna Care inventory using dry-run only. No ERP writes. Local apply
             stays disabled unless ERP_STOCK_SYNC_APPLY_ENABLED is enabled on the server.
           </p>
         </div>

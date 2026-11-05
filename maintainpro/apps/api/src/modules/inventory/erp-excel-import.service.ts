@@ -99,7 +99,7 @@ export class ErpExcelImportService {
       INVALID_HEADERS: "Could not detect header columns in the selected sheet.",
       COLUMN_MAPPING_REQUIRED: "Confirm Item Code and Quantity column mapping before continuing.",
       DUPLICATE_ITEM_CODE: "Duplicate item codes were found in the selected import scope.",
-      UNMAPPED_ITEMS: "One or more ERP item codes are not mapped to MaintainPro parts.",
+      UNMAPPED_ITEMS: "One or more ERP item codes are not mapped to Nelna Care parts.",
       IMPORT_ALREADY_APPLIED: "This ERP Excel file was already applied for this tenant.",
       IMPORT_NOT_READY: "Import is not ready to apply. Complete mapping and validation first.",
       IMPORT_APPLY_FAILED: "Stock synchronization failed. Inventory was not fully updated.",
@@ -359,7 +359,7 @@ export class ErpExcelImportService {
         if (!part) {
           status = InventoryImportRowStatus.UNMAPPED;
           unmappedRows += 1;
-          message = "No MaintainPro part with this ERP code or partNumber";
+          message = "No Nelna Care part with this ERP code or partNumber";
         } else {
           partId = part.id;
           partNumber = part.partNumber;
@@ -499,7 +499,7 @@ export class ErpExcelImportService {
       throw new BadRequestException({
         code: "IMPORT_NOT_READY",
         message:
-          "You must confirm: You are about to synchronize MaintainPro stock quantities to the uploaded ERP stock snapshot."
+          "You must confirm: You are about to synchronize Nelna Care stock quantities to the uploaded ERP stock snapshot."
       });
     }
 

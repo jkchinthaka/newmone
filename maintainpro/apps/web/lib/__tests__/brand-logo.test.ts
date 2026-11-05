@@ -14,6 +14,6 @@ test("official Nelna Group logo asset is the brand source", () => {
   assert.equal(NELNA_LOGO_ALT, "Nelna Group");
   assert.equal(NELNA_LOGO_WIDTH, 725);
   assert.equal(NELNA_LOGO_HEIGHT, 563);
-  assert.equal(PRODUCT_NAME, "MaintainPro");
+  assert.equal(PRODUCT_NAME, "Nelna Care");
   assert.equal(BRAND_PRODUCT_LINE, "Maintenance Management System");
 });

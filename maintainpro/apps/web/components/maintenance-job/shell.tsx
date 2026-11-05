@@ -31,12 +31,12 @@ export function MaintenanceJobShell({ children }: { children: ReactNode }) {
         <h1 className="page-title">Archived Maintenance job Module</h1>
         <p className="max-w-2xl text-sm text-brand-800">
           Read-only archived workspace for legacy pending requests and job demos. Current
-          operations live in MaintainPro dashboards, jobs, inventory, and buying.
+          operations live in Nelna Care dashboards, jobs, inventory, and buying.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link className="btn-primary" href="/dashboard">
             <LayoutDashboard size={14} />
-            MaintainPro Dashboard
+            Nelna Care Dashboard
           </Link>
           <span className="btn-quiet">Role: {formatEnumLabel(role)}</span>
         </div>

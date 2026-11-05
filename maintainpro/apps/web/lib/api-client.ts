@@ -78,7 +78,7 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
       return rawMessage;
     }
     if (!candidate.response && candidate.code === "ERR_NETWORK") {
-      return "API is unreachable. Start the MaintainPro API and check the system health page.";
+      return "API is unreachable. Start the Nelna Care API and check the system health page.";
     }
     if (isDatabaseUnavailableError(candidate)) {
       return "Database unavailable. Please contact IT or try again shortly.";

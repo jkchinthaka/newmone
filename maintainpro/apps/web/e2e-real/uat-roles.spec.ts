@@ -199,7 +199,7 @@ test.describe("role UAT @full-stack", () => {
     await step("STORE", "issue part", "ERP quantity stays unchanged", async () => {
       await page.context().clearCookies();
       await loginViaUi(page, "inventory-a");
-      return "inventory user signed in; ERP stock is not decremented by MaintainPro";
+      return "inventory user signed in; ERP stock is not decremented by Nelna Care";
     });
     await step("STORE", "denied close work order", "API rejects", async () => {
       const code = await statusOf(page, `/api/backend/work-orders/${workOrderId}/close`, {});

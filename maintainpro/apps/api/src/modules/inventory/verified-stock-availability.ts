@@ -113,7 +113,7 @@ export async function assertVerifiedIssueAllowed(
   assertWholePositiveIssueQuantity(input.quantity);
   const warehouse = await selectVerifiedWarehouse(tx, input);
   if (isMaintainProOwnedWarehouse(warehouse) && warehouse) {
-    // Goods-in recorded in MaintainPro is the stock truth here: available = on hand - reserved.
+    // Goods-in recorded in Nelna Care is the stock truth here: available = on hand - reserved.
     const balance = await lockBalance(tx, input.tenantId, warehouse.id, input.partId);
     const available = balance ? Math.max(0, balance.onHand - balance.reserved) : 0;
     if (input.quantity > available) {
@@ -194,7 +194,7 @@ async function selectVerifiedWarehouse(
     orderBy: [{ isDefault: "desc" }, { lastErpValidatedAt: "desc" }]
   })) as WarehouseRow[];
   if (rows.length <= 1) return rows[0] ?? null;
-  // A MaintainPro store that holds this part wins, so a part received there can be issued
+  // A Nelna Care store that holds this part wins, so a part received there can be issued
   // even when an ERP warehouse is also mapped.
   const owned = rows.filter((row) => isMaintainProOwnedWarehouse(row));
   if (owned.length > 0 && input.partId) {

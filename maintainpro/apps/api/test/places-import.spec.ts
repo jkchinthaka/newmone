@@ -64,7 +64,7 @@ describe("sites and locations import: rows", () => {
     expect(messages[1]).toBe("Site name is missing (needed for a new site).");
     expect(messages[2]).toBe("Site OLD is inactive. Activate it first.");
     expect(messages[3]).toMatch(/Location type "Spaceship" is not in the list/);
-    expect(messages[4]).toBe("Parent location NOPE is not at site HO in MaintainPro or in this file.");
+    expect(messages[4]).toBe("Parent location NOPE is not at site HO in Nelna Care or in this file.");
     expect(messages[5]).toBe("Location name is missing.");
     expect(messages[7]).toBe('Site MP is called "Main Plant" on row 8. Use one name.');
     expect(plan.counts.errors).toBe(7);
@@ -143,11 +143,11 @@ describe("sites and locations import: save and template", () => {
     await expect(service.preview(actor as never, Array.from({ length: 1001 }, () => ({ siteCode: "A" })))).rejects.toThrow(/up to 1000/);
   });
 
-  it("template has the Places sheet, type drop-downs and what is already in MaintainPro", async () => {
+  it("template has the Places sheet, type drop-downs and what is already in Nelna Care", async () => {
     const service = new PlacesImportService(prisma() as never, {} as never);
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load((await service.template(actor as never)) as never);
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(["Places", "Lists", "Already in MaintainPro", "How to fill"]);
+    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(["Places", "Lists", "Already in Nelna Care", "How to fill"]);
     expect((workbook.getWorksheet("Places")!.getRow(1).values as unknown[]).slice(1)).toEqual([
       "Site code *",
       "Site name *",
@@ -158,6 +158,6 @@ describe("sites and locations import: save and template", () => {
       "Parent location code"
     ]);
     expect(workbook.getWorksheet("Lists")!.getCell(2, 2).value).toBe("Building");
-    expect(workbook.getWorksheet("Already in MaintainPro")!.rowCount).toBe(4);
+    expect(workbook.getWorksheet("Already in Nelna Care")!.rowCount).toBe(4);
   });
 });

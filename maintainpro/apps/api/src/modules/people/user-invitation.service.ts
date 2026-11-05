@@ -96,7 +96,7 @@ export class UserInvitationService {
       try {
         const body =
           `Hello ${input.fullName},\n\n` +
-          `Your MaintainPro account has been created.\n\n` +
+          `Your Nelna Care account has been created.\n\n` +
           `Role: ${input.roleName}\n` +
           `Branch: ${input.branchName ?? "—"}\n` +
           `Department: ${input.departmentName ?? "—"}\n\n` +
@@ -106,7 +106,7 @@ export class UserInvitationService {
 
         await this.emailDispatch.dispatch({
           userId: input.userId,
-          title: "MaintainPro Account Invitation",
+          title: "Nelna Care Account Invitation",
           message: body
         });
 

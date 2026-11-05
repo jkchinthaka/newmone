@@ -86,7 +86,7 @@ export class NotificationTemplatesService {
   }
 
   renderInvitationCreated(input: InvitationCreatedTemplateInput): NotificationTemplateResult {
-    const subject = `You're invited to ${input.tenantName} on MaintainPro`;
+    const subject = `You're invited to ${input.tenantName} on Nelna Care`;
     const textBody = [
       "An onboarding invitation has been created.",
       `Tenant: ${input.tenantName}`,

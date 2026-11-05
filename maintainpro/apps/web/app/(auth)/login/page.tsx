@@ -216,14 +216,14 @@ export default function LoginPage() {
           <div className="flex items-center gap-3 lg:hidden">
             <NelnaLogo decorative size="compact" />
             <div>
-              <p className="text-[15px] font-semibold text-slate-900">MaintainPro</p>
+              <p className="text-[15px] font-semibold text-slate-900">Nelna Care</p>
               <p className="text-[12.5px] text-slate-500">Nelna Group maintenance desk</p>
             </div>
           </div>
 
           <header className="mt-7 lg:mt-0">
             <h1 className="text-[23px] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[26px]">
-              Sign in to MaintainPro
+              Sign in to Nelna Care
             </h1>
             <p className="mt-1.5 text-[14.5px] text-slate-600">
               Use the work email your administrator registered for you.

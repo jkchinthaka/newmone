@@ -30,7 +30,7 @@ describe("SmsDispatchService", () => {
         SMS_API_URL: "https://sms.example.com/send",
         SMS_API_KEY: "sms-key",
         SMS_AUTH_HEADER: "X-Api-Key",
-        SMS_SENDER_ID: "MaintainPro"
+        SMS_SENDER_ID: "Nelna Care"
       }) as never,
       prisma as never
     );

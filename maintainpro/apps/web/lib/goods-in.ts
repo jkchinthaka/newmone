@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 
 import { apiClient } from "@/lib/api-client";
 
-/** Goods in (GRN): receive spare parts into the MaintainPro store, from a form or an Excel file. */
+/** Goods in (GRN): receive spare parts into the Nelna Care store, from a form or an Excel file. */
 export type GoodsInLine = {
   partId?: string;
   partNumber?: string;

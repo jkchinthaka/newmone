@@ -15,7 +15,7 @@ const STOCK_OUT_SUCCESS = 200 as const;
 
 /**
  * Seeded ERP snapshot quantity for E2E-PART (scripts/e2e-seed.mjs).
- * Bileeta owns stock: MaintainPro mirrors the snapshot and records work-order issues as
+ * Bileeta owns stock: Nelna Care mirrors the snapshot and records work-order issues as
  * PENDING ERP consumption, so quantityInStock must not move when parts are issued.
  */
 const SEEDED_ERP_SNAPSHOT_QTY = 25;
@@ -148,7 +148,7 @@ test.describe.serial("E2E inventory controls @full-stack @erp-control @security"
     expect((await conflict.text()).toLowerCase()).toMatch(/idempotency key/);
   });
 
-  // Over-issue is no longer asserted: Bileeta owns the authoritative quantity, so MaintainPro
+  // Over-issue is no longer asserted: Bileeta owns the authoritative quantity, so Nelna Care
   // records consumption as PENDING for ERP reconciliation instead of rejecting on local stock.
   test("E2E-INV-006 zero and negative issue quantities are rejected with exact 400", async ({ page }) => {
     await loginViaUi(page, "inventory-a");

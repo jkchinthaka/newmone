@@ -170,7 +170,7 @@ export function compareStockBalances(input: {
     input.erpBalances.some((b) => Boolean(b.warehouseCode))
   ) {
     warnings.push(
-      "AUTHORITATIVE_APPLY_BLOCK: Some MaintainPro rows lack warehouseCode while ERP snapshot is warehouse-scoped. Resolve mappings before apply."
+      "AUTHORITATIVE_APPLY_BLOCK: Some Nelna Care rows lack warehouseCode while ERP snapshot is warehouse-scoped. Resolve mappings before apply."
     );
   }
 
@@ -201,7 +201,7 @@ export function compareStockBalances(input: {
           itemCode: part.partNumber,
           quantity: part.quantityInStock,
           warehouseCode: null,
-          reason: "Multiple ERP warehouse balances exist; MaintainPro warehouse scope is required"
+          reason: "Multiple ERP warehouse balances exist; Nelna Care warehouse scope is required"
         });
         continue;
       }
@@ -213,8 +213,8 @@ export function compareStockBalances(input: {
         quantity: part.quantityInStock,
         warehouseCode: part.warehouseCode ?? null,
         reason: warehouseScoped
-          ? "No matching Bileeta item+warehouse for MaintainPro part/warehouse balance"
-          : "No matching Bileeta item code for MaintainPro partNumber"
+          ? "No matching Bileeta item+warehouse for Nelna Care part/warehouse balance"
+          : "No matching Bileeta item code for Nelna Care partNumber"
       });
       continue;
     }
@@ -243,8 +243,8 @@ export function compareStockBalances(input: {
         quantity: balance.quantityOnHand,
         warehouseCode: balance.warehouseCode ?? null,
         reason: warehouseScoped
-          ? "No matching MaintainPro part+warehouse balance for ERP item"
-          : "No matching MaintainPro partNumber for ERP item code"
+          ? "No matching Nelna Care part+warehouse balance for ERP item"
+          : "No matching Nelna Care partNumber for ERP item code"
       });
     }
   }

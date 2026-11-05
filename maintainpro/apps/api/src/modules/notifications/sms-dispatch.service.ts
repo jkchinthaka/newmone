@@ -109,7 +109,7 @@ export class SmsDispatchService {
       body: JSON.stringify({
         to: user.phone,
         message: payload.message,
-        senderId: this.configService.get<string>("SMS_SENDER_ID", "MaintainPro"),
+        senderId: this.configService.get<string>("SMS_SENDER_ID", "NelnaCare"),
         notificationId: payload.notificationId ?? null
       })
     });
@@ -151,7 +151,7 @@ export class SmsDispatchService {
       body: JSON.stringify({
         to: input.to,
         message: input.message,
-        senderId: this.configService.get<string>("SMS_SENDER_ID", "MaintainPro")
+        senderId: this.configService.get<string>("SMS_SENDER_ID", "NelnaCare")
       })
     });
 

@@ -58,6 +58,6 @@ function sendToServer(source: string, sanitized: { name: string; digest?: string
 export function reportClientError(source: string, error: unknown): void {
   const sanitized = sanitizeClientError(error);
   // eslint-disable-next-line no-console
-  console.error(`[MaintainPro] ${source}`, sanitized);
+  console.error(`[Nelna Care] ${source}`, sanitized);
   sendToServer(source, sanitized);
 }

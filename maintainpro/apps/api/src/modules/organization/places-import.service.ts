@@ -132,12 +132,12 @@ export class PlacesImportService {
     };
   }
 
-  /** Excel template: a Places sheet with type drop-downs and the sites already in MaintainPro. */
+  /** Excel template: a Places sheet with type drop-downs and the sites already in Nelna Care. */
   async template(actor: Actor): Promise<Buffer> {
     const tenantId = requireTenantId(actor.tenantId);
     const { sites, locations } = await this.existing(tenantId);
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "MaintainPro";
+    workbook.creator = "Nelna Care";
 
     const sheet = workbook.addWorksheet("Places", { views: [{ state: "frozen", ySplit: 1 }] });
     sheet.columns = PLACES_IMPORT_COLUMNS.map((column) => ({
@@ -177,7 +177,7 @@ export class PlacesImportService {
       error: "Choose a location type from the list."
     });
 
-    const current = workbook.addWorksheet("Already in MaintainPro");
+    const current = workbook.addWorksheet("Already in Nelna Care");
     current.columns = [
       { header: "Site code", key: "siteCode", width: 16 },
       { header: "Site name", key: "siteName", width: 28 },
@@ -199,7 +199,7 @@ export class PlacesImportService {
       "",
       "• One row per location. Put the site code and site name on every row (copy them down).",
       "• A row with only Site code and Site name adds the site without locations.",
-      "• Site code: short and fixed, e.g. MP, KD-OUT. Sites already in MaintainPro are matched by code and not changed.",
+      "• Site code: short and fixed, e.g. MP, KD-OUT. Sites already in Nelna Care are matched by code and not changed.",
       "• Location code must be unique inside its site, e.g. BH-01. Locations already there are skipped.",
       "• Parent location code: the location this one is inside (e.g. a room inside a building). Leave empty for top level.",
       "• Types: choose from the drop-down. Empty site type = Other, empty location type = Area.",

@@ -1629,14 +1629,14 @@ export class PredictiveAiService {
 
     const defaultCreatePayload: Record<string, unknown> = {
       title: this.suggestWorkOrderTitle(focusArea, mode),
-      description: "Generated from MaintainPro AI Copilot recommendation",
+      description: "Generated from Nelna Care AI Copilot recommendation",
       priority: context.summary.overdueTasks >= 5 ? "HIGH" : "MEDIUM",
       type: focusArea === "MAINTENANCE" ? "PREVENTIVE" : "CORRECTIVE"
     };
 
     const defaultSchedulePayload: Record<string, unknown> = {
       name: this.suggestScheduleName(focusArea),
-      description: "Generated from MaintainPro AI Copilot recommendation",
+      description: "Generated from Nelna Care AI Copilot recommendation",
       type: "PREVENTIVE",
       frequency: "MONTHLY",
       nextDueDate: new Date(Date.now() + 7 * DAY_MS).toISOString()
@@ -1756,7 +1756,7 @@ export class PredictiveAiService {
 
     const focusGuidance: Record<CopilotFocusArea, string> = {
       GENERAL:
-        "You are MaintainPro's operations copilot across maintenance, fleet, utilities, cleaning, and inventory.",
+        "You are Nelna Care's operations copilot across maintenance, fleet, utilities, cleaning, and inventory.",
       MAINTENANCE:
         "Focus on preventive maintenance optimization, overdue work orders, and failure prevention.",
       FLEET:
@@ -1791,7 +1791,7 @@ export class PredictiveAiService {
     };
 
     return [
-      "You are MaintainPro AI Copilot for production operations.",
+      "You are Nelna Care AI Copilot for production operations.",
       focusGuidance[focusArea],
       `Current mode: ${mode}. ${modeGuidance[mode]}`,
       "Use only the provided live context as the operational source of truth. Avoid generic advice.",
@@ -1812,7 +1812,7 @@ export class PredictiveAiService {
     const normalizedMessage = message.trim();
 
     if (/(^|\b)(hi|hello|hey)\b|say hello|greet/i.test(normalizedMessage)) {
-      return "Hello from MaintainPro. I can help with maintenance, fleet, cleaning, inventory, utilities, and daily operations.";
+      return "Hello from Nelna Care. I can help with maintenance, fleet, cleaning, inventory, utilities, and daily operations.";
     }
 
     const summary = context.summary;
@@ -1855,7 +1855,7 @@ export class PredictiveAiService {
       .join("\n");
 
     return [
-      `Built-in MaintainPro guidance for ${focusArea.toLowerCase()} operations:`,
+      `Built-in Nelna Care guidance for ${focusArea.toLowerCase()} operations:`,
       `Current snapshot: ${summary.activeWorkOrders} active work orders, ${summary.overdueTasks} overdue tasks, ${summary.fleetOutOfService} fleet units out of service, ${summary.utilityAnomalies} utility anomalies, ${summary.lowStockItems} low-stock parts.`,
       "### Actionable next steps",
       nextSteps,

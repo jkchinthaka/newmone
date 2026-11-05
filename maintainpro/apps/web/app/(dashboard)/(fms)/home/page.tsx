@@ -54,14 +54,14 @@ export default function MaintenanceHomePage() {
       >
         <p className="text-sm font-semibold text-amber-950">Legacy FMS Workspace</p>
         <p className="mt-2 text-sm leading-6 text-amber-900">
-          Read-only archived workspace at {LEGACY_FMS_HOME_PATH}. Use the main MaintainPro dashboard
+          Read-only archived workspace at {LEGACY_FMS_HOME_PATH}. Use the main Nelna Care dashboard
           for current operations, work orders, inventory, and procurement.
         </p>
         <Link
           className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-200"
           href="/dashboard"
         >
-          Go to MaintainPro Dashboard
+          Go to Nelna Care Dashboard
           <ArrowRight aria-hidden size={16} />
         </Link>
       </section>

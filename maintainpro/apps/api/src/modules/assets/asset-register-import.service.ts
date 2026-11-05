@@ -246,7 +246,7 @@ export class AssetRegisterImportService {
     const tenantId = requireTenantId(actor.tenantId);
     const data = await this.masterData(tenantId, []);
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "MaintainPro";
+    workbook.creator = "Nelna Care";
 
     const sheet = workbook.addWorksheet("Assets", { views: [{ state: "frozen", ySplit: 1 }] });
     sheet.columns = ASSET_IMPORT_COLUMNS.map((column) => ({
@@ -347,13 +347,13 @@ export class AssetRegisterImportService {
       "• One row = one asset. Columns with * must be filled: Asset group, Category, Name, Site.",
       "• Choose Asset group, Category, Type, Site, Functional location, Department, Criticality and Status from the drop-downs.",
       "• Category must belong to the Asset group (see 'Groups and categories'). Location must be at the Site (see 'Sites and locations').",
-      "• Asset tag: leave empty and MaintainPro gives the next number (e.g. AST-MCH0012). You can change it before saving.",
+      "• Asset tag: leave empty and Nelna Care gives the next number (e.g. AST-MCH0012). You can change it before saving.",
       "• Parent asset tag: the tag of the asset this one is part of (e.g. a motor that is part of a production line).",
       "• Dates: 2024-03-15 or 15/03/2024. Purchase price: numbers only.",
-      "• Responsible person: their MaintainPro login email.",
+      "• Responsible person: their Nelna Care login email.",
       "• Status: leave empty to save as Draft (a manager approves it later).",
       `• Up to ${ASSET_IMPORT_MAX_ROWS} assets per file. For the whole company, upload one site or department at a time.`,
-      "• Names that are not in MaintainPro (site, location, department, category) are shown as errors with a suggestion; add them in MaintainPro first."
+      "• Names that are not in Nelna Care (site, location, department, category) are shown as errors with a suggestion; add them in Nelna Care first."
     ].forEach((line, index) => {
       help.getCell(index + 1, 1).value = line;
       if (index === 0) help.getCell(1, 1).font = { bold: true, size: 14 };

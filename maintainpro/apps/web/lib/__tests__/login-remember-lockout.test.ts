@@ -42,7 +42,7 @@ test("login page shows the help desk link, remember box and the 30s/1m/1m30s loc
   assert.equal(LOGIN_ATTEMPTS_BEFORE_LOCK, 5);
   assert.deepEqual([...LOGIN_LOCKOUT_SECONDS], [30, 60, 90]);
   assert.deepEqual(LOGIN_LOCKOUT_SECONDS.map(formatLockLength), ["30 sec", "1 min", "1 min 30 sec"]);
-  assert.match(page, /Sign in to MaintainPro/);
+  assert.match(page, /Sign in to Nelna Care/);
   assert.match(page, /Keep me signed in on this device/);
   assert.match(page, /"x-remember-me": values\.rememberMe \? "1" : "0"/);
   assert.match(page, /href=\{IT_HELP_DESK_URL\}/);

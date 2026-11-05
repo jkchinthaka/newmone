@@ -101,7 +101,7 @@ export function PlacesExcelImport({ onClose, onSaved }: { onClose: () => void; o
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
           <div>
             <h2 id="places-import-title" className="text-base font-semibold text-slate-900">Add sites and locations from Excel</h2>
-            <p className="text-sm text-slate-600">One row per location, with its site. New ones are added; ones already in MaintainPro are left as they are.</p>
+            <p className="text-sm text-slate-600">One row per location, with its site. New ones are added; ones already in Nelna Care are left as they are.</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="inline-flex h-10 w-10 items-center justify-center rounded-lg hover:bg-slate-100">
             <X size={18} />

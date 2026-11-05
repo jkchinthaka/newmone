@@ -19,7 +19,7 @@ import {
 type Step = "upload" | "map" | "preview" | "confirm" | "done";
 
 const CONFIRM_TEXT =
-  "You are about to synchronize MaintainPro stock quantities to the uploaded ERP stock snapshot.";
+  "You are about to synchronize Nelna Care stock quantities to the uploaded ERP stock snapshot.";
 
 export function ErpExcelImportPage() {
   const [step, setStep] = useState<Step>("upload");
@@ -342,7 +342,7 @@ export function ErpExcelImportPage() {
                 <tr>
                   <th className="px-3 py-2">ERP Item Code</th>
                   <th className="px-3 py-2">Item Name</th>
-                  <th className="px-3 py-2">MaintainPro Item</th>
+                  <th className="px-3 py-2">Nelna Care Item</th>
                   <th className="px-3 py-2">MP Qty</th>
                   <th className="px-3 py-2">ERP Qty</th>
                   <th className="px-3 py-2">Diff</th>
@@ -385,7 +385,7 @@ export function ErpExcelImportPage() {
                     setStep(event.target.checked ? "confirm" : "preview");
                   }}
                 />
-                I understand MaintainPro quantities will be set to the ERP Excel balances (absolute sync).
+                I understand Nelna Care quantities will be set to the ERP Excel balances (absolute sync).
               </label>
               <button
                 type="button"

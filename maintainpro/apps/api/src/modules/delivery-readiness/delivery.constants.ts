@@ -36,7 +36,7 @@ export const DELIVERY_CATEGORY_CATALOG: DeliveryCategoryMeta[] = [
   {
     key: "CORE_FUNCTIONS",
     label: "Core Functions",
-    description: "Core Functions — login, CRUD, search, reports, and MaintainPro work order lifecycle.",
+    description: "Core Functions — login, CRUD, search, reports, and Nelna Care work order lifecycle.",
     signOffRequired: true,
     items: [
       { title: "Login works", description: "Valid credentials authenticate successfully.", requiredForDelivery: true, blocker: true },
@@ -293,7 +293,7 @@ export const DELIVERY_CATEGORY_CATALOG: DeliveryCategoryMeta[] = [
   {
     key: "FINAL_DEMO",
     label: "Client Demo Flow",
-    description: "End-to-end client demonstration script for MaintainPro.",
+    description: "End-to-end client demonstration script for Nelna Care.",
     signOffRequired: true,
     items: [
       { title: "Demo 1: Login as Admin/Manager", description: "Successful login with demo account.", requiredForDelivery: true },

@@ -178,7 +178,7 @@ export class InventoryController {
     return { data, message: "Goods in checked" };
   }
 
-  /** Goods in (GRN): raises on-hand in the MaintainPro store; new part codes become parts. */
+  /** Goods in (GRN): raises on-hand in the Nelna Care store; new part codes become parts. */
   @Post("goods-in")
   @Roles("SUPER_ADMIN", "ADMIN", "INVENTORY_KEEPER")
   @Permissions("inventory.manage")

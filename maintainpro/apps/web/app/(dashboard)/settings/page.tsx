@@ -75,7 +75,7 @@ const FIELD = "mt-1 min-h-10 w-full rounded-lg border border-slate-300 px-3 text
 const PRIMARY_BTN = "min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50";
 
 const CHANNEL_HINTS: Record<keyof Preferences, string> = {
-  inApp: "Bell icon inside MaintainPro",
+  inApp: "Bell icon inside Nelna Care",
   email: "Sent to your email address",
   sms: "Text message to your phone",
   whatsapp: "WhatsApp message to your phone",

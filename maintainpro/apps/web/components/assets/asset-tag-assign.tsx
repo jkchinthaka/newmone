@@ -139,7 +139,7 @@ export function AssetTagAssign() {
     <div className="space-y-4">
       <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
         <p>
-          For machines and vehicles <strong>already in MaintainPro</strong> that need an AST- tag. Each row has the new tag and one of: asset code,
+          For machines and vehicles <strong>already in Nelna Care</strong> that need an AST- tag. Each row has the new tag and one of: asset code,
           serial number, ERP / fixed asset code, or vehicle registration.
         </p>
         <div className="flex flex-wrap gap-2">

@@ -139,7 +139,7 @@ test.describe("E2E inventory diagnostic @inventory-gate", () => {
       : null;
 
     // Non-positive quantities stay rejected. Over-issue is not asserted: Bileeta owns the
-    // authoritative quantity, so MaintainPro records consumption as PENDING for ERP reconciliation.
+    // authoritative quantity, so Nelna Care records consumption as PENDING for ERP reconciliation.
     const negative = workOrderFound
       ? await authenticatedPost(page, `/api/backend/inventory/parts/${fixtures.partId}/stock-out`, {
           data: {

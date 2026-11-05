@@ -7,7 +7,7 @@ import { MAINTAINPRO_STOCK_SOURCE, type VerifiedIssueCheck } from "./verified-st
 type Actor = { sub: string; tenantId?: string | null; email?: string; role?: string };
 
 /**
- * Stores whose stock is owned by MaintainPro (goods-in recorded here): an issue to a job lowers
+ * Stores whose stock is owned by Nelna Care (goods-in recorded here): an issue to a job lowers
  * on-hand straight away and a confirmed return puts it back. ERP stores are untouched: they keep
  * recording PENDING consumption for Bileeta to reconcile.
  */
@@ -44,7 +44,7 @@ export async function applyOwnedStockIssue(
   );
 }
 
-/** Puts confirmed returns back into the MaintainPro store the part was issued from (if any). */
+/** Puts confirmed returns back into the Nelna Care store the part was issued from (if any). */
 export async function applyOwnedStockReturn(
   tx: Prisma.TransactionClient,
   prisma: PrismaService,

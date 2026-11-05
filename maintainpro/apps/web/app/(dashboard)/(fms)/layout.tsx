@@ -29,7 +29,7 @@ export default function FmsLayout({ children }: { children: ReactNode }) {
           </Link>
           .{" "}
           <Link className="underline hover:text-amber-950" href="/dashboard">
-            Go to MaintainPro Dashboard
+            Go to Nelna Care Dashboard
           </Link>
           .
         </div>

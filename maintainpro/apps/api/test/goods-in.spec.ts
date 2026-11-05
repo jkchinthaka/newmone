@@ -108,7 +108,7 @@ describe("goods in: preview and save", () => {
     expect(result).toMatchObject({ lines: 3, newParts: 1, totalQuantity: 15, totalValue: 8500, referenceNo: "GRN-1001" });
   });
 
-  it("turns an unmapped default store into the MaintainPro store instead of adding a second one", async () => {
+  it("turns an unmapped default store into the Nelna Care store instead of adding a second one", async () => {
     const prisma = goodsInPrisma({ defaultStore: { id: "wh-default", isDefault: true, erpWarehouseCode: null } });
     const service = new GoodsInService(prisma as never, {} as never, {} as never);
     const store = await service.ownedStore(tenantId, actor as never);
@@ -118,7 +118,7 @@ describe("goods in: preview and save", () => {
   });
 });
 
-describe("issuing from a MaintainPro store", () => {
+describe("issuing from a Nelna Care store", () => {
   function issueTx(balance: { onHand: number; reserved: number } | null) {
     return {
       warehouse: {
@@ -159,11 +159,11 @@ describe("issuing from a MaintainPro store", () => {
   });
 });
 
-describe("ERP stock apply cannot overwrite MaintainPro stock", () => {
-  it("is refused when the default store is a MaintainPro store", async () => {
+describe("ERP stock apply cannot overwrite Nelna Care stock", () => {
+  it("is refused when the default store is a Nelna Care store", async () => {
     const prisma = { warehouse: { findFirst: jest.fn().mockResolvedValue({ id: "wh-1" }) } };
     const service = new ErpStockSyncService(prisma as never, {} as never, {} as never);
-    await expect(service.applyStockSnapshot(actor as never)).rejects.toThrow(/kept in MaintainPro/);
-    await expect(service.applyAbsoluteStockBalances(actor as never, [], {} as never)).rejects.toThrow(/kept in MaintainPro/);
+    await expect(service.applyStockSnapshot(actor as never)).rejects.toThrow(/kept in Nelna Care/);
+    await expect(service.applyAbsoluteStockBalances(actor as never, [], {} as never)).rejects.toThrow(/kept in Nelna Care/);
   });
 });

@@ -34,9 +34,9 @@ describe("mobile and PWA polish helpers", () => {
     expect(truncateBreadcrumbLabel(longLabel).length).toBeLessThanOrEqual(48);
   });
 
-  it("uses MaintainPro branding in PWA metadata", () => {
-    expect(PWA_NAME).toBe("MaintainPro");
-    expect(PWA_SHORT_NAME).toBe("MaintainPro");
+  it("uses Nelna Care branding in PWA metadata", () => {
+    expect(PWA_NAME).toBe("Nelna Care");
+    expect(PWA_SHORT_NAME).toBe("Nelna Care");
     expect(PWA_DESCRIPTION).toBe("Enterprise Maintenance & Facility Operations Platform");
     expect(PWA_START_URL).toBe("/");
     expect(PWA_THEME_COLOR).toBe("#0f172a");

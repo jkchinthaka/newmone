@@ -83,7 +83,7 @@ export function RoleDashboard() {
       {variant === "cleaner" || variant === "driver" ? (
         <EmptyState
           title="No aggregate dashboard metrics yet"
-          description="MaintainPro does not expose a dedicated cleaning or driver summary API on the main dashboard. Use the quick links above to open live module views."
+          description="Nelna Care does not expose a dedicated cleaning or driver summary API on the main dashboard. Use the quick links above to open live module views."
         />
       ) : null}
 

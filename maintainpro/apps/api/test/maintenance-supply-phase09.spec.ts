@@ -14,7 +14,7 @@ import {
 import { PERMISSION_CATALOG } from "../src/database/permission-catalog";
 
 describe("Phase 9 supply boundary", () => {
-  it("keeps official stock at Bileeta / never treats MaintainPro as purchase truth", () => {
+  it("keeps official stock at Bileeta / never treats Nelna Care as purchase truth", () => {
     const boundary = resolveStockSourceBoundary({
       erpCode: "ERP-100",
       erpSyncEnabled: true,
@@ -26,7 +26,7 @@ describe("Phase 9 supply boundary", () => {
     expect(boundary.mayReserve).toBe(true);
   });
 
-  it("marks MaintainPro stock as reference-only when unmapped", () => {
+  it("marks Nelna Care stock as reference-only when unmapped", () => {
     const boundary = resolveStockSourceBoundary({
       erpCode: null,
       erpSyncEnabled: false,
@@ -693,7 +693,7 @@ describe("Phase 9 MaintenanceSupplyService", () => {
     ).rejects.toThrow(/not found/i);
   });
 
-  it("stockBoundaryForPart never marks MaintainPro as authoritative", () => {
+  it("stockBoundaryForPart never marks Nelna Care as authoritative", () => {
     const service = new MaintenanceSupplyService({} as any, undefined, undefined);
     const b = service.stockBoundaryForPart(
       { erpCode: "X" },

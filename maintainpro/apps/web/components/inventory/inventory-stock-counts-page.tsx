@@ -176,7 +176,7 @@ export default function InventoryStockCountsPage() {
       <header className="space-y-2">
         <h1 className="page-title">Stock Counts</h1>
         <p className="max-w-3xl text-sm text-slate-600">
-          Physical counts post through the MaintainPro warehouse ledger as adjustments. ERP snapshot quantities are shown
+          Physical counts post through the Nelna Care warehouse ledger as adjustments. ERP snapshot quantities are shown
           for comparison only and are never copied into the ledger automatically.
           Flow: Draft → Open → Counting → Review → Approved → Posted.
         </p>
@@ -345,13 +345,13 @@ export default function InventoryStockCountsPage() {
                       <tr>
                         <th className="px-3 py-2">Part</th>
                         <th className="px-3 py-2" title="Warehouse ledger on-hand for this count session">
-                          MaintainPro Ledger Qty
+                          Nelna Care Ledger Qty
                         </th>
                         <th className="px-3 py-2" title="Last imported ERP mirror (informational)">
                           ERP Snapshot Qty
                         </th>
                         <th className="px-3 py-2">Counted Qty</th>
-                        <th className="px-3 py-2" title="Counted minus MaintainPro ledger qty">
+                        <th className="px-3 py-2" title="Counted minus Nelna Care ledger qty">
                           Count Difference
                         </th>
                         <th className="px-3 py-2" title="ERP snapshot minus ledger (informational)">

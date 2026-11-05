@@ -245,13 +245,13 @@ describe("DeliveryReadinessService (UAT-026)", () => {
     const prisma = buildPrisma();
     prisma.deliveryChecklist.findFirst.mockResolvedValue({
       id: "chk-1",
-      title: "MaintainPro Client Delivery Readiness",
+      title: "Nelna Care Client Delivery Readiness",
       tenantId: "tenant-1"
     });
     prisma.deliveryChecklistItem.count.mockResolvedValue(10);
     prisma.deliveryChecklistItem.findMany.mockResolvedValue([buildItem({ status: DeliveryItemStatus.PASS })]);
     prisma.deliveryChecklist.findFirst
-      .mockResolvedValueOnce({ id: "chk-1", title: "MaintainPro Client Delivery Readiness" })
+      .mockResolvedValueOnce({ id: "chk-1", title: "Nelna Care Client Delivery Readiness" })
       .mockResolvedValueOnce({
         id: "chk-1",
         items: [buildItem({ status: DeliveryItemStatus.PASS })]
@@ -277,7 +277,7 @@ describe("DeliveryReadinessService (UAT-026)", () => {
     const prisma = buildPrisma();
     prisma.deliveryChecklist.findFirst.mockResolvedValue({
       id: "chk-1",
-      title: "MaintainPro Client Delivery Readiness",
+      title: "Nelna Care Client Delivery Readiness",
       items: []
     });
     prisma.deliveryChecklistItem.count.mockResolvedValue(5);
