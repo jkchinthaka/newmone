@@ -60,9 +60,8 @@ function AdminConsoleAuthorized({ user, roleName }: { user: CurrentUser; roleNam
   return (
     <>
       <OperationalJobsHeader
-        eyebrow="Administration"
-        title="Admin Console"
-        description="Find a task, then open the exact setup screen. Access is still enforced by the API."
+        title="Admin"
+        description="Set up people, places, jobs and assets. Search or pick a card."
       />
       <label className="block text-sm" htmlFor="admin-search">
         <span className="sr-only">Search administration</span>
@@ -70,7 +69,7 @@ function AdminConsoleAuthorized({ user, roleName }: { user: CurrentUser; roleNam
           id="admin-search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search administration"
+          placeholder="Search settings (users, locations, categories…)"
           className="h-10 w-full rounded-md border border-slate-300 px-3"
         />
       </label>
@@ -98,38 +97,40 @@ function AdminConsoleAuthorized({ user, roleName }: { user: CurrentUser; roleNam
         </div>
       ) : null}
       <div className="flex flex-wrap gap-2">
-        {ADMIN_QUICK_ACTIONS.map((action) => (
-          <Link key={action.id} href={action.href as never} className="inline-flex min-h-11 items-center rounded-md bg-slate-900 px-3 text-sm text-white">
+        {ADMIN_QUICK_ACTIONS.map((action, index) => (
+          <Link
+            key={action.id}
+            href={action.href as never}
+            className={
+              index === 0
+                ? "inline-flex min-h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
+                : "inline-flex min-h-10 items-center rounded-md border border-blue-600 bg-white px-4 text-sm font-semibold text-blue-700 hover:bg-blue-50"
+            }
+          >
             {action.label}
           </Link>
         ))}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Administration summary">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="Administration summary">
         {(
           [
             ["Active users", overview?.users.active],
-            ["Tenants", overview?.tenants?.active],
-            ["Open critical", overview?.jobs?.openCritical],
-            ["Overdue jobs", overview?.jobs?.overdue],
-            ["Data issues", overview?.dataQuality.totalIssues],
             ["Pending approvals", overview?.pendingApprovals],
-            ["Pending imports", overview?.pendingImports]
+            ["Data issues", overview?.dataQuality.totalIssues]
           ] as Array<[string, number | undefined]>
         ).map(([label, value]) => (
           <KpiCard key={label} label={label} value={value == null ? "–" : String(value)} />
         ))}
       </div>
       <p className="text-xs text-slate-500">Signed in as {user.email ?? "Unknown user"} · {roleName ?? "Unknown role"}</p>
-      <h2 className="text-sm font-semibold text-slate-900">Administration modules</h2>
       {daily.map((group) => (
         <section key={group.id} aria-labelledby={`admin-${group.id}`}>
-          <h2 id={`admin-${group.id}`} className="text-sm font-semibold text-slate-900">{group.title}</h2>
+          <h2 id={`admin-${group.id}`} className="text-xs font-semibold uppercase tracking-wide text-slate-500">{group.title}</h2>
           <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {group.sections.map((section) => (
               <Link key={section.id} href={(section.href ?? "/admin") as never} className="rounded-card border border-slate-200 bg-white p-4 text-sm shadow-card hover:border-brand-300">
                 <span className="font-medium text-slate-900">{section.title}</span>
                 <span className="mt-1 block text-xs text-slate-500">{section.description}</span>
-                <span className="mt-2 inline-flex text-xs font-medium text-brand-700">Open →</span>
               </Link>
             ))}
           </div>
@@ -137,7 +138,7 @@ function AdminConsoleAuthorized({ user, roleName }: { user: CurrentUser; roleNam
       ))}
       <section>
         <button type="button" className="text-sm font-semibold text-slate-900" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((value) => !value)}>
-          Advanced settings {advancedOpen ? "▴" : "▾"}
+          More settings {advancedOpen ? "▴" : "▾"}
         </button>
         {advancedOpen
           ? advanced.map((group) => (
