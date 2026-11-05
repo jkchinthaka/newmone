@@ -37,23 +37,23 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     {
       id: "users-access",
       title: "Users",
-      description: "Search, invite, disable/enable, and access review.",
+      description: "Logins, roles and access. Invite people here.",
       status: "available",
       statusLabel: "Access",
       href: "/admin/users"
     },
     {
       id: "roles-permissions",
-      title: "Roles & Permissions",
-      description: "Role coverage matrix and permission groupings.",
+      title: "Roles & permissions",
+      description: "What each role can see and do (permission groups).",
       status: "available",
       statusLabel: "RBAC",
       href: "/admin/roles"
     },
     {
       id: "people-access",
-      title: "People & Workforce",
-      description: "People, technicians, and employee mapping.",
+      title: "Employees & technicians",
+      description: "Staff records used to assign jobs. Link each to a login.",
       status: "available",
       statusLabel: "Access",
       href: "/admin/people"
@@ -68,8 +68,8 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     },
     {
       id: "organization",
-      title: "Organization",
-      description: "Company, sites, and functional location hierarchy.",
+      title: "Sites & locations",
+      description: "Company, sites, buildings and rooms.",
       status: "available",
       statusLabel: "Master data",
       href: "/admin/organization"
@@ -77,15 +77,15 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     {
       id: "departments",
       title: "Departments",
-      description: "Business department master.",
+      description: "Teams and cost centres.",
       status: "available",
       statusLabel: "Master data",
       href: "/master-data/departments"
     },
     {
       id: "maintenance-config",
-      title: "Maintenance Configuration",
-      description: "Job domains, categories, priorities, and related setup.",
+      title: "Categories & priorities",
+      description: "Job types, categories and response-time targets.",
       status: "available",
       statusLabel: "Setup",
       href: "/admin/maintenance-config"
@@ -108,16 +108,16 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     },
     {
       id: "fault-codes",
-      title: "Fault / Cause / Remedy",
-      description: "Admin-managed failure, cause, and remedy codes.",
+      title: "Fault / cause / remedy",
+      description: "Codes technicians pick when closing a job.",
       status: "available",
       statusLabel: "Setup",
       href: "/admin/fault-codes"
     },
     {
       id: "reason-codes",
-      title: "Hold / Delay Reasons",
-      description: "Structured pause reasons for jobs.",
+      title: "Hold reasons",
+      description: "Why a job can be paused.",
       status: "available",
       statusLabel: "Setup",
       href: "/admin/reason-codes"
@@ -132,8 +132,8 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     },
     {
       id: "checklist-templates",
-      title: "Checklist Templates",
-      description: "Versioned PM/WO checklists with execution snapshots.",
+      title: "Procedures",
+      description: "Checklists technicians follow on a job.",
       status: "available",
       statusLabel: "Setup",
       href: "/admin/checklist-templates"
@@ -156,8 +156,8 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     },
     {
       id: "warranties",
-      title: "Warranties & Claims",
-      description: "Coverage and recovery claim workflow.",
+      title: "Warranties & claims",
+      description: "Coverage and claim workflow.",
       status: "available",
       statusLabel: "Setup",
       href: "/admin/warranties"
@@ -172,16 +172,16 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     },
     {
       id: "asset-masters",
-      title: "Asset Configuration",
-      description: "Domains, categories, types, and attribute definitions.",
+      title: "Asset types",
+      description: "Categories and fields for machines and equipment.",
       status: "available",
       statusLabel: "Master data",
       href: "/admin/asset-masters"
     },
     {
       id: "fleet-setup",
-      title: "Fleet Configuration",
-      description: "Vehicles, documents, and fleet administration.",
+      title: "Fleet",
+      description: "Vehicles and their documents.",
       status: "available",
       statusLabel: "Fleet",
       href: "/vehicles"
@@ -189,7 +189,7 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     {
       id: "vendors-contracts",
       title: "Vendors",
-      description: "Suppliers and vendor repair context.",
+      description: "Suppliers and repair contacts.",
       status: "available",
       statusLabel: "Vendors",
       href: "/procurement/vendors"
@@ -236,8 +236,8 @@ export function getAdminConsoleSections(): AdminConsoleSection[] {
     },
     {
       id: "security",
-      title: "Security Settings",
-      description: "Access, roles, audit, and session posture.",
+      title: "Security settings",
+      description: "Sessions, audit log and sign-in rules.",
       status: "available",
       statusLabel: "Security",
       href: "/admin/security"
@@ -279,25 +279,36 @@ export type AdminCommandGroup = {
 };
 
 export const ADMIN_COMMAND_GROUPS: AdminCommandGroup[] = [
-  { id: "people", title: "People & Access", advanced: false, sectionIds: ["users-access", "invitations-onboarding", "roles-permissions", "security"] },
-  { id: "organization", title: "Organization", advanced: false, sectionIds: ["organization", "departments", "people-access"] },
-  { id: "maintenance", title: "Maintenance Setup", advanced: false, sectionIds: ["maintenance-config", "job-categories", "priority-sla", "fault-codes", "reason-codes", "maintenance-templates", "checklist-templates"] },
-  { id: "assets", title: "Assets & Fleet", advanced: false, sectionIds: ["asset-masters", "fleet-setup", "vendors-contracts", "warranties"] },
-  { id: "system", title: "System", advanced: true, sectionIds: ["notifications", "feature-flags", "audit-log", "config-history", "data-quality", "approvals"] },
+  { id: "people", title: "People", advanced: false, sectionIds: ["users-access", "roles-permissions", "people-access"] },
+  { id: "organization", title: "Company", advanced: false, sectionIds: ["organization", "departments"] },
+  { id: "maintenance", title: "Job setup", advanced: false, sectionIds: ["maintenance-config", "fault-codes", "reason-codes", "checklist-templates"] },
+  { id: "assets", title: "Assets & vendors", advanced: false, sectionIds: ["asset-masters", "fleet-setup", "vendors-contracts", "warranties"] },
+  { id: "security", title: "Security", advanced: false, sectionIds: ["security"] },
+  {
+    id: "system",
+    title: "More settings",
+    advanced: true,
+    sectionIds: [
+      "invitations-onboarding",
+      "job-categories",
+      "priority-sla",
+      "maintenance-templates",
+      "approvals",
+      "notifications",
+      "feature-flags",
+      "audit-log",
+      "config-history",
+      "data-quality"
+    ]
+  },
   { id: "technical", title: "Technical / Advanced", advanced: true, sectionIds: ["integrations", "technical", "erp-parts", "bulk-imports"] }
 ];
 
+// Three everyday actions only; everything else is one click away in the cards below.
 export const ADMIN_QUICK_ACTIONS = [
-  { id: "invite", label: "Invite User", href: "/admin/invitations?create=1" },
-  { id: "department", label: "Add Department", href: "/master-data/departments" },
-  { id: "vendor", label: "Add Vendor", href: "/procurement/vendors" },
-  { id: "role", label: "Create Role", href: "/admin/roles" },
-  { id: "location", label: "Add Location", href: "/admin/organization" },
-  // Kept off the side menu (short menus); opened from here.
-  { id: "assets", label: "Add Assets", href: "/admin/assets/new" },
-  { id: "vehicle", label: "Add Vehicle", href: "/admin/vehicles/new" },
-  { id: "qr-tags", label: "Assign QR Tags", href: "/admin/asset-tags" },
-  { id: "erp-part-codes", label: "ERP Part Codes", href: "/maintenance-supply" }
+  { id: "invite", label: "+ Invite user", href: "/admin/invitations?create=1" },
+  { id: "location", label: "+ Add location", href: "/admin/organization" },
+  { id: "assets", label: "+ Add asset", href: "/admin/assets/new" }
 ] as const;
 
 export function adminCommandGroups(roleName: string | null) {

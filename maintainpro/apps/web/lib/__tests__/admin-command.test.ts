@@ -6,7 +6,7 @@ import { ADMIN_QUICK_ACTIONS, adminCommandGroups, searchAdminModules } from "../
 test("daily admin groups stay open and technical tools stay with superadmins", () => {
   const groups = adminCommandGroups("ADMIN");
   const daily = groups.filter((group) => !group.advanced).map((group) => group.title);
-  assert.deepEqual(daily, ["People & Access", "Organization", "Maintenance Setup", "Assets & Fleet"]);
+  assert.deepEqual(daily, ["People", "Company", "Job setup", "Assets & vendors", "Security"]);
   const shown = new Set(groups.flatMap((group) => group.sections.map((section) => section.id)));
   assert.equal(shown.has("integrations"), false);
   assert.equal(shown.has("technical"), false);
@@ -25,16 +25,6 @@ test("search finds modules without loading entity lists, and quick actions are e
   assert.equal(searchAdminModules("system health", "VIEWER").length, 0);
   assert.deepEqual(
     ADMIN_QUICK_ACTIONS.map((action) => action.href),
-    [
-      "/admin/invitations?create=1",
-      "/master-data/departments",
-      "/procurement/vendors",
-      "/admin/roles",
-      "/admin/organization",
-      "/admin/assets/new",
-      "/admin/vehicles/new",
-      "/admin/asset-tags",
-      "/maintenance-supply"
-    ]
+    ["/admin/invitations?create=1", "/admin/organization", "/admin/assets/new"]
   );
 });
