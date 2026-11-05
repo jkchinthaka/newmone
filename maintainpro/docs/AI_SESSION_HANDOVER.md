@@ -1452,3 +1452,6 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 
 ## Notifications inbox restyle (live)
 - `app/(dashboard)/notifications/page.tsx`: UI only. Tabs Unread/Critical/Overdue/All with counts, search + priority, rest under More filters, rows grouped by day with severity icons, one link action per row, Acknowledge only for warning/critical. Same API calls. Web tsc clean.
+
+## Reports page restyle (live)
+- `components/reports/reports-dashboard-page.tsx`: UI only. Single report tab row (library cards removed), one Pin toggle + Saved reports on the right, Export menu + blue Generate report, date presets (custom dates + save template under More filters), single-value charts hidden, bar lists instead of donuts, status pills, "Open →". Same API calls/filters/exports. Web tsc clean.

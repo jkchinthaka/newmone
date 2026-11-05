@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, Search, Star } from "lucide-react";
 import { toast } from "sonner";
 
 import { DateField } from "@/components/forms/date-fields";
@@ -36,6 +37,34 @@ import { ReportFilters } from "./types";
 
 const ADMIN_ROLES = new Set(["SUPER_ADMIN", "ADMIN"]);
 
+const toDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const PRESETS: { key: string; label: string; range: () => [string, string] }[] = [
+  { key: "7", label: "Last 7 days", range: () => { const e = new Date(); const s = new Date(); s.setDate(e.getDate() - 6); return [toDate(s), toDate(e)]; } },
+  { key: "30", label: "Last 30 days", range: () => { const e = new Date(); const s = new Date(); s.setDate(e.getDate() - 29); return [toDate(s), toDate(e)]; } },
+  { key: "90", label: "Last 90 days", range: () => { const e = new Date(); const s = new Date(); s.setDate(e.getDate() - 89); return [toDate(s), toDate(e)]; } },
+  { key: "month", label: "This month", range: () => { const e = new Date(); return [toDate(new Date(e.getFullYear(), e.getMonth(), 1)), toDate(e)]; } },
+  { key: "year", label: "This year", range: () => { const e = new Date(); return [toDate(new Date(e.getFullYear(), 0, 1)), toDate(e)]; } }
+];
+
+const PILL: Record<string, string> = {
+  CLOSED: "bg-emerald-100 text-emerald-700",
+  COMPLETED: "bg-emerald-100 text-emerald-700",
+  TECHNICIAN_COMPLETED: "bg-emerald-100 text-emerald-700",
+  CANCELLED: "bg-slate-100 text-slate-600",
+  ON_HOLD: "bg-amber-100 text-amber-700",
+  ASSIGNED: "bg-sky-100 text-sky-700",
+  OPEN: "bg-brand-50 text-brand-700",
+  IN_PROGRESS: "bg-brand-50 text-brand-700"
+};
+
+function Cell({ column, value }: { column: string; value: unknown }) {
+  const text = value === null || value === undefined || value === "" ? "—" : String(value);
+  if (/status/i.test(column) && PILL[text]) {
+    return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${PILL[text]}`}>{text.replaceAll("_", " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}</span>;
+  }
+  return <>{text}</>;
+}
+
 export function ReportsDashboardPage() {
   const user = useCurrentUser();
   const isAdmin = ADMIN_ROLES.has(user.role ?? "");
@@ -59,6 +88,7 @@ export function ReportsDashboardPage() {
   const [more, setMore] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [templateName, setTemplateName] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
 
   const query = useQuery({
     queryKey: ["reports", "workspace", moduleSlug, filters],
@@ -182,29 +212,34 @@ export function ReportsDashboardPage() {
         description={REPORT_PAGE_DESCRIPTION}
         actions={
           <>
-            <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium" onClick={() => query.refetch()}>
+            <div className="relative">
+              <button type="button" className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium" disabled={exporting} aria-busy={exporting} aria-expanded={exportOpen} onClick={() => setExportOpen((o) => !o)}>
+                {exporting ? "Preparing export…" : "Export"} <ChevronDown size={14} />
+              </button>
+              {exportOpen ? (
+                <div className="absolute right-0 z-20 mt-1 w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+                  <button type="button" className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-slate-50" onClick={() => { setExportOpen(false); void exportReport("csv"); }}>CSV</button>
+                  <button type="button" className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-slate-50" onClick={() => { setExportOpen(false); void exportReport("xlsx"); }}>Excel</button>
+                </div>
+              ) : null}
+            </div>
+            <button type="button" className="min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700" onClick={() => query.refetch()}>
               Generate report
-            </button>
-            <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium" disabled={exporting} aria-busy={exporting} onClick={() => exportReport("csv")}>
-              {exporting ? "Preparing export…" : "CSV"}
-            </button>
-            <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium" disabled={exporting} aria-busy={exporting} onClick={() => exportReport("xlsx")}>
-              {exporting ? "Preparing export…" : "Excel"}
             </button>
           </>
         }
       />
       {query.dataUpdatedAt ? <p className="text-xs text-slate-500">Loaded {new Date(query.dataUpdatedAt).toLocaleString()}.</p> : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Report category">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-slate-200">
+        <div className="flex flex-wrap gap-x-6" role="tablist" aria-label="Report category">
           {modules.map((item) => (
-            <div key={item.slug} className="flex items-center gap-1">
             <button
+              key={item.slug}
               type="button"
               role="tab"
               aria-selected={moduleSlug === item.slug}
-              className={`min-h-11 rounded-md px-3 text-sm ${moduleSlug === item.slug ? "bg-slate-900 text-white" : "border border-slate-300 bg-white"}`}
+              className={`-mb-px min-h-11 border-b-2 px-1 text-sm ${moduleSlug === item.slug ? "border-brand-600 font-semibold text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"}`}
               onClick={() => {
                 const next = new URLSearchParams(params.toString());
                 next.set("module", item.slug);
@@ -214,35 +249,37 @@ export function ReportsDashboardPage() {
             >
               {item.label}
             </button>
-            <button
-              type="button"
-              className="min-h-11 rounded-md border border-slate-300 bg-white px-2 text-sm"
-              aria-pressed={pins.includes(item.slug)}
-              onClick={() => togglePin(item.slug)}
-            >
-              {pins.includes(item.slug) ? "Unpin" : "Pin to sidebar"}
-            </button>
-            </div>
           ))}
         </div>
-        <select
-          aria-label="Saved report"
-          className="min-h-11 rounded-md border border-slate-300 px-2 text-sm"
-          defaultValue=""
-          onChange={(event) => {
-            const template = (templates.data ?? []).find((item) => item.id === event.target.value);
-            if (!template) return;
-            const next = new URLSearchParams(params.toString());
-            next.set("module", template.reportType);
-            router.replace(`${pathname}?${next.toString()}` as Route);
-            setFilters((current) => ({ ...current, status: template.defaultStatus, page: 1 }));
-          }}
-        >
-          <option value="">Saved reports</option>
-          {(templates.data ?? []).filter((template) => modules.some((item) => item.slug === template.reportType)).map((template) => (
-            <option key={template.id} value={template.id}>{template.name}</option>
-          ))}
-        </select>
+        <div className="ml-auto flex items-center gap-2 pb-1">
+          <button
+            type="button"
+            className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-sm text-slate-600 hover:bg-slate-100"
+            aria-pressed={pins.includes(moduleSlug)}
+            onClick={() => togglePin(moduleSlug)}
+          >
+            <Star size={14} className={pins.includes(moduleSlug) ? "fill-amber-400 text-amber-500" : ""} />
+            {pins.includes(moduleSlug) ? "Pinned to sidebar" : "Pin to sidebar"}
+          </button>
+          <select
+            aria-label="Saved report"
+            className="min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-sm"
+            defaultValue=""
+            onChange={(event) => {
+              const template = (templates.data ?? []).find((item) => item.id === event.target.value);
+              if (!template) return;
+              const next = new URLSearchParams(params.toString());
+              next.set("module", template.reportType);
+              router.replace(`${pathname}?${next.toString()}` as Route);
+              setFilters((current) => ({ ...current, status: template.defaultStatus, page: 1 }));
+            }}
+          >
+            <option value="">Saved reports</option>
+            {(templates.data ?? []).filter((template) => modules.some((item) => item.slug === template.reportType)).map((template) => (
+              <option key={template.id} value={template.id}>{template.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
       {pinMessage ? (
         <p className="text-sm text-amber-900" role="status">
@@ -255,7 +292,7 @@ export function ReportsDashboardPage() {
           <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
         </div>
       ) : report?.summaryCards?.length ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className={`grid gap-3 sm:grid-cols-2 ${report.summaryCards.length >= 5 ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}>
           {report.summaryCards.map((card) => (
             <KpiCard key={card.label} label={card.label} value={String(card.value)} delta={card.subLabel} tone={card.tone === "danger" ? "red" : card.tone === "warning" ? "amber" : card.tone === "success" ? "emerald" : "neutral"} />
           ))}
@@ -268,54 +305,52 @@ export function ReportsDashboardPage() {
             const nameKey = chart.xKey ?? chart.nameKey ?? "name";
             const valueKey = chart.yKeys?.[0] ?? chart.valueKey ?? "value";
             const chartItems = chart.data.map((row, index) => ({ name: String(row[nameKey] ?? index), value: Number(row[valueKey] ?? 0) || 0 }));
+            // A chart with one value (e.g. everything "Unassigned") says nothing; hide it.
+            if (chartItems.filter((item) => item.value > 0).length < 2) return null;
             return (
               <SectionCard key={chart.id} title={chart.title}>
-                {chartItems.length > 0 && chartItems.length <= 8 && chartItems.some((item) => item.value > 0) ? <DonutChart items={chartItems} /> : <BarList items={chartItems} />}
+                <BarList items={chartItems} />
               </SectionCard>
             );
           })}
         </div>
       ) : null}
 
-      <SectionCard title="Report library" action={<span className="text-xs text-slate-500">Export CSV/XLSX uses the open report</span>}>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {modules.map((item) => (
-            <button
-              key={item.slug}
-              type="button"
-              className={`rounded-card border p-3 text-left ${moduleSlug === item.slug ? "border-brand-600 bg-brand-50" : "border-slate-200 bg-white"}`}
-              onClick={() => {
-                const next = new URLSearchParams(params.toString());
-                next.set("module", item.slug);
-                router.replace(`${pathname}?${next.toString()}` as Route);
-                setFilters((current) => ({ ...current, page: 1 }));
-              }}
-            >
-              <span className="block text-sm font-semibold text-slate-900">{item.label}</span>
-              <span className="mt-1 block text-xs text-slate-500">View · Export CSV/XLSX</span>
-            </button>
-          ))}
-        </div>
-      </SectionCard>
-
       <section className="rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 p-2">
-          <DateField bare label="Date from" value={filters.startDate} onChange={(startDate) => setFilters({ ...filters, startDate, page: 1 })} />
-          <DateField bare label="Date to" value={filters.endDate} onChange={(endDate) => setFilters({ ...filters, endDate, page: 1 })} />
-          <select aria-label="Job status" className="h-10 rounded-md border px-2 text-sm" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value, page: 1 })}>
+          <select
+            aria-label="Date range"
+            className="h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm"
+            value={PRESETS.find((p) => { const [f, t] = p.range(); return f === filters.startDate && t === filters.endDate; })?.key ?? "custom"}
+            onChange={(event) => {
+              const preset = PRESETS.find((p) => p.key === event.target.value);
+              if (!preset) return;
+              const [startDate, endDate] = preset.range();
+              setFilters({ ...filters, startDate, endDate, page: 1 });
+            }}
+          >
+            {PRESETS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+            <option value="custom">Custom range</option>
+          </select>
+          <select aria-label="Job status" className="h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value, page: 1 })}>
             <option value="">Status</option>
             {(report?.filterOptions.statuses ?? ["OPEN", "IN_PROGRESS", "COMPLETED", "CLOSED", "CANCELLED"]).map((status) => (
               <option key={status} value={status}>{status}</option>
             ))}
           </select>
           <input aria-label="Category" placeholder="Category" className="h-10 w-32 rounded-md border px-2 text-sm" value={filters.category} onChange={(event) => setFilters({ ...filters, category: event.target.value, page: 1 })} />
-          <input aria-label="Search reports" placeholder="Job, asset, vehicle, technician" className="h-10 min-w-[12rem] flex-1 rounded-md border px-2 text-sm" value={draft} onChange={(event) => setDraft(event.target.value)} />
+          <div className="relative min-w-[12rem] flex-1">
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input aria-label="Search reports" placeholder="Job, asset, vehicle, technician" className="h-10 w-full rounded-lg border border-slate-300 pl-9 pr-2 text-sm" value={draft} onChange={(event) => setDraft(event.target.value)} />
+          </div>
           <button type="button" className="h-10 px-2 text-sm font-medium" aria-expanded={more} onClick={() => setMore((open) => !open)}>
             More filters
           </button>
         </div>
         {more ? (
           <div className="grid gap-2 border-t border-slate-100 p-2 sm:grid-cols-2 lg:grid-cols-3">
+            <DateField bare label="Date from" value={filters.startDate} onChange={(startDate) => setFilters({ ...filters, startDate, page: 1 })} />
+            <DateField bare label="Date to" value={filters.endDate} onChange={(endDate) => setFilters({ ...filters, endDate, page: 1 })} />
             <select aria-label="Asset" className="h-10 rounded-md border px-2 text-sm" value={filters.assetId} onChange={(event) => setFilters({ ...filters, assetId: event.target.value, page: 1 })}>
               <option value="">Asset</option>
               {(report?.filterOptions.assets ?? []).filter((item) => item.type === "asset").map((item) => (
@@ -348,6 +383,15 @@ export function ReportsDashboardPage() {
             </select>
           </div>
         ) : null}
+        {more && isAdmin ? (
+          <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-2 py-2">
+            <input aria-label="Template name" placeholder="Template name" className="h-10 rounded-md border px-2 text-sm" value={templateName} onChange={(event) => setTemplateName(event.target.value)} />
+            <button type="button" className="h-10 rounded-lg border px-3 text-sm font-medium" onClick={saveTemplate}>
+              Save template
+            </button>
+            <p className="text-xs text-slate-500">Templates store layout and filters only. Uploaded spreadsheets are not executed.</p>
+          </div>
+        ) : null}
         <ActiveFilterChips
           chips={chips}
           onRemove={(key) => {
@@ -359,16 +403,6 @@ export function ReportsDashboardPage() {
           }}
           onClearAll={clearFilters}
         />
-
-        {isAdmin ? (
-          <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-2 py-2">
-            <input aria-label="Template name" placeholder="Template name" className="h-10 rounded-md border px-2 text-sm" value={templateName} onChange={(event) => setTemplateName(event.target.value)} />
-            <button type="button" className="h-10 rounded-lg border px-3 text-sm font-medium" onClick={saveTemplate}>
-              Save template
-            </button>
-            <p className="text-xs text-slate-500">Templates store layout and filters only. Uploaded spreadsheets are not executed.</p>
-          </div>
-        ) : null}
 
         {query.isLoading ? (
           <div className="p-4" aria-busy="true"><SkeletonCard /></div>
@@ -396,11 +430,11 @@ export function ReportsDashboardPage() {
                     return (
                       <tr key={String(row.workOrderId ?? row.woNumber ?? index)} className="border-b border-slate-100">
                         {columns.map((column, index) => (
-                          <td key={column.key} className={`px-3 py-2 text-slate-800 ${index > 4 ? "hidden lg:table-cell" : ""}`}>{row[column.key] ?? "—"}</td>
+                          <td key={column.key} className={`px-3 py-2 text-slate-800 ${index > 4 ? "hidden lg:table-cell" : ""}`}><Cell column={column.key} value={row[column.key]} /></td>
                         ))}
                         <td className="px-3 py-2">
                           {href ? (
-                            <Link href={href as Route} className="font-medium text-brand-700">Open</Link>
+                            <Link href={href as Route} className="font-semibold text-brand-600 hover:underline">Open →</Link>
                           ) : (
                             <span className="text-slate-400">—</span>
                           )}
