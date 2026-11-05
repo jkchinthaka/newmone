@@ -223,6 +223,7 @@ const REPORT_ROLES = mergeRoles(
 /** Routes still valid for redirects / deep links (not all appear in primary nav). */
 export const EXISTING_NAV_ROUTES = new Set<string>([
   "/action-center",
+  "/floor-plans",
   "/workspace",
   "/dashboard",
   "/requests",
@@ -562,6 +563,16 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     allowedRoles: mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES, FACILITY_ROLES, ASSET_ROLES),
     category: "core",
     description: "Sites, buildings, and locations",
+    activeMatch: "startsWith"
+  },
+  {
+    id: "floor-plans",
+    label: "Floor Plans",
+    href: "/floor-plans",
+    icon: "Building2",
+    allowedRoles: mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES, FACILITY_ROLES, ASSET_ROLES),
+    category: "core",
+    description: "Floor plan images with assets pinned on them",
     activeMatch: "startsWith"
   },
   {
