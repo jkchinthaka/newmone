@@ -102,6 +102,24 @@ const MASTER_ENTITIES = [
     bg: "bg-indigo-50",
     border: "border-indigo-200",
   },
+  {
+    label: "Requester Groups",
+    description: "Groups of people who raise requests together.",
+    href: "/master-data/requester-groups",
+    icon: Tag,
+    color: "text-sky-600",
+    bg: "bg-sky-50",
+    border: "border-sky-200",
+  },
+  {
+    label: "Spare Part Categories",
+    description: "The category list every new spare part must pick from.",
+    href: "/master-data/part-categories",
+    icon: Tag,
+    color: "text-rose-600",
+    bg: "bg-rose-50",
+    border: "border-rose-200",
+  },
 ] as const;
 
 export default function MasterDataPage() {

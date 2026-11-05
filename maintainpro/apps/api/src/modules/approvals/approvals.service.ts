@@ -58,6 +58,7 @@ export type CreateRuleInput = {
   siteId?: string | null;
   departmentId?: string | null;
   domainId?: string | null;
+  requesterGroupId?: string | null;
   priorityScope?: string[];
   workTypeScope?: string[];
   amountThreshold?: number | null;
@@ -195,6 +196,7 @@ export class ApprovalsService {
         siteId: input.siteId ?? undefined,
         departmentId: input.departmentId ?? undefined,
         domainId: input.domainId ?? undefined,
+        requesterGroupId: input.requesterGroupId ?? undefined,
         priorityScope: stringArrayToText(input.priorityScope ?? []),
         workTypeScope: stringArrayToText(input.workTypeScope ?? []),
         amountThreshold: input.amountThreshold ?? undefined,
@@ -277,6 +279,7 @@ export class ApprovalsService {
           siteId: input.siteId ?? undefined,
           departmentId: input.departmentId ?? undefined,
           domainId: input.domainId ?? undefined,
+          requesterGroupId: input.requesterGroupId ?? undefined,
           priorityScope: stringArrayToText(input.priorityScope ?? []),
           workTypeScope: stringArrayToText(input.workTypeScope ?? []),
           amountThreshold: input.amountThreshold ?? undefined,
@@ -421,8 +424,18 @@ export class ApprovalsService {
       orderBy: [{ version: "desc" }]
     });
 
+    // Rules scoped to a requester group only apply to members of that group.
+    let scopedCtx = ctx;
+    if (candidates.some((rule) => rule.requesterGroupId)) {
+      const requesterId = ctx.requesterId ?? actor.sub;
+      const memberships = requesterId
+        ? await this.prisma.requesterGroupMember.findMany({ where: { userId: requesterId, group: { tenantId, isActive: true } }, select: { groupId: true } })
+        : [];
+      scopedCtx = { ...ctx, requesterGroupIds: memberships.map((m) => m.groupId) };
+    }
+
     for (const rule of candidates) {
-      if (!ruleScopeMatches(rule, ctx)) continue;
+      if (!ruleScopeMatches(rule, scopedCtx)) continue;
       const conditions = parseConditions(rule.conditions);
       if (!conditionsMatch(conditions, ctx)) continue;
       return rule;
@@ -645,6 +658,7 @@ export class ApprovalsService {
       siteId: rule.siteId,
       departmentId: rule.departmentId,
       domainId: rule.domainId,
+      requesterGroupId: rule.requesterGroupId,
       priorityScope: toStringArray(rule.priorityScope),
       workTypeScope: toStringArray(rule.workTypeScope),
       slaHours: rule.slaHours,

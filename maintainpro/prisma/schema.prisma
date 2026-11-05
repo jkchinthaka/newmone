@@ -104,6 +104,8 @@ model Tenant {
   outboundWebhookDeliveries    OutboundWebhookDelivery[]
   organizationUnits            OrganizationUnit[]
   requestProblemCategories     RequestProblemCategory[]
+  requesterGroups              RequesterGroup[]
+  sparePartCategories          SparePartCategory[]
   maintenanceAnalysisCodes     MaintenanceAnalysisCode[]
   workOrderHoldHistories       WorkOrderHoldHistory[]
   workOrderLabourEntries       WorkOrderLabourEntry[]
@@ -423,6 +425,7 @@ model User {
   linkedWorkforceEmployees    Employee[]                  @relation("EmployeeLinkedUser")
   responsibleAssets           Asset[]                     @relation("AssetResponsiblePerson")
   reportedMaintenanceRequests MaintenanceRequest[]        @relation("ReportedMaintenanceRequests")
+  requesterGroupMemberships   RequesterGroupMember[]
   triageOwnedRequests         MaintenanceRequest[]        @relation("TriageOwnerRequests")
   maintenanceRequestHistory   MaintenanceRequestHistory[] @relation("RequestHistoryActor")
   configChangeHistories       ConfigChangeHistory[]       @relation("ConfigChangeActor")
@@ -5352,6 +5355,8 @@ model ApprovalRule {
   siteId                   String?   @db.NVarChar(36)
   departmentId             String?   @db.NVarChar(36)
   domainId                 String?   @db.NVarChar(36)
+  /// Optional: the rule only applies to requests raised by members of this RequesterGroup.
+  requesterGroupId         String?   @db.NVarChar(36)
   priorityScope            String    @default("[]") @db.NVarChar(Max)
   workTypeScope            String    @default("[]") @db.NVarChar(Max)
   amountThreshold          Decimal?  @db.Decimal(18, 2)
@@ -6439,4 +6444,55 @@ model OrganizationUnit {
   @@index([tenantId, status])
   @@index([tenantId, parentId])
   @@index([tenantId, unitType])
+}
+
+
+// ============================================================
+// Change request master data: who may raise requests (groups) and spare part categories
+// ============================================================
+
+/// A named set of people who raise requests together (e.g. "Packing line supervisors").
+model RequesterGroup {
+  id          String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId    String   @db.NVarChar(36)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code        String
+  name        String
+  description String?
+  departmentId String? @db.NVarChar(36)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members RequesterGroupMember[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+}
+
+model RequesterGroupMember {
+  id        String         @id @default(cuid()) @db.NVarChar(36)
+  groupId   String         @db.NVarChar(36)
+  group     RequesterGroup @relation(fields: [groupId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  userId    String         @db.NVarChar(36)
+  user      User           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt DateTime       @default(now())
+
+  @@unique([groupId, userId])
+  @@index([userId])
+}
+
+/// Controlled list for Part.category (new parts must pick one).
+model SparePartCategory {
+  id        String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId  String   @db.NVarChar(36)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name      String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive])
 }

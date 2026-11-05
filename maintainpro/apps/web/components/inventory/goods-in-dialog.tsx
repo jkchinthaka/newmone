@@ -82,6 +82,14 @@ export function GoodsInDialog({ onClose, onDone }: { onClose: () => void; onDone
     };
   }, [mode, newPart, part, query]);
 
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  useEffect(() => {
+    apiClient
+      .get<{ data: Array<{ name: string }> }>("/master-data/part-categories")
+      .then((res) => setCategoryOptions((res.data.data ?? []).map((c) => c.name)))
+      .catch(() => setCategoryOptions([]));
+  }, []);
+
   const itemIssues = useMemo(
     () => goodsInFormIssues({ partId: part?.id ?? "", newPart, partNumber: form.partNumber, name: form.name, quantity: form.quantity, unitCost: form.unitCost }),
     [form, newPart, part]
@@ -263,7 +271,10 @@ export function GoodsInDialog({ onClose, onDone }: { onClose: () => void; onDone
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="text-sm"><span className="mb-1 block font-medium text-slate-700">Part code</span><input className={field} value={form.partNumber} onChange={(e) => setForm({ ...form, partNumber: e.target.value })} maxLength={64} /></label>
                   <label className="text-sm"><span className="mb-1 block font-medium text-slate-700">Part name</span><input className={field} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={200} /></label>
-                  <label className="text-sm"><span className="mb-1 block font-medium text-slate-700">Category</span><input className={field} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="General" maxLength={100} /></label>
+                  <label className="text-sm"><span className="mb-1 block font-medium text-slate-700">Category</span><>
+                    <input className={field} list="spare-part-categories" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Pick or type a category" maxLength={100} />
+                    <datalist id="spare-part-categories">{categoryOptions.map((c) => <option key={c} value={c} />)}</datalist>
+                  </></label>
                   <label className="text-sm"><span className="mb-1 block font-medium text-slate-700">Unit</span><input className={field} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} maxLength={20} /></label>
                 </div>
               )}
