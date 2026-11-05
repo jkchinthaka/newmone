@@ -147,7 +147,7 @@ export function Topbar({
             type="button"
             aria-label="Search modules or records"
             aria-keyshortcuts="Control+K Meta+K"
-            className="hidden h-10 w-full max-w-sm items-center gap-2 overflow-hidden rounded-md border border-brand-200 bg-brand-50 px-3 text-sm text-ink hover:bg-white sm:inline-flex"
+            className="hidden h-10 w-full max-w-sm items-center gap-2 overflow-hidden rounded-md border border-slate-300 bg-white px-3 text-sm text-ink hover:bg-slate-50 sm:inline-flex"
             onClick={onOpenCommandPalette}
           >
             <Search aria-hidden size={16} />
@@ -180,7 +180,7 @@ export function Topbar({
           >
             <Bell size={18} />
             {!unreadQuery.isError && (unreadQuery.data ?? 0) > 0 ? (
-              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-700 px-1.5 text-center text-[10px] font-bold text-white">
+              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-slate-600 px-1.5 text-center text-[10px] font-bold text-white">
                 {(unreadQuery.data ?? 0) > 99 ? "99+" : unreadQuery.data}
               </span>
             ) : null}
