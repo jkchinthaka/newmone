@@ -13,7 +13,6 @@ import {
 import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
-import { erpReconciliationLabel } from "@/lib/erp-reconciliation-label";
 import {
   canPartRequestAction,
   partLineStatusLabel,
@@ -247,7 +246,6 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
       {readOnly || !canCreate ? null : (
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900">Request parts</h3>
-        <p className="mt-1 text-xs text-slate-500">Pick a part and how many you need.</p>
 
         <div className="mt-3 grid gap-2">
           {partsSearchAvailable ? (
@@ -280,8 +278,7 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
               <AlertTriangle size={12} /> {stockWarning}
             </p>
           ) : null}
-          <p className="text-xs text-slate-600">{erpReconciliationLabel("PENDING")}. A pending outbox is not ERP Posted.</p>
-          <p className="text-xs text-slate-600">Stock balance comes from the ERP and is not changed here.</p>
+          <p className="text-xs text-slate-500">Stock levels come from the ERP.</p>
 
           <div className="grid gap-2 md:grid-cols-[120px_1fr_auto]">
             <input

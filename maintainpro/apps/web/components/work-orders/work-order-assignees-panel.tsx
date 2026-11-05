@@ -343,7 +343,7 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
     <section className="space-y-4">
       <h4 className="text-sm font-semibold text-slate-900">Assigned team</h4>
       <p className="mt-1 text-xs text-slate-500">
-        Choose a designation, then add the people doing this job. Mark one person as the primary assignee.
+        Add the people doing this job. Mark one as the main person.
       </p>
 
       {!canSeeAssignees ? (

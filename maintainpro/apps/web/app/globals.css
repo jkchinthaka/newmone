@@ -223,3 +223,8 @@ main th {
     scroll-behavior: auto !important;
   }
 }
+
+/* Job detail page: readable sizes. Small helper text is 13px, body 15px. */
+.wo-page .text-xs { font-size: 0.8125rem; line-height: 1.25rem; }
+.wo-page .text-sm { font-size: 0.9375rem; line-height: 1.375rem; }
+.wo-page .text-\[10px\], .wo-page .text-\[11px\] { font-size: 0.8125rem; }

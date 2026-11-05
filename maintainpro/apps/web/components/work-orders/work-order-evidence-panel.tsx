@@ -427,14 +427,10 @@ export function WorkOrderEvidencePanel({
   return (
     <section aria-labelledby="work-order-evidence-heading" className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
       <div>
-        <div className="flex items-center gap-2 text-sm font-medium text-brand-700">
-          <Camera size={18} aria-hidden="true" />
-          <span>Photos & field proof</span>
-        </div>
-        <h4 id="work-order-evidence-heading" className="mt-2 text-sm font-semibold text-slate-900">
-          photos
+        <h4 id="work-order-evidence-heading" className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+          <Camera size={18} aria-hidden="true" className="text-brand-700" />
+          Photos
         </h4>
-        <p className="mt-1 text-xs text-slate-600">Before/after proof, QR verification, and supervisor review</p>
       </div>
       <div className="flex flex-wrap gap-2 text-xs">
         <span className="rounded-full bg-emerald-50 px-2 py-1 font-medium text-emerald-800">

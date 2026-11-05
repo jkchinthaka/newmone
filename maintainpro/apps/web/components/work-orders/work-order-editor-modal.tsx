@@ -160,6 +160,16 @@ export function WorkOrderEditorModal({
     setActiveTab(visibleWorkOrderTab(initialTab, showAuditTab));
   }, [initialState, initialTab, open, showAuditTab]);
 
+  // Clicking anywhere outside the "..." menu closes it.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!(event.target instanceof Element) || !event.target.closest("[data-wo-menu]")) setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [menuOpen]);
+
   useEffect(() => {
     if (!open) return;
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -407,7 +417,7 @@ export function WorkOrderEditorModal({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
             transition={drawerMotion}
-            className="flex h-full w-full max-w-full flex-col overflow-hidden bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
+            className="wo-page flex h-full w-full max-w-full flex-col overflow-hidden bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
           >
             <header className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:px-10">
               <div className="min-w-0">
@@ -442,7 +452,7 @@ export function WorkOrderEditorModal({
                   </button>
                 ) : null}
                 {!isCreateMode ? (
-                  <div className="relative">
+                  <div className="relative" data-wo-menu>
                     <button
                       type="button"
                       className="btn-quiet h-10 px-2"

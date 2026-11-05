@@ -81,7 +81,7 @@ export function SupervisorVerificationPanel({
     <section className="rounded-lg border border-brand-200 bg-brand-50/60 p-4">
       <h4 className="text-sm font-semibold text-slate-900">Supervisor check</h4>
       <p className="mt-1 text-xs text-slate-600">
-        Supervisor check marks this job Verified. It is not closed until an authorized user closes it. Rejection returns it to be fixed again.
+        Verify if the work is fine, or send it back to be fixed again.
       </p>
 
       {evidenceRequirements ? (

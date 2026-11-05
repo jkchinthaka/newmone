@@ -33,6 +33,11 @@ type Props = {
 function displayValue(value: unknown): string {
   if (value == null || value === "") return "—";
   if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number" || (typeof value === "string" && /^-?\d+(\.\d+)?(e[+-]?\d+)?$/i.test(value.trim()))) {
+    const amount = Number(value);
+    // Anything this large is a typing mistake, so say so instead of printing 1e+22.
+    if (Number.isFinite(amount)) return Math.abs(amount) >= 1e9 ? "Not a valid number, please check" : amount.toLocaleString("en-LK");
+  }
   const text = String(value);
   if (/^[A-Z0-9_]+$/.test(text) && text.includes("_")) {
     const words = text.toLowerCase().replaceAll("_", " ");
@@ -123,10 +128,6 @@ export function WorkOrderDomainPanel({
                   ? "Machinery context"
                   : "Domain context"}
           </h4>
-          <p className="mt-1 text-sm text-brand-800">
-            Canonical target identity and domain readiness. Job status stays separate from
-            asset/vehicle operational status.
-          </p>
         </div>
       </div>
 

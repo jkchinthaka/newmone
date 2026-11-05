@@ -59,7 +59,7 @@ describe("job overview editing", () => {
       submitting: false
     });
     assert.equal(decision.showSave, false);
-    assert.match(decision.reason ?? "", /own changes/);
+    assert.equal(decision.reason, null);
   });
 
   it("uses a distinct badge tone for cancelled jobs", () => {

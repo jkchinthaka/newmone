@@ -36,9 +36,6 @@ export function WorkOrderGovernanceBanner({ workOrder }: Props) {
     };
   }, [workOrder.id]);
 
-  if (workOrder.status === "TECHNICIAN_COMPLETED") {
-    warnings.push(GOVERNANCE_MESSAGES.supervisorRequired);
-  }
   if (verificationStatus === "REJECTED") {
     warnings.push("Supervisor rejected this job. It must be fixed again before closing.");
   }

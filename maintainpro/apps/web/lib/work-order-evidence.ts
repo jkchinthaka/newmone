@@ -171,7 +171,7 @@ export function evidenceUploadDisabledMessage(readiness: EvidenceStorageReadines
   }
 
   if (!readiness.uploadsEnabled) {
-    return "File upload storage is not configured. Enable STORAGE_UPLOADS_ENABLED on the server when ready.";
+    return "Photo storage is not set up yet. Ask your administrator.";
   }
 
   if (readiness.state !== "configured") {

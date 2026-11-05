@@ -42,7 +42,7 @@ export function overviewSaveDecision(input: {
       showSave: false,
       enabled: false,
       label: "Save changes",
-      reason: "This section saves its own changes. Overview is not saved from here."
+      reason: null
     };
   }
 
