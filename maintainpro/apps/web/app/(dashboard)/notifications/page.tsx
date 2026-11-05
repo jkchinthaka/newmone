@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, Suspense, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, Check, Info, Search, Siren, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { DateField } from "@/components/forms/date-fields";
@@ -52,6 +53,23 @@ function ageLabel(value: string) {
   const hours = Math.round(minutes / 60);
   if (hours < 48) return `${hours} h ago`;
   return `${Math.round(hours / 24)} d ago`;
+}
+
+const SEVERITY: Record<string, { icon: LucideIcon; bg: string; fg: string }> = {
+  INFO: { icon: Info, bg: "bg-sky-100", fg: "text-sky-700" },
+  WARNING: { icon: AlertTriangle, bg: "bg-amber-100", fg: "text-amber-700" },
+  CRITICAL: { icon: Siren, bg: "bg-rose-100", fg: "text-rose-700" }
+};
+
+function dayLabel(value: string) {
+  const d = new Date(value);
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const days = Math.floor((start.getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return "Earlier this week";
+  return "Older";
 }
 
 function NotificationsInbox() {
@@ -145,106 +163,89 @@ function NotificationsInbox() {
     state.overdue ? { id: "overdue", label: "Overdue" } : null
   ].filter((chip): chip is { id: string; label: string } => Boolean(chip));
 
+  const clearAll = () => {
+    setDraftQuery("");
+    replaceState({ ...state, q: "", status: "", priority: "", type: "", module: "", ack: "", overdue: false, from: "", to: "", page: 1 });
+  };
+  const noTabFilter = !state.status && !state.priority && !state.overdue;
+  const tabs = [
+    { key: "unread", label: "Unread", count: summary?.unread, active: state.status === "UNREAD" && !state.priority && !state.overdue, tone: "bg-sky-100 text-sky-700", go: () => replaceState({ ...state, status: "UNREAD", priority: "", overdue: false, page: 1 }) },
+    { key: "critical", label: "Critical", count: summary?.critical, active: state.priority === "CRITICAL" && !state.overdue, tone: "bg-rose-100 text-rose-700", go: () => replaceState({ ...state, status: "", priority: "CRITICAL", overdue: false, page: 1 }) },
+    { key: "overdue", label: "Overdue", count: summary?.overdue, active: state.overdue, tone: "bg-slate-200 text-slate-700", go: () => replaceState({ ...state, status: "", priority: "", overdue: true, page: 1 }) },
+    { key: "all", label: "All", count: undefined, active: noTabFilter, tone: "", go: () => replaceState({ ...state, status: "", priority: "", overdue: false, page: 1 }) }
+  ];
+  const groups: { label: string; rows: NotificationItem[] }[] = [];
+  for (const item of items) {
+    const label = dayLabel(item.createdAt);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.rows.push(item);
+    else groups.push({ label, rows: [item] });
+  }
+
   return (
-    <div className="mx-auto max-w-6xl space-y-3">
+    <div className="mx-auto max-w-4xl space-y-3">
       <PageBreadcrumbs />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="page-title">Notifications</h1>
-          <p className="mt-1 text-sm text-brand-800">What needs your attention now.</p>
+          <p className="mt-1 text-sm text-slate-500">What needs your attention now</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="btn-primary disabled:opacity-60"
-            disabled={markAll.isPending}
-            onClick={() => markAll.mutate()}
-          >
+          <button type="button" className="min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60" disabled={markAll.isPending} onClick={() => markAll.mutate()}>
             Mark all read
           </button>
-          <Link href={"/settings?tab=notifications" as never} className="btn-quiet">
+          <Link href={"/settings?tab=notifications" as never} className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Preferences
           </Link>
         </div>
       </header>
 
-      <p className="summary-strip" aria-live="polite">
-        <span><span className="font-semibold">{summary?.unread ?? "–"}</span> unread</span>
-        <span><span className="font-semibold text-rose-700">{summary?.critical ?? "–"}</span> critical</span>
-        <span><span className="font-semibold">{summary?.overdue ?? "–"}</span> overdue</span>
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" className="btn-quiet min-h-11" aria-pressed={state.status === "UNREAD"} onClick={() => replaceState({ ...state, status: state.status === "UNREAD" ? "" : "UNREAD", page: 1 })}>Unread</button>
-        <button type="button" className="btn-quiet min-h-11" aria-pressed={state.priority === "CRITICAL"} onClick={() => replaceState({ ...state, priority: state.priority === "CRITICAL" ? "" : "CRITICAL", page: 1 })}>Critical</button>
+      <div className="flex gap-6 border-b border-slate-200" role="tablist" aria-label="Notification views" aria-live="polite">
+        {tabs.map((tab) => (
+          <button key={tab.key} type="button" role="tab" aria-selected={tab.active} onClick={tab.go} className={`-mb-px inline-flex min-h-11 items-center gap-1.5 border-b-2 px-1 text-sm ${tab.active ? "border-brand-600 font-semibold text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
+            {tab.label}
+            {tab.count !== undefined ? <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${tab.tone}`}>{tab.count}</span> : null}
+          </button>
+        ))}
       </div>
 
-      <form className="toolbar" onSubmit={submitSearch}>
-        <label className="w-full text-sm text-slate-700 sm:w-auto">
-          Search
+      <form className="flex flex-wrap gap-2" onSubmit={submitSearch}>
+        <div className="relative min-w-[200px] flex-1">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
+            aria-label="Search notifications"
             value={draftQuery}
             onChange={(event) => setDraftQuery(event.target.value)}
-            className="field w-full sm:w-56"
-            placeholder="Title, message, or record"
+            className="min-h-10 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm"
+            placeholder="Search notifications"
           />
-        </label>
-        <label className="text-sm text-slate-700">
-          Status
-          <select
-            aria-label="Status"
-            value={state.status}
-            onChange={(event) => replaceState({ ...state, status: event.target.value as InboxUrlState["status"], page: 1 })}
-            className="field"
-          >
-            <option value="">All</option>
-            <option value="UNREAD">Unread</option>
-            <option value="READ">Read</option>
-          </select>
-        </label>
-        <label className="text-sm text-slate-700">
-          Priority
-          <select
-            aria-label="Priority"
-            value={state.priority}
-            onChange={(event) => replaceState({ ...state, priority: event.target.value, page: 1 })}
-            className="field"
-          >
-            <option value="">All</option>
-            <option value="CRITICAL">Critical</option>
-            <option value="WARNING">Warning</option>
-            <option value="INFO">Info</option>
-          </select>
-        </label>
-        <label className="text-sm text-slate-700">
-          Type
-          <input
-            aria-label="Type"
-            value={state.type}
-            onChange={(event) => replaceState({ ...state, type: event.target.value.toUpperCase(), page: 1 })}
-            className="field w-40"
-            placeholder="WORK_ORDER"
-          />
-        </label>
-        <button type="button" className="btn-quiet" onClick={() => setMore((open) => !open)}>
+        </div>
+        <select aria-label="Priority" value={state.priority} onChange={(event) => replaceState({ ...state, priority: event.target.value, page: 1 })} className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm">
+          <option value="">Any priority</option>
+          <option value="CRITICAL">Critical</option>
+          <option value="WARNING">Warning</option>
+          <option value="INFO">Info</option>
+        </select>
+        <button type="button" className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" aria-expanded={more} onClick={() => setMore((open) => !open)}>
           More filters
         </button>
-        <button type="submit" className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white">
-          Search
-        </button>
-        <button
-          type="button"
-          className="rounded-md px-3 py-1.5 text-sm text-slate-700"
-          onClick={() => {
-            setDraftQuery("");
-            replaceState({ ...state, q: "", status: "", priority: "", type: "", module: "", ack: "", overdue: false, from: "", to: "", page: 1 });
-          }}
-        >
-          Clear
-        </button>
+        <button type="submit" className="sr-only">Search</button>
       </form>
 
       {more ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-3">
+          <label className="text-sm text-slate-700">
+            Type
+            <input aria-label="Type" value={state.type} onChange={(event) => replaceState({ ...state, type: event.target.value.toUpperCase(), page: 1 })} className="field w-40" placeholder="WORK_ORDER" />
+          </label>
+          <label className="text-sm text-slate-700">
+            Status
+            <select aria-label="Status" value={state.status} onChange={(event) => replaceState({ ...state, status: event.target.value as InboxUrlState["status"], page: 1 })} className="field">
+              <option value="">All</option>
+              <option value="UNREAD">Unread</option>
+              <option value="READ">Read</option>
+            </select>
+          </label>
           <label className="text-sm text-slate-700">
             Source
             <select aria-label="Source module" value={state.module} onChange={(event) => replaceState({ ...state, module: event.target.value, page: 1 })} className="field">
@@ -265,10 +266,6 @@ function NotificationsInbox() {
               <option value="yes">Acknowledged</option>
             </select>
           </label>
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input type="checkbox" checked={state.overdue} onChange={(event) => replaceState({ ...state, overdue: event.target.checked, page: 1 })} />
-            Overdue only
-          </label>
           <label className="text-sm text-slate-700">
             From
             <DateField bare label="From date" value={state.from} onChange={(from) => replaceState({ ...state, from, page: 1 })} />
@@ -277,6 +274,9 @@ function NotificationsInbox() {
             To
             <DateField bare label="To date" value={state.to} onChange={(to) => replaceState({ ...state, to, page: 1 })} />
           </label>
+          <button type="button" className="min-h-10 rounded-lg px-3 text-sm text-slate-600 hover:text-slate-900" onClick={clearAll}>
+            Clear all
+          </button>
         </div>
       ) : null}
 
@@ -296,11 +296,11 @@ function NotificationsInbox() {
             overdue: id === "overdue" ? false : state.overdue
           });
         }}
-        onClearAll={() => replaceState({ ...state, q: "", status: "", priority: "", type: "", module: "", ack: "", overdue: false, from: "", to: "", page: 1 })}
+        onClearAll={clearAll}
       />
 
       <details onToggle={(event) => setBriefOpen((event.target as HTMLDetailsElement).open)}>
-        <summary className="cursor-pointer text-sm font-medium text-slate-700">Daily brief</summary>
+        <summary className="cursor-pointer text-sm font-medium text-slate-600">Daily brief</summary>
         {briefOpen ? (
           <p className="mt-1 text-sm text-slate-600">
             {briefQuery.isLoading ? "Checking today’s alerts." : briefQuery.data?.text?.trim() || "No alerts to summarize."}
@@ -313,49 +313,59 @@ function NotificationsInbox() {
         <ErrorState title="Could not load notifications" description={toSafeApiErrorMessage(listQuery.error, "Unable to load notifications.")} onRetry={() => void listQuery.refetch()} error={listQuery.error} />
       ) : null}
 
-      {listQuery.data && items.length === 0 ? <p className="text-sm text-slate-600">No notifications match these filters.</p> : null}
+      {listQuery.data && items.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">You are all caught up. Nothing matches these filters.</p> : null}
 
-      <ul className="divide-y divide-brand-100 overflow-hidden rounded-card border border-brand-100 bg-white shadow-card">
-        {items.map((item) => {
-          const href = notificationContextHref(item);
-          const stateLabel = notificationStateLabel(item);
-          return (
-            <li key={item.id} className={`flex flex-wrap items-start justify-between gap-3 border-l-4 px-3 py-2.5 ${item.priority === "CRITICAL" ? "border-l-rose-600" : item.priority === "WARNING" ? "border-l-accent-500" : "border-l-brand-600"} ${item.isRead ? "bg-white" : "bg-brand-50"}`}>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-slate-900">
-                  <span className="sr-only">{item.priority} </span>
-                  {item.priority} · {stateLabel}
-                  {item.isRead ? null : <span className="ml-2 inline-block h-2 w-2 rounded-full bg-sky-600" aria-hidden />}
-                </p>
-                <p className="text-sm text-slate-900">{item.title}</p>
-                <p className="text-sm text-slate-600">{item.message}</p>
-                <p className="text-xs text-slate-500">
-                  {item.module} · {ageLabel(item.createdAt)} · {notificationNextAction(item)}
-                </p>
-              </div>
-              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-                {notificationContextIsLinked(href) ? (
-                  <Link href={href as never} className="btn-primary min-h-11 flex-1 justify-center px-3 text-sm sm:flex-none">
-                    {notificationNextAction(item)}
-                  </Link>
-                ) : (
-                  <span className="inline-flex min-h-11 items-center px-2 text-sm text-slate-500">No linked record</span>
-                )}
-                {item.isRead ? null : (
-                  <button type="button" className="btn-quiet min-h-11 flex-1 justify-center px-3 text-sm sm:flex-none" aria-busy={markRead.isPending} disabled={markRead.isPending} onClick={() => markRead.mutate(item.id)}>
-                    {markRead.isPending ? "Marking read…" : "Mark read"}
-                  </button>
-                )}
-                {item.acknowledgedAt ? null : (
-                  <button type="button" className="btn-quiet min-h-11 flex-1 justify-center px-3 text-sm sm:flex-none" aria-busy={acknowledge.isPending} disabled={acknowledge.isPending} onClick={() => acknowledge.mutate(item.id)}>
-                    {acknowledge.isPending ? "Acknowledging…" : "Acknowledge"}
-                  </button>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {groups.map((group) => (
+        <section key={group.label}>
+          <h2 className="mb-2 mt-3 text-xs font-semibold uppercase tracking-wider text-slate-500">{group.label}</h2>
+          <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+            {group.rows.map((item) => {
+              const href = notificationContextHref(item);
+              const linked = notificationContextIsLinked(href);
+              const needsAck = !item.acknowledgedAt && item.priority !== "INFO";
+              const sev = SEVERITY[item.priority] ?? SEVERITY.INFO;
+              const SevIcon = sev.icon;
+              return (
+                <li key={item.id} className={`flex items-start gap-3 px-4 py-3 ${item.isRead ? "bg-white" : "bg-sky-50/60"}`}>
+                  <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${sev.bg}`} title={item.priority}>
+                    <SevIcon size={15} className={sev.fg} />
+                    <span className="sr-only">{item.priority} · {notificationStateLabel(item)}</span>
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {item.title}
+                      {item.isRead ? null : <span className="ml-2 inline-block h-2 w-2 rounded-full bg-brand-600" aria-label="Unread" />}
+                    </p>
+                    <p className="text-sm text-slate-600">{item.message}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                      {linked ? (
+                        <Link href={href as never} className="font-semibold text-brand-600 hover:underline">
+                          {notificationNextAction(item)} →
+                        </Link>
+                      ) : (
+                        <span className="text-slate-400">No linked record</span>
+                      )}
+                      {needsAck ? (
+                        <button type="button" className="font-medium text-slate-600 hover:text-slate-900" aria-busy={acknowledge.isPending} disabled={acknowledge.isPending} onClick={() => acknowledge.mutate(item.id)}>
+                          Acknowledge
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right text-xs text-slate-400">
+                    <p className="whitespace-nowrap">{ageLabel(item.createdAt)}</p>
+                    {item.isRead ? null : (
+                      <button type="button" className="mt-1 inline-flex items-center gap-1 font-medium text-slate-500 hover:text-brand-600" aria-busy={markRead.isPending} disabled={markRead.isPending} onClick={() => markRead.mutate(item.id)}>
+                        <Check size={12} /> Mark read
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <p>
@@ -375,10 +385,10 @@ function NotificationsInbox() {
           </select>
         </label>
         <div className="flex gap-2">
-          <button type="button" className="rounded-md border px-2 py-1 disabled:opacity-50" disabled={state.page <= 1} onClick={() => replaceState({ ...state, page: state.page - 1 })}>
+          <button type="button" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 disabled:opacity-50" disabled={state.page <= 1} onClick={() => replaceState({ ...state, page: state.page - 1 })}>
             Previous
           </button>
-          <button type="button" className="rounded-md border px-2 py-1 disabled:opacity-50" disabled={state.page >= (listQuery.data?.totalPages ?? 1)} onClick={() => replaceState({ ...state, page: state.page + 1 })}>
+          <button type="button" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 disabled:opacity-50" disabled={state.page >= (listQuery.data?.totalPages ?? 1)} onClick={() => replaceState({ ...state, page: state.page + 1 })}>
             Next
           </button>
         </div>

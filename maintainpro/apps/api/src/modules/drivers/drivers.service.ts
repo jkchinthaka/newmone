@@ -8,11 +8,11 @@ import { PrismaService } from "../../database/prisma.service";
 export class DriversService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(params: { q?: string; pageSize?: number } = {}) {
+  async findAll(params: { q?: string; pageSize?: number } = {}) {
     const tenantId = requireTenantId();
     const q = params.q?.trim();
     const take = Math.min(Math.max(params.pageSize ?? 50, 1), 100);
-    return this.prisma.driver.findMany({
+    const rows = await this.prisma.driver.findMany({
       where: {
         tenantId,
         ...(q
@@ -30,6 +30,11 @@ export class DriversService {
       orderBy: { createdAt: "desc" },
       take
     });
+    // Flat display name so pickers can show "Name" without digging into user.
+    return rows.map((row) => ({
+      ...row,
+      name: [row.user?.firstName, row.user?.lastName].filter(Boolean).join(" ") || row.licenseNumber
+    }));
   }
 
   create(data: { userId: string; licenseNumber: string; licenseClass: string; licenseExpiry: string }) {

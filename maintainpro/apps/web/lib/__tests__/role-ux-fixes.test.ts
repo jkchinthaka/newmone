@@ -112,8 +112,8 @@ test("meter reading warns before submit when the value is lower than the last re
 test("inventory home uses plain card titles and lists parts to issue", () => {
   const source = read("components/inventory/inventory-control-page.tsx");
   assert.doesNotMatch(source, /"ERP snapshot"|"Advisory"|"Snapshot zero"/);
-  assert.match(source, /\["On hand", summary\?\.onHand/);
-  assert.match(source, /\["Available", summary\?\.available/);
+  assert.match(source, /\["Units on hand", summary\?\.onHand/);
+  assert.match(source, /\["Low stock", summary\?\.lowStock/);
   assert.match(source, /\["Out of stock", summary\?\.outOfStock/);
   assert.match(source, /\/inventory\/parts-to-issue/);
   assert.match(source, /workOrderRecordHref\(row\.workOrder\.id, "parts"\)/);

@@ -13,6 +13,7 @@ import { KpiCard, StatusBadge } from "@/components/ui/dashboard";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { ButtonSpinner, RefreshingNote, TableLoadingRows } from "@/components/ui/loading";
 import { ErrorState } from "@/components/ui/page-state";
+import { getStoredPermissions } from "@/lib/user-role";
 import { columnHasData, fleetDocumentBadge, fleetGateBadge, fleetServiceBadge, fleetUsageLabel } from "@/lib/batch-3-presentation";
 import type { StatusTone } from "@/lib/dashboard-status";
 import { apiClient } from "@/lib/api-client";
@@ -133,6 +134,7 @@ export function FleetWorkspace() {
   const router = useRouter();
   const currentUser = useCurrentUser();
   const canRegisterVehicle = currentUser.role === "SUPER_ADMIN" || currentUser.role === "ADMIN";
+  const storedPermissions = useMemo(() => new Set(getStoredPermissions()), []);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const state = useMemo(() => fleetStateFromSearch(new URLSearchParams(searchParams.toString())), [searchParams]);
@@ -220,9 +222,24 @@ export function FleetWorkspace() {
               {refreshing ? <ButtonSpinner /> : null}
               Refresh
             </button>
-            {canRegisterVehicle ? (
-              <Link href={"/admin/vehicles/new" as never} className={TOOLBAR_BUTTON_CLASS}>
-                Register vehicle
+            {state.view === "accidents" && storedPermissions.has("accidents.report") ? (
+              <Link href={"/accidents?new=1" as never} className="inline-flex min-h-10 items-center rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700">
+                + Report accident
+              </Link>
+            ) : null}
+            {state.view === "claims" && storedPermissions.has("insurance_claims.manage") ? (
+              <Link href={"/insurance-claims?new=1" as never} className="inline-flex min-h-10 items-center rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700">
+                + New claim
+              </Link>
+            ) : null}
+            {state.view === "fines" && storedPermissions.has("traffic_fines.report") ? (
+              <Link href={"/traffic-fines?new=1" as never} className="inline-flex min-h-10 items-center rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700">
+                + Report fine
+              </Link>
+            ) : null}
+            {canRegisterVehicle && (state.view === "vehicles" || state.view === "compliance") ? (
+              <Link href={"/admin/vehicles/new" as never} className="inline-flex min-h-10 items-center rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700">
+                + Register vehicle
               </Link>
             ) : null}
           </>

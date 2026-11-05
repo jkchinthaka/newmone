@@ -307,6 +307,10 @@ export const EXISTING_NAV_ROUTES = new Set<string>([
   "/master-data/departments",
   "/master-data/requester-groups",
   "/master-data/part-categories",
+  "/master-data/units",
+  "/master-data/skills",
+  "/master-data/makes",
+  "/master-data/work-calendar",
   "/compliance",
   "/accidents",
   "/insurance-claims",
@@ -350,6 +354,7 @@ export const ROLE_DEFAULT_FAVORITE_NAV_IDS: Record<string, readonly string[]> = 
   ADMIN: ["admin"],
   // The fleet overview is hidden for security officers; they report problems through Requests.
   SECURITY_OFFICER: ["requests", "report-issue"],
+  REQUESTER: ["report-issue", "requests"],
   FLEET_MANAGER: ["fleet", "vehicle-jobs"],
   DRIVER: ["fleet"],
   VIEWER: ["reports"],
@@ -577,16 +582,6 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     activeMatch: "startsWith"
   },
   {
-    id: "floor-plans",
-    label: "Floor Plans",
-    href: "/floor-plans",
-    icon: "Building2",
-    allowedRoles: mergeRoles(ADMIN_ROLES, MANAGEMENT_ROLES, FACILITY_ROLES, ASSET_ROLES),
-    category: "core",
-    description: "Floor plan images with assets pinned on them",
-    activeMatch: "startsWith"
-  },
-  {
     id: "spare-parts",
     label: "Spare Parts",
     href: "/inventory",
@@ -779,6 +774,10 @@ const ROUTE_ACCESS_ALIASES: Record<string, readonly string[]> = {
   "/master-data/departments": ["/admin"],
   "/master-data/requester-groups": ["/admin"],
   "/master-data/part-categories": ["/admin"],
+  "/master-data/units": ["/admin"],
+  "/master-data/skills": ["/admin"],
+  "/master-data/makes": ["/admin"],
+  "/master-data/work-calendar": ["/admin"],
   "/compliance": ["/fleet"],
   "/accidents": ["/fleet"],
   "/insurance-claims": ["/fleet"],

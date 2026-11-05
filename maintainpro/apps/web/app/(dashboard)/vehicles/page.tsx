@@ -1,5 +1,6 @@
 "use client";
 
+import { MasterListInput } from "@/components/ui/master-list-input";
 import { DateField } from "@/components/forms/date-fields";
 import { BulkImportButton } from "@/components/bulk-import/bulk-import-button";
 import Link from "next/link";
@@ -1179,10 +1180,11 @@ function CreateVehicleModal({
             />
           </Field>
           <Field label="Make *">
-            <input
+            <MasterListInput
+              kind="make"
               required
               value={form.make}
-              onChange={(event) => setForm({ ...form, make: event.target.value })}
+              onValueChange={(v) => setForm({ ...form, make: v })}
               className={inputCls}
             />
           </Field>

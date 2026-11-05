@@ -1,5 +1,6 @@
 "use client";
 
+import { MasterListChips } from "@/components/ui/master-list-input";
 import { ButtonSpinner, TableLoadingRows } from "@/components/ui/loading";
 import { ErrorState } from "@/components/ui/page-state";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -251,6 +252,7 @@ export default function WorkforceEmployeesPage() {
                 onChange={(event) => setForm((current) => ({ ...current, fullName: event.target.value }))}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2"
               />
+              <MasterListChips kind="skill" value={form.skills} onValueChange={(v) => setForm((current) => ({ ...current, skills: v }))} />
             </label>
             <label className="space-y-1 text-sm">
               <span className="font-medium text-slate-700">Employee number</span>

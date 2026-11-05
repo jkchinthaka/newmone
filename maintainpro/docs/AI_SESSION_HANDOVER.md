@@ -1,3 +1,15 @@
+## CURRENT (2026-11-05, later) - Live workflow + QA plan before handover
+
+- main has #153 (Admin Console simplified). Laptop runs branch `live` (auto-pull every 15s); Claude pushes every change to `live`, PRs to main are separate. Migrations are NOT auto-applied.
+- Plan agreed with user: (1) user clicks through the app manually and reports changes; Claude fixes each on `live`; (2) only after that, run the QA crawl `maintainpro/apps/web/scripts/qa-crawl.mjs` on the laptop (safe mode first, then `QA_MUTATE=1` only after a DB backup); fix findings; (3) then hand over. DO NOT forget the QA crawl before handover.
+- Laptop gotchas: stale `.git\*.lock` files, `package-lock.json` local change blocks pull (stash/restore it), EPERM on `db:generate` when node processes hold the Prisma DLL (taskkill /IM node.exe /F or restart), ghost port 3041.
+
+## Master data redesign (live branch)
+- Landing page tidied: 4 groups, uniform cards, search, counts; developer "architecture rule" box and legacy "Technicians" card removed.
+- New: Units of measure, Skills & trades, Makes & models (generic `MasterListItem`, API `/master-data/lists/:kind`), Work calendar (`WorkCalendarEntry`, `/master-data/work-calendar`: shifts + holidays).
+- Migration to apply: `20261105140000_master_lists` (additive). Run `npm run db:generate` + `npm run db:migrate:deploy`.
+- Validation: api tsc + web tsc clean. Not yet wired into part/vehicle/job forms as pickers (next step).
+
 ## CURRENT (2026-11-05) - GitHub merges done; Admin Console simplified (PR #153)
 
 - main @ b09d887 now contains PR #148 (quick wins + Codex fixes), #149, #150, #151 and #152 (UI simplify, floor plans, procedures). `feat/ui-simplify` branch was deleted after merge.
@@ -1425,3 +1437,39 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 1. `feature/phase-03-action-center` contains Phase 01 through `4cf25f20` and `6f5dd56f`, layout `ae7f84dd`, Phase 02 `088d3cec`, plus unmerged `ci/jest-heap-oom`. Do not merge it directly into main and do not push it only to refresh hosting CI.
 2. Legacy raw `TenantInvitation` rows were not rewritten. New invitations store a hash. Vercel, Cloudflare, Netlify, and MinIO stay under release readiness.
 3. Phase 03 evidence is in `PRODUCT_FINALIZATION_LEDGER.md` section D. Web `lib/__tests__/action-center.test.ts` 24/24. API `action-center.spec.ts` and `work-order-queues.spec.ts` together 22/22. Browser, signed in as the seeded admin: overdue queue selected with 5 table rows; high-priority queue selected with 2 High rows and badge 2 (a concurrent summary can time out at 2.5s and flash 0, then recover); search "inventory" left only Inventory & procurement; facility zero card linked to `/facilities/reports`; `/dashboard` and `/workspace` landed on `/action-center`; document did not overflow at 390, 820, or 1440. No schema change. No permissions granted. Technicians cannot open the tenant-wide high-priority queue.
+
+## Master lists wired into forms (live)
+- `components/ui/master-list-input.tsx` (MasterListInput datalist, MasterListChips). Used: part unit (goods-in dialog, uses short form), vehicle Make (vehicles page + admin vehicles/new), Add person skills (chips). Typing free text still works.
+- "Makes & models" renamed "Makes" (models stay typed). Work calendar not yet used by due-date logic.
+
+## Work calendar + more pickers (live)
+- PM auto-generated work order due dates now skip holidays from the work calendar (`MasterListsService.skipHolidays`, injected @Optional into PlanningService; no-op if nothing set). Weekends/shifts not yet used.
+- Asset manufacturer (admin/assets/new) uses Makes picker; Employees page skills use skill chips.
+- Validation: api + web tsc clean; planning-phase08 + planning-validation jest pass (25).
+
+## Settings page restyle (live)
+- `apps/web/app/(dashboard)/settings/page.tsx`: UI only (underline tabs, profile card + details, toggle switches, show/hide password, strength checklist). Same API calls and behaviour. Validation: web tsc clean.
+
+## Notifications inbox restyle (live)
+- `app/(dashboard)/notifications/page.tsx`: UI only. Tabs Unread/Critical/Overdue/All with counts, search + priority, rest under More filters, rows grouped by day with severity icons, one link action per row, Acknowledge only for warning/critical. Same API calls. Web tsc clean.
+
+## Reports page restyle (live)
+- `components/reports/reports-dashboard-page.tsx`: UI only. Single report tab row (library cards removed), one Pin toggle + Saved reports on the right, Export menu + blue Generate report, date presets (custom dates + save template under More filters), single-value charts hidden, bar lists instead of donuts, status pills, "Open →". Same API calls/filters/exports. Web tsc clean.
+
+## Spare parts page restyle (live)
+- `components/inventory/inventory-control-page.tsx`: UI only. 4 KPIs (Parts, Units on hand, Low stock, Out of stock), compact "nothing to issue" note, quick-view chips, table with category, on-hand + unit + stock bar, LKR cost, status pill (low = on hand <= max(minimumStock, reorderPoint)). ERP columns replaced by an ERP badge when mapped. No Low-stock filter yet (API supports stock=out only). Web tsc clean.
+
+## Floor plans upgrade (live)
+- API (`modules/floor-plans`): list returns siteName/pinCount/openJobPins/dots; get returns pin state (OPEN_JOB/OK/RETIRED), open job count, latest job; new `GET floor-plans/by-asset/:assetId`, `PATCH :id` (name, siteId), `POST :id/image` (replace image). No schema change (siteId already on FloorPlan).
+- Web: plans list = cards (dot preview, site, counts) with site picker on create; plan page = drag pins, state colours, pin card, find-asset list with Show, zoom/pan, rename/replace/delete (editors: SUPER_ADMIN/ADMIN/MANAGER/ASSET_MANAGER). `components/floor-plans/floor-plan-location.tsx`: WhereIsIt (asset drawer overview) + ShowOnPlanButton (job drawer status row). Sidebar item removed; reachable from Organization page "Floor plans" button and asset/job links.
+- Card previews use pin dots on a grid, not the uploaded image (images are base64 up to 3 MB; listing them all would be heavy).
+- Also updated role-ux-fixes test for the new Spare Parts KPI labels. Validation: api tsc clean, web tsc clean, web unit tests 553 pass. Not tested in a browser (drag/zoom need a manual check).
+
+## Organization & Locations redesign (branch live)
+- `apps/web/app/(dashboard)/admin/organization/page.tsx`: UI-only. Title "Sites & locations", tab row (Floor plans / Departments links), single "+ Add" menu (Site, Location, Upload from Excel), count chips, site cards, detail panel with stats and inner tabs Locations | Floor plans (from GET /floor-plans filtered by siteId) | Assets. All dialogs, Excel import, move/edit, URL state, permissions unchanged. No API/DB change.
+- Tests: web `tsc --noEmit` clean; `npm test` 553 pass. Not browser-tested.
+
+## Fleet tabs data entry (branch live)
+- Fleet header now shows per-tab primary action (Report accident / New claim / Report fine / Register vehicle) linking to `/accidents|/insurance-claims|/traffic-fines?new=1`, which opens the existing create form.
+- Accident and Fine forms: Driver is now an EntityPicker on `/drivers` (API adds flat `name` to list rows). Claim form: Accident is an EntityPicker on `/accidents`. Vehicle mileage capped at 5,000,000 km.
+- Tests: web tsc clean, `npm test` 553 pass; api tsc clean. Not browser-tested.

@@ -21,6 +21,7 @@ import { useCurrentUser } from "@/lib/use-current-user";
 
 import { RolePermissionEditor } from "./role-permission-editor";
 import { RolesPermissionsMatrix } from "./roles-permissions-matrix";
+import { RolesWorkspace } from "./roles-workspace";
 
 export function AdminRolesPage() {
   const user = useCurrentUser();
@@ -29,6 +30,7 @@ export function AdminRolesPage() {
   const isSuperAdmin = roleName === "SUPER_ADMIN";
   const [search, setSearch] = useState("");
   const [editingRole, setEditingRole] = useState<AdminRoleReviewRow | null>(null);
+  const [compare, setCompare] = useState(false);
   const queryClient = useQueryClient();
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
@@ -116,14 +118,22 @@ export function AdminRolesPage() {
           >
             <ArrowLeft size={14} aria-hidden="true" /> Admin Console
           </Link>
-          <h2 className="mt-2 page-title">Roles & Permissions</h2>
+          <h2 className="mt-2 page-title">Roles & permissions</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
             {isSuperAdmin
-              ? "Review permission coverage and edit any role's permissions directly. Changes take effect immediately for every user assigned that role."
-              : "Review role and permission coverage. Editing role permissions is a SUPER_ADMIN-only action."}
+              ? "Pick a role, then switch on what it can do. Changes apply to everyone with that role."
+              : "Pick a role to see what it can do. Only a SUPER_ADMIN can change roles."}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setCompare((value) => !value)}
+            aria-pressed={compare}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            {compare ? "Back to roles" : "Compare roles"}
+          </button>
           {isSuperAdmin ? (
             <button
               type="button"
@@ -158,6 +168,8 @@ export function AdminRolesPage() {
         </div>
       </div>
 
+      {compare ? (
+        <>
       <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
         {isSuperAdmin ? (
           <p>
@@ -207,14 +219,23 @@ export function AdminRolesPage() {
         </div>
       ) : null}
 
+        </>
+      ) : null}
+
       {query.isLoading ? (
         <div className="rounded-xl border border-slate-200 bg-white"><TableLoadingRows label="Loading roles" /></div>
       ) : query.isError ? (
         <ErrorState message={`Could not load roles matrix. ${query.error instanceof Error ? query.error.message : ""}`} onRetry={() => query.refetch()} />
       ) : filteredMatrix && filteredMatrix.roles.length === 0 ? (
         <EmptyState title="No roles were returned for your admin scope." description="Refresh after the role list is available." />
-      ) : filteredMatrix ? (
+      ) : filteredMatrix && compare ? (
         <RolesPermissionsMatrix matrix={filteredMatrix} showTenantColumns={isSuperAdmin} />
+      ) : query.data ? (
+        <RolesWorkspace
+          matrix={query.data}
+          canEdit={isSuperAdmin}
+          onChanged={() => void queryClient.invalidateQueries({ queryKey: ["admin", "roles-permissions"] })}
+        />
       ) : null}
 
       {isSuperAdmin ? (

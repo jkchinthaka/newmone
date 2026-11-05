@@ -75,7 +75,7 @@ export function welcomeGuideForRole(roleName: string | null | undefined, roleKey
   const role = String(roleName ?? "").toUpperCase().trim();
   if (role === "INVENTORY_KEEPER" || role === "STOREKEEPER") return STORE_GUIDE;
   // Gate staff only report and follow requests, so they get the report guide, not the fleet one.
-  if (role === "SECURITY_OFFICER") return GUIDES.REQUESTER;
+  if (role === "SECURITY_OFFICER" || role === "REQUESTER") return GUIDES.REQUESTER;
   return welcomeGuideFor(roleKey);
 }
 

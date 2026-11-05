@@ -4,6 +4,7 @@ export const VISIBLE_LOGIN_ROLES = [
   "MANAGER",
   "SUPERVISOR",
   "TECHNICIAN",
+  "REQUESTER",
   "SECURITY_OFFICER",
   "INVENTORY_KEEPER"
 ] as const;

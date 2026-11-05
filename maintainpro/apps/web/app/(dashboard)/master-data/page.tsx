@@ -1,180 +1,128 @@
-import {
-  Building2,
-  Car,
-  HardDrive,
-  Users,
-  Package,
-  Truck,
-  Gauge,
-  Briefcase,
-  Tag,
-  ArrowRight,
-} from "lucide-react";
+"use client";
 
-const MASTER_ENTITIES = [
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import type { Route } from "next";
+import { Search } from "lucide-react";
+
+import { apiClient } from "@/lib/api-client";
+
+interface Card {
+  label: string;
+  description: string;
+  href: string;
+  /** API path that returns the list, used only to show a count. */
+  countFrom?: string;
+}
+
+const GROUPS: { title: string; cards: Card[] }[] = [
   {
-    label: "Departments",
-    description: "Organisational units — link vehicles, assets, drivers and users.",
-    href: "/master-data/departments",
-    icon: Building2,
-    color: "text-violet-600",
-    bg: "bg-violet-50",
-    border: "border-violet-200",
+    title: "People",
+    cards: [
+      { label: "Employees & technicians", description: "Staff records, with or without a login.", href: "/master-data/employees" },
+      { label: "Drivers", description: "Licensed operators for vehicles.", href: "/fleet" },
+      { label: "Requester groups", description: "Groups of people who raise requests.", href: "/master-data/requester-groups", countFrom: "/master-data/requester-groups" },
+      { label: "Skills & trades", description: "Electrician, welder, plumber... for assigning jobs.", href: "/master-data/skills", countFrom: "/master-data/lists/skill" },
+    ],
   },
   {
-    label: "Vehicles",
-    description: "Fleet vehicles with make, model, registration and meter links.",
-    href: "/vehicles",
-    icon: Car,
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    border: "border-blue-200",
+    title: "Assets & vehicles",
+    cards: [
+      { label: "Assets", description: "Machinery, equipment, infrastructure.", href: "/assets" },
+      { label: "Vehicles", description: "Fleet with make, model, registration.", href: "/vehicles" },
+      { label: "Meters", description: "Odometers, hour-meters, fuel gauges.", href: "/utilities" },
+      { label: "Makes", description: "Vehicle manufacturers to pick instead of typing.", href: "/master-data/makes", countFrom: "/master-data/lists/make" },
+    ],
   },
   {
-    label: "Assets",
-    description: "Non-vehicle equipment, machinery and infrastructure assets.",
-    href: "/assets",
-    icon: HardDrive,
-    color: "text-sky-600",
-    bg: "bg-sky-50",
-    border: "border-sky-200",
+    title: "Parts & stores",
+    cards: [
+      { label: "Spare parts", description: "Catalogue, stock levels, reorder alerts.", href: "/inventory" },
+      { label: "Part categories", description: "The list every new part picks from.", href: "/master-data/part-categories", countFrom: "/master-data/part-categories" },
+      { label: "Suppliers", description: "Vendors with categories and terms.", href: "/master-data/suppliers" },
+      { label: "Units of measure", description: "pcs, litre, kg, metre for parts and fuel.", href: "/master-data/units", countFrom: "/master-data/lists/unit" },
+    ],
   },
   {
-    label: "Drivers",
-    description: "Licensed operators assigned to vehicles and departments.",
-    href: "/fleet",
-    icon: Briefcase,
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-    border: "border-amber-200",
+    title: "Company & jobs",
+    cards: [
+      { label: "Departments", description: "Teams and cost centres.", href: "/master-data/departments" },
+      { label: "Job codes", description: "Main jobs and sub-jobs used across all jobs.", href: "/maintenance/job-codes" },
+      { label: "Work calendar", description: "Shifts, weekends and holidays for due dates.", href: "/master-data/work-calendar", countFrom: "/master-data/work-calendar" },
+    ],
   },
-  {
-    label: "Employees / Technicians",
-    description: "Workforce master for assignable technicians — with or without login access.",
-    href: "/master-data/employees",
-    icon: Users,
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
-    border: "border-emerald-200",
-  },
-  {
-    label: "Technicians (legacy users)",
-    description: "Platform user accounts and roles — prefer Workforce Employees for assignment.",
-    href: "/settings",
-    icon: Users,
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
-    border: "border-emerald-200",
-  },
-  {
-    label: "Suppliers",
-    description: "Parts and service providers with categories and payment terms.",
-    href: "/master-data/suppliers",
-    icon: Truck,
-    color: "text-rose-600",
-    bg: "bg-rose-50",
-    border: "border-rose-200",
-  },
-  {
-    label: "Parts / Inventory",
-    description: "Spare parts catalogue with stock levels, reorder alerts and supplier links.",
-    href: "/inventory",
-    icon: Package,
-    color: "text-orange-600",
-    bg: "bg-orange-50",
-    border: "border-orange-200",
-  },
-  {
-    label: "Meters",
-    description: "Odometers, hour-meters and fuel gauges attached to assets.",
-    href: "/utilities",
-    icon: Gauge,
-    color: "text-teal-600",
-    bg: "bg-teal-50",
-    border: "border-teal-200",
-  },
-  {
-    label: "Job Codes",
-    description: "Main jobs and cascading sub-jobs reused across all jobs.",
-    href: "/maintenance/job-codes",
-    icon: Tag,
-    color: "text-indigo-600",
-    bg: "bg-indigo-50",
-    border: "border-indigo-200",
-  },
-  {
-    label: "Requester Groups",
-    description: "Groups of people who raise requests together.",
-    href: "/master-data/requester-groups",
-    icon: Tag,
-    color: "text-sky-600",
-    bg: "bg-sky-50",
-    border: "border-sky-200",
-  },
-  {
-    label: "Spare Part Categories",
-    description: "The category list every new spare part must pick from.",
-    href: "/master-data/part-categories",
-    icon: Tag,
-    color: "text-rose-600",
-    bg: "bg-rose-50",
-    border: "border-rose-200",
-  },
-] as const;
+];
 
 export default function MasterDataPage() {
+  const [query, setQuery] = useState("");
+  const [counts, setCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const sources = GROUPS.flatMap((g) => g.cards).filter((c) => c.countFrom);
+    void Promise.all(
+      sources.map((c) =>
+        apiClient
+          .get<{ data: unknown[] }>(c.countFrom!)
+          .then((res) => [c.href, Array.isArray(res.data.data) ? res.data.data.length : undefined] as const)
+          .catch(() => [c.href, undefined] as const),
+      ),
+    ).then((pairs) => {
+      const next: Record<string, number> = {};
+      for (const [href, n] of pairs) if (n !== undefined) next[href] = n;
+      setCounts(next);
+    });
+  }, []);
+
+  const groups = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return GROUPS;
+    return GROUPS.map((g) => ({
+      ...g,
+      cards: g.cards.filter((c) => `${c.label} ${c.description}`.toLowerCase().includes(q)),
+    })).filter((g) => g.cards.length > 0);
+  }, [query]);
+
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-2 p-6">
       <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">
-          Admin
-        </p>
-        <h1 className="mt-1 page-title">Master Data</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Single source of truth for all reference entities. Every transactional module
-          references these records — never free-text.
-        </p>
+        <h1 className="page-title">Master data</h1>
+        <p className="mt-1 text-sm text-slate-500">The lists everything else picks from. Add them here first.</p>
       </header>
 
-      {/* Principle callout */}
-      <div className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
-        <span className="font-semibold">Architecture rule:</span> Any field that references a
-        known entity must use the{" "}
-        <code className="rounded bg-brand-100 px-1 py-0.5 text-xs font-semibold">
-          &lt;EntityPicker&gt;
-        </code>{" "}
-        component — no manual typing allowed. Manage master records here first.
+      <div className="relative max-w-md pt-3">
+        <Search size={14} className="pointer-events-none absolute left-3 top-[1.65rem] text-slate-400" />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search master data"
+          aria-label="Search master data"
+          className="min-h-10 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm"
+        />
       </div>
 
-      {/* Entity grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {MASTER_ENTITIES.map((entity) => {
-          const Icon = entity.icon;
-          return (
-            <a
-              key={entity.href + entity.label}
-              href={entity.href}
-              className={`group flex flex-col gap-3 rounded-2xl border ${entity.border} ${entity.bg} p-5 transition hover:shadow-md`}
-            >
-              <div className="flex items-start justify-between">
-                <span className={`${entity.color} ${entity.bg} rounded-xl p-2`}>
-                  <Icon size={20} />
-                </span>
-                <ArrowRight
-                  size={14}
-                  className="mt-1 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-600"
-                />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-900">{entity.label}</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
-                  {entity.description}
-                </p>
-              </div>
-            </a>
-          );
-        })}
-      </div>
+      {groups.length === 0 ? <p className="pt-4 text-sm text-slate-500">Nothing matches &quot;{query}&quot;.</p> : null}
+
+      {groups.map((group) => (
+        <section key={group.title} className="pt-4">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{group.title}</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {group.cards.map((card) => (
+              <Link
+                key={card.href}
+                href={card.href as Route}
+                className="relative flex min-h-[84px] flex-col rounded-lg border border-slate-200 bg-white p-4 transition hover:border-brand-300 hover:shadow-sm"
+              >
+                <span className="pr-8 text-sm font-semibold text-slate-900">{card.label}</span>
+                {counts[card.href] !== undefined ? (
+                  <span className="absolute right-3 top-3 text-xs text-slate-400">{counts[card.href]}</span>
+                ) : null}
+                <span className="mt-1 text-xs leading-snug text-slate-500">{card.description}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

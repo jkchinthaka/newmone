@@ -1,5 +1,6 @@
 "use client";
 
+import { ShowOnPlanButton } from "@/components/floor-plans/floor-plan-location";
 import { SectionCard, StatusBadge } from "@/components/ui/dashboard";
 import {
   displayWorkOrderTitle,
@@ -248,6 +249,7 @@ export function DrawerStatusRow({ workOrder }: { workOrder: WorkOrder }) {
         {workOrder.asset?.assetTag ? ` · ${workOrder.asset.assetTag}` : ""}
       </span>
       {due ? <span>Due {due}</span> : null}
+      <ShowOnPlanButton assetId={workOrder.asset?.id ?? workOrder.assetId} />
     </div>
   );
 }
