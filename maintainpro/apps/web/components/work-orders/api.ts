@@ -122,6 +122,13 @@ function sanitizeWorkOrder(raw: unknown): WorkOrder {
       : [],
     createdAt: typeof candidate.createdAt === "string" ? candidate.createdAt : new Date().toISOString(),
     updatedAt: typeof candidate.updatedAt === "string" ? candidate.updatedAt : new Date().toISOString(),
+    sourceRequest:
+      candidate.sourceRequest && typeof candidate.sourceRequest === "object"
+        ? {
+            id: String((candidate.sourceRequest as Record<string, unknown>).id ?? ""),
+            requestNumber: String((candidate.sourceRequest as Record<string, unknown>).requestNumber ?? "")
+          }
+        : null,
     asset: candidate.asset && typeof candidate.asset === "object"
       ? {
           id: String((candidate.asset as Record<string, unknown>).id ?? ""),

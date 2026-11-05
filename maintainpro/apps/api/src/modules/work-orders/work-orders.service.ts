@@ -2332,7 +2332,14 @@ export class WorkOrdersService {
       // Only after every start check (permit, approval, live before photo) has passed: a rejected
       // start must not leave the asset or vehicle marked UNDER_MAINTENANCE.
       if (this.workOrderDomain) {
-        await this.workOrderDomain.syncTargetUnderMaintenance(id, actor);
+        try {
+          await this.workOrderDomain.syncTargetUnderMaintenance(id, actor);
+        } catch (error) {
+          // The start failed after the labour session opened: close it so the job stays startable
+          // and the technician is not blocked from starting another job.
+          await this.closeActiveLabourSessions(id, undefined, tenantId);
+          throw error;
+        }
       }
     }
 

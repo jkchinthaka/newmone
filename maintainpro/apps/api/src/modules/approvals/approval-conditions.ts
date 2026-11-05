@@ -40,6 +40,9 @@ export type ApprovalEvaluationContext = {
   siteId?: string | null;
   departmentId?: string | null;
   domainId?: string | null;
+  /** Groups the requester belongs to (filled in by findMatchingRule from the requester id). */
+  requesterGroupIds?: string[];
+  requesterId?: string | null;
   workType?: WorkOrderType | string | null;
   status?: string | null;
   amount?: number | null;
@@ -147,6 +150,7 @@ export function ruleScopeMatches(
     siteId?: string | null;
     departmentId?: string | null;
     domainId?: string | null;
+    requesterGroupId?: string | null;
     priorityScope?: string[] | string | null;
     workTypeScope?: string[] | string | null;
     amountThreshold?: number | null;
@@ -157,6 +161,7 @@ export function ruleScopeMatches(
   if (rule.siteId && rule.siteId !== ctx.siteId) return false;
   if (rule.departmentId && rule.departmentId !== ctx.departmentId) return false;
   if (rule.domainId && rule.domainId !== ctx.domainId) return false;
+  if (rule.requesterGroupId && !(ctx.requesterGroupIds ?? []).includes(rule.requesterGroupId)) return false;
   const priorityScope = toStringArray(rule.priorityScope);
   const workTypeScope = toStringArray(rule.workTypeScope);
   if (priorityScope.length) {

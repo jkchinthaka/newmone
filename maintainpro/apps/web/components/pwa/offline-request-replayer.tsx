@@ -82,7 +82,9 @@ export function OfflineRequestReplayer({ ready }: { ready: boolean }) {
               status: permanent ? "FAILED" : "PENDING",
               syncState: permanent ? "CONFLICT" : "QUEUED",
               // Signing in again is not a failed attempt, so the report keeps its retries.
-              retryCount: permanent ? 5 : awaitingSignIn ? item.retryCount : item.retryCount + 1,
+              // Temporary failures stop at 4 so the report stays replayable (the queue skips items at 5)
+              // and goes out as soon as the server or the network recovers.
+              retryCount: permanent ? 5 : awaitingSignIn ? item.retryCount : Math.min(item.retryCount + 1, 4),
               lastError: getApiErrorMessage(error, "Could not send the offline report.")
             });
             if (permanent) {
