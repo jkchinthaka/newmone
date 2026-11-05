@@ -17,6 +17,7 @@ import { apiClient, getApiErrorMessage } from "@/lib/api-client";
 import { useLiveRefresh } from "@/lib/live-data";
 import { mutationErrorMessage } from "@/lib/mutation-feedback";
 import { useFocusTrap } from "@/lib/use-focus-trap";
+import { createRequestSequencer, isAbortError } from "@/lib/list-query-state";
 import { colomboTodayYmd, formatCalendarDate } from "@/lib/colombo-datetime";
 import {
   MY_JOB_HOLD_CHOICES,
@@ -129,6 +130,7 @@ export default function MyJobsPage() {
   const [blocker, setBlocker] = useState<string | null>(null);
   const [capped, setCapped] = useState(false);
   const [moreViewsOpen, setMoreViewsOpen] = useState(false);
+  const sequencer = useRef(createRequestSequencer());
 
   const writeQuery = (next: Record<string, string | null>, resetPage = true) => {
     const query = new URLSearchParams(params.toString());
@@ -155,8 +157,11 @@ export default function MyJobsPage() {
       setForbidden(false);
     }
     setOffline(false);
+    // A slower, older request must not overwrite the newer tab or search result.
+    const request = sequencer.current.begin();
     try {
       const response = await apiClient.get("/work-orders/my-jobs", {
+        signal: request.signal,
         params: {
           filter: view,
           search: search || undefined,
@@ -167,6 +172,7 @@ export default function MyJobsPage() {
           pageSize: 25
         }
       });
+      if (!sequencer.current.isLatest(request.id)) return;
       const payload = response.data as {
         data?: { items?: MyJob[]; counts?: Counts; capped?: boolean };
         meta?: { total?: number };
@@ -177,6 +183,7 @@ export default function MyJobsPage() {
       setCapped(Boolean(payload.data?.capped));
       if (options.silent) setError(null);
     } catch (err) {
+      if (!sequencer.current.isLatest(request.id) || isAbortError(err)) return;
       // A failed background refresh keeps the jobs already on screen.
       if (options.silent) return;
       const statusCode = (err as { response?: { status?: number } })?.response?.status;
@@ -188,7 +195,7 @@ export default function MyJobsPage() {
       setCapped(false);
       setError(getApiErrorMessage(err, "We couldn't load your jobs."));
     } finally {
-      if (!options.silent) setLoading(false);
+      if (sequencer.current.isLatest(request.id)) setLoading(false);
     }
   }, [due, page, priority, search, status, view]);
 
@@ -208,14 +215,23 @@ export default function MyJobsPage() {
 
   useEffect(() => {
     const onChange = () => setOffline(typeof navigator !== "undefined" && navigator.onLine === false);
-    window.addEventListener("online", onChange);
+    // Back online: reload at once instead of leaving the "You are offline" error on screen.
+    const onOnline = () => {
+      onChange();
+      void refresh();
+    };
+    window.addEventListener("online", onOnline);
     window.addEventListener("offline", onChange);
     return () => {
-      window.removeEventListener("online", onChange);
+      window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onChange);
     };
-  }, []);
+  }, [refresh]);
 
+  useEffect(() => {
+    const sequence = sequencer.current;
+    return () => sequence.cancel();
+  }, []);
 
   const filtersActive = Boolean(search || status || priority || due || (view && view !== "active"));
   // Start opens the camera first: the job only starts after a live before photo (see StartJobDialog).
@@ -474,10 +490,7 @@ function JobAction({
         type="button"
         className="min-h-12 w-full rounded-lg bg-brand-600 px-3 text-base font-semibold text-white disabled:opacity-60"
         disabled={starting}
-        onClick={(event) => {
-          event.currentTarget.disabled = true;
-          onStart();
-        }}
+        onClick={onStart}
       >
         {starting ? "Starting..." : "Start work"}
       </button>

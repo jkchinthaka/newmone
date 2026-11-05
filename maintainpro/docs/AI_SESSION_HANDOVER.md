@@ -1510,3 +1510,6 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 ## Approvals inbox polish + fixes (live)
 - `components/approvals/pending-approvals-inbox.tsx`: Site filter is now a site picker (was free text sent as siteId, so names matched nothing); comment box resets when the shown item changes (a comment could be sent with another item's decision); empty categories move under "More"; search/priority/site/date in one row; own requests show a "Your request" badge, no checkbox, amber notice and no comment box; Approve button brand green; comment label says required to reject/return.
 - Tests: web `npm test` 553 pass, tsc clean. Not browser-tested. API unchanged (own-request rule kept).
+
+## My jobs functional fixes (live)
+- `work-orders/my/page.tsx`: "Start work" no longer stays disabled after cancelling the start dialog (removed direct DOM disable); list requests are sequenced/aborted so an older response can't overwrite a newer tab/search; coming back online reloads at once. API unchanged. web tests 553 pass, tsc clean; not browser-tested.
