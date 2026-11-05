@@ -5,7 +5,7 @@ import { ErrorState } from "@/components/ui/page-state";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
-import { ArrowLeft, Building2, ChevronDown, ChevronRight, Loader2, Pencil, Plus, PowerOff } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, PowerOff, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
@@ -55,7 +55,7 @@ export default function DepartmentsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [search, setSearch] = useState("");
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [formOpen, setFormOpen] = useState(false);
 
   const refresh = useCallback(async (q?: string) => {
     setLoading(true);
@@ -102,6 +102,7 @@ export default function DepartmentsPage() {
         toast.success(`Department "${form.name.trim()}" created`);
       }
       setForm(EMPTY_FORM);
+      setFormOpen(false);
       await refresh(search.trim() || undefined);
     } catch (error) {
       const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Failed to save";
@@ -109,6 +110,18 @@ export default function DepartmentsPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const openNew = () => {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
   };
 
   const handleEdit = (dept: Department) => {
@@ -124,7 +137,7 @@ export default function DepartmentsPage() {
         ? `${dept.manager.firstName} ${dept.manager.lastName}`
         : "",
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setFormOpen(true);
   };
 
   const handleDeactivate = async (dept: Department) => {
@@ -145,43 +158,102 @@ export default function DepartmentsPage() {
     }
   };
 
-  const toggleExpand = (id: string) => {
-    setExpandedIds((cur) => {
-      const next = new Set(cur);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const topLevel = items.filter((d) => !d.parentId);
-  const childrenOf = (parentId: string) => items.filter((d) => d.parentId === parentId);
+  const sorted = [...items].sort((x, y) => x.name.localeCompare(y.name));
 
   return (
-    <div className="space-y-6 p-6">
-      <header>
-        <Link
-          href={"/master-data" as Route}
-          className="mb-2 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand-600 hover:underline"
-        >
-          <ArrowLeft size={12} aria-hidden /> Master Data
-        </Link>
-        <h1 className="page-title">Departments</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Manage organisational units used across vehicles, assets, drivers and users.
-        </p>
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4 md:p-6">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Link
+            href={"/master-data" as Route}
+            className="mb-1 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand-600 hover:underline"
+          >
+            <ArrowLeft size={12} aria-hidden /> Master Data
+          </Link>
+          <h1 className="page-title">Departments</h1>
+          <p className="mt-1 text-sm text-slate-500">Organisational units used across vehicles, assets, drivers and users.</p>
+        </div>
+        <button type="button" onClick={openNew} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700">
+          <Plus size={14} aria-hidden /> Add department
+        </button>
       </header>
 
-      {/* ── Form ──────────────────────────────────────────────────────────── */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center gap-2">
-          <Building2 size={16} className="text-brand-600" />
-          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
-            {editingId ? "Edit department" : "New department"}
-          </h2>
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by name or code…"
+          aria-label="Search departments"
+          className="w-full max-w-sm rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
+        />
+        <BulkImportButton entity="department" entityLabel="Departments" onImported={() => refresh(search.trim() || undefined)} />
+        <span className="ml-auto text-xs text-slate-500">{loadError ? "" : loading && items.length === 0 ? "…" : `${items.length} departments`}</span>
+      </div>
 
-        <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        {loadError ? (
+          <ErrorState title="Couldn't load departments" error={loadError} onRetry={() => void refresh(search.trim() || undefined)} />
+        ) : loading && items.length === 0 ? (
+          <TableLoadingRows label="Loading departments" />
+        ) : items.length === 0 ? (
+          <div className="py-12 text-center text-sm text-slate-500">
+            {search ? "No departments match your search." : "No departments yet. Use “Add department” to create one."}
+          </div>
+        ) : (
+          <table className="w-full min-w-[640px] text-sm">
+            <thead>
+              <tr className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
+                <th className="px-4 py-2.5 font-semibold">Code</th>
+                <th className="px-4 py-2.5 font-semibold">Name</th>
+                <th className="px-4 py-2.5 font-semibold">Parent</th>
+                <th className="px-4 py-2.5 font-semibold">Manager</th>
+                <th className="px-4 py-2.5 font-semibold">Used by</th>
+                <th className="px-4 py-2.5" />
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((dept) => {
+                const used = [
+                  dept._count?.users ? `${dept._count.users} users` : null,
+                  dept._count?.assets ? `${dept._count.assets} assets` : null,
+                  dept._count?.vehicles ? `${dept._count.vehicles} vehicles` : null
+                ].filter(Boolean);
+                return (
+                  <tr key={dept.id} className="border-t border-slate-100 hover:bg-slate-50">
+                    <td className="px-4 py-2.5"><span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-700">{dept.code}</span></td>
+                    <td className="px-4 py-2.5">
+                      <span className="font-medium text-slate-900">{dept.name}</span>
+                      {dept.description ? <span className="block max-w-xs truncate text-xs text-slate-500">{dept.description}</span> : null}
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-600">{dept.parent?.name ?? "—"}</td>
+                    <td className="px-4 py-2.5 text-slate-600">{dept.manager ? `${dept.manager.firstName} ${dept.manager.lastName}` : "—"}</td>
+                    <td className="px-4 py-2.5 text-xs text-slate-500">{used.length ? used.join(" · ") : "—"}</td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex justify-end gap-1">
+                        <button type="button" onClick={() => handleEdit(dept)} className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800" title="Edit" aria-label={`Edit ${dept.name}`}>
+                          <Pencil size={14} />
+                        </button>
+                        <button type="button" onClick={() => void handleDeactivate(dept)} className="rounded p-1.5 text-rose-400 hover:bg-rose-50 hover:text-rose-600" title="Deactivate" aria-label={`Deactivate ${dept.name}`}>
+                          <PowerOff size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      {formOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" role="presentation">
+          <div role="dialog" aria-modal="true" aria-label={editingId ? "Edit department" : "New department"} className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">{editingId ? "Edit department" : "New department"}</h2>
+              <button type="button" onClick={closeForm} aria-label="Close" className="rounded-full border border-slate-200 p-2 text-slate-500 hover:bg-slate-100"><X size={14} /></button>
+            </div>
+        <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
           {/* Name */}
           <label className="space-y-1 text-sm text-slate-700">
             <span className="font-medium">
@@ -208,7 +280,7 @@ export default function DepartmentsPage() {
           </label>
 
           {/* Description */}
-          <label className="space-y-1 text-sm text-slate-700">
+          <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
             <span className="font-medium">Description</span>
             <input
               value={form.description}
@@ -262,10 +334,10 @@ export default function DepartmentsPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex items-end justify-end gap-2 sm:col-span-2 lg:col-span-3">
+          <div className="flex items-end justify-end gap-2 sm:col-span-2 border-t border-slate-200 pt-3">
             <button
               type="button"
-              onClick={() => { setForm(EMPTY_FORM); setEditingId(null); }}
+              onClick={closeForm}
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
             >
               Cancel
@@ -280,152 +352,9 @@ export default function DepartmentsPage() {
             </button>
           </div>
         </form>
-      </section>
-
-      {/* ── List ──────────────────────────────────────────────────────────── */}
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
-          <div>
-            <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
-              All Departments
-            </h2>
-            <p className="mt-0.5 text-xs text-slate-400">{loadError ? "" : loading && items.length === 0 ? "…" : `${items.length} records`}</p>
-          </div>
-          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name or code…"
-              className="w-full max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
-            />
-            <BulkImportButton entity="department" entityLabel="Departments" onImported={() => refresh(search.trim() || undefined)} />
           </div>
         </div>
-
-        {loadError ? (
-          <ErrorState title="Couldn't load departments" error={loadError} onRetry={() => void refresh(search.trim() || undefined)} />
-        ) : loading && items.length === 0 ? (
-          <TableLoadingRows label="Loading departments" />
-        ) : items.length === 0 ? (
-          <div className="py-12 text-center text-sm text-slate-400">
-            {search
-              ? "No departments match your search."
-              : "No departments yet. Create one above."}
-          </div>
-        ) : (
-          <ul className="divide-y divide-slate-100">
-            {(search ? items : topLevel).map((dept) => {
-              const children = childrenOf(dept.id);
-              const expanded = expandedIds.has(dept.id);
-              return (
-                <li key={dept.id}>
-                  {/* ── Row ── */}
-                  <div className="flex items-center justify-between px-5 py-3 hover:bg-slate-50">
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                      {/* Expand toggle (top-level only, not searching) */}
-                      {!search && children.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => toggleExpand(dept.id)}
-                          className="text-slate-400 hover:text-slate-600"
-                          aria-label={expanded ? "Collapse" : "Expand"}
-                        >
-                          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        </button>
-                      ) : (
-                        <span className="w-[14px]" />
-                      )}
-                      <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-700">
-                        {dept.code}
-                      </span>
-                      <span className="truncate text-sm font-medium text-slate-900">{dept.name}</span>
-                      {dept.manager && (
-                        <span className="hidden sm:inline text-xs text-slate-400">
-                          · {dept.manager.firstName} {dept.manager.lastName}
-                        </span>
-                      )}
-                      {dept.description && (
-                        <span className="hidden md:inline truncate text-xs text-slate-400">
-                          · {dept.description}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      {dept._count && (
-                        <div className="hidden gap-2 sm:flex text-xs text-slate-400">
-                          {(dept._count.assets ?? 0) > 0 && (
-                            <span>{dept._count.assets} assets</span>
-                          )}
-                          {(dept._count.vehicles ?? 0) > 0 && (
-                            <span>{dept._count.vehicles} vehicles</span>
-                          )}
-                          {(dept._count.users ?? 0) > 0 && (
-                            <span>{dept._count.users} users</span>
-                          )}
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(dept)}
-                        className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                        title="Edit"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDeactivate(dept)}
-                        className="rounded p-1.5 text-rose-300 hover:bg-rose-50 hover:text-rose-600"
-                        title="Deactivate"
-                      >
-                        <PowerOff size={13} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* ── Sub-departments ── */}
-                  {!search && expanded && children.length > 0 && (
-                    <ul className="divide-y divide-slate-50 bg-slate-50/50">
-                      {children.map((child) => (
-                        <li
-                          key={child.id}
-                          className="flex items-center justify-between px-5 py-2.5 pl-12 hover:bg-slate-100/50"
-                        >
-                          <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-600">
-                              {child.code}
-                            </span>
-                            <span className="truncate text-sm text-slate-800">{child.name}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleEdit(child)}
-                              className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                              title="Edit"
-                            >
-                              <Pencil size={12} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleDeactivate(child)}
-                              className="rounded p-1.5 text-rose-300 hover:bg-rose-50 hover:text-rose-600"
-                              title="Deactivate"
-                            >
-                              <PowerOff size={12} />
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+      ) : null}
       {confirmDialog}
     </div>
   );

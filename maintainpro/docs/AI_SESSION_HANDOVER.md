@@ -1482,3 +1482,7 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 ## Add/Edit User dialog (branch live)
 - `components/admin/admin-user-form-dialog.tsx`: UI-only. Employee picker first (create only, fills name/email/phone), sections Login details / Access, Department+Location side by side, Designation always visible, "Set my own password" link reveals the field (auto temp password otherwise, toast 30s). Same payloads/validation.
 - Tests: web tsc clean, `npm test` 553 pass. Not browser-tested.
+
+## Departments page (branch live)
+- `master-data/departments/page.tsx`: UI-only. Centered max-w-6xl, flat table (Code, Name, Parent, Manager, Used by, actions), "+ Add department" opens create/edit dialog (same fields/API), search + Bulk upload row. Parent/child tree expand removed in favour of Parent column.
+- Tests: web tsc clean, `npm test` 553 pass. Not browser-tested.
