@@ -1497,3 +1497,7 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 - Same entity (Supplier table), now called "Vendor" everywhere in UI. New shared `components/procurement/vendor-form-dialog.tsx` (Basic / What they do / More details; create + edit) used by `procurement/vendors` ("+ Add vendor", empty-state button) and `master-data/suppliers` (renamed Vendors, Edit column). Master-data hub label "Vendors".
 - API: `suppliers` create/update accept `insuranceRequired`, `insuranceExpiresAt` (no schema change, columns existed).
 - Tests: web tsc clean, `npm test` 553 pass; api tsc clean, 5 vendor jest suites (38 tests) pass. Not browser-tested.
+
+## Procedures page (branch live)
+- `admin/checklist-templates/page.tsx`: UI-only redesign. "+ New procedure" dialog (name, auto code, applies-to, multi-step list with friendly answer types, move up/down, add/remove). Edit now really edits steps and creates a new version via existing `PUT /planning/checklist-templates/:id/revise` (previously "Revise" only re-saved same items). Search + domain chips, friendly labels. No API/DB change.
+- Tests: web tsc clean, `npm test` 553 pass. Not browser-tested.
