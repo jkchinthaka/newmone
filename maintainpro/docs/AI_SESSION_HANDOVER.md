@@ -1526,3 +1526,10 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 - No-phone options for jobs: Admin/Manager/Ops Manager can Start and Finish a job without photos by giving a reason (`overrideReason`; governance function now really waives photo checks); SUPERVISOR and OPERATIONS_MANAGER can upload evidence on behalf of a technician.
 - Tests run: web `npm test` 553 pass; web+api `tsc --noEmit` clean; API jest request-photos, work-order-evidence-governance, maintenance-requests 52 pass. Not browser-tested.
 - Next: QA crawl (safe, then mutate after DB backup), then PR live -> main.
+
+## Job detail full page, supervisor photo waiver, Nelna Care rename, dashboard/sidebar/login polish (branch `live`)
+- Job detail (editor modal in `work-order-editor-modal.tsx`) now renders as a full page area (under top bar, beside sidebar, content max-w-6xl) instead of a right drawer; `?wo=` deep links unchanged. Footer "Close" is now "Back to jobs".
+- Stage bar: TECHNICIAN_COMPLETED now maps to step 5 "Supervisor check" (current). Actual hours show as minutes/hours. Costs show "No costs recorded yet" when empty. Governance details collapsed. Duplicate Approval row removed. List titles strip the MR number. "Need action" banner hidden on the Needs action tab.
+- Supervisor verify: Admin/Manager/Ops Manager can verify without photos with a reason (`overrideReason` to `verify-supervisor`, API already supported it).
+- Product renamed to Nelna Care in user-facing text only (identifiers/env/storage keys unchanged).
+- Tests run: web `npm test` pass; web tsc clean; API jest work-order-evidence-governance pass. Not browser-tested.

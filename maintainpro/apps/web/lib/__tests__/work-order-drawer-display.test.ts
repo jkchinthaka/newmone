@@ -24,7 +24,7 @@ describe("job drawer display", () => {
     assert.equal(stepIndex("ASSIGNED"), 1);
     assert.equal(stepIndex("IN_PROGRESS"), 2);
     assert.equal(stepIndex("ON_HOLD"), 2);
-    assert.equal(stepIndex("TECHNICIAN_COMPLETED"), 3);
+    assert.equal(stepIndex("TECHNICIAN_COMPLETED"), 4);
     assert.equal(stepIndex("VERIFIED"), 4);
     assert.equal(stepIndex("CLOSED"), 5);
     assert.equal(workOrderDrawerStepper("CANCELLED").cancelled, true);

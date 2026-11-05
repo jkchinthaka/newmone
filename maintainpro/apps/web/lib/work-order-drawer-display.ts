@@ -29,7 +29,7 @@ const STEP_INDEX: Record<string, number> = {
   WAITING_PARTS: 2,
   REWORK_REQUIRED: 2,
   OVERDUE: 2,
-  TECHNICIAN_COMPLETED: 3,
+  TECHNICIAN_COMPLETED: 4,
   VERIFIED: 4,
   COMPLETED: 5,
   CLOSED: 5
@@ -40,8 +40,8 @@ export const WORK_ORDER_STEP_HELP: Record<WorkOrderDrawerStep, string> = {
   New: "Waiting to be approved and assigned.",
   Assigned: "Technician: press Start and take a before photo with the camera.",
   Working: "Do the work. When finished, take an after photo and complete the job.",
-  Done: "Supervisor: check the photos and the work.",
-  "Supervisor check": "Checked. An authorised person closes the job.",
+  Done: "The technician has finished the work.",
+  "Supervisor check": "Supervisor: check the photos and the work, then close the job.",
   Closed: "Finished."
 };
 

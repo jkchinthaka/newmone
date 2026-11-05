@@ -1,5 +1,6 @@
 "use client";
 
+import { displayWorkOrderTitle } from "@/lib/work-order-drawer-display";
 import { TouchCheckbox } from "@/components/ui/touch-checkbox";
 import { PriorityDot } from "@/components/ui/priority-dot";
 import type { KeyboardEvent } from "react";
@@ -125,7 +126,7 @@ export function WorkOrderCompactTable({
                     ) : null}
                   </td>
                   <td className="max-w-xs px-3 py-3 align-top">
-                    <div className="font-medium text-slate-900">{row.title}</div>
+                    <div className="font-medium text-slate-900">{displayWorkOrderTitle(row.title)}</div>
                     <div className="truncate text-slate-500">
                       {subtitle}
                       {domain && domain !== "—" ? ` · ${domain}` : ""}

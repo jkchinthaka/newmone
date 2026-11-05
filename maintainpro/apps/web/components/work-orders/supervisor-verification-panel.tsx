@@ -5,6 +5,7 @@ import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/lib/api-client";
+import { canWaivePhotos, PHOTO_WAIVER_MIN_REASON } from "@/lib/photo-waiver";
 import type { WorkOrderEvidenceRequirements } from "@/lib/work-order-evidence";
 
 type Props = {
@@ -13,6 +14,7 @@ type Props = {
   expectedVersion: number;
   evidenceRequirements?: WorkOrderEvidenceRequirements | null;
   canRequestRework?: boolean;
+  role?: string | null;
   onUpdated?: () => void;
 };
 
@@ -22,12 +24,18 @@ export function SupervisorVerificationPanel({
   expectedVersion,
   evidenceRequirements,
   canRequestRework = true,
+  role,
   onUpdated
 }: Props) {
   const [verificationNote, setVerificationNote] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [pendingAction, setPendingAction] = useState<"verify" | "rework" | null>(null);
+  const [waiverReason, setWaiverReason] = useState("");
+  const photosMissing = Boolean(
+    evidenceRequirements?.required && !evidenceRequirements.complete
+  );
+  const canWaive = canWaivePhotos(role);
 
   if (status !== "TECHNICIAN_COMPLETED") {
     return null;
@@ -38,6 +46,7 @@ export function SupervisorVerificationPanel({
     try {
       await apiClient.post(`/work-orders/${workOrderId}/verify-supervisor`, {
         verificationNote: verificationNote.trim() || undefined,
+        ...(photosMissing && canWaive && waiverReason.trim() ? { overrideReason: waiverReason.trim() } : {}),
         expectedVersion
       });
       toast.success("Job verified. Close it when the job is finished.");
@@ -116,11 +125,35 @@ export function SupervisorVerificationPanel({
         </label>
       ) : null}
 
+      {photosMissing ? (
+        canWaive ? (
+          <label className="mt-3 block space-y-1 text-sm">
+            <span className="font-medium text-slate-700">No photos? Reason to verify without them</span>
+            <input
+              value={waiverReason}
+              onChange={(event) => setWaiverReason(event.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              placeholder="e.g. Technician has no phone; work checked in person"
+            />
+          </label>
+        ) : (
+          <p className="mt-3 text-sm text-amber-800">
+            Photos are missing. Add them on the Photos tab, or ask a manager to verify without photos.
+          </p>
+        )
+      ) : null}
+
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           disabled={busy}
-          onClick={() => setPendingAction("verify")}
+          onClick={() => {
+            if (photosMissing && canWaive && waiverReason.trim().length < PHOTO_WAIVER_MIN_REASON) {
+              toast.error("Give a reason to verify without photos.");
+              return;
+            }
+            setPendingAction("verify");
+          }}
           className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-70"
         >
           {busy ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}

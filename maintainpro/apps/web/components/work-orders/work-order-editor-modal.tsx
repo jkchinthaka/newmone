@@ -395,7 +395,7 @@ export function WorkOrderEditorModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={drawerMotion}
-          className="fixed inset-0 z-[80] flex justify-end bg-[#103D2D]/45"
+          className="fixed bottom-0 right-0 left-0 top-16 z-[80] flex bg-white xl:left-[248px]"
         >
           <motion.div
             ref={panelRef}
@@ -403,13 +403,13 @@ export function WorkOrderEditorModal({
             aria-modal="true"
             aria-labelledby="work-order-editor-title"
             tabIndex={-1}
-            initial={{ opacity: 0, x: 24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 24 }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
             transition={drawerMotion}
-            className="flex h-dvh w-full max-w-full flex-col overflow-hidden bg-white shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600 sm:max-w-[760px]"
+            className="flex h-full w-full max-w-full flex-col overflow-hidden bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
           >
-            <header className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
+            <header className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:px-10">
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-brand-800">
                   {isCreateMode ? "New job" : workOrder?.woNumber || "Job"}
@@ -623,7 +623,7 @@ export function WorkOrderEditorModal({
               }}
               className="flex min-h-0 flex-1 flex-col overflow-hidden"
             >
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-slate-50 px-4 py-4">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-slate-50 px-4 py-4 lg:px-10 [&>*]:mx-auto [&>*]:w-full [&>*]:max-w-6xl">
               {formError ? (
                 <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">
                   {formError}
@@ -868,6 +868,7 @@ export function WorkOrderEditorModal({
                       expectedVersion={workOrder.version}
                       evidenceRequirements={evidenceRequirements}
                       canRequestRework={currentUser.role !== "SUPERVISOR"}
+                      role={currentUser.role}
                       onUpdated={onClose}
                     />
                   ) : null}
@@ -942,7 +943,7 @@ export function WorkOrderEditorModal({
               ) : null}
               </div>
 
-              <div className="flex shrink-0 flex-col gap-2 border-t border-brand-100 bg-white px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+              <div className="flex shrink-0 flex-col gap-2 border-t border-brand-100 bg-white px-4 py-3 lg:px-10 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                 {saveDecision.reason ? (
                   <p id="overview-save-reason" className="text-sm text-slate-700 sm:mr-auto" role="status">{saveDecision.reason}</p>
                 ) : null}
@@ -952,7 +953,7 @@ export function WorkOrderEditorModal({
                   </button>
                 ) : (
                   <button type="button" onClick={requestClose} className="btn-quiet w-full justify-center sm:w-auto">
-                    Close
+                    Back to jobs
                   </button>
                 )}
                 {!isCreateMode && !editingOverview && workOrder && onPrimaryAction

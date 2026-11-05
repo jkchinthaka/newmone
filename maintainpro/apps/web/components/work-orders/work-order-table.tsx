@@ -1,5 +1,6 @@
 "use client";
 
+import { displayWorkOrderTitle } from "@/lib/work-order-drawer-display";
 import { TouchCheckbox } from "@/components/ui/touch-checkbox";
 import { Pencil, Trash2 } from "lucide-react";
 
@@ -87,7 +88,7 @@ export function WorkOrderTable({
       sortable: true,
       cell: (workOrder) => (
         <div>
-          <p className="font-medium text-slate-900">{workOrder.title}</p>
+          <p className="font-medium text-slate-900">{displayWorkOrderTitle(workOrder.title)}</p>
           <p className="mt-1 line-clamp-2 text-xs text-slate-500">{workOrder.description}</p>
         </div>
       )

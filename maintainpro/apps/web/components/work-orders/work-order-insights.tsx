@@ -44,7 +44,7 @@ export function WorkOrderSlaHeader({ workOrderId }: { workOrderId: string }) {
   if (!sla) return null;
   return (
     <p className="mt-1 text-xs text-slate-600">
-      Respond {sla.respond ?? "—"} · Resolve {sla.resolve ?? "—"}
+      Response time limit: {sla.respond ?? "—"} · Fix time limit: {sla.resolve ?? "—"}
     </p>
   );
 }
@@ -67,6 +67,9 @@ export function WorkOrderCostBreakdown({ workOrderId }: { workOrderId: string })
     ["Vendor", cost.vendor],
     ["Total", cost.total]
   ];
+  if (rows.every(([, value]) => !value)) {
+    return <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">No costs recorded yet.</p>;
+  }
   return (
     <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
       {rows.map(([label, value]) => (

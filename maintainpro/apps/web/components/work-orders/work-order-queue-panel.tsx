@@ -452,7 +452,7 @@ export function WorkOrderQueuePanel({
           Unable to load job queues. Please refresh or contact IT. You can still browse the queues your role can open. Counts stay hidden until a summary response arrives.
         </div>
       ) : null}
-      {actionRequiredCount > 0 ? (
+      {actionRequiredCount > 0 && filters.queue !== "action-required" ? (
         <button
           type="button"
           onClick={() => updateFilters({ queue: "action-required", smartView: undefined, page: 1 })}

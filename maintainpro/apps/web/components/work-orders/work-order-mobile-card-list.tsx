@@ -1,5 +1,6 @@
 "use client";
 
+import { displayWorkOrderTitle } from "@/lib/work-order-drawer-display";
 import { PriorityDot } from "@/components/ui/priority-dot";
 import {
   assigneeLine,
@@ -44,7 +45,7 @@ export function WorkOrderMobileCardList({ rows, onOpen, onAction, actorRole, job
               <span className="font-semibold text-slate-900">{row.woNumber}</span>
               <PriorityDot priority={row.priority} />
             </div>
-            <p className="mt-1 font-medium text-slate-900">{row.title}</p>
+            <p className="mt-1 font-medium text-slate-900">{displayWorkOrderTitle(row.title)}</p>
             <p className="text-sm text-slate-500">{workSubtitle(domainRow, jobDomain)}</p>
             {jobDomain === "SERVICE" ? <p className="text-sm text-slate-600">{serviceTypeLine(domainRow)}</p> : null}
             {jobDomain === "VEHICLE" ? <p className="text-sm text-slate-600">{registrationLine(domainRow)}</p> : null}

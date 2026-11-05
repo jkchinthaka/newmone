@@ -110,6 +110,14 @@ function money(value: number | string | null | undefined): string | null {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "LKR", maximumFractionDigits: 2 }).format(amount);
 }
 
+/** Hours as people say them: under an hour in minutes, otherwise hours with one decimal. */
+export function formatActualHours(value: string): string {
+  const hours = Number(value);
+  if (!Number.isFinite(hours) || hours <= 0) return "0 min";
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} min`;
+  return `${Math.round(hours * 10) / 10} h`;
+}
+
 function when(value?: string | null): string | null {
   if (!value) return null;
   return formatDrawerDateTime(value) || value;
@@ -151,7 +159,6 @@ export function WorkOrderOverviewView({
   if (expected) rows.push(["Expected completion", expected]);
   const requestedBy = person(workOrder);
   if (requestedBy) rows.push(["Requested by", requestedBy]);
-  if (workOrder.approvalStatus) rows.push(["Approval", toTitleCase(workOrder.approvalStatus)]);
 
   return (
     <div className="space-y-4">
@@ -161,7 +168,7 @@ export function WorkOrderOverviewView({
           title="Job details"
           action={
             readOnly ? null : (
-              <button type="button" className="btn-quiet" onClick={onEdit}>
+              <button type="button" className="text-sm font-medium text-brand-700 underline-offset-2 hover:underline" onClick={onEdit}>
                 Edit details
               </button>
             )
@@ -201,14 +208,14 @@ export function WorkOrderOverviewView({
               {actualHours ? (
                 <div className="rounded-lg border border-slate-200 px-3 py-2">
                   <dt className="text-xs text-slate-500">Actual hours</dt>
-                  <dd className="font-semibold text-slate-900">{actualHours}</dd>
+                  <dd className="font-semibold text-slate-900">{formatActualHours(actualHours)}</dd>
                 </div>
               ) : null}
             </dl>
           ) : null}
           {showSla ? (
             <p className="mt-3 text-sm text-slate-700">
-              {workOrder.slaDeadline ? `Time limit deadline ${when(workOrder.slaDeadline)}` : "Time limit"}
+              {workOrder.slaDeadline ? `Time limit: ${when(workOrder.slaDeadline)}` : "Time limit"}
               {workOrder.slaBreached ? " · Time limit breached" : ""}
             </p>
           ) : null}
