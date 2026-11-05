@@ -132,7 +132,11 @@ function AssetRowActions<T extends AssetTableRow>({
 }: AssetRowActionsProps<T>) {
   const deleteAllowed = canDelete && (asset.openWorkOrderCount ?? 0) === 0;
   const statusPromptForRow = statusPrompt?.assetId === asset.id ? statusPrompt : null;
-  const menuOpen = openRowMenuId === asset.id;
+  const menuOpenRaw = openRowMenuId === asset.id;
+  // The table renders both a mobile card and a desktop row for each asset; only the instance whose button is
+  // actually visible may show the menu (the hidden one used to open a second copy at the top-left corner).
+  const [buttonVisible, setButtonVisible] = useState(false);
+  const menuOpen = menuOpenRaw && buttonVisible;
   const menuId = `asset-row-menu-${asset.id}`;
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -141,6 +145,10 @@ function AssetRowActions<T extends AssetTableRow>({
   // The table sits in an overflow-x-auto + contain:paint wrapper, which clipped this menu (and turned the
   // mobile "fixed" sheet into a box inside the table). Render it in a portal; on desktop place it next to
   // the button and open upward when the row is near the bottom of the screen.
+  useLayoutEffect(() => {
+    setButtonVisible((buttonRef.current?.getClientRects().length ?? 0) > 0);
+  }, [menuOpenRaw]);
+
   useLayoutEffect(() => {
     if (!menuOpen) {
       setDesktopPosition(null);

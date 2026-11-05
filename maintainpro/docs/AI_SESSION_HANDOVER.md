@@ -1489,3 +1489,6 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 
 ## Asset registry polish 2 (branch live)
 - Select mode (checkbox column hidden until "Select" pressed or rows selected), Next action column only when a row has an action, registry header slimmed, floor-plan link forced brand colour. UI only; tsc clean, web tests 553 pass.
+
+## Asset row menu opened twice (branch live)
+- `assets-table.tsx` AssetRowActions: mobile card + desktop row both rendered the portal menu; now only the instance whose button is visible opens it. tsc clean, web tests 553 pass.
