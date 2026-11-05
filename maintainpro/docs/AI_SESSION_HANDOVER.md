@@ -1449,3 +1449,6 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 
 ## Settings page restyle (live)
 - `apps/web/app/(dashboard)/settings/page.tsx`: UI only (underline tabs, profile card + details, toggle switches, show/hide password, strength checklist). Same API calls and behaviour. Validation: web tsc clean.
+
+## Notifications inbox restyle (live)
+- `app/(dashboard)/notifications/page.tsx`: UI only. Tabs Unread/Critical/Overdue/All with counts, search + priority, rest under More filters, rows grouped by day with severity icons, one link action per row, Acknowledge only for warning/critical. Same API calls. Web tsc clean.
