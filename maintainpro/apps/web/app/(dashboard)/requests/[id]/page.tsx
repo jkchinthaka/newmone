@@ -374,9 +374,11 @@ export default function RequestDetailPage() {
                 <span className="rounded bg-amber-100 px-2 py-1 text-amber-900">Target not confirmed</span>
               ) : null}
             </div>
-            <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">
-              {String(original.description || detail.description)}
-            </p>
+            {String(original.description || detail.description).trim() !== headline ? (
+              <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">
+                {String(original.description || detail.description)}
+              </p>
+            ) : null}
             <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
               <div>
                 <dt className="text-slate-500">Machine / vehicle / location</dt>
