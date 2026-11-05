@@ -93,10 +93,12 @@ function subject(item: MaintenanceRequestListItem) {
 }
 
 function PriorityBadge({ priority }: { priority: string }) {
-  const dot =
-    priority === "CRITICAL" ? "bg-rose-600" : priority === "HIGH" ? "bg-amber-500" : priority === "LOW" ? "bg-slate-400" : "bg-sky-500";
+  // Medium is the usual case, so it stays quiet; only urgent or low priorities get a colour.
+  if (priority === "MEDIUM") return <span className="text-sm text-slate-500">{requestValueLabel(priority)}</span>;
+  const dot = priority === "CRITICAL" ? "bg-rose-600" : priority === "HIGH" ? "bg-amber-500" : "bg-slate-400";
+  const text = priority === "CRITICAL" ? "font-semibold text-rose-700" : priority === "HIGH" ? "font-semibold text-amber-700" : "text-slate-600";
   return (
-    <span className="inline-flex items-center gap-2 text-sm text-slate-700">
+    <span className={`inline-flex items-center gap-2 text-sm ${text}`}>
       <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${dot}`} />
       {requestValueLabel(priority)}
     </span>
@@ -215,7 +217,7 @@ function ActionMenu({
         aria-label={`Actions for ${item.requestNumber}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 bg-white"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
         onClick={(event) => {
           event.stopPropagation();
           onToggle();
@@ -226,6 +228,12 @@ function ActionMenu({
       {menu && typeof document !== "undefined" ? createPortal(menu, document.body) : null}
     </div>
   );
+}
+
+function tabClass(active: boolean) {
+  return `-mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 ${
+    active ? "border-brand-600 text-brand-700" : "border-transparent text-slate-600 hover:text-slate-900"
+  }`;
 }
 
 export default function RequestsPage() {
@@ -514,35 +522,45 @@ export default function RequestsPage() {
     <div className="ops-page">
       <PageBreadcrumbs />
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="page-title">{ownOnly ? "My Requests" : "Requests"}</h1>
-        <label className="relative order-3 block w-full sm:order-2 sm:w-auto sm:min-w-[22rem] sm:flex-1 sm:max-w-xl">
-          <span className="sr-only">Search requests</span>
-          <Search aria-hidden size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            value={draftQuery}
-            onChange={(event) => setDraftQuery(event.target.value)}
-            placeholder="Search requests"
-            className="min-h-11 w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm"
-          />
-        </label>
+        <div>
+          <h1 className="page-title">{ownOnly ? "My Requests" : "Requests"}</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            {ownOnly ? "Problems you reported and where they stand." : "Problems people reported. Review them and turn them into jobs."}
+          </p>
+        </div>
         {canReport ? (
           <Link
             href={"/requests/new" as Route}
-            className="order-2 inline-flex min-h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 sm:order-3"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
           >
             <Plus size={16} aria-hidden /> Report a problem
           </Link>
         ) : null}
       </header>
 
-      <section aria-label="Request overview">
-        <div className="flex flex-wrap gap-2">
-          {requestStageCards(summary).map((card) => {
+      {/* One row: stage shortcuts (only the ones with something in them) and the My / Review views. */}
+      <div className="flex flex-wrap items-center gap-1 border-b border-slate-200" role="tablist" aria-label="Request views">
+        {views.length > 1 ? (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "all" && !stage}
+            className={tabClass(view === "all" && !stage)}
+            onClick={() => writeQuery({ view: null, stage: null, status: null })}
+          >
+            All
+          </button>
+        ) : null}
+        {requestStageCards(summary)
+          .filter((card) => card.value > 0 || stage === card.stage)
+          .map((card) => {
             const active = stage === card.stage && view !== "triage";
             return (
               <button
                 key={card.stage}
                 type="button"
+                role="tab"
+                aria-selected={active}
                 aria-pressed={active}
                 onClick={() =>
                   writeQuery({
@@ -551,40 +569,44 @@ export default function RequestsPage() {
                     view: view === "triage" ? null : view === "all" ? null : view
                   })
                 }
-                className={`inline-flex min-h-9 items-center gap-2 rounded-full border px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 ${
-                  active ? "border-blue-600 bg-blue-50 font-semibold text-blue-800" : "border-slate-200 bg-white text-slate-700"
-                }`}
+                className={tabClass(active)}
               >
                 {card.label}
-                <span className="tabular-nums text-slate-500">{loading && !capabilities ? "–" : card.value}</span>
+                <span className={`ml-1.5 rounded-full px-2 text-xs tabular-nums ${active ? "bg-brand-100 text-brand-800" : "bg-slate-100 text-slate-600"}`}>
+                  {loading && !capabilities ? "–" : card.value}
+                </span>
               </button>
             );
           })}
-        </div>
-      </section>
-
-      {views.length > 1 ? (
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Request views">
-        {views.map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={view === id}
-            className={`min-h-11 rounded-lg px-3 text-sm font-medium ${
-              view === id ? "bg-brand-600 text-white" : "border border-slate-200 bg-white text-slate-700"
-            }`}
-            onClick={() => writeQuery({ view: id === "all" ? null : id, ...(id === "triage" ? { stage: null, status: null } : {}) })}
-          >
-            {label}
-          </button>
-        ))}
+        {views
+          .filter(([id]) => id !== "all")
+          .map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={view === id}
+              className={tabClass(view === id)}
+              onClick={() => writeQuery({ view: id, ...(id === "triage" ? { stage: null, status: null } : {}) })}
+            >
+              {label}
+            </button>
+          ))}
       </div>
-      ) : null}
       {view === "triage" ? <p className="text-sm text-slate-600">{requestTriageExplanation()}</p> : null}
 
       <section className="space-y-3" aria-label="Filters">
         <div className="flex flex-wrap items-center gap-2">
+          <label className="relative min-w-[14rem] flex-1">
+            <span className="sr-only">Search requests</span>
+            <Search aria-hidden size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={draftQuery}
+              onChange={(event) => setDraftQuery(event.target.value)}
+              placeholder="Search requests"
+              className="min-h-11 w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm"
+            />
+          </label>
           <select
             aria-label="Status"
             className="min-h-11 rounded-lg border border-slate-300 px-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
@@ -629,8 +651,8 @@ export default function RequestsPage() {
             aria-label="Asset, vehicle or location"
             value={assetQuery}
             onChange={(event) => writeQuery({ asset: event.target.value || null })}
-            placeholder="Asset, vehicle or location"
-            className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm"
+            placeholder="Machine or place"
+            className="min-h-11 w-44 rounded-lg border border-slate-300 px-3 text-sm"
           />
           <button
             type="button"
@@ -770,8 +792,8 @@ export default function RequestsPage() {
               return (
                 <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-3">
                   <Link href={`/requests/${item.id}` as Route} className="block">
-                    <p className="font-semibold text-slate-900">{item.requestNumber}</p>
-                    <p className="line-clamp-1 text-sm text-slate-700">{item.description}</p>
+                    <p className="line-clamp-1 font-semibold text-slate-900">{item.description || item.requestNumber}</p>
+                    <p className="text-xs text-slate-500">{item.requestNumber}</p>
                     <p className="mt-2 text-sm text-slate-800">{place.title}</p>
                     {place.code ? <p className="text-xs text-slate-500">{place.code}</p> : null}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -826,12 +848,12 @@ export default function RequestsPage() {
                       <td className="px-3 py-3">
                         <Link
                           href={`/requests/${item.id}` as Route}
-                          className="font-semibold text-slate-900 hover:underline"
+                          className="line-clamp-1 block max-w-sm font-semibold text-slate-900 hover:underline"
                           onClick={(event) => event.stopPropagation()}
                         >
-                          {item.requestNumber}
+                          {item.description || item.requestNumber}
                         </Link>
-                        <div className="line-clamp-1 max-w-xs text-xs text-slate-500">{item.description}</div>
+                        <div className="text-xs text-slate-500">{item.requestNumber}</div>
                       </td>
                       <td className="px-3 py-3">
                         <div>{place.title}</div>

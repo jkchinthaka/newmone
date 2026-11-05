@@ -1516,3 +1516,6 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 
 ## My jobs UI polish (live)
 - `components/operational/queue-tab-bar.tsx` (shared with Jobs queues): More is an outline button with a popover (was a green button + in-flow rows); optional `hideZeroCounts` and `tone: "alert"` (red count pill). `work-orders/my/page.tsx`: hides 0 counts, red Late / Fix again, subtitle reworded, empty state "You're all caught up" + "See all jobs" link. Logic/API unchanged. web tests 553 pass, tsc clean; not browser-tested.
+
+## Requests list polish (live)
+- `requests/page.tsx`: one tab row (All, stage shortcuts that have items, My requests, Requests to review) replacing the two chip rows; search moved into the filter row; "Machine or place" placeholder; Medium priority quiet (High/Critical/Low coloured); title bold with request number below; row menu button unboxed; brand-green Report button; subtitle added. Filters/API/actions unchanged. web tests 553 pass, tsc clean; not browser-tested.
