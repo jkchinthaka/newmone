@@ -61,7 +61,7 @@ function AdminConsoleAuthorized({ user, roleName }: { user: CurrentUser; roleNam
     <>
       <OperationalJobsHeader
         title="Admin"
-        description="Set up people, places, jobs and assets. Search or pick a card."
+        description="Set up people, places, jobs and assets. Search or pick a card. (live test)"
       />
       <label className="block text-sm" htmlFor="admin-search">
         <span className="sr-only">Search administration</span>
