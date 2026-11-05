@@ -177,7 +177,7 @@ export function AdminUserFormDialog({
         };
         const created = await createAdminUser(payload);
         if (created.temporaryPassword) {
-          toast.success(`User created. Temporary password: ${created.temporaryPassword}`, { duration: 15000 });
+          toast.success(`User created. Temporary password: ${created.temporaryPassword}`, { duration: 30000 });
         } else {
           toast.success(`${form.firstName} ${form.lastName} created`);
         }
@@ -210,43 +210,52 @@ export function AdminUserFormDialog({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-5">
           <div className="grid gap-4 sm:grid-cols-2">
+            {!isEditing ? (
+              <div className="space-y-1 rounded-xl border border-dashed border-brand-300 bg-brand-50/60 p-3 text-sm text-slate-700 sm:col-span-2">
+                <span className="block font-medium">Start from an employee (optional)</span>
+                <EntityPicker
+                  endpoint="/workforce/employees"
+                  placeholder="Search employees to fill name, email and phone…"
+                  value={form.employeeId}
+                  initialDisplay={form.employeeDisplay || undefined}
+                  displayField="fullName"
+                  secondaryField="employeeNo"
+                  extraParams={{ active: true }}
+                  onChange={(id, entity: any) =>
+                    setForm((c) => ({
+                      ...c,
+                      employeeId: id,
+                      employeeDisplay: entity ? `${entity.employeeNo ? entity.employeeNo + " — " : ""}${entity.fullName}` : "",
+                      ...(entity && !c.firstName && !c.lastName
+                        ? { firstName: String(entity.fullName).split(" ")[0] ?? "", lastName: String(entity.fullName).split(" ").slice(1).join(" ") }
+                        : {}),
+                      ...(entity && !c.email && entity.email ? { email: entity.email } : {}),
+                      ...(entity && !c.phone && entity.phone ? { phone: entity.phone } : {}),
+                      ...(entity && !c.designation && entity.designation ? { designation: entity.designation } : {})
+                    }))
+                  }
+                />
+                <span className="block text-xs text-slate-500">Picking an employee fills in the name, email and phone, and gives them a login.</span>
+              </div>
+            ) : null}
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-700 sm:col-span-2">Login details</p>
             <Field label="First name *" error={errors.firstName}>
-              <input
-                value={form.firstName}
-                onChange={(e) => setForm((c) => ({ ...c, firstName: e.target.value }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
-              />
+              <input value={form.firstName} onChange={(e) => setForm((c) => ({ ...c, firstName: e.target.value }))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4" />
             </Field>
             <Field label="Last name *" error={errors.lastName}>
-              <input
-                value={form.lastName}
-                onChange={(e) => setForm((c) => ({ ...c, lastName: e.target.value }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
-              />
+              <input value={form.lastName} onChange={(e) => setForm((c) => ({ ...c, lastName: e.target.value }))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4" />
             </Field>
             <Field label="Email *" error={errors.email}>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((c) => ({ ...c, email: e.target.value }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
-              />
+              <input type="email" value={form.email} onChange={(e) => setForm((c) => ({ ...c, email: e.target.value }))} placeholder="name@company.com" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4" />
             </Field>
             <Field label="Phone">
-              <input
-                value={form.phone}
-                onChange={(e) => setForm((c) => ({ ...c, phone: e.target.value }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
-              />
+              <input value={form.phone} onChange={(e) => setForm((c) => ({ ...c, phone: e.target.value }))} placeholder="07X XXX XXXX" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4" />
             </Field>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-700 sm:col-span-2">Access</p>
             <Field label="Role *" error={errors.roleId}>
-              <select
-                value={form.roleId}
-                onChange={(e) => setForm((c) => ({ ...c, roleId: e.target.value }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
-              >
+              <select value={form.roleId} onChange={(e) => setForm((c) => ({ ...c, roleId: e.target.value }))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4">
                 <option value="">Select role…</option>
                 {visibleLoginRoles(roles, form.roleId).map((role) => (
                   <option key={role.id} value={role.id}>
@@ -254,6 +263,7 @@ export function AdminUserFormDialog({
                   </option>
                 ))}
               </select>
+              <span className="block text-xs text-slate-500">The role decides which pages they can see.</span>
             </Field>
             {tenants.filter((t) => t.isActive).length > 1 ? (
             <Field label="Company">
@@ -271,7 +281,7 @@ export function AdminUserFormDialog({
               </select>
             </Field>
             ) : null}
-            <div className="space-y-1 text-sm text-slate-700 sm:col-span-2">
+            <div className="space-y-1 text-sm text-slate-700">
               <span className="block font-medium">Department</span>
               <EntityPicker
                 endpoint="/departments"
@@ -297,61 +307,28 @@ export function AdminUserFormDialog({
                 onChange={(id, entity: any) => setForm((c) => ({ ...c, siteId: id, siteDisplay: entity ? `${entity.code} — ${entity.name}` : "" }))}
               />
             </div>
-            {!isEditing ? (
-              <div className="space-y-1 text-sm text-slate-700 sm:col-span-2">
-                <span className="block font-medium">Employee record (optional)</span>
-                <EntityPicker
-                  endpoint="/workforce/employees"
-                  placeholder="Search employees to link this login…"
-                  value={form.employeeId}
-                  initialDisplay={form.employeeDisplay || undefined}
-                  displayField="fullName"
-                  secondaryField="employeeNo"
-                  extraParams={{ active: true }}
-                  onChange={(id, entity: any) =>
-                    setForm((c) => ({
-                      ...c,
-                      employeeId: id,
-                      employeeDisplay: entity ? `${entity.employeeNo ? entity.employeeNo + " — " : ""}${entity.fullName}` : "",
-                      ...(entity && !c.firstName && !c.lastName
-                        ? { firstName: String(entity.fullName).split(" ")[0] ?? "", lastName: String(entity.fullName).split(" ").slice(1).join(" ") }
-                        : {}),
-                      ...(entity && !c.email && entity.email ? { email: entity.email } : {}),
-                      ...(entity && !c.phone && entity.phone ? { phone: entity.phone } : {}),
-                      ...(entity && !c.designation && entity.designation ? { designation: entity.designation } : {})
-                    }))
-                  }
-                />
-                <span className="block text-xs text-slate-500">Picking an employee fills in the name, email and phone, and gives them a login.</span>
-              </div>
-            ) : null}
-            <div className="sm:col-span-2">
-              <button type="button" onClick={() => setMoreOpen((v) => !v)} className="text-sm font-medium text-brand-700 hover:underline" aria-expanded={moreOpen}>
-                {moreOpen ? "Hide more options" : "More options (designation, password)"}
-              </button>
-            </div>
-            {moreOpen ? (
-              <>
             <Field label="Designation">
-              <input
-                value={form.designation}
-                onChange={(e) => setForm((c) => ({ ...c, designation: e.target.value }))}
-                placeholder="e.g. Fleet Coordinator"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
-              />
+              <input value={form.designation} onChange={(e) => setForm((c) => ({ ...c, designation: e.target.value }))} placeholder="e.g. Fleet Coordinator" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4" />
             </Field>
             {!isEditing ? (
-              <Field label="Password (optional)" error={errors.password}>
-                <input
-                  type="text"
-                  value={form.password}
-                  onChange={(e) => setForm((c) => ({ ...c, password: e.target.value }))}
-                  placeholder="Leave blank to auto-generate a temporary password"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
-                />
-              </Field>
-            ) : null}
-              </>
+              <div className="space-y-2 text-sm text-slate-700 sm:col-span-2">
+                {moreOpen ? (
+                  <Field label="Password" error={errors.password}>
+                    <input
+                      type="text"
+                      value={form.password}
+                      onChange={(e) => setForm((c) => ({ ...c, password: e.target.value }))}
+                      placeholder="8+ characters, one capital, one number, one symbol"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm outline-none ring-brand-100 focus:border-brand-400 focus:ring-4"
+                    />
+                  </Field>
+                ) : (
+                  <p className="text-xs text-slate-600">
+                    A temporary password is generated when you save and shown once.{" "}
+                    <button type="button" onClick={() => setMoreOpen(true)} className="font-medium text-brand-700 hover:underline">Set my own password</button>
+                  </p>
+                )}
+              </div>
             ) : null}
           </div>
         </form>

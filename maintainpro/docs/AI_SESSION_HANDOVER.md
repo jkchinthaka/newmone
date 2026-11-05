@@ -1478,3 +1478,7 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 - `admin/assets/new/page.tsx`: type cards with icons + selected state, done steps show ✓, step-0 warning replaced by quiet hint, Vehicle link card, brand Next button.
 - `assets-management-page.tsx`: status chips (All + statuses, clickable), brand "+ Asset". `assets-table.tsx`: "Not placed" + "Place on a floor plan" link, "Never serviced", no-op next action shown as "—". UI only.
 - Tests: web tsc clean, `npm test` 553 pass. Not browser-tested.
+
+## Add/Edit User dialog (branch live)
+- `components/admin/admin-user-form-dialog.tsx`: UI-only. Employee picker first (create only, fills name/email/phone), sections Login details / Access, Department+Location side by side, Designation always visible, "Set my own password" link reveals the field (auto temp password otherwise, toast 30s). Same payloads/validation.
+- Tests: web tsc clean, `npm test` 553 pass. Not browser-tested.
