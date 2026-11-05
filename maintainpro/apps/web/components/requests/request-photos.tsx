@@ -9,6 +9,7 @@ import {
   DEFAULT_MAX_REQUEST_PHOTOS,
   deleteRequestPhoto,
   fetchRequestPhotoUrl,
+  getRequestPhotoLimits,
   uploadRequestPhoto,
   type RequestPhotoRef
 } from "@/lib/request-photos";
@@ -158,6 +159,13 @@ export function RequestPhotosPanel({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [storageReady, setStorageReady] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    void getRequestPhotoLimits()
+      .then((limits) => setStorageReady(limits.enabled))
+      .catch(() => setStorageReady(false));
+  }, []);
 
   async function add(files: File[]) {
     if (files.length === 0) return;
@@ -186,13 +194,14 @@ export function RequestPhotosPanel({
     }
   }
 
-  if (photos.length === 0 && !canEdit) return null;
+  const canAdd = canEdit && storageReady === true;
+  if (photos.length === 0 && !canAdd) return null;
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4" aria-label="Photos">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-semibold">Photos</h2>
-        {canEdit ? (
+        {canAdd ? (
           <>
             <button
               type="button"
