@@ -204,7 +204,7 @@ export default function RegisterVehiclePage() {
                 ))}
               </select>
             </Field>
-            <Field id="mileage" label="Current mileage (km)" hint="0 or more" error={fieldErrors.currentMileage}>
+            <Field id="mileage" label="Current mileage (km)" hint="0 to 5,000,000" error={fieldErrors.currentMileage}>
               <input
                 id="mileage"
                 className={fieldClass}

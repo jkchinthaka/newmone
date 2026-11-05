@@ -99,8 +99,8 @@ export function buildRegisterVehiclePayload(input: RegisterVehicleInput, now = n
   const mileageText = input.currentMileage.trim();
   if (mileageText) {
     const currentMileage = Number(mileageText);
-    if (!Number.isFinite(currentMileage) || currentMileage < 0) {
-      throw new Error("Mileage must be 0 or more.");
+    if (!Number.isFinite(currentMileage) || currentMileage < 0 || currentMileage > 5_000_000) {
+      throw new Error("Mileage must be between 0 and 5,000,000 km.");
     }
     payload.currentMileage = currentMileage;
   }
