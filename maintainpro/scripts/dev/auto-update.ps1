@@ -2,7 +2,7 @@
 # Every 15s it fetches; when new commits arrive it fast-forwards, and (only when needed)
 # stops the servers, runs npm install / prisma generate / migrate deploy, then restarts them.
 # Plain code changes are picked up by the dev servers' own hot reload (no restart).
-# Safe by design: skips when you have local edits or the branch diverged; never force-pulls.
+# Works with your own local edits (auto-stash/restore) and local commits (merge); never force-pulls.
 param(
   [string]$Branch = "live",
   [int]$IntervalSeconds = 15
@@ -48,13 +48,33 @@ while ($true) {
     if ($local -eq $remote) { continue }
 
     if ((git -C $repo branch --show-current).Trim() -ne $Branch) { Log "Not on '$Branch' - skipping."; continue }
-    if (git -C $repo status --porcelain) { Log "You have local changes - skipping update (commit or stash them)."; continue }
-    git -C $repo merge-base --is-ancestor $local $remote
-    if ($LASTEXITCODE -ne 0) { Log "Local '$Branch' diverged from origin - skipping."; continue }
-
+    # Works alongside your own edits: stash them, bring live in, put them back.
+    $stashed = $false
+    if (git -C $repo status --porcelain) {
+      git -C $repo stash push -u -m "auto-update" --quiet
+      if ($LASTEXITCODE -ne 0) { Log "Could not stash your changes - skipping this round."; continue }
+      $stashed = $true
+    }
     $changed = @(git -C $repo diff --name-only $local $remote)
-    git -C $repo merge --ff-only "origin/$Branch" --quiet
-    if ($LASTEXITCODE -ne 0) { Log "Fast-forward failed - skipping."; continue }
+    git -C $repo merge-base --is-ancestor $local $remote
+    if ($LASTEXITCODE -eq 0) {
+      git -C $repo merge --ff-only "origin/$Branch" --quiet
+    } else {
+      # You committed locally too: merge live into your branch (no force, no rebase).
+      git -C $repo merge "origin/$Branch" --no-edit --quiet
+      if ($LASTEXITCODE -ne 0) {
+        git -C $repo merge --abort
+        Log "Merge conflict with your local commits - live NOT applied. Resolve manually (git merge origin/$Branch)."
+        if ($stashed) { git -C $repo stash pop --quiet }
+        continue
+      }
+    }
+    $mergeOk = ($LASTEXITCODE -eq 0)
+    if ($stashed) {
+      git -C $repo stash pop --quiet
+      if ($LASTEXITCODE -ne 0) { Log "Your local edits conflict with live changes. They are kept in 'git stash list' (auto-update) - resolve with git stash pop." }
+    }
+    if (-not $mergeOk) { Log "Update failed - skipping."; continue }
     Log ("Updated to {0} ({1} files)." -f $remote.Substring(0, 7), $changed.Count)
 
     $needInstall = [bool]($changed | Where-Object { $_ -match "(^|/)package(-lock)?\.json$" })
