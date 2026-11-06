@@ -9,6 +9,7 @@ import type { RoleName } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
 import { requireTenantId } from "../../common/utils/tenant-scope.util";
+import { closeLabourSessionTimestamps } from "../../common/utils/work-order-labour.util";
 import { canOverrideCompletionBlock } from "../../common/utils/work-order-evidence-rbac";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
@@ -206,6 +207,56 @@ export class WorkOrderTasksService {
       patch.timeSpentMinutes = null;
     }
     await this.prisma.workOrderTask.update({ where: { id: taskId }, data: patch });
+    if (mine && actor?.sub && (status === "WORKING" || status === "DONE")) {
+      await this.syncLabourSession(workOrderId, actor.sub, tenantId, status);
+    }
     return this.shape(await this.loadTask(workOrderId, taskId, tenantId), actor);
+  }
+
+  /**
+   * Keeps the person's labour clock in step with their tasks so actual hours/cost stay correct
+   * with one click. Best effort: it never blocks the task change and never touches other people.
+   * Start task -> open a session if they have none running anywhere. Last open task done -> close it.
+   */
+  private async syncLabourSession(
+    workOrderId: string,
+    userId: string,
+    tenantId: string,
+    status: "WORKING" | "DONE"
+  ) {
+    try {
+      if (status === "WORKING") {
+        const running = await this.prisma.workOrderLabourEntry.findFirst({
+          where: { tenantId, technicianUserId: userId, endedAt: null },
+          select: { id: true }
+        });
+        if (!running) {
+          await this.prisma.workOrderLabourEntry.create({
+            data: { tenantId, workOrderId, technicianUserId: userId, startedAt: new Date() }
+          });
+        }
+        return;
+      }
+      const stillOpen = await this.prisma.workOrderTask.count({
+        where: {
+          workOrderId,
+          status: { not: "DONE" },
+          assignees: { some: { employee: { linkedUserId: userId } } }
+        }
+      });
+      if (stillOpen > 0) return;
+      const open = await this.prisma.workOrderLabourEntry.findMany({
+        where: { tenantId, workOrderId, technicianUserId: userId, endedAt: null },
+        select: { id: true, startedAt: true }
+      });
+      for (const entry of open) {
+        await this.prisma.workOrderLabourEntry.update({
+          where: { id: entry.id },
+          data: closeLabourSessionTimestamps(entry.startedAt)
+        });
+      }
+    } catch {
+      // Task status already saved; the labour clock can still be started/stopped by hand.
+    }
   }
 }

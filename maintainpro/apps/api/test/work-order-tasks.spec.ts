@@ -71,4 +71,52 @@ describe("WorkOrderTasksService.setStatus", () => {
       BadRequestException
     );
   });
+
+  describe("labour clock follows the person's tasks", () => {
+    function withLabour(running: unknown[], stillOpen: number) {
+      const task = baseTask("u1");
+      const prisma = {
+        workOrderTask: {
+          findFirst: jest.fn().mockResolvedValue(task),
+          update: jest.fn().mockResolvedValue(task),
+          count: jest.fn().mockResolvedValue(stillOpen)
+        },
+        workOrderLabourEntry: {
+          findFirst: jest.fn().mockResolvedValue(running[0] ?? null),
+          findMany: jest.fn().mockResolvedValue(running),
+          create: jest.fn().mockResolvedValue({}),
+          update: jest.fn().mockResolvedValue({})
+        }
+      };
+      return { prisma, service: new WorkOrderTasksService(prisma as never) };
+    }
+
+    it("starts a session when they start a task and nothing is running", async () => {
+      const { prisma, service } = withLabour([], 1);
+      await service.setStatus("wo1", "t1", "WORKING", actor("u1", "TECHNICIAN"));
+      expect(prisma.workOrderLabourEntry.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not start a second session when one is already running", async () => {
+      const { prisma, service } = withLabour([{ id: "l1", startedAt: new Date() }], 1);
+      await service.setStatus("wo1", "t1", "WORKING", actor("u1", "TECHNICIAN"));
+      expect(prisma.workOrderLabourEntry.create).not.toHaveBeenCalled();
+    });
+
+    it("closes the session only when their last open task is done", async () => {
+      const open = withLabour([{ id: "l1", startedAt: new Date(Date.now() - 600000) }], 1);
+      await open.service.setStatus("wo1", "t1", "DONE", actor("u1", "TECHNICIAN"));
+      expect(open.prisma.workOrderLabourEntry.update).not.toHaveBeenCalled();
+
+      const last = withLabour([{ id: "l1", startedAt: new Date(Date.now() - 600000) }], 0);
+      await last.service.setStatus("wo1", "t1", "DONE", actor("u1", "TECHNICIAN"));
+      expect(last.prisma.workOrderLabourEntry.update).toHaveBeenCalledTimes(1);
+    });
+
+    it("lets a manager change a task without touching anyone's clock", async () => {
+      const { prisma, service } = withLabour([], 0);
+      await service.setStatus("wo1", "t1", "WORKING", actor("m1", "MANAGER"));
+      expect(prisma.workOrderLabourEntry.create).not.toHaveBeenCalled();
+    });
+  });
 });

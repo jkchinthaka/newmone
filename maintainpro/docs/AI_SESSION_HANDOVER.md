@@ -1558,3 +1558,8 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 
 ### Report a problem wizard polish (2026-11-06)
 - Circle stepper with ticks, wider centered card (`max-w-2xl`), machine step with green "Scan the QR tag" card + big search + "Recently reported" (browser localStorage `nelna.recentMachines`, saved on successful submit, wrapped in try/catch), describe step with symptom chips, photos, and inline urgency (Normal / Urgent / Machine stopped -> reportedUrgency + productionImpact STOPPED). "More details" step still covers safety. tsc clean, web tests 556 pass; not browser-tested.
+
+## 2026-11-06 — Job history empty state + task→labour clock
+- History tab: one calm empty message when no machine linked / no earlier jobs (`work-order-history-panel.tsx`).
+- `work-order-tasks.service.ts` `syncLabourSession`: person's own Start task opens a labour session if none running anywhere; their last open task Done closes it. Best-effort (try/catch), managers never touch others' clocks. Actual hours/cost still = labour sessions only; task time is display-only (no double count). No schema change.
+- Tests: `test/work-order-tasks.spec.ts` 10 pass; web 556 pass; tsc clean. Not browser-tested.
