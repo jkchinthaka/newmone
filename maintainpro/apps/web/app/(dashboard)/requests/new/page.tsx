@@ -60,6 +60,28 @@ type Step = 1 | 2 | 3 | 4 | 5;
 
 const STEP_LABELS = ["Type", "Which one", "Describe", "Urgency", "Review"] as const;
 
+const RECENT_MACHINES_KEY = "nelna.recentMachines";
+const SYMPTOMS = ["Not working", "Strange noise", "Leaking", "Too hot", "Broken part", "Other"] as const;
+
+function readRecentMachines(): MachineHit[] {
+  try {
+    const raw = window.localStorage.getItem(RECENT_MACHINES_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(parsed) ? (parsed as MachineHit[]).filter((m) => m && m.id && m.name).slice(0, 5) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberMachine(hit: MachineHit) {
+  try {
+    const next = [hit, ...readRecentMachines().filter((m) => m.id !== hit.id)].slice(0, 5);
+    window.localStorage.setItem(RECENT_MACHINES_KEY, JSON.stringify(next));
+  } catch {
+    /* per-viewer convenience only */
+  }
+}
+
 const KIND_CARDS: ReadonlyArray<{ kind: TargetKind; label: string; hint: string; Icon: typeof Wrench }> = [
   { kind: "MACHINE", label: "Machine / Equipment", hint: "Pumps, tractors, tools, production equipment", Icon: Wrench },
   { kind: "VEHICLE", label: "Vehicle", hint: "Trucks, cars, bikes and other fleet vehicles", Icon: Car },
@@ -136,6 +158,8 @@ function NewRequestForm() {
   const [functionalLocationId, setFunctionalLocationId] = useState("");
   const [approximateLocation, setApproximateLocation] = useState("");
   const [description, setDescription] = useState("");
+  const [recentMachines, setRecentMachines] = useState<MachineHit[]>([]);
+  useEffect(() => setRecentMachines(readRecentMachines()), []);
   const [reportedUrgency, setReportedUrgency] = useState<ReportedUrgency>("NORMAL");
   const [safetyImpact, setSafetyImpact] = useState<SafetyImpact>("NOT_SURE");
   const [productionImpact, setProductionImpact] = useState<ProductionImpact>("NOT_SURE");
@@ -484,6 +508,7 @@ function NewRequestForm() {
     setSubmitting(true);
     try {
       const created = await createMaintenanceRequest(payload);
+      if (selectedAsset) rememberMachine(selectedAsset);
       let photoFailures = 0;
       if (photos.length > 0 && photoLimit?.enabled) {
         for (const file of photos) {
@@ -528,27 +553,44 @@ function NewRequestForm() {
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-6 p-4 md:p-6">
+    <div className="mx-auto w-full max-w-2xl space-y-6 p-4 md:p-8">
       <PageBreadcrumbs />
       <ResponsivePageHeader
         title="Report a problem"
         description="Tell us what is wrong. It takes about a minute."
       />
 
-      <ol className="flex gap-1 text-xs" aria-label="Progress">
+      <ol className="flex items-start" aria-label="Progress">
         {STEP_LABELS.map((label, index) => {
           const n = index + 1;
+          const done = step > n;
+          const current = step === n;
           return (
-            <li key={label} className="flex-1" aria-current={step === n ? "step" : undefined}>
-              <span className={`block h-1.5 rounded-full ${step >= n ? "bg-brand-600" : "bg-slate-200"}`} />
-              <span className={`mt-1 block truncate ${step === n ? "font-semibold text-slate-900" : "text-slate-500"}`}>{label}</span>
+            <li key={label} className="flex flex-1 items-start" aria-current={current ? "step" : undefined}>
+              <div className="flex w-14 shrink-0 flex-col items-center gap-1.5 text-xs">
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
+                    done
+                      ? "bg-brand-600 text-white"
+                      : current
+                        ? "border-2 border-brand-600 bg-white text-brand-700"
+                        : "bg-slate-200 text-slate-500"
+                  }`}
+                >
+                  {done ? "✓" : n}
+                </span>
+                <span className={`truncate ${current ? "font-semibold text-brand-700" : "text-slate-500"}`}>{label}</span>
+              </div>
+              {n < STEP_LABELS.length ? (
+                <span className={`mt-4 h-0.5 flex-1 ${done ? "bg-brand-600" : "bg-slate-200"}`} aria-hidden />
+              ) : null}
             </li>
           );
         })}
       </ol>
 
       {step === 1 ? (
-        <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+        <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
           <h2 className="font-semibold text-slate-900">What has a problem?</h2>
           <div className="grid gap-2">
             {KIND_CARDS.map(({ kind, label, hint, Icon }) => (
@@ -574,19 +616,31 @@ function NewRequestForm() {
       ) : null}
 
       {step === 2 && targetKind === "MACHINE" ? (
-        <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="font-semibold text-slate-900">Identify the machine</h2>
+        <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">Which machine has the problem?</h2>
+            <p className="mt-1 text-sm text-slate-600">Scan its tag or search. Pick one to continue.</p>
+          </div>
           <button
             type="button"
-            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 text-sm"
+            className="flex w-full items-center gap-4 rounded-xl bg-gradient-to-br from-brand-700 to-brand-600 p-4 text-left text-white shadow-sm hover:from-brand-800"
             onClick={() => setScannerOpen(true)}
           >
-            <QrCode size={16} /> Scan QR (optional shortcut)
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/20">
+              <QrCode size={24} aria-hidden />
+            </span>
+            <span>
+              <span className="block text-base font-semibold">Scan the QR tag</span>
+              <span className="block text-sm text-white/85">Fastest. Point the camera at the sticker on the machine.</span>
+            </span>
           </button>
+          <div className="flex items-center gap-3 text-xs text-slate-400" aria-hidden>
+            <span className="h-px flex-1 bg-slate-200" /> or search <span className="h-px flex-1 bg-slate-200" />
+          </div>
           <div className="flex min-w-0 gap-2">
             <input
-              className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-200 px-3 text-sm"
-              placeholder="Search code, name, or serial"
+              className="min-h-12 min-w-0 flex-1 rounded-xl border-2 border-brand-600/70 px-4 text-base outline-none focus:ring-4 focus:ring-brand-600/10"
+              placeholder="Type code, name or serial…"
               value={assetQuery}
               aria-label="Search machines"
               aria-autocomplete="list"
@@ -610,7 +664,7 @@ function NewRequestForm() {
             />
             <button
               type="button"
-              className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-3 text-sm"
+              className="inline-flex min-h-12 shrink-0 items-center gap-1 rounded-xl border border-slate-300 px-4 text-sm font-medium"
               onClick={() => void searchMachines(assetQuery)}
             >
               {machineSearching ? <Loader2 className="animate-spin" size={14} /> : <Search size={14} />}
@@ -633,6 +687,33 @@ function NewRequestForm() {
               <p>{machineSearchMessage}</p>
             ) : null}
           </div>
+          {assetHits.length === 0 && !selectedAsset && !assetQuery.trim() && recentMachines.length > 0 ? (
+            <div>
+              <p className="mb-2 text-xs font-semibold tracking-wide text-slate-500">RECENTLY REPORTED</p>
+              <ul className="space-y-2">
+                {recentMachines.map((m) => (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      className="flex min-h-14 w-full items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 text-left hover:bg-slate-50"
+                      onClick={() => chooseAsset(m, m.assetTag)}
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+                        <Wrench size={18} aria-hidden />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-slate-900">{m.name}</span>
+                        <span className="block truncate text-xs text-slate-600">
+                          {m.assetTag}
+                          {machineLocationLabel(m) ? ` · ${machineLocationLabel(m)}` : ""}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {assetHits.length > 0 ? (
             <ul
               id="machine-search-results"
@@ -670,8 +751,8 @@ function NewRequestForm() {
           ) : null}
           {selectedAsset ? (
             <div className="space-y-2">
-              <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                Selected: <strong>{selectedAsset.name}</strong>
+              <p className="rounded-xl border-2 border-brand-600 bg-brand-50 px-4 py-3 text-sm">
+                <span className="mr-1 font-bold text-brand-700">✓</span> <strong>{selectedAsset.name}</strong>
                 <span className="mt-1 block text-xs text-slate-600">
                   Asset: {selectedAsset.assetTag}
                   {selectedAsset.serialNumber ? ` · Serial: ${selectedAsset.serialNumber}` : ""}
@@ -715,7 +796,7 @@ function NewRequestForm() {
       ) : null}
 
       {step === 2 && targetKind === "VEHICLE" ? (
-        <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+        <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
           <h2 className="font-semibold text-slate-900">Identify the vehicle</h2>
           <div className="flex gap-2">
             <input
@@ -793,7 +874,7 @@ function NewRequestForm() {
       ) : null}
 
       {step === 2 && targetKind === "FACILITY" ? (
-        <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+        <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
           <h2 className="font-semibold text-slate-900">Identify the location</h2>
           <div className="mb-1 flex items-center gap-2 text-sm text-slate-600">
             <MapPin size={14} /> Site + functional location
@@ -862,7 +943,7 @@ function NewRequestForm() {
       ) : null}
 
       {step === 2 && targetKind === "NOT_SURE" ? (
-        <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+        <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
           <h2 className="font-semibold text-slate-900">Where is the problem?</h2>
           <p className="text-sm text-slate-600">
             You do not need to know the exact equipment. A reviewer will confirm the target before
@@ -908,32 +989,107 @@ function NewRequestForm() {
       ) : null}
 
       {step === 3 ? (
-        <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="font-semibold">Describe the problem</h2>
+        <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
           {targetSummary ? (
-            <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
-              Target: <strong>{targetSummary}</strong>
-            </p>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm">
+              <span className="min-w-0 truncate">
+                <strong>{targetSummary}</strong>
+              </span>
+              <button type="button" className="shrink-0 font-medium text-brand-700 underline-offset-2 hover:underline" onClick={() => setStep(2)}>
+                change
+              </button>
+            </div>
           ) : null}
-          <textarea
-            className="min-h-32 w-full rounded-lg border border-slate-200 p-3 text-sm"
-            placeholder="What happened? What do you see or hear?"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            maxLength={4000}
-          />
-          {description.trim().length < 5 ? <p className="text-xs text-slate-500">Write at least 5 characters to continue.</p> : null}
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">What is wrong?</h2>
+            <p className="mt-1 text-sm text-slate-600">Tap what fits, or write it in your own words.</p>
+          </div>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Quick problem types">
+            {SYMPTOMS.map((label) => {
+              const on = description.toLowerCase().includes(label.toLowerCase());
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() =>
+                    setDescription((d) => {
+                      if (on) return d.replace(new RegExp(`${label}\\.?\\s*`, "i"), "").trimStart();
+                      return `${label}. ${d}`.trimEnd() + (d ? "" : " ");
+                    })
+                  }
+                  className={`min-h-10 rounded-full border-2 px-4 text-sm font-semibold ${
+                    on ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <div>
+            <textarea
+              className="min-h-32 w-full rounded-xl border-2 border-slate-300 p-3 text-base outline-none focus:border-brand-600"
+              placeholder="What happened? What do you see or hear?"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              maxLength={4000}
+            />
+            <p className="mt-1 flex justify-between text-xs text-slate-500">
+              <span>{description.trim().length < 5 ? "Write at least 5 characters to continue." : ""}</span>
+              <span>{description.length} / 4000</span>
+            </p>
+          </div>
           {photoLimit?.enabled ? (
             <PendingPhotoPicker files={photos} onChange={setPhotos} max={photoLimit.maxPhotos} disabled={submitting} />
           ) : null}
+          <div role="group" aria-label="How urgent is it?" className="grid grid-cols-3 gap-2">
+            {(
+              [
+                ["NORMAL", "Normal"],
+                ["URGENT", "Urgent"],
+                ["STOPPED", "Machine stopped"]
+              ] as const
+            ).map(([key, label]) => {
+              const on =
+                key === "STOPPED"
+                  ? productionImpact === "STOPPED"
+                  : productionImpact !== "STOPPED" && reportedUrgency === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => {
+                    if (key === "STOPPED") {
+                      setReportedUrgency("VERY_URGENT");
+                      setProductionImpact("STOPPED");
+                    } else {
+                      setReportedUrgency(key);
+                      if (productionImpact === "STOPPED") setProductionImpact("NOT_SURE");
+                    }
+                  }}
+                  className={`min-h-11 rounded-xl border-2 px-2 text-sm font-semibold ${
+                    on
+                      ? key === "NORMAL"
+                        ? "border-brand-600 bg-brand-50 text-brand-800"
+                        : "border-amber-500 bg-amber-50 text-amber-900"
+                      : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
           <div className="flex gap-2">
-            <button type="button" className="min-h-11 flex-1 rounded-lg border text-sm" onClick={() => setStep(2)}>
+            <button type="button" className="min-h-12 flex-1 rounded-xl border border-slate-300 text-sm font-medium" onClick={() => setStep(2)}>
               Back
             </button>
             <button
               type="button"
               disabled={description.trim().length < 5 || submitting}
-              className="min-h-11 flex-1 rounded-lg border border-slate-300 text-sm disabled:opacity-40"
+              className="min-h-12 flex-1 rounded-xl border-2 border-brand-600 text-sm font-semibold text-brand-700 disabled:opacity-40"
               onClick={() => setStep(4)}
             >
               More details
@@ -941,20 +1097,18 @@ function NewRequestForm() {
             <button
               type="button"
               disabled={description.trim().length < 5 || submitting || !canContinueTarget}
-              className="min-h-11 flex-[1.4] rounded-lg bg-brand-600 hover:bg-brand-700 text-sm font-medium text-white disabled:opacity-40"
+              className="min-h-12 flex-[1.4] rounded-xl bg-brand-600 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-40"
               onClick={() => void submit()}
             >
               {submitting ? "Sending…" : "Send now"}
             </button>
           </div>
-          <p className="text-xs text-slate-500">
-            Urgency is set to Normal. Choose More details to change urgency or safety impact.
-          </p>
+          <p className="text-xs text-slate-500">More details lets you say if anyone&apos;s safety is at risk.</p>
         </section>
       ) : null}
 
       {step === 4 ? (
-        <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+        <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
           <h2 className="font-semibold">Urgency and impact</h2>
           <ChoiceGroup<ReportedUrgency>
             label="How urgent does this feel?"
@@ -1006,7 +1160,7 @@ function NewRequestForm() {
       ) : null}
 
       {step === 5 ? (
-        <form onSubmit={submit} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+        <form onSubmit={submit} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
           <h2 className="font-semibold">Review & submit</h2>
           <p className="text-sm text-slate-600">Check your answers. Use Edit to change a step before you send it.</p>
           <div className="space-y-3">

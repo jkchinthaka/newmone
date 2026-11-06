@@ -1555,3 +1555,6 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 
 ### Admin self-approval (2026-11-06)
 - Admin and Super Admin may now approve/decide their own requests: approvals inbox (`assertNotOwnRequest` takes role, `canDecide`), work order approve (no emergency reason needed), part issue (self-issue block skipped). Other roles keep maker-checker. Vendor repair / fraud-control were already admin-exempt; LOTO and "technician cannot verify own work" unchanged. API jest: inbox/approvals/fraud/business-flow pass; `maintenance-requests-actions.spec.ts` has 2 failures that also fail without this change (pre-existing).
+
+### Report a problem wizard polish (2026-11-06)
+- Circle stepper with ticks, wider centered card (`max-w-2xl`), machine step with green "Scan the QR tag" card + big search + "Recently reported" (browser localStorage `nelna.recentMachines`, saved on successful submit, wrapped in try/catch), describe step with symptom chips, photos, and inline urgency (Normal / Urgent / Machine stopped -> reportedUrgency + productionImpact STOPPED). "More details" step still covers safety. tsc clean, web tests 556 pass; not browser-tested.
