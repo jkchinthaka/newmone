@@ -8,7 +8,7 @@ export const PWA_BACKGROUND_COLOR = "#f1f5f9";
 export const PWA_START_URL = "/";
 export const PWA_SCOPE = "/";
 export const PWA_DISPLAY = "standalone" as const;
-export const PWA_ORIENTATION = "portrait" as const;
+export const PWA_ORIENTATION = "any" as const;
 
 export const PWA_ICON_PATHS = {
   icon192: "/pwa-192x192.png",

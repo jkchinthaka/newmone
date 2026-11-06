@@ -5,6 +5,7 @@ import { PanelLeft } from "lucide-react";
 
 import { AppBrandLockup } from "@/components/brand/app-brand-lockup";
 import { NelnaLogo } from "@/components/brand/nelna-logo";
+import { InstallAppButton } from "@/components/pwa/install-app-button";
 import { NavLinks } from "@/components/layout/nav-links";
 import { InlineLoadingState } from "@/components/ui/page-state";
 
@@ -31,6 +32,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: { collapsed?: 
           <NavLinks compact={collapsed} tone="inverse" />
         </Suspense>
       </div>
+      {collapsed ? null : <InstallAppButton tone="inverse" className="border-t border-white/10 p-3" />}
     </aside>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { InstallAppButton } from "@/components/pwa/install-app-button";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ArrowRight, ExternalLink, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
@@ -394,6 +395,7 @@ export default function LoginPage() {
                   )}
                 </button>
               </form>
+              <InstallAppButton className="mt-5" />
 
               <p className="mt-3 flex items-start gap-1.5 text-[12.5px] leading-5 text-slate-500">
                 <Lock aria-hidden className="mt-0.5 shrink-0" size={13} />

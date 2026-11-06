@@ -15,6 +15,7 @@ import {
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: "/",
     name: PWA_NAME,
     short_name: PWA_SHORT_NAME,
     description: PWA_DESCRIPTION,
@@ -24,6 +25,13 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: PWA_BACKGROUND_COLOR,
     theme_color: PWA_THEME_COLOR,
     orientation: PWA_ORIENTATION,
+    lang: "en-LK",
+    dir: "ltr",
+    categories: ["business", "productivity", "utilities"],
+    shortcuts: [
+      { name: "My jobs", short_name: "My jobs", url: "/work-orders/my", icons: [{ src: PWA_ICON_PATHS.icon192, sizes: "192x192", type: "image/png" }] },
+      { name: "Report a problem", short_name: "New request", url: "/requests/new", icons: [{ src: PWA_ICON_PATHS.icon192, sizes: "192x192", type: "image/png" }] }
+    ],
     icons: [
       { src: PWA_ICON_PATHS.icon192, sizes: "192x192", type: "image/png", purpose: "any" },
       { src: PWA_ICON_PATHS.icon512, sizes: "512x512", type: "image/png", purpose: "any" },

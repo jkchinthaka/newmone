@@ -4,6 +4,7 @@ import { Suspense, useRef } from "react";
 import { X } from "lucide-react";
 
 import { AppBrandLockup } from "@/components/brand/app-brand-lockup";
+import { InstallAppButton } from "@/components/pwa/install-app-button";
 import { NavLinks } from "@/components/layout/nav-links";
 import { InlineLoadingState } from "@/components/ui/page-state";
 import { MOBILE_NAV_DRAWER_ID } from "@/lib/accessibility";
@@ -56,6 +57,7 @@ export function MobileNav({ open, onClose, onEscape, id = MOBILE_NAV_DRAWER_ID }
             <NavLinks onNavigate={onClose} />
           </Suspense>
         </div>
+        <InstallAppButton className="border-t border-slate-200 p-3" />
       </aside>
     </div>
   );
