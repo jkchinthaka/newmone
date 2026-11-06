@@ -35,36 +35,66 @@ function PeoplePicker({
   selected: string[];
   onChange: (ids: string[]) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const visible = employees.filter((e) => e.fullName.toLowerCase().includes(query.trim().toLowerCase()));
+  const byId = new Map(employees.map((e) => [e.id, e]));
+  const visible = employees.filter(
+    (e) => !selected.includes(e.id) && e.fullName.toLowerCase().includes(query.trim().toLowerCase())
+  );
   return (
-    <div className="rounded-lg border border-slate-200">
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search people"
-        aria-label="Search people"
-        className="w-full rounded-t-lg border-b border-slate-200 px-3 py-2 text-sm outline-none focus:bg-brand-50/40"
-      />
-      <ul className="max-h-40 overflow-y-auto p-1">
-        {visible.length === 0 ? <li className="px-2 py-2 text-sm text-slate-500">No one found</li> : null}
-        {visible.map((e) => {
-          const checked = selected.includes(e.id);
-          return (
-            <li key={e.id}>
-              <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-2 text-sm hover:bg-slate-50">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => onChange(checked ? selected.filter((id) => id !== e.id) : [...selected, e.id])}
-                />
-                <span className="flex-1">{e.fullName}</span>
-                {e.designation ? <span className="text-xs text-slate-500">{e.designation}</span> : null}
-              </label>
-            </li>
-          );
-        })}
-      </ul>
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {selected.map((id) => (
+          <span key={id} className="inline-flex items-center gap-1 rounded-full bg-brand-100 px-3 py-1 text-sm text-brand-800">
+            {byId.get(id)?.fullName ?? "Person"}
+            <button
+              type="button"
+              aria-label={`Remove ${byId.get(id)?.fullName ?? "person"}`}
+              onClick={() => onChange(selected.filter((x) => x !== id))}
+              className="ml-1 text-brand-700 hover:text-brand-900"
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="min-h-9 rounded-full px-3 text-sm font-medium text-brand-700 hover:bg-brand-50"
+        >
+          + Add person
+        </button>
+      </div>
+      {open ? (
+        <div className="rounded-lg border border-slate-200 bg-white">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search people"
+            aria-label="Search people"
+            autoFocus
+            className="w-full rounded-t-lg border-b border-slate-200 px-3 py-2 text-sm outline-none"
+          />
+          <ul className="max-h-44 overflow-y-auto p-1">
+            {visible.length === 0 ? <li className="px-2 py-2 text-sm text-slate-500">No one found</li> : null}
+            {visible.map((e) => (
+              <li key={e.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange([...selected, e.id]);
+                    setQuery("");
+                  }}
+                  className="flex min-h-10 w-full items-center justify-between rounded px-2 text-left text-sm hover:bg-slate-50"
+                >
+                  <span>{e.fullName}</span>
+                  {e.designation ? <span className="text-xs text-slate-500">{e.designation}</span> : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -225,18 +255,21 @@ export function WorkOrderTasksPanel({
             />
           </label>
           <div>
-            <p className="mb-1 text-sm font-medium text-slate-800">Who does it (one or more)</p>
+            <p className="mb-1 text-sm font-medium text-slate-800">Who does it</p>
             <PeoplePicker employees={employees} selected={people} onChange={setPeople} />
           </div>
-          <label className="block text-sm font-medium text-slate-800">
-            Estimated hours (optional)
-            <input
-              value={hours}
-              onChange={(e) => setHours(e.target.value.replace(/[^0-9.]/g, ""))}
-              inputMode="decimal"
-              className="mt-1 w-32 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
+          <details>
+            <summary className="cursor-pointer text-sm font-medium text-brand-700">More options (estimated hours)</summary>
+            <label className="mt-2 block text-sm font-medium text-slate-800">
+              Estimated hours
+              <input
+                value={hours}
+                onChange={(e) => setHours(e.target.value.replace(/[^0-9.]/g, ""))}
+                inputMode="decimal"
+                className="mt-1 block w-32 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+            </label>
+          </details>
           <div className="flex gap-2">
             <button
               type="button"

@@ -245,7 +245,7 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
     <div className="space-y-4">
       {readOnly || !canCreate ? null : (
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-900">Request parts</h3>
+        <h3 className="text-base font-semibold text-slate-900">Add a part</h3>
 
         <div className="mt-3 grid gap-2">
           {partsSearchAvailable ? (
@@ -254,12 +254,12 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
                 value={partSearch}
                 onChange={(event) => setPartSearch(event.target.value)}
                 placeholder="Search by item code or name"
-                className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
               <select
                 value={partId}
                 onChange={(event) => setPartId(event.target.value)}
-                className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
               >
                 <option value="">{partsLoading ? "Loading spare parts..." : "Select spare part"}</option>
                 {filteredParts.map((part) => (
@@ -278,7 +278,7 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
               <AlertTriangle size={12} /> {stockWarning}
             </p>
           ) : null}
-          <p className="text-xs text-slate-500">Stock levels come from the ERP.</p>
+          <p className="text-sm text-slate-500">Stock levels come from the ERP.</p>
 
           <div className="grid gap-2 md:grid-cols-[120px_1fr_auto]">
             <input
@@ -286,19 +286,19 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
               onChange={(event) => setQuantity(event.target.value)}
               type="number"
               min={1}
-              className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
             <input
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               placeholder="Reason (optional)"
-              className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
             <button
               type="button"
               disabled={creating}
               onClick={() => void handleCreate()}
-              className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-50 hover:bg-brand-500"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-50 hover:bg-brand-500"
             >
               <PackagePlus size={14} /> Request part
             </button>
@@ -307,6 +307,7 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
       </section>
       )}
 
+      {loading || requests.length > 0 ? (
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-900">Part requests</h3>
@@ -483,7 +484,11 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
           </ul>
         )}
       </section>
+      ) : (
+        <p className="rounded-xl border border-dashed border-slate-300 px-4 py-4 text-center text-sm text-slate-500">No parts requested yet.</p>
+      )}
 
+      {lines.length > 0 ? (
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900">Issued parts: used or returned</h3>
         <p className="mt-1 text-xs text-slate-500">Every issued part must be marked used or returned before the job can be completed.</p>
@@ -686,7 +691,9 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
           </div>
         )}
       </section>
+      ) : null}
 
+      {summary && (summary.requestedCost || summary.approvedCost || summary.issuedCost || summary.netPartCost || summary.returnedValue || summary.unaccountedLines > 0) ? (
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900">Cost summary</h3>
         {summary ? (
@@ -725,6 +732,7 @@ export function PartRequestsPanel({ workOrderId, readOnly = false }: Props) {
           <p className="mt-2 text-xs text-slate-500">Cost data not available.</p>
         )}
       </section>
+      ) : null}
     </div>
   );
 }

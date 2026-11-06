@@ -145,12 +145,12 @@ export function WorkOrderOverviewView({
   const actual = money(workOrder.actualCost);
   const hours = workOrder.estimatedHours != null && workOrder.estimatedHours !== "" ? String(workOrder.estimatedHours) : null;
   const actualHours = workOrder.actualHours != null && workOrder.actualHours !== "" ? String(workOrder.actualHours) : null;
-  const showCost = Boolean(estimated || actual || hours || actualHours);
   const showSla = Boolean(workOrder.slaDeadline) || workOrder.slaBreached;
   const rows: Array<[string, string]> = [
-    ["Type", toTitleCase(workOrder.type)],
-    ["Location", workOrder.asset?.name || workOrder.vehicle?.registrationNo || "No asset linked"]
+    ["Type", toTitleCase(workOrder.type)]
   ];
+  const place = workOrder.asset?.name || workOrder.vehicle?.registrationNo;
+  if (place) rows.push(["Location", place]);
   if (workOrder.categoryNameSnapshot) rows.splice(1, 0, ["Category", workOrder.categoryNameSnapshot]);
   else if (workOrder.jobDomain) rows.splice(1, 0, ["Category", toTitleCase(workOrder.jobDomain)]);
   const due = when(workOrder.dueDate);
@@ -160,71 +160,67 @@ export function WorkOrderOverviewView({
   const requestedBy = person(workOrder);
   if (requestedBy) rows.push(["Requested by", requestedBy]);
 
+  if (description) rows.push(["Problem", description]);
+
   return (
     <div className="space-y-4">
-      <WorkOrderCostBreakdown workOrderId={workOrder.id} />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <SectionCard
-          title="Job details"
-          action={
-            readOnly ? null : (
-              <button type="button" className="text-sm font-medium text-brand-700 underline-offset-2 hover:underline" onClick={onEdit}>
-                Edit details
-              </button>
-            )
-          }
-        >
-          <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-[9rem_1fr]">
-            {rows.map(([label, value]) => (
-              <div key={label} className="contents">
-                <dt className="text-slate-500">{label}</dt>
-                <dd className="font-medium text-slate-900">{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </SectionCard>
-        <SectionCard title="Description">
-          <p className="whitespace-pre-wrap text-sm text-slate-800">{description || "No description."}</p>
-          {showCost ? (
-            <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
-              {estimated ? (
-                <div className="rounded-lg border border-slate-200 px-3 py-2">
-                  <dt className="text-xs text-slate-500">Estimated cost</dt>
-                  <dd className="font-semibold text-slate-900">{estimated}</dd>
-                </div>
-              ) : null}
-              {actual ? (
-                <div className="rounded-lg border border-slate-200 px-3 py-2">
-                  <dt className="text-xs text-slate-500">Actual cost</dt>
-                  <dd className="font-semibold text-slate-900">{actual}</dd>
-                </div>
-              ) : null}
-              {hours ? (
-                <div className="rounded-lg border border-slate-200 px-3 py-2">
-                  <dt className="text-xs text-slate-500">Estimated hours</dt>
-                  <dd className="font-semibold text-slate-900">{hours}</dd>
-                </div>
-              ) : null}
-              {actualHours ? (
-                <div className="rounded-lg border border-slate-200 px-3 py-2">
-                  <dt className="text-xs text-slate-500">Actual hours</dt>
-                  <dd className="font-semibold text-slate-900">{formatActualHours(actualHours)}</dd>
-                </div>
-              ) : null}
-            </dl>
-          ) : null}
-          {showSla ? (
-            <p className="mt-3 text-sm text-slate-700">
-              {workOrder.slaDeadline ? `Time limit: ${when(workOrder.slaDeadline)}` : "Time limit"}
-              {workOrder.slaBreached ? " · Time limit breached" : ""}
-            </p>
-          ) : null}
-        </SectionCard>
-      </div>
-      <section className="rounded-card border border-slate-200 bg-white p-4 shadow-card">
-        <h2 className="text-sm font-semibold text-slate-900">Next step</h2>
-        <p className="mt-1 text-sm text-slate-700">{workOrderNextStepHint(workOrder.status, role)}</p>
+      <section className="rounded-card border border-brand-200 bg-brand-50 p-4">
+        <h2 className="text-sm font-semibold text-brand-800">Next step</h2>
+        <p className="mt-1 text-base text-slate-900">{workOrderNextStepHint(workOrder.status, role)}</p>
       </section>
+      <WorkOrderCostBreakdown workOrderId={workOrder.id} />
+      <SectionCard
+        title="Job details"
+        action={
+          readOnly ? null : (
+            <button type="button" className="text-sm font-medium text-brand-700 underline-offset-2 hover:underline" onClick={onEdit}>
+              Edit details
+            </button>
+          )
+        }
+      >
+        <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-[9rem_1fr]">
+          {rows.map(([label, value]) => (
+            <div key={label} className="contents">
+              <dt className="text-slate-500">{label}</dt>
+              <dd className="whitespace-pre-wrap font-medium text-slate-900">{value}</dd>
+            </div>
+          ))}
+          {showSla ? (
+            <div className="contents">
+              <dt className="text-slate-500">Time limit</dt>
+              <dd className="font-medium text-slate-900">
+                {workOrder.slaDeadline ? when(workOrder.slaDeadline) : "Set"}
+                {workOrder.slaBreached ? " · breached" : ""}
+              </dd>
+            </div>
+          ) : null}
+          {estimated ? (
+            <div className="contents">
+              <dt className="text-slate-500">Estimated cost</dt>
+              <dd className="font-medium text-slate-900">{estimated}</dd>
+            </div>
+          ) : null}
+          {actual ? (
+            <div className="contents">
+              <dt className="text-slate-500">Actual cost</dt>
+              <dd className="font-medium text-slate-900">{actual}</dd>
+            </div>
+          ) : null}
+          {hours ? (
+            <div className="contents">
+              <dt className="text-slate-500">Estimated hours</dt>
+              <dd className="font-medium text-slate-900">{hours}</dd>
+            </div>
+          ) : null}
+          {actualHours ? (
+            <div className="contents">
+              <dt className="text-slate-500">Actual hours</dt>
+              <dd className="font-medium text-slate-900">{formatActualHours(actualHours)}</dd>
+            </div>
+          ) : null}
+        </dl>
+      </SectionCard>
     </div>
   );
 }

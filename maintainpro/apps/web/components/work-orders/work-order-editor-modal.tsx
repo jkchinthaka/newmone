@@ -854,7 +854,12 @@ export function WorkOrderEditorModal({
 
               {!isCreateMode && workOrder && activeTab === "overview" ? (
                 <div className="space-y-3">
-                  <WorkOrderGovernanceBanner workOrder={workOrder} />
+                  <WorkOrderGovernanceBanner
+                    workOrder={workOrder}
+                    extraWarnings={
+                      historySummary.data?.repeatIssueWarnings?.length ? ["Repeated issue on this asset. See History."] : []
+                    }
+                  />
                   <WorkOrderDomainPanel
                     workOrderId={workOrder.id}
                     workOrderStatus={workOrder.status}
@@ -883,18 +888,6 @@ export function WorkOrderEditorModal({
                       onUpdated={onClose}
                     />
                   ) : null}
-                </div>
-              ) : null}
-
-              {!isCreateMode && activeTab === "overview" && historySummary.data?.repeatIssueWarnings?.length ? (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
-                    <div>
-                      <p className="font-semibold">Repeated issue detected for this asset/vehicle.</p>
-                      <p className="mt-1 text-sm">Open the History tab for prior maintenance context.</p>
-                    </div>
-                  </div>
                 </div>
               ) : null}
 

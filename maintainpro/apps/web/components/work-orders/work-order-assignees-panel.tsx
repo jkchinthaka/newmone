@@ -343,10 +343,7 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
 
   return (
     <section className="space-y-4">
-      <h4 className="text-sm font-semibold text-slate-900">Assigned team</h4>
-      <p className="mt-1 text-xs text-slate-500">
-        Add the people doing this job. Mark one as the main person.
-      </p>
+      <h4 className="text-base font-semibold text-slate-900">Team</h4>
 
       {!canSeeAssignees ? (
         <p className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
@@ -364,22 +361,10 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
         <EmptyState title="No employees assigned yet" description="Add a team member when this job is still open." />
       ) : (
         <div className="space-y-3">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-              <p className="text-xs text-slate-500">Team members</p>
-              <p className="font-semibold text-slate-900">{assignees.length}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-              <p className="text-xs text-slate-500">Planned hours</p>
-              <p className="font-semibold text-slate-900">{plannedHours} h</p>
-            </div>
-            {actualLabel ? (
-              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-                <p className="text-xs text-slate-500">Actual hours</p>
-                <p className="font-semibold text-slate-900">{actualLabel}</p>
-              </div>
-            ) : null}
-          </div>
+          <p className="text-sm text-slate-600">
+            {assignees.length} {assignees.length === 1 ? "person" : "people"} · {plannedHours} h planned
+            {actualLabel ? ` · ${actualLabel} worked` : ""}
+          </p>
         <ul className="space-y-2">
           {assignees.map((row) => (
             <li
@@ -467,7 +452,7 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
 
       {canSeeAssignees && !readOnly ? (
       <SectionCard
-        title="Add team member"
+        title="Add a person"
         action={
           <button
             type="button"
@@ -488,40 +473,9 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
           void handleAdd();
         }}
       >
-        <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Filter by designation</span>
-          {loadingEmployees ? (
-            <p className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500" role="status">
-              <Loader2 size={14} className="animate-spin" /> Loading designations...
-            </p>
-          ) : employeesError ? (
-            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{employeesError}</p>
-          ) : designationOptions.length === 0 ? (
-            <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
-              No designations are available for this tenant.
-            </p>
-          ) : (
-          <select
-            aria-label="Filter by designation"
-            value={designationOptions.includes(designationFilter) ? designationFilter : ""}
-            onChange={(event) => {
-              setDesignationFilter(event.target.value);
-              setEmployeeId("");
-            }}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="">All designations</option>
-            {designationOptions.map((designation) => (
-              <option key={designation} value={designation}>
-                {formatEnumLabel(designation)}
-              </option>
-            ))}
-          </select>
-          )}
-        </label>
-
-        <label className="space-y-1 text-sm text-slate-700">
-          <span className="font-medium">Employee</span>
+        <div className="flex items-start gap-2 sm:col-span-2">
+        <label className="min-w-0 flex-1 space-y-1 text-sm text-slate-700">
+          <span className="sr-only">Person</span>
           {!canSeeEmployees ? (
             <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
               Your role cannot browse the employee list. Ask a manager or administrator to add assignees.
@@ -540,7 +494,7 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
                 onChange={(event) => setEmployeeId(event.target.value)}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               >
-                <option value="">Select employee...</option>
+                <option value="">Select person…</option>
                 {selectableEmployees.map((employee) => (
                   <option key={employee.id} value={employee.id}>
                     {formatEmployeeOptionLabel({
@@ -573,6 +527,89 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
                 </div>
               ) : null}
             </>
+          )}
+        </label>
+
+        <div className="shrink-0">
+          <button
+            type="button"
+            onClick={() => void handleAdd()}
+            disabled={busy}
+            className="inline-flex items-center gap-2 min-h-10 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+          >
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} aria-hidden />}
+            Add
+          </button>
+        </div>
+        </div>
+        {previewLoading ? (
+          <p className="inline-flex items-center gap-2 text-xs text-slate-500 sm:col-span-2">
+            <Loader2 size={12} className="animate-spin" /> Checking availability...
+          </p>
+        ) : null}
+
+        {assignmentPreview?.onApprovedLeave && !showLeaveOverride ? (
+          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 sm:col-span-2">
+            Employee has approved leave in this window. Choose another employee or ask a manager to override.
+          </p>
+        ) : null}
+
+        {showLeaveOverride ? (
+          <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/80 p-3 sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm text-amber-900">
+              <input
+                type="checkbox"
+                checked={leaveOverride}
+                onChange={(event) => setLeaveOverride(event.target.checked)}
+                className="rounded border-amber-400"
+              />
+              Override approved leave conflict (manager permission required; audited)
+            </label>
+            {leaveOverride ? (
+              <input
+                value={leaveOverrideReason}
+                onChange={(event) => setLeaveOverrideReason(event.target.value)}
+                placeholder="Override reason (required)"
+                className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm"
+              />
+            ) : null}
+          </div>
+        ) : null}
+
+        <details className="sm:col-span-2">
+          <summary className="cursor-pointer text-sm font-medium text-brand-700">
+            More options (role, hours, planned time, main person)
+          </summary>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="space-y-1 text-sm text-slate-700">
+          <span className="font-medium">Filter by designation</span>
+          {loadingEmployees ? (
+            <p className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500" role="status">
+              <Loader2 size={14} className="animate-spin" /> Loading designations...
+            </p>
+          ) : employeesError ? (
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{employeesError}</p>
+          ) : designationOptions.length === 0 ? (
+            <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+              No designations are available for this tenant.
+            </p>
+          ) : (
+          <select
+            aria-label="Filter by designation"
+            value={designationOptions.includes(designationFilter) ? designationFilter : ""}
+            onChange={(event) => {
+              setDesignationFilter(event.target.value);
+              setEmployeeId("");
+            }}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value="">All designations</option>
+            {designationOptions.map((designation) => (
+              <option key={designation} value={designation}>
+                {formatEnumLabel(designation)}
+              </option>
+            ))}
+          </select>
           )}
         </label>
 
@@ -616,40 +653,6 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
           ) : null}
         </div>
 
-        {previewLoading ? (
-          <p className="inline-flex items-center gap-2 text-xs text-slate-500 sm:col-span-2">
-            <Loader2 size={12} className="animate-spin" /> Checking availability...
-          </p>
-        ) : null}
-
-        {assignmentPreview?.onApprovedLeave && !showLeaveOverride ? (
-          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 sm:col-span-2">
-            Employee has approved leave in this window. Choose another employee or ask a manager to override.
-          </p>
-        ) : null}
-
-        {showLeaveOverride ? (
-          <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/80 p-3 sm:col-span-2">
-            <label className="flex items-center gap-2 text-sm text-amber-900">
-              <input
-                type="checkbox"
-                checked={leaveOverride}
-                onChange={(event) => setLeaveOverride(event.target.checked)}
-                className="rounded border-amber-400"
-              />
-              Override approved leave conflict (manager permission required; audited)
-            </label>
-            {leaveOverride ? (
-              <input
-                value={leaveOverrideReason}
-                onChange={(event) => setLeaveOverrideReason(event.target.value)}
-                placeholder="Override reason (required)"
-                className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm"
-              />
-            ) : null}
-          </div>
-        ) : null}
-
         <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
           <input
             type="checkbox"
@@ -660,17 +663,8 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
           Primary assignee{primaryName ? ` (replaces ${primaryName})` : ""}
         </label>
 
-        <div className="sm:col-span-2">
-          <button
-            type="button"
-            onClick={() => void handleAdd()}
-            disabled={busy}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
-          >
-            {busy ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} aria-hidden />}
-            Add assignee
-          </button>
-        </div>
+          </div>
+        </details>
       </div>
       </SectionCard>
       ) : null}

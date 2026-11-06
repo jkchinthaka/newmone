@@ -1548,3 +1548,7 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 
 ### Laptop auto-update (2026-11-06)
 - New `npm run dev:live` (`scripts/dev/auto-update.ps1`): starts API 3040 + web 3041 and polls `origin/live` every 15s; fast-forwards, and only when package.json/lock or prisma schema/migrations changed it stops servers, runs `npm install` / `db:generate` / `db:migrate:deploy`, then restarts. Skips if local edits, wrong branch or diverged. Replaces running `dev:current` + a separate puller. Not run on Windows from here (cloud author) - first run to be confirmed by the user.
+
+### Job page tabs simplified (2026-11-06)
+- Overview: Next step first, one Job details card (problem merged in), empty costs/road-test fields hidden (details fold), warnings merged into one line. Assignment: "Select person + Add", extras under More options. Tasks: people as chips. Parts: single "Add a part", empty request/issued/cost boxes hidden. Photos: before/after buttons with counts, compact "Still needed" line, other file/note under More, duplicate storage sentence fixed. tsc clean, web tests 556 pass; not browser-tested.
+- Tasks 500 earlier = migration not applied on laptop (resolved after `dev:live` startup sync).

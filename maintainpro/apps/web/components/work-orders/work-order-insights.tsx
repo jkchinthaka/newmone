@@ -68,7 +68,7 @@ export function WorkOrderCostBreakdown({ workOrderId }: { workOrderId: string })
     ["Total", cost.total]
   ];
   if (rows.every(([, value]) => !value)) {
-    return <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">No costs recorded yet.</p>;
+    return null;
   }
   return (
     <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">

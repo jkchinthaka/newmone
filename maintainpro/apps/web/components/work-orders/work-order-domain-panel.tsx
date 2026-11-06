@@ -109,6 +109,13 @@ export function WorkOrderDomainPanel({
 
   const data = query.data;
   const domain = String(data.jobDomain ?? "").toUpperCase();
+  const hasCompletion = [
+    data.completion.roadTestResult,
+    data.completion.completionMeterReading,
+    data.completion.operatingRestriction,
+    data.completion.productionImpact,
+    data.completion.productionResumedAt
+  ].some((v) => v != null && String(v).trim() !== "" && String(v) !== "—") || data.completion.temporaryRepair === true;
   const showRts =
     canReturnToService &&
     (workOrderStatus === "VERIFIED" || workOrderStatus === "CLOSED") &&
@@ -116,21 +123,6 @@ export function WorkOrderDomainPanel({
 
   return (
     <section className="space-y-4">
-      <div className="flex items-start gap-2">
-        <Wrench className="mt-0.5 h-4 w-4 text-brand-700" aria-hidden />
-        <div>
-          <h4 className="text-sm font-semibold text-ink">
-            {domain === "VEHICLE"
-              ? "Vehicle context"
-              : domain === "SERVICE"
-                ? "Facility / service context"
-                : domain === "MACHINERY"
-                  ? "Machinery context"
-                  : "Domain context"}
-          </h4>
-        </div>
-      </div>
-
       {data.controlIndicators.length > 0 ? (
         <div className="space-y-2">
           {data.controlIndicators.map((item) => (
@@ -191,7 +183,10 @@ export function WorkOrderDomainPanel({
         </dl>
       ) : null}
 
-      <dl className="grid gap-3 rounded-xl border border-brand-100 bg-brand-50 p-3 sm:grid-cols-2">
+      {hasCompletion ? (
+        <details className="rounded-xl border border-slate-200 bg-white p-3">
+          <summary className="cursor-pointer text-sm font-medium text-brand-700">Road test, meter and production details</summary>
+      <dl className="mt-3 grid gap-3 sm:grid-cols-2">
         <Field label="Road / workshop test" value={data.completion.roadTestResult} />
         <Field label="Completion meter" value={data.completion.completionMeterReading} />
         <Field label="Operating restriction" value={data.completion.operatingRestriction} />
@@ -199,6 +194,8 @@ export function WorkOrderDomainPanel({
         <Field label="Temporary repair" value={data.completion.temporaryRepair} />
         <Field label="Production resumed" value={data.completion.productionResumedAt} />
       </dl>
+        </details>
+      ) : null}
 
       {data.accident ? (
         <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">

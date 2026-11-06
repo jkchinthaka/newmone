@@ -432,14 +432,6 @@ export function WorkOrderEvidencePanel({
           Photos
         </h4>
       </div>
-      <div className="flex flex-wrap gap-2 text-xs">
-        <span className="rounded-full bg-emerald-50 px-2 py-1 font-medium text-emerald-800">
-          Before photo ({items.filter((item) => item.status === "UPLOADED" && item.evidenceType === "BEFORE_PHOTO").length})
-        </span>
-        <span className="rounded-full bg-amber-50 px-2 py-1 font-medium text-amber-800">
-          After photo ({items.filter((item) => item.status === "UPLOADED" && item.evidenceType === "AFTER_PHOTO").length})
-        </span>
-      </div>
       {items.some((item) => item.status === "UPLOADED" && item.mimeType.startsWith("image/")) ? (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {items
@@ -477,41 +469,34 @@ export function WorkOrderEvidencePanel({
       ) : null}
 
       {requirements ? (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-          <p className="font-medium text-slate-900">Photos requirements checklist</p>
-          <ul className="mt-2 space-y-1">
-            <li>{requirements.hasBefore ? "✓" : "○"} Before photo ({requirements.beforeCount})</li>
-            <li>{requirements.hasAfter ? "✓" : "○"} After photo ({requirements.afterCount})</li>
-            <li>{requirements.completionNoteProvided ? "✓" : "○"} Technician completion note</li>
-            {requirements.qrRequired ? (
-              <li>
-                {requirements.qrVerificationStatus === "VERIFIED" || requirements.qrVerificationStatus === "OVERRIDDEN"
-                  ? "✓"
-                  : "○"}{" "}
-                QR tag: {qrStatusLabel(requirements.qrVerificationStatus)}
-              </li>
-            ) : null}
-          </ul>
-          {requirements.waived ? (
-            <p className="mt-2 font-medium text-slate-700">photos waived while storage is off.</p>
-          ) : !requirements.complete && requirements.required ? (
-            <p className="mt-2 font-medium text-amber-800">Required photos missing.</p>
-          ) : null}
-          {requirements.rejectedCount > 0 ? (
-            <p className="mt-1 font-medium text-red-700">Photos rejected. Needs to be fixed again.</p>
-          ) : null}
-        </div>
+        (() => {
+          const missing: string[] = [];
+          if (!requirements.hasBefore) missing.push("before photo");
+          if (!requirements.hasAfter) missing.push("after photo");
+          if (!requirements.completionNoteProvided) missing.push("completion note");
+          if (requirements.qrRequired && requirements.qrVerificationStatus !== "VERIFIED" && requirements.qrVerificationStatus !== "OVERRIDDEN") {
+            missing.push("QR tag check");
+          }
+          if (requirements.rejectedCount > 0) {
+            return <p className="text-sm font-medium text-red-700">Photos rejected. Needs to be fixed again.</p>;
+          }
+          if (requirements.waived) {
+            return <p className="text-sm text-slate-600">Photo storage is off, so photos are not required.</p>;
+          }
+          if (missing.length > 0 && requirements.required) {
+            return <p className="text-sm font-medium text-amber-800">Still needed: {missing.join(", ")}.</p>;
+          }
+          return null;
+        })()
       ) : null}
 
       {readOnly ? null : (
       <div className="rounded-lg border border-slate-200 p-4">
-        <p className="text-sm font-medium text-slate-900">Upload photos</p>
         {!storageConfigured ? (
           <p className="mt-2 text-xs text-amber-800">
-            Photo storage is not set up yet. Ask your administrator.
             {currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN"
-              ? ` ${evidenceUploadDisabledMessage(readiness)}`
-              : ""}
+              ? evidenceUploadDisabledMessage(readiness)
+              : "Photo storage is not set up yet. Ask your administrator."}
           </p>
         ) : null}
         {uploadPhase === "uploading" ? <p className="mt-2 text-xs text-slate-600">Uploading photos…</p> : null}
@@ -526,7 +511,7 @@ export function WorkOrderEvidencePanel({
               aria-pressed={evidenceType === type}
               disabled={submitting}
               onClick={() => setEvidenceType(type)}
-              className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold ${
+              className={`inline-flex min-h-14 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-base font-semibold ${
                 evidenceType === type
                   ? "border-brand-600 bg-brand-600 text-white"
                   : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
@@ -534,13 +519,14 @@ export function WorkOrderEvidencePanel({
             >
               <Camera size={16} aria-hidden />
               {type === "BEFORE_PHOTO" ? "Add before photo" : "Add after photo"}
+              <span className="font-normal opacity-80">
+                · {items.filter((item) => item.status === "UPLOADED" && item.evidenceType === type).length}
+              </span>
             </button>
           ))}
         </div>
-        <p className="mt-2 text-xs text-slate-600">
-          Adding: <span className="font-semibold text-slate-900">{evidenceTypeLabel(evidenceType)}</span>
-          {evidenceType === "BEFORE_PHOTO" && !hasBeforePhoto ? " (take it before you start the repair)" : ""}
-        </p>
+        <details className="mt-3">
+        <summary className="cursor-pointer text-sm font-medium text-brand-700">More (invoice or other file, note)</summary>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-slate-600">
             Other file (invoice, part photo...)
@@ -568,6 +554,7 @@ export function WorkOrderEvidencePanel({
             />
           </label>
         </div>
+        </details>
         <div className="mt-3 space-y-3">
           {isLivePhotoEvidenceType(evidenceType) ? (
             <LiveCameraCapture

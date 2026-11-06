@@ -15,11 +15,13 @@ import type { WorkOrder } from "./types";
 
 type Props = {
   workOrder: WorkOrder;
+  /** Extra one-line warnings (e.g. repeat issue) merged into the single warning box. */
+  extraWarnings?: string[];
 };
 
-export function WorkOrderGovernanceBanner({ workOrder }: Props) {
+export function WorkOrderGovernanceBanner({ workOrder, extraWarnings = [] }: Props) {
   const verificationStatus = (workOrder.verificationStatus ?? "NOT_REQUIRED") as WorkOrderVerificationStatus;
-  const warnings: string[] = [];
+  const warnings: string[] = [...extraWarnings];
   const [riskScore, setRiskScore] = useState<{ score: number; severity: string } | null>(null);
 
   useEffect(() => {
@@ -44,9 +46,9 @@ export function WorkOrderGovernanceBanner({ workOrder }: Props) {
   }
 
   return (
-    <section className="space-y-3 rounded-xl border border-brand-100 bg-brand-50 p-4">
+    <section className="space-y-3">
       <details>
-        <summary className="cursor-pointer text-sm font-semibold text-ink">More details: lifecycle, approval, risk score</summary>
+        <summary className="cursor-pointer text-sm font-medium text-brand-700">More details (lifecycle, approval, risk)</summary>
         <dl className="mt-2 grid gap-x-4 gap-y-2 text-sm text-ink sm:grid-cols-2">
           <div>
             <dt className="font-medium text-brand-800">Lifecycle stage</dt>
@@ -83,17 +85,10 @@ export function WorkOrderGovernanceBanner({ workOrder }: Props) {
       ) : null}
 
       {warnings.length > 0 ? (
-        <ul className="space-y-2">
-          {warnings.map((message) => (
-            <li
-              key={message}
-              className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
-            >
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-              <span>{message}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <span>{warnings.join(" · ")}</span>
+        </div>
       ) : null}
     </section>
   );
