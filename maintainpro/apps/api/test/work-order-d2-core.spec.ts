@@ -102,6 +102,7 @@ describe("work order D2 core", () => {
         findFirst: jest.fn().mockResolvedValue({ actorId: "admin-1" }),
         create: jest.fn()
       },
+      workOrderTask: { count: jest.fn().mockResolvedValue(0) },
       evidenceAttachment: {
         findMany: jest.fn().mockResolvedValue([
           {
@@ -226,6 +227,7 @@ describe("work order D2 core", () => {
       workOrderAssignee: { count: jest.fn().mockResolvedValue(1) },
       workOrderStatusHistory: { create: jest.fn() },
       workOrderCostSnapshot: { upsert: jest.fn() },
+      workOrderTask: { count: jest.fn().mockResolvedValue(0) },
       evidenceAttachment: {
         findMany: jest.fn().mockResolvedValue([
           {

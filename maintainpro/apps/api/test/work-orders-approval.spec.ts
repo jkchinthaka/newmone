@@ -60,6 +60,7 @@ const createPrismaMock = () => ({
     create: jest.fn().mockResolvedValue({}),
     findFirst: jest.fn().mockResolvedValue(null)
   },
+  workOrderTask: { count: jest.fn().mockResolvedValue(0) },
   evidenceAttachment: {
     findMany: jest.fn().mockResolvedValue([
       { evidenceType: "BEFORE_PHOTO", status: "UPLOADED", verificationStatus: "PENDING" },

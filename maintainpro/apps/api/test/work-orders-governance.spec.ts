@@ -47,6 +47,7 @@ const createPrismaMock = () => ({
   stockMovement: { create: jest.fn() },
   partRequest: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn() },
   workOrderAssignee: { count: jest.fn().mockResolvedValue(1), findFirst: jest.fn().mockResolvedValue({ id: "assignee-1" }) },
+  workOrderTask: { count: jest.fn().mockResolvedValue(0) },
   evidenceAttachment: {
     count: jest.fn().mockResolvedValue(0),
     findMany: jest.fn().mockResolvedValue([

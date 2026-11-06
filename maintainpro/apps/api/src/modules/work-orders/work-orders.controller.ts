@@ -10,6 +10,7 @@ import type { JwtPayload } from "../auth/auth.types";
 import { ApproveWorkOrderDto, RejectWorkOrderDto, SubmitWorkOrderForApprovalDto } from "./dto/work-order-approval.dto";
 import { WorkOrderActivityService } from "./work-order-activity.service";
 import { WorkOrderAssigneesService } from "./work-order-assignees.service";
+import { WorkOrderTasksService } from "./work-order-tasks.service";
 import { WorkOrderHistoryService } from "./work-order-history.service";
 import { WorkOrderGovernanceService } from "./work-order-governance.service";
 import { WorkOrderPartsService } from "./work-order-parts.service";
@@ -55,7 +56,8 @@ export class WorkOrdersController {
     private readonly workOrderTaxonomyService: WorkOrderTaxonomyService,
     private readonly workOrderDomainService: WorkOrderDomainService,
     private readonly maintenanceConfig: MaintenanceConfigService,
-    private readonly workOrderInsightsService: WorkOrderInsightsService
+    private readonly workOrderInsightsService: WorkOrderInsightsService,
+    private readonly workOrderTasksService: WorkOrderTasksService
   ) {}
 
   @Get("governance/parts-exceptions")
@@ -731,6 +733,59 @@ export class WorkOrdersController {
   async remove(@Req() req: AuthedRequest, @Param("id") id: string) {
     const data = await this.workOrdersService.remove(id, req.user);
     return { data, message: "Work order cancelled (hard delete disabled)" };
+  }
+
+  @Get(":id/tasks")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "SUPERVISOR")
+  async listTasks(@Req() req: AuthedRequest, @Param("id") id: string) {
+    const data = await this.workOrderTasksService.list(id, req.user);
+    return { data, message: "Job tasks fetched" };
+  }
+
+  @Post(":id/tasks")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Permissions("work_orders.manage")
+  async addTask(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() body: { title: string; employeeIds?: string[]; estimatedHours?: number | null }
+  ) {
+    const data = await this.workOrderTasksService.add(id, body, req.user);
+    return { data, message: "Task added" };
+  }
+
+  @Patch(":id/tasks/:taskId")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Permissions("work_orders.manage")
+  async updateTask(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("taskId") taskId: string,
+    @Body() body: { title?: string; employeeIds?: string[]; estimatedHours?: number | null }
+  ) {
+    const data = await this.workOrderTasksService.update(id, taskId, body, req.user);
+    return { data, message: "Task updated" };
+  }
+
+  @Delete(":id/tasks/:taskId")
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER")
+  @Permissions("work_orders.manage")
+  async removeTask(@Req() req: AuthedRequest, @Param("id") id: string, @Param("taskId") taskId: string) {
+    const data = await this.workOrderTasksService.remove(id, taskId, req.user);
+    return { data, message: "Task removed" };
+  }
+
+  @Post(":id/tasks/:taskId/status")
+  @HttpCode(HttpStatus.OK)
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "OPERATIONS_MANAGER", "ASSET_MANAGER", "MECHANIC", "TECHNICIAN", "SUPERVISOR")
+  async setTaskStatus(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Param("taskId") taskId: string,
+    @Body() body: { status: string }
+  ) {
+    const data = await this.workOrderTasksService.setStatus(id, taskId, body.status, req.user);
+    return { data, message: "Task updated" };
   }
 
   @Get(":id/assignees")

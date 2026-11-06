@@ -10,6 +10,7 @@ import { WorkforceModule } from "../workforce/workforce.module";
 
 import { WorkOrderActivityService } from "./work-order-activity.service";
 import { WorkOrderAssigneesService } from "./work-order-assignees.service";
+import { WorkOrderTasksService } from "./work-order-tasks.service";
 import { WorkOrderHistoryService } from "./work-order-history.service";
 import { WorkOrderGovernanceService } from "./work-order-governance.service";
 import { WorkOrderPartsService } from "./work-order-parts.service";
@@ -44,6 +45,7 @@ import { ReliabilityModule } from "../reliability/reliability.module";
     WorkOrdersService,
     WorkOrderActivityService,
     WorkOrderAssigneesService,
+    WorkOrderTasksService,
     WorkOrderHistoryService,
     WorkOrderGovernanceService,
     WorkOrderPartsService,
@@ -56,6 +58,7 @@ import { ReliabilityModule } from "../reliability/reliability.module";
     WorkOrdersService,
     WorkOrderActivityService,
     WorkOrderAssigneesService,
+    WorkOrderTasksService,
     WorkOrderHistoryService,
     WorkOrderGovernanceService,
     WorkOrderPartsService,

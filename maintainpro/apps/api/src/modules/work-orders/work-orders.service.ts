@@ -80,6 +80,7 @@ import {
   requiresQrVerification
 } from "../../common/utils/work-order-evidence-governance";
 import { canOverrideCompletionBlock } from "../../common/utils/work-order-evidence-rbac";
+import { assertAllTasksDone } from "./work-order-tasks.util";
 import {
   reopenRequestAfterWorkOrderExit,
   type WorkOrderExitOutcome
@@ -2356,6 +2357,10 @@ export class WorkOrdersService {
     let isTemporaryRepair = current.temporaryRepair;
     if (targetStatus === WorkOrderStatus.TECHNICIAN_COMPLETED) {
       assertReasonProvided("Technician completion note", data.completionNote);
+      await assertAllTasksDone(this.prisma, id, {
+        role: actor?.role,
+        overrideReason: data.overrideReason
+      });
 
       parsedFunctionalTest = parseDomainTestResult(data.functionalTestResult);
       parsedRoadTest = parseDomainTestResult(data.roadTestResult);
@@ -2462,6 +2467,7 @@ export class WorkOrdersService {
       }
       if (current.status !== WorkOrderStatus.TECHNICIAN_COMPLETED) {
         assertReasonProvided("Emergency close reason", data.emergencyCloseReason);
+        await assertAllTasksDone(this.prisma, id, { role: actor?.role, overrideReason: data.overrideReason });
       }
       if (requiresEvidenceForCompletion(current.type)) {
         const closeEvidence = await this.prisma.evidenceAttachment.findMany({

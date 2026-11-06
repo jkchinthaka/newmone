@@ -374,93 +374,93 @@ model User {
   createdAt                  DateTime    @default(now())
   updatedAt                  DateTime    @updatedAt
 
-  permissionOverrides         UserPermissionOverride[]    @relation("PermissionOverrideSubject")
-  permissionOverridesAuthored UserPermissionOverride[]    @relation("PermissionOverrideAuthor")
-  assignedWorkOrders          WorkOrder[]                 @relation("TechnicianWorkOrders")
-  createdWorkOrders           WorkOrder[]                 @relation("CreatorWorkOrders")
-  approvedWorkOrders          WorkOrder[]                 @relation("ApprovedWorkOrders")
-  gateChecks                  GateCheck[]                 @relation("GateCheckCheckedBy")
-  verifiedWorkOrders          WorkOrder[]                 @relation("VerifiedWorkOrders")
-  reopenedWorkOrders          WorkOrder[]                 @relation("ReopenedWorkOrders")
-  qrVerifiedWorkOrders        WorkOrder[]                 @relation("QrVerifiedWorkOrders")
-  workOrderExecutionApprovals WorkOrderExecution[]        @relation("WorkOrderExecutionApprovedBy")
-  workOrderCompletionVerifies WorkOrderCompletion[]       @relation("WorkOrderCompletionVerifiedBy")
-  workOrderCompletionReopens  WorkOrderCompletion[]       @relation("WorkOrderCompletionReopenedBy")
-  workOrderCompletionQr       WorkOrderCompletion[]       @relation("WorkOrderCompletionQrVerifiedBy")
-  workOrderCompletionRequester WorkOrderCompletion[]      @relation("WorkOrderCompletionRequesterConfirmedBy")
-  workOrderClassificationTriage WorkOrderClassification[] @relation("WorkOrderClassificationTriageBy")
-  memberships                 TenantMembership[]
-  sentInvitations             TenantInvitation[]          @relation("TenantInvitedBy")
-  notifications               Notification[]
-  auditEvents                 AuditLog[]
-  inventoryImportRuns         InventoryImportRun[]
-  bulkImportRuns              BulkImportRun[]
-  driverProfile               Driver?
-  cleaningVisits              CleaningVisit[]             @relation("CleanerVisits")
-  signedOffVisits             CleaningVisit[]             @relation("SupervisorSignOffs")
-  assignedCleaningLocations   CleaningLocation[]          @relation("AssignedCleaningLocations")
-  reportedIssues              FacilityIssue[]             @relation("ReportedFacilityIssues")
-  resolvedIssues              FacilityIssue[]             @relation("ResolvedFacilityIssues")
-  assignedFacilityIssues      FacilityIssue[]             @relation("AssignedFacilityIssues")
-  copilotConversations        CopilotConversation[]
-  copilotMessages             CopilotMessage[]
-  copilotExchangeLogs         CopilotExchangeLog[]
-  managedDepartments          Department[]                @relation("DepartmentManager")
-  recordedVehicleMeterLogs    VehicleMeterLog[]           @relation("VehicleMeterRecordedBy")
-  approvedVehicleGateMoves    VehicleGateMovement[]       @relation("VehicleGateApprovedBy")
-  partRequestsRequested       PartRequest[]               @relation("PartRequestRequester")
-  partRequestApprovals        PartRequestApproval[]       @relation("PartRequestApprovalActor")
-  partIssuesIssued            PartIssue[]                 @relation("PartIssueIssuer")
-  purchaseOrderApprovals      PurchaseOrderApproval[]     @relation("PurchaseOrderApprovalActor")
-  purchaseOrdersCreated       PurchaseOrder[]             @relation("PurchaseOrderCreator")
-  purchaseOrderErpSyncActions PurchaseOrderErpSync[]      @relation("PurchaseOrderErpSyncTrigger")
-  purchaseReceiptsReceived    PurchaseReceipt[]           @relation("PurchaseReceiptReceiver")
-  vehicleDocsUploaded         VehicleDocument[]           @relation("VehicleDocUploader")
-  vehicleDocsVerified         VehicleDocument[]           @relation("VehicleDocVerifier")
-  accidentsReported           AccidentReport[]            @relation("AccidentReporter")
-  accidentEvidenceUploaded    AccidentEvidence[]          @relation("AccidentEvidenceUploader")
-  insuranceClaimsFiled        InsuranceClaim[]            @relation("InsuranceClaimFiler")
-  trafficFinesReported        TrafficFine[]               @relation("TrafficFineReporter")
-  refreshTokens               RefreshToken[]
-  passwordResetTokens         PasswordResetToken[]
-  userInvitations             UserInvitation[]            @relation("UserInvitationTarget")
-  sentUserInvitations         UserInvitation[]            @relation("UserInvitationSender")
-  evidenceAttachmentsUploaded EvidenceAttachment[]        @relation("EvidenceUploader")
-  workOrderAssignmentsCreated WorkOrderAssignee[]         @relation("WorkOrderAssigneeAssignedBy")
-  employeeLeaveApprovals      EmployeeLeaveRequest[]      @relation("EmployeeLeaveApprover")
-  linkedWorkforceEmployees    Employee[]                  @relation("EmployeeLinkedUser")
-  responsibleAssets           Asset[]                     @relation("AssetResponsiblePerson")
-  reportedMaintenanceRequests MaintenanceRequest[]        @relation("ReportedMaintenanceRequests")
-  requesterGroupMemberships   RequesterGroupMember[]
-  triageOwnedRequests         MaintenanceRequest[]        @relation("TriageOwnerRequests")
-  maintenanceRequestHistory   MaintenanceRequestHistory[] @relation("RequestHistoryActor")
-  configChangeHistories       ConfigChangeHistory[]       @relation("ConfigChangeActor")
-  tenantFeatureFlagsUpdated   TenantFeatureFlag[]         @relation("TenantFeatureFlagUpdatedBy")
-  maintenanceTemplatesCreated MaintenanceTemplate[]       @relation("MaintenanceTemplateCreatedBy")
-  maintenanceTemplatesUpdated MaintenanceTemplate[]       @relation("MaintenanceTemplateUpdatedBy")
-  entityWarrantiesCreated     EntityWarranty[]            @relation("EntityWarrantyCreatedBy")
-  warrantyClaimsCreated       WarrantyClaim[]             @relation("WarrantyClaimCreatedBy")
-  warrantyClaimsUpdated       WarrantyClaim[]             @relation("WarrantyClaimUpdatedBy")
-  downtimeSegmentsOpened      DowntimeSegment[]           @relation("DowntimeOpenedBy")
-  downtimeSegmentsClosed      DowntimeSegment[]           @relation("DowntimeClosedBy")
-  rcaCasesOwned               RcaCase[]                   @relation("RcaCaseOwner")
-  capaActionsOwned            CapaAction[]                @relation("CapaActionOwner")
-  workPermitsIssued           WorkPermit[]                @relation("WorkPermitIssuedBy")
-  workPermitsApproved         WorkPermit[]                @relation("WorkPermitApprovedBy")
-  lotoRecordsIsolated         LotoRecord[]                @relation("LotoIsolatedBy")
-  lotoRecordsVerified         LotoRecord[]                @relation("LotoVerifiedBy")
-  lotoRecordsRestored         LotoRecord[]                @relation("LotoRestoredBy")
-  vendorPortalAccesses        VendorPortalAccess[]        @relation("VendorPortalUser")
+  permissionOverrides           UserPermissionOverride[]    @relation("PermissionOverrideSubject")
+  permissionOverridesAuthored   UserPermissionOverride[]    @relation("PermissionOverrideAuthor")
+  assignedWorkOrders            WorkOrder[]                 @relation("TechnicianWorkOrders")
+  createdWorkOrders             WorkOrder[]                 @relation("CreatorWorkOrders")
+  approvedWorkOrders            WorkOrder[]                 @relation("ApprovedWorkOrders")
+  gateChecks                    GateCheck[]                 @relation("GateCheckCheckedBy")
+  verifiedWorkOrders            WorkOrder[]                 @relation("VerifiedWorkOrders")
+  reopenedWorkOrders            WorkOrder[]                 @relation("ReopenedWorkOrders")
+  qrVerifiedWorkOrders          WorkOrder[]                 @relation("QrVerifiedWorkOrders")
+  workOrderExecutionApprovals   WorkOrderExecution[]        @relation("WorkOrderExecutionApprovedBy")
+  workOrderCompletionVerifies   WorkOrderCompletion[]       @relation("WorkOrderCompletionVerifiedBy")
+  workOrderCompletionReopens    WorkOrderCompletion[]       @relation("WorkOrderCompletionReopenedBy")
+  workOrderCompletionQr         WorkOrderCompletion[]       @relation("WorkOrderCompletionQrVerifiedBy")
+  workOrderCompletionRequester  WorkOrderCompletion[]       @relation("WorkOrderCompletionRequesterConfirmedBy")
+  workOrderClassificationTriage WorkOrderClassification[]   @relation("WorkOrderClassificationTriageBy")
+  memberships                   TenantMembership[]
+  sentInvitations               TenantInvitation[]          @relation("TenantInvitedBy")
+  notifications                 Notification[]
+  auditEvents                   AuditLog[]
+  inventoryImportRuns           InventoryImportRun[]
+  bulkImportRuns                BulkImportRun[]
+  driverProfile                 Driver?
+  cleaningVisits                CleaningVisit[]             @relation("CleanerVisits")
+  signedOffVisits               CleaningVisit[]             @relation("SupervisorSignOffs")
+  assignedCleaningLocations     CleaningLocation[]          @relation("AssignedCleaningLocations")
+  reportedIssues                FacilityIssue[]             @relation("ReportedFacilityIssues")
+  resolvedIssues                FacilityIssue[]             @relation("ResolvedFacilityIssues")
+  assignedFacilityIssues        FacilityIssue[]             @relation("AssignedFacilityIssues")
+  copilotConversations          CopilotConversation[]
+  copilotMessages               CopilotMessage[]
+  copilotExchangeLogs           CopilotExchangeLog[]
+  managedDepartments            Department[]                @relation("DepartmentManager")
+  recordedVehicleMeterLogs      VehicleMeterLog[]           @relation("VehicleMeterRecordedBy")
+  approvedVehicleGateMoves      VehicleGateMovement[]       @relation("VehicleGateApprovedBy")
+  partRequestsRequested         PartRequest[]               @relation("PartRequestRequester")
+  partRequestApprovals          PartRequestApproval[]       @relation("PartRequestApprovalActor")
+  partIssuesIssued              PartIssue[]                 @relation("PartIssueIssuer")
+  purchaseOrderApprovals        PurchaseOrderApproval[]     @relation("PurchaseOrderApprovalActor")
+  purchaseOrdersCreated         PurchaseOrder[]             @relation("PurchaseOrderCreator")
+  purchaseOrderErpSyncActions   PurchaseOrderErpSync[]      @relation("PurchaseOrderErpSyncTrigger")
+  purchaseReceiptsReceived      PurchaseReceipt[]           @relation("PurchaseReceiptReceiver")
+  vehicleDocsUploaded           VehicleDocument[]           @relation("VehicleDocUploader")
+  vehicleDocsVerified           VehicleDocument[]           @relation("VehicleDocVerifier")
+  accidentsReported             AccidentReport[]            @relation("AccidentReporter")
+  accidentEvidenceUploaded      AccidentEvidence[]          @relation("AccidentEvidenceUploader")
+  insuranceClaimsFiled          InsuranceClaim[]            @relation("InsuranceClaimFiler")
+  trafficFinesReported          TrafficFine[]               @relation("TrafficFineReporter")
+  refreshTokens                 RefreshToken[]
+  passwordResetTokens           PasswordResetToken[]
+  userInvitations               UserInvitation[]            @relation("UserInvitationTarget")
+  sentUserInvitations           UserInvitation[]            @relation("UserInvitationSender")
+  evidenceAttachmentsUploaded   EvidenceAttachment[]        @relation("EvidenceUploader")
+  workOrderAssignmentsCreated   WorkOrderAssignee[]         @relation("WorkOrderAssigneeAssignedBy")
+  employeeLeaveApprovals        EmployeeLeaveRequest[]      @relation("EmployeeLeaveApprover")
+  linkedWorkforceEmployees      Employee[]                  @relation("EmployeeLinkedUser")
+  responsibleAssets             Asset[]                     @relation("AssetResponsiblePerson")
+  reportedMaintenanceRequests   MaintenanceRequest[]        @relation("ReportedMaintenanceRequests")
+  requesterGroupMemberships     RequesterGroupMember[]
+  triageOwnedRequests           MaintenanceRequest[]        @relation("TriageOwnerRequests")
+  maintenanceRequestHistory     MaintenanceRequestHistory[] @relation("RequestHistoryActor")
+  configChangeHistories         ConfigChangeHistory[]       @relation("ConfigChangeActor")
+  tenantFeatureFlagsUpdated     TenantFeatureFlag[]         @relation("TenantFeatureFlagUpdatedBy")
+  maintenanceTemplatesCreated   MaintenanceTemplate[]       @relation("MaintenanceTemplateCreatedBy")
+  maintenanceTemplatesUpdated   MaintenanceTemplate[]       @relation("MaintenanceTemplateUpdatedBy")
+  entityWarrantiesCreated       EntityWarranty[]            @relation("EntityWarrantyCreatedBy")
+  warrantyClaimsCreated         WarrantyClaim[]             @relation("WarrantyClaimCreatedBy")
+  warrantyClaimsUpdated         WarrantyClaim[]             @relation("WarrantyClaimUpdatedBy")
+  downtimeSegmentsOpened        DowntimeSegment[]           @relation("DowntimeOpenedBy")
+  downtimeSegmentsClosed        DowntimeSegment[]           @relation("DowntimeClosedBy")
+  rcaCasesOwned                 RcaCase[]                   @relation("RcaCaseOwner")
+  capaActionsOwned              CapaAction[]                @relation("CapaActionOwner")
+  workPermitsIssued             WorkPermit[]                @relation("WorkPermitIssuedBy")
+  workPermitsApproved           WorkPermit[]                @relation("WorkPermitApprovedBy")
+  lotoRecordsIsolated           LotoRecord[]                @relation("LotoIsolatedBy")
+  lotoRecordsVerified           LotoRecord[]                @relation("LotoVerifiedBy")
+  lotoRecordsRestored           LotoRecord[]                @relation("LotoRestoredBy")
+  vendorPortalAccesses          VendorPortalAccess[]        @relation("VendorPortalUser")
   /// Phase 7 approval engine actors
-  approvalRulesCreated        ApprovalRule[]              @relation("ApprovalRuleCreatedBy")
-  approvalRulesUpdated        ApprovalRule[]              @relation("ApprovalRuleUpdatedBy")
-  approvalRuleLevelUsers      ApprovalRuleLevel[]         @relation("ApprovalRuleLevelUser")
-  approvalRuleLevelBackups    ApprovalRuleLevel[]         @relation("ApprovalRuleLevelBackup")
-  approvalRequestsRequested   ApprovalRequest[]           @relation("ApprovalRequestRequester")
-  approvalStepsAssigned       ApprovalStep[]              @relation("ApprovalStepAssignee")
-  approvalStepsBackup         ApprovalStep[]              @relation("ApprovalStepBackup")
-  approvalDecisionsActed      ApprovalDecision[]          @relation("ApprovalDecisionActor")
-  userSkills                  UserSkill[]
+  approvalRulesCreated          ApprovalRule[]              @relation("ApprovalRuleCreatedBy")
+  approvalRulesUpdated          ApprovalRule[]              @relation("ApprovalRuleUpdatedBy")
+  approvalRuleLevelUsers        ApprovalRuleLevel[]         @relation("ApprovalRuleLevelUser")
+  approvalRuleLevelBackups      ApprovalRuleLevel[]         @relation("ApprovalRuleLevelBackup")
+  approvalRequestsRequested     ApprovalRequest[]           @relation("ApprovalRequestRequester")
+  approvalStepsAssigned         ApprovalStep[]              @relation("ApprovalStepAssignee")
+  approvalStepsBackup           ApprovalStep[]              @relation("ApprovalStepBackup")
+  approvalDecisionsActed        ApprovalDecision[]          @relation("ApprovalDecisionActor")
+  userSkills                    UserSkill[]
 
   @@index([tenantId])
   @@index([roleId])
@@ -589,8 +589,8 @@ model Plan {
   description   String?
   isActive      Boolean        @default(true)
   currency      String         @default("USD")
-  priceMonthly  Decimal          @db.Decimal(18, 2)          @default(0)
-  priceYearly   Decimal          @db.Decimal(18, 2)          @default(0)
+  priceMonthly  Decimal        @default(0) @db.Decimal(18, 2)
+  priceYearly   Decimal        @default(0) @db.Decimal(18, 2)
   metadata      String?        @db.NVarChar(Max)
   entitlements  Entitlement[]
   subscriptions Subscription[]
@@ -689,8 +689,8 @@ model StripeInvoice {
   subscription     Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   stripeInvoiceId  String        @unique
   invoiceNumber    String?
-  amountDue        Decimal         @db.Decimal(18, 2)         @default(0)
-  amountPaid       Decimal         @db.Decimal(18, 2)         @default(0)
+  amountDue        Decimal       @default(0) @db.Decimal(18, 2)
+  amountPaid       Decimal       @default(0) @db.Decimal(18, 2)
   currency         String        @default("usd")
   status           String
   hostedInvoiceUrl String?
@@ -795,7 +795,7 @@ model Asset {
   images           String      @default("[]") @db.NVarChar(Max)
   documents        String      @default("[]") @db.NVarChar(Max)
   /// Data-URI QR images can be several KB of base64; unbounded like the Mongo original.
-  qrCodeUrl        String?  @db.NVarChar(Max)
+  qrCodeUrl        String?     @db.NVarChar(Max)
 
   /// Phase 4 universal registry links
   domainId             String?              @db.NVarChar(36)
@@ -1111,7 +1111,7 @@ model VehicleTyre {
   retreadCount      Int       @default(0)
   condition         String    @default("") @db.NVarChar(64)
   isActive          Boolean   @default(true)
-  costSnapshot      Decimal?    @db.Decimal(18, 2)
+  costSnapshot      Decimal?  @db.Decimal(18, 2)
   warrantyExpiresAt DateTime?
   notes             String?
   createdAt         DateTime  @default(now())
@@ -1139,7 +1139,7 @@ model VehicleBattery {
   warrantyExpiresAt      DateTime?
   condition              String?
   failureReason          String?
-  costSnapshot           Decimal?    @db.Decimal(18, 2)
+  costSnapshot           Decimal?  @db.Decimal(18, 2)
   isActive               Boolean   @default(true)
   replacementWorkOrderId String?   @db.NVarChar(36)
   notes                  String?
@@ -1339,7 +1339,7 @@ model MaintenanceSchedule {
   /// ACTUAL_COMPLETION (default) or FIXED_SCHEDULE. Documented in BUSINESS_DECISIONS_REQUIRED.md.
   advancePolicy        String?
   isActive             Boolean   @default(true)
-  estimatedCost        Decimal?             @db.Decimal(18, 2)
+  estimatedCost        Decimal?  @db.Decimal(18, 2)
   estimatedHours       Float?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
@@ -1538,33 +1538,33 @@ model WorkOrder {
   resumedAt        DateTime?
 
   // D2 — requester confirmation (separate from technical verification; not a new WO status)
-  requesterConfirmationStatus   String    @default("NOT_REQUIRED") @db.NVarChar(64)
-  requesterConfirmationDueAt    DateTime?
-  requesterConfirmedAt          DateTime?
-  requesterConfirmedById        String?   @db.NVarChar(36)
-  requesterConfirmationNote     String?
-  requesterConfirmationOutcome  String?   @db.NVarChar(64)
+  requesterConfirmationStatus      String    @default("NOT_REQUIRED") @db.NVarChar(64)
+  requesterConfirmationDueAt       DateTime?
+  requesterConfirmedAt             DateTime?
+  requesterConfirmedById           String?   @db.NVarChar(36)
+  requesterConfirmationNote        String?
+  requesterConfirmationOutcome     String?   @db.NVarChar(64)
   requesterConfirmationPolicyHours Int?
 
   // Phase 6 — downtime (optional by domain; not forced on every WO)
-  affectsOperation   Boolean   @default(false)
-  downtimeApplicable Boolean   @default(false)
-  downtimeStartedAt  DateTime?
-  downtimeEndedAt    DateTime?
-  downtimeReason     String?
+  affectsOperation          Boolean          @default(false)
+  downtimeApplicable        Boolean          @default(false)
+  downtimeStartedAt         DateTime?
+  downtimeEndedAt           DateTime?
+  downtimeReason            String?
   /// Candidate flag from configurable repeat-failure detection (not automatic blame)
-  repeatFailureCandidate Boolean @default(false)
-  temporaryRepair          Boolean   @default(false)
-  temporaryRepairExpiry    DateTime?
-  temporaryRepairFollowUpId String?  @db.NVarChar(36)
+  repeatFailureCandidate    Boolean          @default(false)
+  temporaryRepair           Boolean          @default(false)
+  temporaryRepairExpiry     DateTime?
+  temporaryRepairFollowUpId String?          @db.NVarChar(36)
   /// D3/D4/D5 — domain completion / release (unified WO engine; not a separate lifecycle)
-  functionalTestResult     String?   @db.NVarChar(32)
-  roadTestResult           String?   @db.NVarChar(32)
-  completionMeterReading   Float?
-  operatingRestriction     String?   @db.NVarChar(Max)
-  productionImpact         String?   @db.NVarChar(32)
-  workflowVersionId        String?   @db.NVarChar(36)
-  workflowVersion          WorkflowVersion? @relation(fields: [workflowVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  functionalTestResult      String?          @db.NVarChar(32)
+  roadTestResult            String?          @db.NVarChar(32)
+  completionMeterReading    Float?
+  operatingRestriction      String?          @db.NVarChar(Max)
+  productionImpact          String?          @db.NVarChar(32)
+  workflowVersionId         String?          @db.NVarChar(36)
+  workflowVersion           WorkflowVersion? @relation(fields: [workflowVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   // Phase 6 — RCA (technician analysis; distinct from requester Problem Category)
   failureCodeId       String?                  @db.NVarChar(36)
@@ -1602,6 +1602,7 @@ model WorkOrder {
   facilityIssue       FacilityIssue?
   evidenceAttachments EvidenceAttachment[]
   assignees           WorkOrderAssignee[]
+  tasks               WorkOrderTask[]
   vendorRepairCase    VendorRepairCase?
   holdHistory         WorkOrderHoldHistory[]
   labourEntries       WorkOrderLabourEntry[]
@@ -1622,30 +1623,30 @@ model WorkOrder {
   temporaryRepairs    TemporaryRepairRecord[]
 
   /// Phase 8 PM source traceability
-  pmPlanId        String? @db.NVarChar(36)
-  pmPlan          PmPlan? @relation(fields: [pmPlanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pmPlanId        String?        @db.NVarChar(36)
+  pmPlan          PmPlan?        @relation(fields: [pmPlanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   pmPlanRevision  Int?
   pmTriggerSource String?
   pmOccurrenceKey String?
   pmOccurrences   PmOccurrence[]
 
   /// Master-data job / problem / service category (MaintenanceJobCategory) — domain-aware.
-  jobCategoryId        String?                   @db.NVarChar(36)
-  jobCategory          MaintenanceJobCategory?   @relation(fields: [jobCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  taxonomyCategoryId   String?            @db.NVarChar(36)
-  taxonomyCategory     WorkOrderTaxonomy? @relation("WorkOrderTaxonomyCategory", fields: [taxonomyCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  taxonomyTypeId       String?            @db.NVarChar(36)
-  taxonomyType         WorkOrderTaxonomy? @relation("WorkOrderTaxonomyType", fields: [taxonomyTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  taxonomyIssueId      String?            @db.NVarChar(36)
-  taxonomyIssue        WorkOrderTaxonomy? @relation("WorkOrderTaxonomyIssue", fields: [taxonomyIssueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  jobCategoryId        String?                 @db.NVarChar(36)
+  jobCategory          MaintenanceJobCategory? @relation(fields: [jobCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  taxonomyCategoryId   String?                 @db.NVarChar(36)
+  taxonomyCategory     WorkOrderTaxonomy?      @relation("WorkOrderTaxonomyCategory", fields: [taxonomyCategoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  taxonomyTypeId       String?                 @db.NVarChar(36)
+  taxonomyType         WorkOrderTaxonomy?      @relation("WorkOrderTaxonomyType", fields: [taxonomyTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  taxonomyIssueId      String?                 @db.NVarChar(36)
+  taxonomyIssue        WorkOrderTaxonomy?      @relation("WorkOrderTaxonomyIssue", fields: [taxonomyIssueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   installedParts       InstalledPart[]
   categoryNameSnapshot String?
   typeNameSnapshot     String?
   issueNameSnapshot    String?
-  isTriage             Boolean            @default(false)
+  isTriage             Boolean                 @default(false)
   triageReason         String?
   triageClassifiedAt   DateTime?
-  triageClassifiedById String?            @db.NVarChar(36)
+  triageClassifiedById String?                 @db.NVarChar(36)
 
   @@unique([tenantId, woNumber])
   @@unique([tenantId, id])
@@ -1726,9 +1727,9 @@ model WorkOrderTaxonomy {
   createdAt                      DateTime            @default(now())
   updatedAt                      DateTime            @updatedAt
 
-  workOrdersAsCategory WorkOrder[] @relation("WorkOrderTaxonomyCategory")
-  workOrdersAsType     WorkOrder[] @relation("WorkOrderTaxonomyType")
-  workOrdersAsIssue    WorkOrder[] @relation("WorkOrderTaxonomyIssue")
+  workOrdersAsCategory     WorkOrder[]               @relation("WorkOrderTaxonomyCategory")
+  workOrdersAsType         WorkOrder[]               @relation("WorkOrderTaxonomyType")
+  workOrdersAsIssue        WorkOrder[]               @relation("WorkOrderTaxonomyIssue")
   classificationAsCategory WorkOrderClassification[] @relation("WoClassificationTaxonomyCategory")
   classificationAsType     WorkOrderClassification[] @relation("WoClassificationTaxonomyType")
   classificationAsIssue    WorkOrderClassification[] @relation("WoClassificationTaxonomyIssue")
@@ -1766,14 +1767,51 @@ model Employee {
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
-  workOrderAssigneeRows WorkOrderAssignee[]    @relation("WorkOrderAssigneeEmployee")
-  employeeLeaveRequests EmployeeLeaveRequest[]
+  workOrderAssigneeRows    WorkOrderAssignee[]     @relation("WorkOrderAssigneeEmployee")
+  workOrderTaskAssignments WorkOrderTaskAssignee[]
+  employeeLeaveRequests    EmployeeLeaveRequest[]
 
   @@unique([tenantId, employeeNo])
   @@index([linkedUserId])
   @@index([tenantId, active])
   @@index([tenantId, designation])
   @@index([email])
+}
+
+/// Optional sub-tasks of a job; several can be worked in parallel by different people.
+model WorkOrderTask {
+  id               String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId         String?   @db.NVarChar(36)
+  workOrderId      String    @db.NVarChar(36)
+  workOrder        WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title            String    @db.NVarChar(300)
+  status           String    @default("NOT_STARTED") @db.NVarChar(32)
+  sortOrder        Int       @default(0)
+  estimatedHours   Float?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  timeSpentMinutes Int?
+  completedById    String?   @db.NVarChar(36)
+  createdById      String?   @db.NVarChar(36)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  assignees WorkOrderTaskAssignee[]
+
+  @@index([workOrderId, sortOrder])
+  @@index([tenantId])
+}
+
+model WorkOrderTaskAssignee {
+  id         String        @id @default(cuid()) @db.NVarChar(36)
+  taskId     String        @db.NVarChar(36)
+  task       WorkOrderTask @relation(fields: [taskId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  employeeId String        @db.NVarChar(36)
+  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt  DateTime      @default(now())
+
+  @@unique([taskId, employeeId])
+  @@index([employeeId])
 }
 
 model WorkOrderAssignee {
@@ -1821,9 +1859,9 @@ model MaintenanceAnalysisCode {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  failureWorkOrders WorkOrder[] @relation("WoFailureCode")
-  causeWorkOrders   WorkOrder[] @relation("WoCauseCode")
-  remedyWorkOrders  WorkOrder[] @relation("WoRemedyCode")
+  failureWorkOrders      WorkOrder[]               @relation("WoFailureCode")
+  causeWorkOrders        WorkOrder[]               @relation("WoCauseCode")
+  remedyWorkOrders       WorkOrder[]               @relation("WoRemedyCode")
   classificationFailures WorkOrderClassification[] @relation("WoClassificationFailureCode")
   classificationCauses   WorkOrderClassification[] @relation("WoClassificationCauseCode")
   classificationRemedies WorkOrderClassification[] @relation("WoClassificationRemedyCode")
@@ -1854,27 +1892,27 @@ model WorkOrderHoldHistory {
 }
 
 model WorkOrderLabourEntry {
-  id                 String    @id @default(cuid()) @db.NVarChar(36)
-  tenantId           String?   @db.NVarChar(36)
-  tenant             Tenant?   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workOrderId        String    @db.NVarChar(36)
-  workOrder          WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  technicianUserId   String?   @db.NVarChar(36)
-  employeeId         String?   @db.NVarChar(36)
-  startedAt          DateTime
-  endedAt            DateTime?
+  id                       String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId                 String?   @db.NVarChar(36)
+  tenant                   Tenant?   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId              String    @db.NVarChar(36)
+  workOrder                WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  technicianUserId         String?   @db.NVarChar(36)
+  employeeId               String?   @db.NVarChar(36)
+  startedAt                DateTime
+  endedAt                  DateTime?
   /// Snapshot duration — do not recompute from changing master data later
-  durationMinutes    Int?
-  notes              String?
-  labourRateSnapshot Decimal?  @db.Decimal(18, 2)
+  durationMinutes          Int?
+  notes                    String?
+  labourRateSnapshot       Decimal?  @db.Decimal(18, 2)
   /// Governed correction (do not let technicians rewrite historic sessions silently)
   correctionReason         String?
   correctedDurationMinutes Int?
   correctedById            String?   @db.NVarChar(36)
   correctionApprovedById   String?   @db.NVarChar(36)
   correctedAt              DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
   @@index([tenantId, workOrderId])
   @@index([workOrderId, startedAt])
@@ -2010,9 +2048,9 @@ model Warehouse {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  balances   WarehouseItemBalance[]
-  movements  StockMovement[]
-  importRows ErpImportRow[]
+  balances           WarehouseItemBalance[]
+  movements          StockMovement[]
+  importRows         ErpImportRow[]
   stockCountSessions StockCountSession[]
 
   @@unique([tenantId, code])
@@ -2118,46 +2156,46 @@ model InventoryIdempotency {
 
 /// First-class stock count session. Posting creates ledger adjustments; never overwrites balances directly.
 model StockCountSession {
-  id              String   @id @default(cuid()) @db.NVarChar(36)
-  tenantId        String   @db.NVarChar(36)
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  warehouseId     String   @db.NVarChar(36)
-  warehouse       Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id           String           @id @default(cuid()) @db.NVarChar(36)
+  tenantId     String           @db.NVarChar(36)
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouseId  String           @db.NVarChar(36)
+  warehouse    Warehouse        @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// CYCLE | ANNUAL | SPOT
-  countType       String   @default("CYCLE") @db.NVarChar(32)
+  countType    String           @default("CYCLE") @db.NVarChar(32)
   /// DRAFT | OPEN | COUNTING | REVIEW | APPROVED | POSTED | CANCELLED
-  status          String   @default("DRAFT") @db.NVarChar(32)
-  blindCount      Boolean  @default(false)
-  notes           String?  @db.NVarChar(Max)
-  createdById     String?  @db.NVarChar(36)
-  approvedById    String?  @db.NVarChar(36)
-  postedById      String?  @db.NVarChar(36)
-  approvedAt      DateTime?
-  postedAt        DateTime?
-  cancelledAt     DateTime?
-  cancelReason    String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  lines           StockCountLine[]
+  status       String           @default("DRAFT") @db.NVarChar(32)
+  blindCount   Boolean          @default(false)
+  notes        String?          @db.NVarChar(Max)
+  createdById  String?          @db.NVarChar(36)
+  approvedById String?          @db.NVarChar(36)
+  postedById   String?          @db.NVarChar(36)
+  approvedAt   DateTime?
+  postedAt     DateTime?
+  cancelledAt  DateTime?
+  cancelReason String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  lines        StockCountLine[]
 
   @@index([tenantId, status, createdAt])
   @@index([tenantId, warehouseId, status])
 }
 
 model StockCountLine {
-  id               String           @id @default(cuid()) @db.NVarChar(36)
-  tenantId         String           @db.NVarChar(36)
-  sessionId        String           @db.NVarChar(36)
-  session          StockCountSession @relation(fields: [sessionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  partId           String           @db.NVarChar(36)
-  part             SparePart        @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  expectedQuantity Int              @default(0)
-  countedQuantity  Int?
-  variance         Int?
-  notes            String?
-  adjustmentMovementId String?      @db.NVarChar(36)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  id                   String            @id @default(cuid()) @db.NVarChar(36)
+  tenantId             String            @db.NVarChar(36)
+  sessionId            String            @db.NVarChar(36)
+  session              StockCountSession @relation(fields: [sessionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partId               String            @db.NVarChar(36)
+  part                 SparePart         @relation(fields: [partId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  expectedQuantity     Int               @default(0)
+  countedQuantity      Int?
+  variance             Int?
+  notes                String?
+  adjustmentMovementId String?           @db.NVarChar(36)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
 
   @@unique([sessionId, partId])
   @@index([tenantId, sessionId])
@@ -2334,41 +2372,41 @@ model WorkOrderPart {
 }
 
 model Supplier {
-  id                String   @id @default(cuid()) @db.NVarChar(36)
+  id                 String    @id @default(cuid()) @db.NVarChar(36)
   /// Required tenant ownership — backfilled in 20260917250000 where evidence exists
-  tenantId          String   @db.NVarChar(36)
-  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  vendorCode        String?
-  name              String
-  contactName       String?
-  email             String?
-  phone             String?
-  address           String?
-  website           String?
-  taxNumber         String?
-  serviceCategories String   @default("[]") @db.NVarChar(Max)
-  performanceScore  Float?
-  blacklisted       Boolean  @default(false)
-  blacklistReason   String?
-  isActive          Boolean  @default(true)
+  tenantId           String    @db.NVarChar(36)
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vendorCode         String?
+  name               String
+  contactName        String?
+  email              String?
+  phone              String?
+  address            String?
+  website            String?
+  taxNumber          String?
+  serviceCategories  String    @default("[]") @db.NVarChar(Max)
+  performanceScore   Float?
+  blacklisted        Boolean   @default(false)
+  blacklistReason    String?
+  isActive           Boolean   @default(true)
   /// Optional. Insurance blocks assignment only when this is true.
-  insuranceRequired Boolean  @default(false)
+  insuranceRequired  Boolean   @default(false)
   insuranceExpiresAt DateTime?
-  notes             String?
-  createdById       String?  @db.NVarChar(36)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  notes              String?
+  createdById        String?   @db.NVarChar(36)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  spareParts        SparePart[]
-  purchaseOrders    PurchaseOrder[]
-  vendorRepairCases VendorRepairCase[]
-  vendorQuotations  VendorQuotation[]
-  vendorInvoices    VendorInvoice[]
+  spareParts          SparePart[]
+  purchaseOrders      PurchaseOrder[]
+  vendorRepairCases   VendorRepairCase[]
+  vendorQuotations    VendorQuotation[]
+  vendorInvoices      VendorInvoice[]
   /// Phase 9 — Supplier is the Vendor entity (no competing Vendor model).
-  contracts         VendorContract[]
-  vendorWorkOrders  WorkOrder[]        @relation("WorkOrderVendorSupplier")
+  contracts           VendorContract[]
+  vendorWorkOrders    WorkOrder[]          @relation("WorkOrderVendorSupplier")
   workOrderExecutions WorkOrderExecution[] @relation("WorkOrderExecutionVendor")
-  portalAccesses    VendorPortalAccess[]
+  portalAccesses      VendorPortalAccess[]
 
   @@unique([tenantId, vendorCode])
   @@index([tenantId])
@@ -2394,7 +2432,7 @@ model VendorRepairCase {
   authorizedAt            DateTime?
   vendorCompletedAt       DateTime?
   closedAt                DateTime?
-  approvedQuotationAmount Decimal? @db.Decimal(18, 2)
+  approvedQuotationAmount Decimal?  @db.Decimal(18, 2)
   approvedQuotationId     String?   @db.NVarChar(36)
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
@@ -2418,10 +2456,10 @@ model VendorQuotation {
   supplier              Supplier         @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quotationNo           String
   quotationDate         DateTime
-  quotedAmount          Decimal               @db.Decimal(18, 2)
-  taxRatePercent        Decimal?              @db.Decimal(5, 2)
-  taxAmount             Decimal?              @db.Decimal(18, 2)
-  totalAmount           Decimal?              @db.Decimal(18, 2)
+  quotedAmount          Decimal          @db.Decimal(18, 2)
+  taxRatePercent        Decimal?         @db.Decimal(5, 2)
+  taxAmount             Decimal?         @db.Decimal(18, 2)
+  totalAmount           Decimal?         @db.Decimal(18, 2)
   currency              String           @default("LKR")
   validityDate          DateTime?
   evidenceAttachmentId  String?          @db.NVarChar(36)
@@ -2771,10 +2809,10 @@ model UtilityBill {
   billingPeriodStart DateTime
   billingPeriodEnd   DateTime
   totalConsumption   Float
-  ratePerUnit        Decimal       @db.Decimal(18, 4)
-  baseCharge         Decimal?      @db.Decimal(18, 2)
-  taxAmount          Decimal?      @db.Decimal(18, 2)
-  totalAmount        Decimal       @db.Decimal(18, 2)
+  ratePerUnit        Decimal      @db.Decimal(18, 4)
+  baseCharge         Decimal?     @db.Decimal(18, 2)
+  taxAmount          Decimal?     @db.Decimal(18, 2)
+  totalAmount        Decimal      @db.Decimal(18, 2)
   dueDate            DateTime?
   paidDate           DateTime?
   status             String       @default("") @db.NVarChar(64)
@@ -3247,7 +3285,7 @@ model MaintenanceRequest {
   isEmergency          Boolean                 @default(false)
 
   /// Server-built report-time context — immutable after create (asset may move later)
-  contextSnapshot String? @db.NVarChar(Max)
+  contextSnapshot    String? @db.NVarChar(Max)
   /// Immutable snapshot of the original requester submission (JSON text)
   originalSubmission String? @db.NVarChar(Max)
 
@@ -3317,22 +3355,22 @@ model MaintenanceRequest {
 
 /// Admin-configurable main/sub job categories by operational job domain.
 model MaintenanceJobCategory {
-  id        String                  @id @default(cuid()) @db.NVarChar(36)
-  tenantId  String                  @db.NVarChar(36)
-  tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id        String                   @id @default(cuid()) @db.NVarChar(36)
+  tenantId  String                   @db.NVarChar(36)
+  tenant    Tenant                   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// MACHINERY | SERVICE | VEHICLE
-  jobDomain String                  @db.NVarChar(32)
+  jobDomain String                   @db.NVarChar(32)
   /// MAIN | SUB
-  level     String                  @db.NVarChar(16)
-  parentId  String?                 @db.NVarChar(36)
-  parent    MaintenanceJobCategory? @relation("JobCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  level     String                   @db.NVarChar(16)
+  parentId  String?                  @db.NVarChar(36)
+  parent    MaintenanceJobCategory?  @relation("JobCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children  MaintenanceJobCategory[] @relation("JobCategoryTree")
-  code      String                  @db.NVarChar(64)
-  name      String                  @db.NVarChar(200)
-  active    Boolean                 @default(true)
-  sortOrder Int                     @default(0)
-  createdAt DateTime                @default(now())
-  updatedAt DateTime                @updatedAt
+  code      String                   @db.NVarChar(64)
+  name      String                   @db.NVarChar(200)
+  active    Boolean                  @default(true)
+  sortOrder Int                      @default(0)
+  createdAt DateTime                 @default(now())
+  updatedAt DateTime                 @updatedAt
 
   workOrders WorkOrder[]
 
@@ -3343,17 +3381,17 @@ model MaintenanceJobCategory {
 
 /// Admin-configurable priority response / completion targets (minutes).
 model PrioritySlaRule {
-  id                 String   @id @default(cuid()) @db.NVarChar(36)
-  tenantId           String   @db.NVarChar(36)
-  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  priority           String   @db.NVarChar(32)
-  responseMinutes    Int?
-  completionMinutes  Int?
-  escalateOnBreach   Boolean  @default(true)
-  notifyOnBreach     Boolean  @default(true)
-  active             Boolean  @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId          String   @db.NVarChar(36)
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  priority          String   @db.NVarChar(32)
+  responseMinutes   Int?
+  completionMinutes Int?
+  escalateOnBreach  Boolean  @default(true)
+  notifyOnBreach    Boolean  @default(true)
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@unique([tenantId, priority])
   @@index([tenantId, active])
@@ -3361,19 +3399,19 @@ model PrioritySlaRule {
 
 /// Admin-configurable hold / delay reason codes (replaces hardcoded-only lists).
 model MaintenanceReasonCode {
-  id          String   @id @default(cuid()) @db.NVarChar(36)
-  tenantId    String   @db.NVarChar(36)
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id            String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId      String   @db.NVarChar(36)
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// HOLD | DELAY
-  kind        String   @db.NVarChar(16)
-  code        String   @db.NVarChar(64)
-  name        String   @db.NVarChar(200)
-  description String?
-  requiresNotes Boolean @default(false)
-  sortOrder   Int      @default(0)
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  kind          String   @db.NVarChar(16)
+  code          String   @db.NVarChar(64)
+  name          String   @db.NVarChar(200)
+  description   String?
+  requiresNotes Boolean  @default(false)
+  sortOrder     Int      @default(0)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@unique([tenantId, kind, code])
   @@index([tenantId, kind, active])
@@ -3381,20 +3419,20 @@ model MaintenanceReasonCode {
 
 /// Append-only history for Admin master-data and policy configuration changes.
 model ConfigChangeHistory {
-  id           String   @id @default(cuid()) @db.NVarChar(36)
-  tenantId     String   @db.NVarChar(36)
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id         String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId   String   @db.NVarChar(36)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// e.g. PrioritySlaRule, MaintenanceJobCategory, MaintenanceAnalysisCode
-  entityType   String   @db.NVarChar(64)
-  entityId     String   @db.NVarChar(36)
-  action       String   @db.NVarChar(32)
-  reason       String?
-  beforeJson   String?  @db.NVarChar(Max)
-  afterJson    String?  @db.NVarChar(Max)
-  version      Int      @default(1)
-  actorId      String?  @db.NVarChar(36)
-  actor        User?    @relation("ConfigChangeActor", fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt    DateTime @default(now())
+  entityType String   @db.NVarChar(64)
+  entityId   String   @db.NVarChar(36)
+  action     String   @db.NVarChar(32)
+  reason     String?
+  beforeJson String?  @db.NVarChar(Max)
+  afterJson  String?  @db.NVarChar(Max)
+  version    Int      @default(1)
+  actorId    String?  @db.NVarChar(36)
+  actor      User?    @relation("ConfigChangeActor", fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt  DateTime @default(now())
 
   @@index([tenantId, entityType, entityId, createdAt])
   @@index([tenantId, createdAt])
@@ -3436,41 +3474,41 @@ model TenantMaintenanceSetting {
 
 /// Versioned reusable maintenance work template (not the same as ChecklistTemplate).
 model MaintenanceTemplate {
-  id                    String    @id @default(cuid()) @db.NVarChar(36)
-  tenantId              String    @db.NVarChar(36)
-  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  code                  String    @db.NVarChar(64)
-  name                  String    @db.NVarChar(200)
-  description           String?
+  id                       String                    @id @default(cuid()) @db.NVarChar(36)
+  tenantId                 String                    @db.NVarChar(36)
+  tenant                   Tenant                    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                     String                    @db.NVarChar(64)
+  name                     String                    @db.NVarChar(200)
+  description              String?
   /// MACHINERY | SERVICE | VEHICLE
-  jobDomain             String    @db.NVarChar(32)
-  jobType               String?   @db.NVarChar(64)
-  categoryCode          String?   @db.NVarChar(64)
-  subcategoryCode       String?   @db.NVarChar(64)
-  defaultPriority       String    @default("MEDIUM") @db.NVarChar(32)
-  estimatedHours        Float?
-  estimatedDowntimeMin  Int?
-  defaultExecutionMode  String?   @db.NVarChar(32)
-  requiredSkillsJson    String    @default("[]") @db.NVarChar(Max)
-  defaultPartsJson      String    @default("[]") @db.NVarChar(Max)
-  safetyRequirementsJson String   @default("[]") @db.NVarChar(Max)
-  permitRequirement     String?   @db.NVarChar(64)
-  checklistTemplateId   String?   @db.NVarChar(36)
-  checklistTemplate     ChecklistTemplate? @relation(fields: [checklistTemplateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  signOffRequirementsJson String  @default("[]") @db.NVarChar(Max)
-  instructions          String?   @db.NVarChar(Max)
-  documentsJson         String    @default("[]") @db.NVarChar(Max)
-  version               Int       @default(1)
-  effectiveFrom         DateTime  @default(now())
-  effectiveTo           DateTime?
-  active                Boolean   @default(true)
-  createdById           String?   @db.NVarChar(36)
-  createdBy             User?     @relation("MaintenanceTemplateCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  updatedById           String?   @db.NVarChar(36)
-  updatedBy             User?     @relation("MaintenanceTemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  workOrders            WorkOrder[]
+  jobDomain                String                    @db.NVarChar(32)
+  jobType                  String?                   @db.NVarChar(64)
+  categoryCode             String?                   @db.NVarChar(64)
+  subcategoryCode          String?                   @db.NVarChar(64)
+  defaultPriority          String                    @default("MEDIUM") @db.NVarChar(32)
+  estimatedHours           Float?
+  estimatedDowntimeMin     Int?
+  defaultExecutionMode     String?                   @db.NVarChar(32)
+  requiredSkillsJson       String                    @default("[]") @db.NVarChar(Max)
+  defaultPartsJson         String                    @default("[]") @db.NVarChar(Max)
+  safetyRequirementsJson   String                    @default("[]") @db.NVarChar(Max)
+  permitRequirement        String?                   @db.NVarChar(64)
+  checklistTemplateId      String?                   @db.NVarChar(36)
+  checklistTemplate        ChecklistTemplate?        @relation(fields: [checklistTemplateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  signOffRequirementsJson  String                    @default("[]") @db.NVarChar(Max)
+  instructions             String?                   @db.NVarChar(Max)
+  documentsJson            String                    @default("[]") @db.NVarChar(Max)
+  version                  Int                       @default(1)
+  effectiveFrom            DateTime                  @default(now())
+  effectiveTo              DateTime?
+  active                   Boolean                   @default(true)
+  createdById              String?                   @db.NVarChar(36)
+  createdBy                User?                     @relation("MaintenanceTemplateCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updatedById              String?                   @db.NVarChar(36)
+  updatedBy                User?                     @relation("MaintenanceTemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  workOrders               WorkOrder[]
   workOrderClassifications WorkOrderClassification[]
 
   @@unique([tenantId, code, version])
@@ -3480,30 +3518,30 @@ model MaintenanceTemplate {
 
 /// Warranty covering an asset, vehicle, part, tyre, battery, or vendor repair subject.
 model EntityWarranty {
-  id              String    @id @default(cuid()) @db.NVarChar(36)
-  tenantId        String    @db.NVarChar(36)
-  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id               String          @id @default(cuid()) @db.NVarChar(36)
+  tenantId         String          @db.NVarChar(36)
+  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// ASSET | VEHICLE | MACHINE | TYRE | BATTERY | SPARE_PART | SERIALIZED_COMPONENT | VENDOR_REPAIR
-  subjectType     String    @db.NVarChar(32)
-  subjectId       String    @db.NVarChar(36)
-  provider        String    @db.NVarChar(200)
-  reference       String?   @db.NVarChar(128)
-  coverageType    String?   @db.NVarChar(64)
-  coverageNotes   String?   @db.NVarChar(Max)
-  startDate       DateTime
-  endDate         DateTime
-  mileageLimit    Int?
-  hourLimit       Float?
-  documentUrlsJson String   @default("[]") @db.NVarChar(Max)
+  subjectType      String          @db.NVarChar(32)
+  subjectId        String          @db.NVarChar(36)
+  provider         String          @db.NVarChar(200)
+  reference        String?         @db.NVarChar(128)
+  coverageType     String?         @db.NVarChar(64)
+  coverageNotes    String?         @db.NVarChar(Max)
+  startDate        DateTime
+  endDate          DateTime
+  mileageLimit     Int?
+  hourLimit        Float?
+  documentUrlsJson String          @default("[]") @db.NVarChar(Max)
   /// ACTIVE | EXPIRED | VOID | CLAIMED
-  status          String    @default("ACTIVE") @db.NVarChar(32)
+  status           String          @default("ACTIVE") @db.NVarChar(32)
   /// WARN | APPROVAL_REQUIRED | RESTRICT_EXTERNAL | VENDOR_RETURN
-  policyAction    String    @default("WARN") @db.NVarChar(32)
-  createdById     String?   @db.NVarChar(36)
-  createdBy       User?     @relation("EntityWarrantyCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  claims          WarrantyClaim[]
+  policyAction     String          @default("WARN") @db.NVarChar(32)
+  createdById      String?         @db.NVarChar(36)
+  createdBy        User?           @relation("EntityWarrantyCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  claims           WarrantyClaim[]
 
   @@index([tenantId, subjectType, subjectId])
   @@index([tenantId, status, endDate])
@@ -3545,28 +3583,28 @@ model WarrantyClaim {
 
 /// Multiple downtime periods per work order (active repair vs waiting parts/vendor/etc.).
 model DowntimeSegment {
-  id                   String    @id @default(cuid()) @db.NVarChar(36)
-  tenantId             String    @db.NVarChar(36)
-  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workOrderId          String    @db.NVarChar(36)
-  workOrder            WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  assetId              String?   @db.NVarChar(36)
+  id                 String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId           String    @db.NVarChar(36)
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId        String    @db.NVarChar(36)
+  workOrder          WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assetId            String?   @db.NVarChar(36)
   /// ACTIVE_REPAIR | WAITING_PARTS | WAITING_VENDOR | WAITING_APPROVAL | WAITING_TECHNICIAN | AWAITING_SHUTDOWN | TESTING | OPERATIONAL_DELAY | OTHER
-  category             String    @db.NVarChar(32)
-  planned              Boolean   @default(false)
-  reasonCode           String?   @db.NVarChar(64)
-  reasonNotes          String?
-  startedAt            DateTime
-  endedAt              DateTime?
-  productionAffected   Boolean   @default(false)
-  estimatedLostHours   Float?
-  estimatedLostUnits   Float?
-  openedById           String?   @db.NVarChar(36)
-  openedBy             User?     @relation("DowntimeOpenedBy", fields: [openedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  closedById           String?   @db.NVarChar(36)
-  closedBy             User?     @relation("DowntimeClosedBy", fields: [closedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  category           String    @db.NVarChar(32)
+  planned            Boolean   @default(false)
+  reasonCode         String?   @db.NVarChar(64)
+  reasonNotes        String?
+  startedAt          DateTime
+  endedAt            DateTime?
+  productionAffected Boolean   @default(false)
+  estimatedLostHours Float?
+  estimatedLostUnits Float?
+  openedById         String?   @db.NVarChar(36)
+  openedBy           User?     @relation("DowntimeOpenedBy", fields: [openedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  closedById         String?   @db.NVarChar(36)
+  closedBy           User?     @relation("DowntimeClosedBy", fields: [closedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([tenantId, workOrderId, startedAt])
   @@index([tenantId, assetId, startedAt])
@@ -3575,43 +3613,43 @@ model DowntimeSegment {
 
 /// Root Cause Analysis case — does not auto-blame people/vendors.
 model RcaCase {
-  id                String    @id @default(cuid()) @db.NVarChar(36)
-  tenantId          String    @db.NVarChar(36)
-  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workOrderId       String?   @db.NVarChar(36)
-  workOrder         WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  assetId           String?   @db.NVarChar(36)
-  vehicleId         String?   @db.NVarChar(36)
+  id                        String       @id @default(cuid()) @db.NVarChar(36)
+  tenantId                  String       @db.NVarChar(36)
+  tenant                    Tenant       @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId               String?      @db.NVarChar(36)
+  workOrder                 WorkOrder?   @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assetId                   String?      @db.NVarChar(36)
+  vehicleId                 String?      @db.NVarChar(36)
   /// OPEN | IN_REVIEW | COMPLETED | CLOSED
-  status            String    @default("OPEN") @db.NVarChar(32)
-  problemStatement  String    @db.NVarChar(Max)
-  evidenceJson      String    @default("[]") @db.NVarChar(Max)
-  fiveWhyJson       String    @default("[]") @db.NVarChar(Max)
-  failureCode       String?   @db.NVarChar(64)
-  causeCode         String?   @db.NVarChar(64)
-  rootCause         String?   @db.NVarChar(Max)
-  repeatCandidate   Boolean   @default(false)
-  repeatWindowDays  Int?
-  similarWoCount    Int       @default(0)
-  ownerId           String?   @db.NVarChar(36)
-  owner             User?     @relation("RcaCaseOwner", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  dueDate           DateTime?
+  status                    String       @default("OPEN") @db.NVarChar(32)
+  problemStatement          String       @db.NVarChar(Max)
+  evidenceJson              String       @default("[]") @db.NVarChar(Max)
+  fiveWhyJson               String       @default("[]") @db.NVarChar(Max)
+  failureCode               String?      @db.NVarChar(64)
+  causeCode                 String?      @db.NVarChar(64)
+  rootCause                 String?      @db.NVarChar(Max)
+  repeatCandidate           Boolean      @default(false)
+  repeatWindowDays          Int?
+  similarWoCount            Int          @default(0)
+  ownerId                   String?      @db.NVarChar(36)
+  owner                     User?        @relation("RcaCaseOwner", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dueDate                   DateTime?
   /// Deterministic repeat-failure key, e.g. asset:{id}|fault:{CODE}
-  clusterKey        String?   @db.NVarChar(160)
+  clusterKey                String?      @db.NVarChar(160)
   /// REPEAT_FAILURE | CRITICAL_BREAKDOWN | MAJOR_DOWNTIME | SAFETY_ISSUE | INSPECTION | MANAGER | AUDIT | OTHER
-  source            String?   @db.NVarChar(32)
-  impact            String?   @db.NVarChar(Max)
+  source                    String?      @db.NVarChar(32)
+  impact                    String?      @db.NVarChar(Max)
   /// FIVE_WHYS | FISHBONE | FAULT_TREE | OTHER
-  method            String?   @db.NVarChar(32)
+  method                    String?      @db.NVarChar(32)
   /// EFFECTIVE | PARTIALLY_EFFECTIVE | INEFFECTIVE
-  effectiveness     String?   @db.NVarChar(32)
-  effectivenessNote String?   @db.NVarChar(Max)
-  effectivenessVerifiedById String? @db.NVarChar(36)
+  effectiveness             String?      @db.NVarChar(32)
+  effectivenessNote         String?      @db.NVarChar(Max)
+  effectivenessVerifiedById String?      @db.NVarChar(36)
   effectivenessVerifiedAt   DateTime?
-  completedAt       DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  capaActions       CapaAction[]
+  completedAt               DateTime?
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+  capaActions               CapaAction[]
 
   @@index([tenantId, status])
   @@index([tenantId, workOrderId])
@@ -3622,26 +3660,26 @@ model RcaCase {
 
 /// Corrective / Preventive Action linked to an RCA.
 model CapaAction {
-  id               String   @id @default(cuid()) @db.NVarChar(36)
-  tenantId         String   @db.NVarChar(36)
-  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  rcaCaseId        String   @db.NVarChar(36)
-  rcaCase          RcaCase  @relation(fields: [rcaCaseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id               String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId         String    @db.NVarChar(36)
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rcaCaseId        String    @db.NVarChar(36)
+  rcaCase          RcaCase   @relation(fields: [rcaCaseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// CORRECTIVE | PREVENTIVE
-  kind             String   @db.NVarChar(16)
-  description      String   @db.NVarChar(Max)
+  kind             String    @db.NVarChar(16)
+  description      String    @db.NVarChar(Max)
   /// OPEN | IN_PROGRESS | VERIFIED | CLOSED | CANCELLED
-  status           String   @default("OPEN") @db.NVarChar(32)
-  ownerId          String?  @db.NVarChar(36)
-  owner            User?    @relation("CapaActionOwner", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status           String    @default("OPEN") @db.NVarChar(32)
+  ownerId          String?   @db.NVarChar(36)
+  owner            User?     @relation("CapaActionOwner", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   dueDate          DateTime?
-  evidenceJson     String   @default("[]") @db.NVarChar(Max)
-  verifiedById     String?  @db.NVarChar(36)
+  evidenceJson     String    @default("[]") @db.NVarChar(Max)
+  verifiedById     String?   @db.NVarChar(36)
   verifiedAt       DateTime?
   verificationNote String?
   closedAt         DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([tenantId, rcaCaseId])
   @@index([tenantId, status, dueDate])
@@ -3649,28 +3687,28 @@ model CapaAction {
 
 /// Permit-to-Work linked to a work order (admin-configurable types).
 model WorkPermit {
-  id            String    @id @default(cuid()) @db.NVarChar(36)
-  tenantId      String    @db.NVarChar(36)
-  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workOrderId   String    @db.NVarChar(36)
-  workOrder     WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  permitNumber  String    @db.NVarChar(64)
+  id           String       @id @default(cuid()) @db.NVarChar(36)
+  tenantId     String       @db.NVarChar(36)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId  String       @db.NVarChar(36)
+  workOrder    WorkOrder    @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  permitNumber String       @db.NVarChar(64)
   /// ELECTRICAL | HOT_WORK | CONFINED_SPACE | WORKING_AT_HEIGHT | HIGH_RISK_MACHINERY | OTHER
-  permitType    String    @db.NVarChar(32)
+  permitType   String       @db.NVarChar(32)
   /// DRAFT | APPROVED | ACTIVE | SUSPENDED | CLOSED | EXPIRED
-  status        String    @default("DRAFT") @db.NVarChar(32)
-  hazardsJson   String    @default("[]") @db.NVarChar(Max)
-  ppeJson       String    @default("[]") @db.NVarChar(Max)
-  validFrom     DateTime?
-  validTo       DateTime?
-  issuedById    String?   @db.NVarChar(36)
-  issuedBy      User?     @relation("WorkPermitIssuedBy", fields: [issuedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  approvedById  String?   @db.NVarChar(36)
-  approvedBy    User?     @relation("WorkPermitApprovedBy", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  lotoRecords   LotoRecord[]
+  status       String       @default("DRAFT") @db.NVarChar(32)
+  hazardsJson  String       @default("[]") @db.NVarChar(Max)
+  ppeJson      String       @default("[]") @db.NVarChar(Max)
+  validFrom    DateTime?
+  validTo      DateTime?
+  issuedById   String?      @db.NVarChar(36)
+  issuedBy     User?        @relation("WorkPermitIssuedBy", fields: [issuedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedById String?      @db.NVarChar(36)
+  approvedBy   User?        @relation("WorkPermitApprovedBy", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  notes        String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  lotoRecords  LotoRecord[]
 
   @@unique([tenantId, permitNumber])
   @@index([tenantId, workOrderId, status])
@@ -3680,49 +3718,49 @@ model WorkPermit {
 
 /// Tenant reliability / safety start-gate policy (Admin configurable).
 model ReliabilityPolicy {
-  id                              String   @id @default(cuid()) @db.NVarChar(36)
-  tenantId                        String   @unique @db.NVarChar(36)
-  tenant                          Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  repeatWindowDays                Int      @default(90)
-  matchSameFaultCode              Boolean  @default(true)
-  matchSameAsset                  Boolean  @default(true)
-  requireRcaOnRepeat              Boolean  @default(false)
+  id                             String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId                       String   @unique @db.NVarChar(36)
+  tenant                         Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  repeatWindowDays               Int      @default(90)
+  matchSameFaultCode             Boolean  @default(true)
+  matchSameAsset                 Boolean  @default(true)
+  requireRcaOnRepeat             Boolean  @default(false)
   /// FLAG_ONLY | MANAGER_REVIEW | REQUIRE_RCA. Kept in step with requireRcaOnRepeat (true only for REQUIRE_RCA).
-  repeatAction                    String   @default("FLAG_ONLY") @db.NVarChar(32)
+  repeatAction                   String   @default("FLAG_ONLY") @db.NVarChar(32)
   /// When true, WO start is blocked unless an ACTIVE/APPROVED non-expired permit exists for critical assets
-  requirePermitForCriticalAssets  Boolean  @default(true)
+  requirePermitForCriticalAssets Boolean  @default(true)
   /// CSV of Asset.criticalityLevel values that require a permit before start
-  permitRequiredCriticalities     String   @default("CRITICAL,HIGH") @db.NVarChar(128)
+  permitRequiredCriticalities    String   @default("CRITICAL,HIGH") @db.NVarChar(128)
   /// When true, WO start blocked if template/permit requires LOTO and no COMPLETE isolation exists
-  requireLotoWhenPermitRequires   Boolean  @default(true)
-  createdAt                       DateTime @default(now())
-  updatedAt                       DateTime @updatedAt
+  requireLotoWhenPermitRequires  Boolean  @default(true)
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
 }
 
 /// Configurable condition thresholds for meters (CBM).
 model ConditionMonitoringRule {
-  id                  String    @id @default(cuid()) @db.NVarChar(36)
-  tenantId            String    @db.NVarChar(36)
-  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  code                String    @db.NVarChar(64)
-  name                String    @db.NVarChar(200)
+  id                  String           @id @default(cuid()) @db.NVarChar(36)
+  tenantId            String           @db.NVarChar(36)
+  tenant              Tenant           @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                String           @db.NVarChar(64)
+  name                String           @db.NVarChar(200)
   /// TEMPERATURE | VIBRATION | PRESSURE | VOLTAGE | CURRENT | OIL | GENERIC | meterType match
-  measurementType     String    @db.NVarChar(64)
-  assetId             String?   @db.NVarChar(36)
-  meterId             String?   @db.NVarChar(36)
+  measurementType     String           @db.NVarChar(64)
+  assetId             String?          @db.NVarChar(36)
+  meterId             String?          @db.NVarChar(36)
   upperWarning        Float?
   upperCritical       Float?
   lowerWarning        Float?
   lowerCritical       Float?
-  consecutiveBreaches Int       @default(1)
+  consecutiveBreaches Int              @default(1)
   /// ALERT | CREATE_REQUEST | CREATE_WO
-  actionOnWarning     String    @default("ALERT") @db.NVarChar(32)
-  actionOnCritical    String    @default("CREATE_REQUEST") @db.NVarChar(32)
-  active              Boolean   @default(true)
-  effectiveFrom       DateTime  @default(now())
+  actionOnWarning     String           @default("ALERT") @db.NVarChar(32)
+  actionOnCritical    String           @default("CREATE_REQUEST") @db.NVarChar(32)
+  active              Boolean          @default(true)
+  effectiveFrom       DateTime         @default(now())
   effectiveTo         DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
   events              ConditionEvent[]
 
   @@unique([tenantId, code])
@@ -3733,27 +3771,27 @@ model ConditionMonitoringRule {
 
 /// Deduplicated condition breach events (open until resolved).
 model ConditionEvent {
-  id              String                   @id @default(cuid()) @db.NVarChar(36)
-  tenantId        String                   @db.NVarChar(36)
-  tenant          Tenant                   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  ruleId          String                   @db.NVarChar(36)
-  rule            ConditionMonitoringRule  @relation(fields: [ruleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  assetId         String?                  @db.NVarChar(36)
-  meterId         String?                  @db.NVarChar(36)
-  workOrderId     String?                  @db.NVarChar(36)
-  workOrder       WorkOrder?               @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id             String                  @id @default(cuid()) @db.NVarChar(36)
+  tenantId       String                  @db.NVarChar(36)
+  tenant         Tenant                  @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ruleId         String                  @db.NVarChar(36)
+  rule           ConditionMonitoringRule @relation(fields: [ruleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assetId        String?                 @db.NVarChar(36)
+  meterId        String?                 @db.NVarChar(36)
+  workOrderId    String?                 @db.NVarChar(36)
+  workOrder      WorkOrder?              @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// WARNING | CRITICAL
-  severity        String                   @db.NVarChar(16)
-  readingValue    Float
-  thresholdValue  Float?
+  severity       String                  @db.NVarChar(16)
+  readingValue   Float
+  thresholdValue Float?
   /// OPEN | ACKNOWLEDGED | RESOLVED | SUPPRESSED
-  status          String                   @default("OPEN") @db.NVarChar(32)
-  breachCount     Int                      @default(1)
-  message         String                   @db.NVarChar(Max)
-  dedupeKey       String                   @db.NVarChar(128)
-  resolvedAt      DateTime?
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
+  status         String                  @default("OPEN") @db.NVarChar(32)
+  breachCount    Int                     @default(1)
+  message        String                  @db.NVarChar(Max)
+  dedupeKey      String                  @db.NVarChar(128)
+  resolvedAt     DateTime?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
 
   @@unique([tenantId, dedupeKey])
   @@index([tenantId, status, severity])
@@ -3763,30 +3801,30 @@ model ConditionEvent {
 
 /// LOTO isolation record linked to a work order / permit.
 model LotoRecord {
-  id              String    @id @default(cuid()) @db.NVarChar(36)
-  tenantId        String    @db.NVarChar(36)
-  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workOrderId     String    @db.NVarChar(36)
-  workOrder       WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workPermitId    String?   @db.NVarChar(36)
-  workPermit      WorkPermit? @relation(fields: [workPermitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                  String      @id @default(cuid()) @db.NVarChar(36)
+  tenantId            String      @db.NVarChar(36)
+  tenant              Tenant      @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId         String      @db.NVarChar(36)
+  workOrder           WorkOrder   @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workPermitId        String?     @db.NVarChar(36)
+  workPermit          WorkPermit? @relation(fields: [workPermitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// DRAFT | ISOLATED | VERIFIED | RESTORED | CANCELLED
-  status          String    @default("DRAFT") @db.NVarChar(32)
-  energySourcesJson String  @default("[]") @db.NVarChar(Max)
-  isolationPointsJson String @default("[]") @db.NVarChar(Max)
-  lockTagIdsJson  String    @default("[]") @db.NVarChar(Max)
-  isolatedById    String?   @db.NVarChar(36)
-  isolatedBy      User?     @relation("LotoIsolatedBy", fields: [isolatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  verifiedById    String?   @db.NVarChar(36)
-  verifiedBy      User?     @relation("LotoVerifiedBy", fields: [verifiedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  restoredById    String?   @db.NVarChar(36)
-  restoredBy      User?     @relation("LotoRestoredBy", fields: [restoredById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  isolatedAt      DateTime?
-  verifiedAt      DateTime?
-  restoredAt      DateTime?
-  notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  status              String      @default("DRAFT") @db.NVarChar(32)
+  energySourcesJson   String      @default("[]") @db.NVarChar(Max)
+  isolationPointsJson String      @default("[]") @db.NVarChar(Max)
+  lockTagIdsJson      String      @default("[]") @db.NVarChar(Max)
+  isolatedById        String?     @db.NVarChar(36)
+  isolatedBy          User?       @relation("LotoIsolatedBy", fields: [isolatedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  verifiedById        String?     @db.NVarChar(36)
+  verifiedBy          User?       @relation("LotoVerifiedBy", fields: [verifiedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  restoredById        String?     @db.NVarChar(36)
+  restoredBy          User?       @relation("LotoRestoredBy", fields: [restoredById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  isolatedAt          DateTime?
+  verifiedAt          DateTime?
+  restoredAt          DateTime?
+  notes               String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
   @@index([tenantId, workOrderId, status])
   @@index([tenantId, status])
@@ -3862,50 +3900,50 @@ model FacilityIssue {
 }
 
 model EvidenceAttachment {
-  id                   String              @id @default(cuid()) @db.NVarChar(36)
-  tenantId             String?             @db.NVarChar(36)
-  tenant               Tenant?             @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workOrderId          String?             @db.NVarChar(36)
-  workOrder            WorkOrder?          @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  facilityIssueId      String?             @db.NVarChar(36)
-  facilityIssue        FacilityIssue?      @relation(fields: [facilityIssueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                    String              @id @default(cuid()) @db.NVarChar(36)
+  tenantId              String?             @db.NVarChar(36)
+  tenant                Tenant?             @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId           String?             @db.NVarChar(36)
+  workOrder             WorkOrder?          @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  facilityIssueId       String?             @db.NVarChar(36)
+  facilityIssue         FacilityIssue?      @relation(fields: [facilityIssueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Phase 5: evidence attached to MaintenanceRequest (reuse same secure storage)
-  maintenanceRequestId String?             @db.NVarChar(36)
-  maintenanceRequest   MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  inspectionId         String?             @db.NVarChar(36)
-  inspection           Inspection?         @relation(fields: [inspectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  checklistItemKey     String?             @db.NVarChar(64)
-  evidenceType         String              @default("") @db.NVarChar(64)
-  fileName             String
-  mimeType             String
-  sizeBytes            Int
-  storageProvider      String
-  storageKey           String
-  status               String              @default("") @db.NVarChar(64)
-  verificationStatus   String              @default("") @db.NVarChar(64)
-  rejectedReason       String?
-  note                 String?
-  isRequired           Boolean             @default(false)
-  capturedAt           DateTime?
-  source               String              @default("") @db.NVarChar(64)
+  maintenanceRequestId  String?             @db.NVarChar(36)
+  maintenanceRequest    MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inspectionId          String?             @db.NVarChar(36)
+  inspection            Inspection?         @relation(fields: [inspectionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  checklistItemKey      String?             @db.NVarChar(64)
+  evidenceType          String              @default("") @db.NVarChar(64)
+  fileName              String
+  mimeType              String
+  sizeBytes             Int
+  storageProvider       String
+  storageKey            String
+  status                String              @default("") @db.NVarChar(64)
+  verificationStatus    String              @default("") @db.NVarChar(64)
+  rejectedReason        String?
+  note                  String?
+  isRequired            Boolean             @default(false)
+  capturedAt            DateTime?
+  source                String              @default("") @db.NVarChar(64)
   /// sha256 of the stored bytes; the same photo cannot be reused on another record.
-  contentSha256        String?             @db.NVarChar(64)
+  contentSha256         String?             @db.NVarChar(64)
   /// Optional phone location when the photo was taken (only if the user allowed it).
-  captureLatitude      Float?
-  captureLongitude     Float?
+  captureLatitude       Float?
+  captureLongitude      Float?
   captureAccuracyMeters Float?
-  clientGeneratedId    String?
-  offlineCreatedAt     DateTime?
-  syncedAt             DateTime?
-  syncStatus           String?             @db.NVarChar(64)
-  syncError            String?
-  deletedAt            DateTime?
-  deletedById          String?             @db.NVarChar(36)
-  deleteReason         String?
-  uploadedById         String              @db.NVarChar(36)
-  uploadedBy           User                @relation("EvidenceUploader", fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
+  clientGeneratedId     String?
+  offlineCreatedAt      DateTime?
+  syncedAt              DateTime?
+  syncStatus            String?             @db.NVarChar(64)
+  syncError             String?
+  deletedAt             DateTime?
+  deletedById           String?             @db.NVarChar(36)
+  deleteReason          String?
+  uploadedById          String              @db.NVarChar(36)
+  uploadedBy            User                @relation("EvidenceUploader", fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
   @@index([tenantId, workOrderId])
   @@index([tenantId, facilityIssueId])
@@ -3955,13 +3993,13 @@ model CropCycle {
   actualHarvestDate   DateTime?
   expectedYieldKg     Float?
   actualYieldKg       Float?
-  seedCostLkr         Decimal?    @default(0) @db.Decimal(18, 2)
-  fertilizerCostLkr   Decimal?    @default(0) @db.Decimal(18, 2)
-  pesticideCostLkr    Decimal?    @default(0) @db.Decimal(18, 2)
-  laborCostLkr        Decimal?    @default(0) @db.Decimal(18, 2)
-  irrigationCostLkr   Decimal?    @default(0) @db.Decimal(18, 2)
-  otherCostLkr        Decimal?    @default(0) @db.Decimal(18, 2)
-  revenueLkr          Decimal?    @default(0) @db.Decimal(18, 2)
+  seedCostLkr         Decimal?  @default(0) @db.Decimal(18, 2)
+  fertilizerCostLkr   Decimal?  @default(0) @db.Decimal(18, 2)
+  pesticideCostLkr    Decimal?  @default(0) @db.Decimal(18, 2)
+  laborCostLkr        Decimal?  @default(0) @db.Decimal(18, 2)
+  irrigationCostLkr   Decimal?  @default(0) @db.Decimal(18, 2)
+  otherCostLkr        Decimal?  @default(0) @db.Decimal(18, 2)
+  revenueLkr          Decimal?  @default(0) @db.Decimal(18, 2)
   status              String    @default("") @db.NVarChar(64)
   notes               String?
   archivedAt          DateTime?
@@ -3988,8 +4026,8 @@ model HarvestRecord {
   storageLocation String?
   batchCode       String?
   harvestedById   String?   @db.NVarChar(36)
-  pricePerKgLkr   Decimal? @db.Decimal(18, 2)
-  totalValueLkr   Decimal? @db.Decimal(18, 2)
+  pricePerKgLkr   Decimal?  @db.Decimal(18, 2)
+  totalValueLkr   Decimal?  @db.Decimal(18, 2)
   buyerName       String?
   photos          String    @default("[]") @db.NVarChar(Max)
   notes           String?
@@ -4010,10 +4048,10 @@ model LivestockAnimal {
   gender           String    @db.NVarChar(64)
   dateOfBirth      DateTime?
   purchaseDate     DateTime?
-  purchasePriceLkr Decimal? @db.Decimal(18, 2)
+  purchasePriceLkr Decimal?  @db.Decimal(18, 2)
   weightKg         Float?
   status           String    @default("") @db.NVarChar(64)
-  qrCodeUrl        String?  @db.NVarChar(Max)
+  qrCodeUrl        String?   @db.NVarChar(Max)
   archivedAt       DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -4038,7 +4076,7 @@ model AnimalHealthRecord {
   vetName      String?
   medicineName String?
   dosage       String?
-  costLkr      Decimal? @db.Decimal(18, 2)
+  costLkr      Decimal?        @db.Decimal(18, 2)
   nextDueDate  DateTime?
   notes        String?
   createdAt    DateTime        @default(now())
@@ -4075,7 +4113,7 @@ model FeedingLog {
   groupLabel String?
   feedType   String
   quantityKg Float
-  costLkr    Decimal? @db.Decimal(18, 2)
+  costLkr    Decimal?         @db.Decimal(18, 2)
   fedById    String?          @db.NVarChar(36)
   date       DateTime
   notes      String?
@@ -4098,7 +4136,7 @@ model IrrigationLog {
   method          String    @db.NVarChar(64)
   pumpAssetId     String?   @db.NVarChar(36)
   operatorId      String?   @db.NVarChar(36)
-  costLkr         Decimal? @db.Decimal(18, 2)
+  costLkr         Decimal?  @db.Decimal(18, 2)
   notes           String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -4121,7 +4159,7 @@ model SprayLog {
   dosagePerHectare   Float?
   totalQuantityUsed  Float?
   unit               String
-  costLkr            Decimal? @db.Decimal(18, 2)
+  costLkr            Decimal?   @db.Decimal(18, 2)
   operatorId         String?    @db.NVarChar(36)
   equipmentAssetId   String?    @db.NVarChar(36)
   weatherAtTime      String?
@@ -4185,10 +4223,10 @@ model FarmWorker {
   phone        String?
   address      String?
   workerType   String    @db.NVarChar(64)
-  dailyWageLkr Decimal? @db.Decimal(18, 2)
+  dailyWageLkr Decimal?  @db.Decimal(18, 2)
   skillTags    String    @default("[]") @db.NVarChar(Max)
   status       String    @default("") @db.NVarChar(64)
-  qrCodeUrl    String?  @db.NVarChar(Max)
+  qrCodeUrl    String?   @db.NVarChar(Max)
   archivedAt   DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -4210,7 +4248,7 @@ model AttendanceLog {
   checkOutTime DateTime?
   hoursWorked  Float?
   taskArea     String?
-  wageLkr      Decimal? @db.Decimal(18, 2)
+  wageLkr      Decimal?   @db.Decimal(18, 2)
   markedById   String?    @db.NVarChar(36)
   notes        String?
   createdAt    DateTime   @default(now())
@@ -4274,7 +4312,7 @@ model TraceabilityRecord {
   harvestDate     DateTime
   buyerName       String?
   certifications  String                  @default("[]") @db.NVarChar(Max)
-  qrCodeUrl       String?  @db.NVarChar(Max)
+  qrCodeUrl       String?                 @db.NVarChar(Max)
   publicUrl       String?
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
@@ -5054,7 +5092,7 @@ model ErpImportRow {
   quantity           Int?
   requestedQuantity  Int?
   requester          String?
-  cost               Decimal? @db.Decimal(18, 2)
+  cost               Decimal?       @db.Decimal(18, 2)
   batch              String?
   lot                String?
   orderNo            String?
@@ -5559,26 +5597,26 @@ model PmPlan {
 /// One scheduled PM occurrence (distinct from PmPlan and from WorkOrder).
 /// Completion of the occurrence advances plan baseline only when the governed WO reaches the configured verification/close point.
 model PmOccurrence {
-  id              String     @id @default(cuid()) @db.NVarChar(36)
-  tenantId        String     @db.NVarChar(36)
-  tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  planId          String     @db.NVarChar(36)
-  plan            PmPlan     @relation(fields: [planId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  planRevision    Int?
+  id             String     @id @default(cuid()) @db.NVarChar(36)
+  tenantId       String     @db.NVarChar(36)
+  tenant         Tenant     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  planId         String     @db.NVarChar(36)
+  plan           PmPlan     @relation(fields: [planId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  planRevision   Int?
   /// SCHEDULED | GENERATED | DEFERRED | SKIPPED | COMPLETED | MISSED
-  status          String     @default("SCHEDULED") @db.NVarChar(32)
-  dueAt           DateTime?
-  dueMeterValue   Float?
-  graceEndsAt     DateTime?
-  generationKey   String     @db.NVarChar(128)
-  workOrderId     String?    @db.NVarChar(36)
-  workOrder       WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  deferredReason  String?
-  skippedReason   String?
-  completedAt     DateTime?
-  missedAt        DateTime?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  status         String     @default("SCHEDULED") @db.NVarChar(32)
+  dueAt          DateTime?
+  dueMeterValue  Float?
+  graceEndsAt    DateTime?
+  generationKey  String     @db.NVarChar(128)
+  workOrderId    String?    @db.NVarChar(36)
+  workOrder      WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  deferredReason String?
+  skippedReason  String?
+  completedAt    DateTime?
+  missedAt       DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   @@unique([tenantId, planId, generationKey])
   @@index([tenantId, status, dueAt])
@@ -5666,14 +5704,14 @@ model AssetMeter {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  readings AssetMeterReading[]
-  triggers PmTrigger[]
+  readings    AssetMeterReading[]
+  triggers    PmTrigger[]
   corrections MeterCorrection[]
 
+  @@unique([tenantId, id])
   @@index([tenantId, assetId])
   @@index([tenantId, vehicleId])
   @@index([tenantId, meterType])
-  @@unique([tenantId, id])
 }
 
 model AssetMeterReading {
@@ -5713,9 +5751,9 @@ model ChecklistTemplate {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  items               ChecklistTemplateItem[]
-  pmPlans             PmPlan[]
-  inspectionTemplates InspectionTemplate[]
+  items                ChecklistTemplateItem[]
+  pmPlans              PmPlan[]
+  inspectionTemplates  InspectionTemplate[]
   maintenanceTemplates MaintenanceTemplate[]
 
   @@unique([tenantId, code, version])
@@ -5796,7 +5834,7 @@ model Inspection {
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 
-  findingRecords InspectionFinding[]
+  findingRecords      InspectionFinding[]
   evidenceAttachments EvidenceAttachment[]
 
   @@index([tenantId, status])
@@ -5954,34 +5992,34 @@ model WorkOrderPlanning {
 /// DB-2 — Execution / ops timestamps / current hold / vendor mode (1:1 extension).
 /// WorkOrderHoldHistory remains canonical hold episode history.
 model WorkOrderExecution {
-  id                   String    @id @default(cuid()) @db.NVarChar(36)
-  tenantId             String    @db.NVarChar(36)
-  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workOrderId          String    @unique @db.NVarChar(36)
-  workOrder            WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  executionMode        String    @default("") @db.NVarChar(64)
-  vendorSupplierId     String?   @db.NVarChar(36)
-  vendorSupplier       Supplier? @relation("WorkOrderExecutionVendor", fields: [vendorSupplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  approvedById         String?   @db.NVarChar(36)
-  approvedBy           User?     @relation("WorkOrderExecutionApprovedBy", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  approvedAt           DateTime?
-  rejectionReason      String?
-  startDate            DateTime?
-  failedAt             DateTime?
-  reportedAt           DateTime?
-  acknowledgedAt       DateTime?
-  technicianArrivedAt  DateTime?
-  repairStartedAt      DateTime?
-  repairCompletedAt    DateTime?
-  productionResumedAt  DateTime?
-  holdReasonCode       String?
-  holdNotes            String?
-  heldAt               DateTime?
-  expectedResumeAt     DateTime?
-  resumedAt            DateTime?
-  correctionReason     String?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  id                  String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId            String    @db.NVarChar(36)
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId         String    @unique @db.NVarChar(36)
+  workOrder           WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  executionMode       String    @default("") @db.NVarChar(64)
+  vendorSupplierId    String?   @db.NVarChar(36)
+  vendorSupplier      Supplier? @relation("WorkOrderExecutionVendor", fields: [vendorSupplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedById        String?   @db.NVarChar(36)
+  approvedBy          User?     @relation("WorkOrderExecutionApprovedBy", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedAt          DateTime?
+  rejectionReason     String?
+  startDate           DateTime?
+  failedAt            DateTime?
+  reportedAt          DateTime?
+  acknowledgedAt      DateTime?
+  technicianArrivedAt DateTime?
+  repairStartedAt     DateTime?
+  repairCompletedAt   DateTime?
+  productionResumedAt DateTime?
+  holdReasonCode      String?
+  holdNotes           String?
+  heldAt              DateTime?
+  expectedResumeAt    DateTime?
+  resumedAt           DateTime?
+  correctionReason    String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@index([tenantId])
   @@index([tenantId, vendorSupplierId])
@@ -6233,26 +6271,26 @@ model WorkflowDefinition {
 }
 
 model WorkflowVersion {
-  id            String             @id @default(cuid()) @db.NVarChar(36)
-  tenantId      String             @db.NVarChar(36)
-  definitionId  String             @db.NVarChar(36)
-  definition    WorkflowDefinition @relation(fields: [definitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  version       Int
+  id              String             @id @default(cuid()) @db.NVarChar(36)
+  tenantId        String             @db.NVarChar(36)
+  definitionId    String             @db.NVarChar(36)
+  definition      WorkflowDefinition @relation(fields: [definitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  version         Int
   /// DRAFT | PUBLISHED | RETIRED
-  status        String             @default("DRAFT") @db.NVarChar(32)
-  statesJson    String             @default("[]") @db.NVarChar(Max)
-  transitionsJson String           @default("[]") @db.NVarChar(Max)
-  effectiveFrom DateTime?
-  effectiveTo   DateTime?
-  publishedAt   DateTime?
-  publishedById String?            @db.NVarChar(36)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  status          String             @default("DRAFT") @db.NVarChar(32)
+  statesJson      String             @default("[]") @db.NVarChar(Max)
+  transitionsJson String             @default("[]") @db.NVarChar(Max)
+  effectiveFrom   DateTime?
+  effectiveTo     DateTime?
+  publishedAt     DateTime?
+  publishedById   String?            @db.NVarChar(36)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  workOrders      WorkOrder[]
 
   @@unique([definitionId, version])
   @@unique([tenantId, id])
   @@index([tenantId, status])
-  workOrders WorkOrder[]
 }
 
 model NumberingSequence {
@@ -6271,20 +6309,20 @@ model NumberingSequence {
 }
 
 model TemporaryRepairRecord {
-  id                 String   @id @default(cuid()) @db.NVarChar(36)
-  tenantId           String   @db.NVarChar(36)
-  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workOrderId        String   @db.NVarChar(36)
-  workOrder          WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  reason             String   @db.NVarChar(Max)
-  temporaryAction    String   @db.NVarChar(Max)
-  risk               String?
-  expiryAt           DateTime
-  ownerId            String?  @db.NVarChar(36)
-  followUpWorkOrderId String? @db.NVarChar(36)
-  status             String   @default("OPEN") @db.NVarChar(32)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                  String    @id @default(cuid()) @db.NVarChar(36)
+  tenantId            String    @db.NVarChar(36)
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId         String    @db.NVarChar(36)
+  workOrder           WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reason              String    @db.NVarChar(Max)
+  temporaryAction     String    @db.NVarChar(Max)
+  risk                String?
+  expiryAt            DateTime
+  ownerId             String?   @db.NVarChar(36)
+  followUpWorkOrderId String?   @db.NVarChar(36)
+  status              String    @default("OPEN") @db.NVarChar(32)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@index([tenantId, status, expiryAt])
 }
@@ -6427,24 +6465,24 @@ model OutboundWebhookDelivery {
 /// Extensible organization hierarchy (COMPANY / BRANCH / DIVISION / OTHER).
 /// Site and Department remain operational masters; OrganizationUnit links them without hardcoding depth.
 model OrganizationUnit {
-  id             String            @id @default(cuid()) @db.NVarChar(36)
-  tenantId       String            @db.NVarChar(36)
-  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  parentId       String?           @db.NVarChar(36)
-  parent         OrganizationUnit? @relation("OrgUnitChildren", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children       OrganizationUnit[] @relation("OrgUnitChildren")
-  code           String            @db.NVarChar(64)
-  name           String            @db.NVarChar(200)
+  id            String             @id @default(cuid()) @db.NVarChar(36)
+  tenantId      String             @db.NVarChar(36)
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parentId      String?            @db.NVarChar(36)
+  parent        OrganizationUnit?  @relation("OrgUnitChildren", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children      OrganizationUnit[] @relation("OrgUnitChildren")
+  code          String             @db.NVarChar(64)
+  name          String             @db.NVarChar(200)
   /// COMPANY | BRANCH | DIVISION | REGION | OTHER
-  unitType       String            @db.NVarChar(32)
-  siteId         String?           @db.NVarChar(36)
-  departmentId   String?           @db.NVarChar(36)
+  unitType      String             @db.NVarChar(32)
+  siteId        String?            @db.NVarChar(36)
+  departmentId  String?            @db.NVarChar(36)
   /// ACTIVE | INACTIVE | RETIRED
-  status         String            @default("ACTIVE") @db.NVarChar(32)
-  effectiveFrom  DateTime?
-  effectiveTo    DateTime?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  status        String             @default("ACTIVE") @db.NVarChar(32)
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   @@unique([tenantId, code])
   @@unique([tenantId, id])
@@ -6453,23 +6491,22 @@ model OrganizationUnit {
   @@index([tenantId, unitType])
 }
 
-
 // ============================================================
 // Change request master data: who may raise requests (groups) and spare part categories
 // ============================================================
 
 /// A named set of people who raise requests together (e.g. "Packing line supervisors").
 model RequesterGroup {
-  id          String   @id @default(cuid()) @db.NVarChar(36)
-  tenantId    String   @db.NVarChar(36)
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  code        String
-  name        String
-  description String?
-  departmentId String? @db.NVarChar(36)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid()) @db.NVarChar(36)
+  tenantId     String   @db.NVarChar(36)
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code         String
+  name         String
+  description  String?
+  departmentId String?  @db.NVarChar(36)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   members RequesterGroupMember[]
 
