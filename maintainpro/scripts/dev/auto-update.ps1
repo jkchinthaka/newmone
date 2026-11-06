@@ -60,15 +60,15 @@ while ($true) {
     Stop-Servers
     if ($needInstall) {
       Log "npm install..."
-      npm install --no-audit --no-fund
+      npm.cmd install --no-audit --no-fund
     }
     if ($needGenerate) {
       Log "prisma generate..."
-      npm run db:generate
+      npm.cmd run db:generate
     }
     if ($needMigrate) {
       Log "Applying new migrations..."
-      npm run db:migrate:deploy
+      npm.cmd run db:migrate:deploy
       if ($LASTEXITCODE -ne 0) { Log "MIGRATION FAILED - check the output above. Servers will still start." }
     }
     Start-Servers
