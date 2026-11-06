@@ -85,6 +85,32 @@ export function WorkOrderHistoryPanel({ workOrderId, compact = false }: Props) {
     return null;
   }
 
+  const nothingToShow =
+    !data.hasLinkedTarget ||
+    (data.previousMaintenance.length === 0 &&
+      data.previousBreakdowns.length === 0 &&
+      data.previousPartsUsed.length === 0 &&
+      !data.lastService &&
+      data.repeatIssueWarnings.length === 0 &&
+      data.complianceWarnings.length === 0 &&
+      data.meterHistory.length === 0);
+
+  if (nothingToShow) {
+    return (
+      <section className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-6 text-center">
+        <History className="mx-auto h-5 w-5 text-slate-400" aria-hidden />
+        <p className="mt-2 text-sm font-medium text-slate-800">
+          {data.hasLinkedTarget ? "No earlier jobs on this machine yet" : "No machine linked to this job"}
+        </p>
+        <p className="mt-1 text-xs text-slate-500">
+          {data.hasLinkedTarget
+            ? "Past repairs, parts and costs will show here once this machine has other finished jobs."
+            : "Past repairs, parts and costs show here when a machine or vehicle is linked to the job."}
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex items-start gap-2">
