@@ -24,6 +24,7 @@ import {
   toDateTimeLocalValue
 } from "@/lib/workforce-designations";
 import { useCurrentUser } from "@/lib/use-current-user";
+import { BulkAssignDialog } from "./bulk-assign-dialog";
 
 type AssigneeRow = {
   id: string;
@@ -86,6 +87,7 @@ function initials(name: string) {
 export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualHours }: Props) {
   const currentUser = useCurrentUser();
   const [assignees, setAssignees] = useState<AssigneeRow[]>([]);
+  const [addSeveralOpen, setAddSeveralOpen] = useState(false);
   const [employees, setEmployees] = useState<WorkforceEmployee[]>([]);
   const [designationCatalog, setDesignationCatalog] = useState<WorkforceEmployee[]>([]);
   const [loadingAssignees, setLoadingAssignees] = useState(true);
@@ -464,7 +466,18 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
       )}
 
       {canSeeAssignees && !readOnly ? (
-      <SectionCard title="Add team member">
+      <SectionCard
+        title="Add team member"
+        action={
+          <button
+            type="button"
+            className="text-sm font-medium text-brand-700 underline-offset-2 hover:underline"
+            onClick={() => setAddSeveralOpen(true)}
+          >
+            Add several people at once
+          </button>
+        }
+      >
       <div
         className="grid grid-cols-1 gap-3 sm:grid-cols-2"
         onKeyDown={(event) => {
@@ -660,6 +673,16 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
         </div>
       </div>
       </SectionCard>
+      ) : null}
+      {addSeveralOpen ? (
+        <BulkAssignDialog
+          workOrderIds={[workOrderId]}
+          onClose={() => setAddSeveralOpen(false)}
+          onDone={() => {
+            setAddSeveralOpen(false);
+            void loadAssignees();
+          }}
+        />
       ) : null}
     </section>
   );

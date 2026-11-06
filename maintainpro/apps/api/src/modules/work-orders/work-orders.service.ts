@@ -5018,13 +5018,21 @@ export class WorkOrdersService {
 
         this.assertWorkOrderApprovedForExecution(current);
 
-        for (let index = 0; index < input.assigneeEmployeeIds.length; index += 1) {
-          const employeeId = input.assigneeEmployeeIds[index];
+        // Add to the team: people already on the job stay, and an existing main assignee is not replaced.
+        const existingAssignees = await this.prisma.workOrderAssignee.findMany({
+          where: { workOrderId, assignmentStatus: { not: "REMOVED" } },
+          select: { employeeId: true, isPrimary: true }
+        });
+        const alreadyAssigned = new Set(existingAssignees.map((row) => row.employeeId));
+        let primaryTaken = existingAssignees.some((row) => row.isPrimary);
+        for (const employeeId of input.assigneeEmployeeIds) {
+          if (alreadyAssigned.has(employeeId)) continue;
           await this.workOrderAssigneesService.addAssignee(
             workOrderId,
-            { employeeId, isPrimary: index === 0 },
+            { employeeId, isPrimary: !primaryTaken },
             actor
           );
+          primaryTaken = true;
         }
         await this.promoteAssignedTechnician(workOrderId, actor);
         await this.notifyEmployeesAssigned(workOrderId, input.assigneeEmployeeIds, actor);

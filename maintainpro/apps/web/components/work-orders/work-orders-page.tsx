@@ -942,7 +942,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
               disabled={bulkBusy}
               className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
             >
-              Assign / priority / due date
+              Assign people
             </button>
           ) : null}
           <button

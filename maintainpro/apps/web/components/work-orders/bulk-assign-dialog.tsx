@@ -84,8 +84,8 @@ export function BulkAssignDialog({ workOrderIds, onClose, onDone }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="Assign jobs">
       <div className="flex max-h-[85vh] w-full max-w-md flex-col rounded-xl bg-white shadow-xl">
         <div className="border-b border-slate-200 px-4 py-3">
-          <h2 className="text-base font-semibold text-slate-900">Update {workOrderIds.length} job(s)</h2>
-          <p className="text-sm text-slate-500">Pick people to assign, set a priority or due date, or both. First person picked is the main assignee.</p>
+          <h2 className="text-base font-semibold text-slate-900">{workOrderIds.length === 1 ? "Add people to this job" : `Assign people to ${workOrderIds.length} jobs`}</h2>
+          <p className="text-sm text-slate-500">Tick as many people as you need. They are added to each job and people already on a job stay. The first person becomes the main assignee only if the job has none.</p>
         </div>
         <div className="space-y-3 overflow-y-auto px-4 py-3">
           <input
@@ -131,7 +131,7 @@ export function BulkAssignDialog({ workOrderIds, onClose, onDone }: Props) {
             type="button"
             onClick={() => void submit()}
             disabled={saving || (picked.length === 0 && !priority && !dueDate)}
-            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+            className="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
           >
             {saving ? "Saving…" : "Apply"}
           </button>
