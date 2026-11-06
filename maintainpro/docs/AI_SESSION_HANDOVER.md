@@ -1575,3 +1575,9 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 - Global: 16px inputs on phones (no iOS zoom), 44px inputs / 40px buttons on touch, safe-area insets, `viewportFit: "cover"`, overscroll contain, tap-highlight off.
 - Verified with a static Playwright mock at 390px (cards + sheet render). Web tests 556 pass, tsc clean. NOT yet checked on real pages in a browser.
 - Next phases: (2) page-by-page sweep of dense screens (job drawer, forms, filters, kanban/charts) with real screenshots, (3) sticky bottom action bars and pull-friendly lists.
+
+## 2026-11-06 — Mobile app feel, phase 2/3 (dense screens + pull-to-refresh)
+- `globals.css`: two-up form grids stack < 480px (grid-cols-2 containing inputs/selects), `[role=tablist]` scrolls sideways < 768px, long headings wrap, pagination wraps.
+- `components/layout/pull-to-refresh.tsx` (mounted in dashboard layout, touch devices only): pull down at top of `main` → `refetchQueries({type:"active"})`; ignores sheets, inputs and scrolled inner scrollers.
+- Audit found no other hard fixed-width problems (job drawer already full-width with stacked buttons; DataTable has own mobile cards).
+- Tests: web 556 pass, tsc clean. Not browser-tested on real pages.

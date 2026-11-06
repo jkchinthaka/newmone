@@ -395,3 +395,42 @@ main code {
     opacity: 1;
   }
 }
+
+/* Phase 2: dense screens on phones. */
+@media (max-width: 479px) {
+  /* Two-up form fields (dates, selects, numbers) are too tight on a phone: stack them. */
+  .grid.grid-cols-2:has(> * input:not([type="checkbox"]):not([type="radio"]), > * select, > * textarea, > input, > select, > textarea) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  /* Tab strips scroll sideways like a native segmented bar instead of wrapping or overflowing. */
+  [role="tablist"].flex:not(.grid) {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  [role="tablist"].flex:not(.grid)::-webkit-scrollbar {
+    display: none;
+  }
+  [role="tablist"].flex:not(.grid) > * {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* Long titles/IDs never push the page wider than the screen. */
+  main h1,
+  main h2,
+  main h3 {
+    overflow-wrap: anywhere;
+  }
+
+  /* Pagination / button rows keep every button reachable. */
+  main nav[aria-label*="agination" i] {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+}
