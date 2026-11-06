@@ -335,6 +335,11 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
     : ("/master-data/employees" as Route);
 
   const plannedHours = assignees.reduce((sum, row) => sum + (Number(row.estimatedHours) || 0), 0);
+  const firstPerson = !loadingAssignees && !assigneesError && assignees.length === 0;
+  useEffect(() => {
+    // The first person on a job is the main person by default.
+    if (firstPerson) setIsPrimary(true);
+  }, [firstPerson]);
   const primaryName = assignees.find((row) => row.isPrimary)?.employee?.fullName;
   const actualLabel =
     actualHours === null || actualHours === undefined || actualHours === "" || Number.isNaN(Number(actualHours))
@@ -576,9 +581,9 @@ export function WorkOrderAssigneesPanel({ workOrderId, readOnly = false, actualH
           </div>
         ) : null}
 
-        <details className="sm:col-span-2">
+        <details key={firstPerson ? "first" : "more"} open={firstPerson} className="sm:col-span-2">
           <summary className="cursor-pointer text-sm font-medium text-brand-700">
-            More options (role, hours, planned time, main person)
+            {firstPerson ? "Details for the first person (role, hours, planned time)" : "More options (role, hours, planned time, main person)"}
           </summary>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="space-y-1 text-sm text-slate-700">
