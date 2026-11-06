@@ -111,7 +111,7 @@ export function AdminInvitationCreateDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 p-4 sm:items-center">
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 p-4 sm:items-center" data-sheet>
       <button
         type="button"
         aria-label="Close dialog backdrop"

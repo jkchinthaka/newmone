@@ -166,7 +166,7 @@ export default function MaintenanceHomePage() {
       </section>
 
       {selectedRequest && draft ? (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/45 p-4">
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/45 p-4" data-sheet>
           <div className="w-full max-w-3xl rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.22)]">
             <div className="flex items-start justify-between gap-4">
               <div>

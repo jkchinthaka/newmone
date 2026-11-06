@@ -1103,7 +1103,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
       />
 
       {approveAssignTarget ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 p-4">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 p-4" data-sheet>
           <form
             role="dialog"
             aria-label="Approve and assign"
@@ -1232,7 +1232,7 @@ export default function WorkOrdersPage({ jobDomain, heading, description, focus,
       />
 
       {rejectTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4" data-sheet>
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
             <h2 className="text-lg font-semibold text-slate-900">Reject {rejectTarget.woNumber}</h2>
             <p className="mt-1 text-sm text-slate-600">Provide a reason for rejection. This cancels the job.</p>

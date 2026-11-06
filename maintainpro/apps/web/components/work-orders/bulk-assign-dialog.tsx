@@ -81,7 +81,7 @@ export function BulkAssignDialog({ workOrderIds, onClose, onDone }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="Assign jobs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" data-sheet role="dialog" aria-modal="true" aria-label="Assign jobs">
       <div className="flex max-h-[85vh] w-full max-w-md flex-col rounded-xl bg-white shadow-xl">
         <div className="border-b border-slate-200 px-4 py-3">
           <h2 className="text-base font-semibold text-slate-900">{workOrderIds.length === 1 ? "Add people to this job" : `Assign people to ${workOrderIds.length} jobs`}</h2>

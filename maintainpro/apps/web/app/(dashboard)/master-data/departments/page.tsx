@@ -247,7 +247,7 @@ export default function DepartmentsPage() {
       </section>
 
       {formOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" role="presentation">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" data-sheet role="presentation">
           <div role="dialog" aria-modal="true" aria-label={editingId ? "Edit department" : "New department"} className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">{editingId ? "Edit department" : "New department"}</h2>

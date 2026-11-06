@@ -121,7 +121,7 @@ export function StartJobDialog({
   const current = phase === "ready" || phase === "starting" ? 1 : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4" role="presentation">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4" data-sheet role="presentation">
       <div
         role="dialog"
         aria-modal="true"

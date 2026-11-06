@@ -576,7 +576,7 @@ function Modal({
   wide?: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" data-sheet>
       <div
         className={`w-full ${wide ? "max-w-3xl" : "max-w-lg"} space-y-3 rounded-xl border border-slate-200 bg-white p-5`}
       >

@@ -228,3 +228,170 @@ main th {
 .wo-page .text-xs { font-size: 0.8125rem; line-height: 1.25rem; }
 .wo-page .text-sm { font-size: 0.9375rem; line-height: 1.375rem; }
 .wo-page .text-\[10px\], .wo-page .text-\[11px\] { font-size: 0.8125rem; }
+
+/* ---------------------------------------------------------------------------
+   Mobile app feel (phones/tablets). Desktop (>= 768px) is untouched.
+   --------------------------------------------------------------------------- */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+select,
+summary,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+[data-app-shell] {
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+main#main-content {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+main img,
+main video,
+main canvas {
+  max-width: 100%;
+}
+
+main pre,
+main code {
+  overflow-wrap: anywhere;
+}
+
+/* Finger-sized controls on touch screens. */
+@media (pointer: coarse) {
+  main select,
+  main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  [data-sheet] select,
+  [data-sheet] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]) {
+    min-height: 2.75rem;
+  }
+
+  main button:not([data-compact]),
+  [data-sheet] button:not([data-compact]) {
+    min-height: 2.5rem;
+  }
+}
+
+@media (max-width: 767px) {
+  /* 16px inputs stop iOS Safari zooming the page when a field is focused. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  main {
+    scroll-padding-bottom: 6rem;
+  }
+
+  /* Tables become cards: one card per row, "Label  Value" lines. */
+  table[data-cards]:not(.hidden) {
+    display: block;
+    width: 100% !important;
+    min-width: 0 !important;
+    border: 0;
+  }
+  table[data-cards] thead {
+    display: none;
+  }
+  table[data-cards] tbody,
+  table[data-cards] tfoot {
+    display: block;
+  }
+  table[data-cards] tr {
+    display: block;
+    margin: 0 0 0.75rem;
+    padding: 0.375rem 0.875rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  }
+  table[data-cards] td,
+  table[data-cards] tbody th {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-width: 0;
+    padding: 0.4rem 0 !important;
+    border: 0 !important;
+    text-align: right !important;
+    position: static !important;
+    width: auto !important;
+    max-width: none !important;
+    overflow-wrap: anywhere;
+  }
+  table[data-cards] td.hidden,
+  table[data-cards] tbody th.hidden {
+    display: none;
+  }
+  table[data-cards] td[data-label]::before,
+  table[data-cards] tbody th[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 36%;
+    max-width: 40%;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+  }
+  table[data-cards] td:not([data-label]) {
+    justify-content: flex-start;
+    text-align: left !important;
+  }
+  table[data-cards] td + td {
+    border-top: 1px solid #f1f5f9 !important;
+  }
+  /* A wrapper that scrolls sideways has nothing left to scroll. */
+  .overflow-x-auto:has(> table[data-cards]) {
+    overflow-x: visible;
+  }
+}
+
+/* Dialogs become bottom sheets on phones. */
+@media (max-width: 639px) {
+  [data-sheet] {
+    align-items: flex-end !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+  [data-sheet] > :not(button) {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: 92dvh;
+    overflow-y: auto;
+    margin: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-top-left-radius: 1rem !important;
+    border-top-right-radius: 1rem !important;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    animation: sheet-up 0.22s ease-out;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

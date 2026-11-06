@@ -192,7 +192,7 @@ export function AdminUserFormDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-[95] flex items-end justify-center bg-slate-950/50 p-4 sm:items-center">
+    <div className="fixed inset-0 z-[95] flex items-end justify-center bg-slate-950/50 p-4 sm:items-center" data-sheet>
       <button type="button" aria-label="Close dialog backdrop" className="absolute inset-0" onClick={submitting ? undefined : onClose} />
       <div
         ref={panelRef}

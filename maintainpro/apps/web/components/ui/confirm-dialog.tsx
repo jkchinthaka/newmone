@@ -50,7 +50,7 @@ export function ConfirmDialog({
       : "bg-brand-600 text-white hover:bg-brand-700 focus-visible:outline-brand-500";
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 p-4 sm:items-center">
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 p-4 sm:items-center" data-sheet>
       <button
         type="button"
         aria-label="Close dialog backdrop"

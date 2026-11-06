@@ -172,7 +172,7 @@ export function QrScanner({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-3 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-3 sm:items-center" data-sheet
       role="dialog"
       aria-modal="true"
       aria-labelledby={`qr-title-${regionId}`}

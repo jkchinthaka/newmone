@@ -281,7 +281,7 @@ export default function AdminChecklistTemplatesPage() {
       </div>
 
       {dialogOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" role="presentation">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" data-sheet role="presentation">
           <form
             role="dialog"
             aria-modal="true"

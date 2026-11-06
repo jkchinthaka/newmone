@@ -829,7 +829,7 @@ export default function OrganizationAdminPage() {
 
 
       {dialog?.kind === "site" ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" role="presentation">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" data-sheet role="presentation">
           <form role="dialog" aria-modal="true" aria-labelledby="site-dialog-title" className="max-h-[90dvh] w-full max-w-md space-y-3 overflow-y-auto rounded-xl bg-white p-4" onSubmit={(event) => { event.preventDefault(); void saveSite(); }}>
             <h2 id="site-dialog-title" className="text-base font-semibold">{dialog.site ? "Edit site" : "Add site"}</h2>
             <label className="block text-sm font-medium text-slate-700">Code <span className="text-red-600">*</span><input required placeholder="e.g. HO-01" value={siteDraft.code} onChange={(event) => setSiteDraft((current) => ({ ...current, code: event.target.value }))} className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" /></label>
@@ -858,7 +858,7 @@ export default function OrganizationAdminPage() {
       ) : null}
 
       {dialog?.kind === "location" ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" role="presentation">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" data-sheet role="presentation">
           <form role="dialog" aria-modal="true" aria-labelledby="location-dialog-title" className="max-h-[90dvh] w-full max-w-md space-y-3 overflow-y-auto rounded-xl bg-white p-4" onSubmit={(event) => { event.preventDefault(); void saveLocation(); }}>
             <h2 id="location-dialog-title" className="text-base font-semibold">{dialog.location ? "Edit location" : dialog.parent ? `Add child under ${dialog.parent.name}` : "Add location"}</h2>
             {!dialog.location && !dialog.parent ? (

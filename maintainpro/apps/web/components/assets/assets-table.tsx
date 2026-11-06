@@ -210,7 +210,7 @@ function AssetRowActions<T extends AssetTableRow>({
       {menuOpen && typeof document !== "undefined" ? createPortal(
         <>
           {/* Backdrop only: a tap outside the menu closes it via the pointerdown listener above. */}
-          <div aria-hidden className="fixed inset-0 z-40 bg-slate-900/25 md:hidden" />
+          <div aria-hidden className="fixed inset-0 z-40 bg-slate-900/25 md:hidden" data-sheet />
           <div
             id={menuId}
             ref={menuRef}

@@ -397,7 +397,7 @@ function CreateDocumentDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" data-sheet>
       <form
         onSubmit={submit}
         className="w-full max-w-lg space-y-3 rounded-xl border border-slate-200 bg-white p-5"

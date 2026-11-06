@@ -1568,3 +1568,10 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 - `work-order-edit-rights.ts`: `assertNotLockedForTechnician` (TECHNICIAN/MECHANIC + status TECHNICIAN_COMPLETED/VERIFIED/COMPLETED/CLOSED/CANCELLED → 403 `JOB_LOCKED_AFTER_COMPLETE`). Applied to task add/update/remove/status and `assertWorkOrderForParts` (add part, request, mark used, return request). Managers/admins unaffected (can send job back). Evidence delete was already blocked after completion.
 - Web: `isWorkOrderDrawerReadOnly(status, role)`, lock banner for technician, My jobs task button hidden when locked.
 - Tests: API 42 + parts 32 pass, web 556 pass, tsc clean. Not browser-tested.
+
+## 2026-11-06 — Mobile app feel, phase 1 (global foundation)
+- `components/layout/responsive-table-enhancer.tsx` (mounted in dashboard layout): sets `data-cards` on tables and `data-label` on cells from the header; opt out with `data-no-cards`. CSS in `app/globals.css` (<768px) shows each row as a card. `DataTable` keeps its own mobile cards (its table is hidden < md).
+- 43 modal overlays (`fixed inset-0 … bg-slate-9xx/NN`) got `data-sheet` → bottom sheets < 640px (side drawers excluded).
+- Global: 16px inputs on phones (no iOS zoom), 44px inputs / 40px buttons on touch, safe-area insets, `viewportFit: "cover"`, overscroll contain, tap-highlight off.
+- Verified with a static Playwright mock at 390px (cards + sheet render). Web tests 556 pass, tsc clean. NOT yet checked on real pages in a browser.
+- Next phases: (2) page-by-page sweep of dense screens (job drawer, forms, filters, kanban/charts) with real screenshots, (3) sticky bottom action bars and pull-friendly lists.

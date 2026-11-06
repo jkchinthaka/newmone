@@ -198,7 +198,7 @@ export function GoodsInDialog({ onClose, onDone }: { onClose: () => void; onDone
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 sm:items-center sm:p-4" role="presentation">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 sm:items-center sm:p-4" data-sheet role="presentation">
       <div role="dialog" aria-modal="true" aria-labelledby="goods-in-title" className="flex max-h-[100dvh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl sm:max-h-[90dvh] sm:rounded-2xl">
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-4">
           <div>

@@ -93,7 +93,7 @@ export function CommandPalette({
   }
 
   return (
-    <div className="fixed inset-0 z-[95] flex items-start justify-center bg-slate-950/45 p-4 pt-[max(1rem,10vh)] sm:pt-[12vh]">
+    <div className="fixed inset-0 z-[95] flex items-start justify-center bg-slate-950/45 p-4 pt-[max(1rem,10vh)] sm:pt-[12vh]" data-sheet>
       <button
         type="button"
         aria-label="Close command palette"

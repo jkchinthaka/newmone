@@ -322,7 +322,7 @@ function RuleDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label={rule ? "Edit approval rule" : "New approval rule"}>
+    <div className="fixed inset-0 z-[95] flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4" data-sheet role="dialog" aria-modal="true" aria-label={rule ? "Edit approval rule" : "New approval rule"}>
       <form
         className="my-6 w-full max-w-lg space-y-4 rounded-2xl bg-white p-5 shadow-2xl"
         onSubmit={(event) => {

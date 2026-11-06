@@ -1,5 +1,6 @@
 "use client";
 
+import { ResponsiveTableEnhancer } from "@/components/layout/responsive-table-enhancer";
 import { useEffect, useState } from "react";
 import { LiveQueryInvalidator } from "@/components/pwa/live-query-invalidator";
 import { WelcomeTips } from "@/components/onboarding/welcome-tips";
@@ -137,6 +138,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           />
           <ConnectionStatus />
           <main id="main-content" className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-page p-3 pb-24 sm:p-4 xl:pb-4">
+            <ResponsiveTableEnhancer />
             <WelcomeTips />
             <NavigationRouteGuard>{children}</NavigationRouteGuard>
           </main>

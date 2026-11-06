@@ -276,7 +276,7 @@ export function PendingApprovalsInbox({
       )}
 
       {explicit ? (
-        <div className="fixed inset-0 z-40 flex items-end bg-slate-900/30 lg:hidden" onClick={() => setOpenId(null)}>
+        <div className="fixed inset-0 z-40 flex items-end bg-slate-900/30 lg:hidden" data-sheet onClick={() => setOpenId(null)}>
           <div className="max-h-[88vh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 shadow-xl" role="dialog" aria-label="Approval details" onClick={(event) => event.stopPropagation()}>
             <div className="mb-3 flex justify-end">
               <button type="button" className="min-h-10 px-2 text-sm" onClick={() => setOpenId(null)}>Close</button>

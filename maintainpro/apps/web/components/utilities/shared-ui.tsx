@@ -80,7 +80,7 @@ export function ModalShell({
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4" data-sheet>
       <div className={`w-full ${widthClass} rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl`}>
         <div className="flex items-start justify-between gap-3">
           <div>

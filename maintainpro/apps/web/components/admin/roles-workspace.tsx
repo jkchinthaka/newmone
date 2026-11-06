@@ -303,7 +303,7 @@ function NewRoleDialog({
   });
 
   return (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label="New role">
+    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/50 p-4" data-sheet role="dialog" aria-modal="true" aria-label="New role">
       <form
         className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-2xl"
         onSubmit={(event) => {

@@ -2042,7 +2042,7 @@ function DeleteConfirmationModal({
   if (!asset) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm" data-sheet>
       <div className="w-full max-w-md rounded-[24px] border border-slate-200 bg-white p-6 shadow-2xl">
         <div className="flex items-center gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-rose-100 text-rose-700">
@@ -2103,7 +2103,7 @@ function QrModal({
   const qrCodeUrl = qrQuery.data?.qrCodeUrl ?? asset.qrCodeUrl;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm" data-sheet>
       <div className="w-full max-w-md rounded-[26px] border border-slate-200 bg-white p-6 shadow-2xl">
         <style jsx global>{`
           @media print {
@@ -2261,7 +2261,7 @@ function AssetFormModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-start justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-40 flex items-start justify-center bg-slate-950/40 p-4 backdrop-blur-sm" data-sheet>
       <form
         onSubmit={form.handleSubmit((values) => {
           if (duplicateExists && !isEditing) {
@@ -2525,7 +2525,7 @@ function BulkImportModal({
   const validRows = previewRows.filter((row) => row.payload).map((row) => row.payload!) as Array<Record<string, unknown>>;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-start justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-40 flex items-start justify-center bg-slate-950/40 p-4 backdrop-blur-sm" data-sheet>
       <div className="mt-8 w-full max-w-4xl rounded-[26px] border border-slate-200 bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>

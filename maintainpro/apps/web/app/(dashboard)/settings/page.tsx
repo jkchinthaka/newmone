@@ -507,7 +507,7 @@ function SettingsWorkspace() {
       ) : null}
 
       {muteOpen && rules ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="mute-title">
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center" data-sheet role="dialog" aria-modal="true" aria-labelledby="mute-title">
           <div className="w-full max-w-lg rounded-md bg-white p-4 shadow-lg">
             <h2 id="mute-title" className="text-sm font-semibold text-slate-900">Muted notifications</h2>
             <label className="mt-3 block text-sm text-slate-700">
