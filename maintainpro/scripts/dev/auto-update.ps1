@@ -50,8 +50,8 @@ while ($true) {
     if ((git -C $repo branch --show-current).Trim() -ne $Branch) { Log "Not on '$Branch' - skipping."; continue }
     # Works alongside your own edits: stash them, bring live in, put them back.
     $stashed = $false
-    if (git -C $repo status --porcelain) {
-      git -C $repo stash push -u -m "auto-update" --quiet
+    if (git -C $repo status --porcelain --untracked-files=no) {
+      git -C $repo stash push -m "auto-update" --quiet
       if ($LASTEXITCODE -ne 0) { Log "Could not stash your changes - skipping this round."; continue }
       $stashed = $true
     }
