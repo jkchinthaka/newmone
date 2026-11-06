@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { usePrefersReducedMotion } from "@/lib/use-prefers-reduced-motion";
 import { Loader2, MoreHorizontal, X, AlertTriangle } from "lucide-react";
 
 import { DateField } from "@/components/forms/date-fields";
@@ -111,7 +112,7 @@ export function WorkOrderEditorModal({
   onPrimaryAction
 }: WorkOrderEditorModalProps) {
   const isCreateMode = mode === "create";
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = usePrefersReducedMotion();
   const drawerMotion = reduceMotion ? { duration: 0 } : { duration: 0.18 };
 
   const initialState = useMemo(
