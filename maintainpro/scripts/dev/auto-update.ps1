@@ -30,6 +30,12 @@ function Start-Servers {
 }
 
 Log "Auto-update on branch '$Branch' every ${IntervalSeconds}s. Ctrl+C to stop."
+# Startup sync: you may have pulled by hand before starting, so always make sure the client and DB are current.
+Stop-Servers
+Log "Startup: prisma generate + apply pending migrations..."
+npm.cmd run db:generate
+npm.cmd run db:migrate:deploy
+if ($LASTEXITCODE -ne 0) { Log "MIGRATION FAILED - check the output above. Servers will still start." }
 Start-Servers
 
 while ($true) {
