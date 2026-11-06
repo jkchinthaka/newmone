@@ -23,8 +23,12 @@ export const metadata: Metadata = {
     "mobile-web-app-capable": "yes"
   },
   icons: {
-    icon: PWA_ICON_PATHS.favicon,
-    apple: PWA_ICON_PATHS.icon192
+    icon: [
+      { url: PWA_ICON_PATHS.favicon32, sizes: "32x32", type: "image/png" },
+      { url: PWA_ICON_PATHS.favicon, sizes: "any" }
+    ],
+    shortcut: PWA_ICON_PATHS.favicon,
+    apple: PWA_ICON_PATHS.apple
   }
 };
 

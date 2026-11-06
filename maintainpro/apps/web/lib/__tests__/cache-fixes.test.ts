@@ -43,7 +43,7 @@ test("signed-in API replies are marked no-store", () => {
 
 test("service worker caps its caches and never caches the API", () => {
   const sw = readFileSync(path.join(__dirname, "..", "..", "public", "sw.js"), "utf8");
-  assert.match(sw, /maintainpro-runtime-v4/);
+  assert.match(sw, /maintainpro-runtime-v5/);
   assert.match(sw, /RUNTIME_MAX_ENTRIES = 400/);
   assert.match(sw, /url\.pathname\.startsWith\("\/api\/"\)/);
 });

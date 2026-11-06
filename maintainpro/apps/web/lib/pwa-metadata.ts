@@ -11,9 +11,12 @@ export const PWA_DISPLAY = "standalone" as const;
 export const PWA_ORIENTATION = "portrait" as const;
 
 export const PWA_ICON_PATHS = {
-  icon192: "/pwa-192x192.svg",
-  icon512: "/pwa-512x512.svg",
-  favicon: "/favicon.svg"
+  icon192: "/pwa-192x192.png",
+  icon512: "/pwa-512x512.png",
+  maskable512: "/pwa-maskable-512x512.png",
+  favicon: "/favicon.ico",
+  favicon32: "/favicon-32x32.png",
+  apple: "/apple-touch-icon.png"
 } as const;
 
 export const LEGACY_PWA_BRAND_MARKERS = [

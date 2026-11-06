@@ -8,9 +8,9 @@
  *
  * Safe to cache: static PWA shell assets, icons, immutable /_next/static build chunks.
  */
-const STATIC_CACHE = "maintainpro-static-v4";
-const RUNTIME_CACHE = "maintainpro-runtime-v4";
-const IMAGE_CACHE = "maintainpro-images-v4";
+const STATIC_CACHE = "maintainpro-static-v5";
+const RUNTIME_CACHE = "maintainpro-runtime-v5";
+const IMAGE_CACHE = "maintainpro-images-v5";
 /** Every deploy adds new hashed chunks; keep only the newest ones so phones do not fill up. */
 const RUNTIME_MAX_ENTRIES = 400;
 const IMAGE_MAX_ENTRIES = 150;
@@ -18,9 +18,10 @@ const IMAGE_MAX_ENTRIES = 150;
 const APP_SHELL = [
   "/offline.html",
   "/manifest.webmanifest",
-  "/favicon.svg",
-  "/pwa-192x192.svg",
-  "/pwa-512x512.svg"
+  "/favicon.ico",
+  "/favicon-32x32.png",
+  "/pwa-192x192.png",
+  "/pwa-512x512.png"
 ];
 
 function isImmutableBuildAsset(pathname) {

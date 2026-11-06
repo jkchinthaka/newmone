@@ -1585,3 +1585,6 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 ## 2026-11-06 — Product name: Nelna Care → Nelna CMMS
 - User-facing name is now **Nelna CMMS**, tagline **Maintenance & Fleet Management** (`lib/branding.ts`: PRODUCT_NAME / PRODUCT_TAGLINE; PWA name, login, auth panel, offline page, emails, report header, copy and tests updated). Internal identifiers (package names, env vars, DB) unchanged. Older docs still say "Nelna Care"/"MaintainPro" as history.
 - Web tests 556 pass, web + api tsc clean.
+
+## 2026-11-06 — Favicon / PWA icons use the Nelna logo
+- New PNG icons in `apps/web/public` generated from `brand/nelna-logo.png` (black background → transparent): `favicon.ico`, `favicon-32x32.png`, `favicon-48x48.png`, `apple-touch-icon.png`, `pwa-192x192.png`, `pwa-512x512.png`, `pwa-maskable-512x512.png`. Old SVG icons removed. `lib/pwa-metadata.ts`, `app/manifest.ts`, `app/layout.tsx`, `public/sw.js` (cache v5) updated. Web tests 556 pass.
