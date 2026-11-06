@@ -1588,3 +1588,10 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 
 ## 2026-11-06 — Favicon / PWA icons use the Nelna logo
 - New PNG icons in `apps/web/public` generated from `brand/nelna-logo.png` (black background → transparent): `favicon.ico`, `favicon-32x32.png`, `favicon-48x48.png`, `apple-touch-icon.png`, `pwa-192x192.png`, `pwa-512x512.png`, `pwa-maskable-512x512.png`. Old SVG icons removed. `lib/pwa-metadata.ts`, `app/manifest.ts`, `app/layout.tsx`, `public/sw.js` (cache v5) updated. Web tests 556 pass.
+
+## 2026-11-06 — PWA done properly (verified on a production build in Chromium)
+- Added: `lib/pwa-install-store.ts` (captures `beforeinstallprompt`, installed state, iOS Safari detection, update-ready flag), `components/pwa/{use-pwa,install-app-button,update-banner}.tsx`, registrar now also checks for updates on return/every 30 min and flags "new version ready" on `controllerchange`. "Install app" button on login, desktop sidebar and mobile menu (hidden when installed/unsupported; iOS shows Share → Add to Home Screen help). Update snackbar with Refresh (user chooses when to reload).
+- Manifest: `id`, `lang`, `categories`, 2 shortcuts (My jobs, Report a problem), orientation `any`. `next.config.mjs`: `/sw.js` no-cache, manifest revalidate.
+- **Real bug fixed**: `middleware.ts` matcher redirected `favicon-*.png`, `apple-touch-icon.png`, `pwa-*.png` and `offline.html` to /login for signed-out users (so icons broke on the login page and the service worker cached the login page as its offline page). Matcher now excludes them.
+- Verified with Playwright against `next build` + `next start` (needs `NEXT_PUBLIC_API_URL`): manifest, icons (200, no redirect), SW active + controlling, Chromium installability errors = none, offline navigation shows offline page, install prompt flow, update banner. Web tests 556 pass.
+- Not covered: real iPhone/Android install, HTTPS on the production host (required for installs outside localhost), screenshots in manifest (richer install dialog).

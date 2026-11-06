@@ -12,5 +12,9 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|api/|favicon.ico|favicon.svg|sw.js|manifest.webmanifest|brand/).*)"]
+  matcher: [
+    // Public PWA/static files must never be redirected to /login: icons, manifest, service worker and
+    // the offline page are fetched before (or without) a session.
+    "/((?!_next/static|_next/image|api/|favicon|apple-touch-icon|pwa-|offline\\.html|sw\\.js|manifest\\.webmanifest|brand/).*)"
+  ]
 };
