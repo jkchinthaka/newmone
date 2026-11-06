@@ -1,4 +1,4 @@
-/** Bileeta owns purchasing stock. Nelna Care records work-order consumption and waits for ERP sync. */
+/** Bileeta owns purchasing stock. Nelna CMMS records work-order consumption and waits for ERP sync. */
 export const STOCK_QUANTITY_OWNER = "BILEETA" as const;
 
 export const WORK_ORDER_PART_CONSUMPTION_EVENT = "WORK_ORDER_PART_CONSUMPTION";

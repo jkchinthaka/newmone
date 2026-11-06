@@ -1,14 +1,14 @@
-export const PRODUCT_NAME = "Nelna Care";
+export const PRODUCT_NAME = "Nelna CMMS";
 
 export const PRODUCT_TAGLINE =
-  "Enterprise Maintenance & Facility Operations Platform";
+  "Maintenance & Fleet Management";
 
 export const PRODUCT_DESCRIPTION =
   "Enterprise maintenance, facility, fleet, and operations management platform.";
 
 /**
  * Company identity is the supplied Nelna Group logo.
- * Shell colors stay on the existing Nelna Care palette.
+ * Shell colors stay on the existing Nelna CMMS palette.
  */
 export const BRAND_COLOR_NOTE =
   "Nelna Group logo is used as supplied. Favicon remains the existing square mark until a dedicated square source is approved.";

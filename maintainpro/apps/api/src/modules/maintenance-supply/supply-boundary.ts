@@ -1,7 +1,7 @@
 ﻿/**
- * Source-of-truth boundary between Bileeta ERP and Nelna Care.
+ * Source-of-truth boundary between Bileeta ERP and Nelna CMMS.
  * Bileeta owns official item master, warehouse stock, PO/GRN, and financial accounting.
- * Nelna Care owns maintenance usage context only.
+ * Nelna CMMS owns maintenance usage context only.
  */
 
 export type StockSource = "BILEETA_ERP" | "MAINTAINPRO_REFERENCE" | "UNKNOWN";
@@ -35,7 +35,7 @@ export function resolveStockSourceBoundary(input: {
       source: "BILEETA_ERP",
       mayReserve: true,
       mayPurchase: false,
-      message: "Official stock is Bileeta; Nelna Care may reserve/consume for WO context only"
+      message: "Official stock is Bileeta; Nelna CMMS may reserve/consume for WO context only"
     };
   }
   return {

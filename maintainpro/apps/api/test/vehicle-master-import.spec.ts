@@ -93,7 +93,7 @@ describe("FG vehicle eligibility", () => {
     expect(evaluateVehicleEligibilityForNewFgRecord({ status: "UNDER_MAINTENANCE" }).selectable).toBe(false);
   });
 
-  it("does not treat ACTIVE as the Nelna Care status", () => {
+  it("does not treat ACTIVE as the Nelna CMMS status", () => {
     const result = evaluateVehicleEligibilityForNewFgRecord({ status: "ACTIVE" });
     expect(result.selectable).toBe(false);
   });

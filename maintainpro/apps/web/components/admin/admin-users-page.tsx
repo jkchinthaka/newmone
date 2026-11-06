@@ -91,14 +91,14 @@ export function AdminUsersPage() {
         ? {
             title: "Reactivate user?",
             description:
-              "This will allow the user to access Nelna Care again if their account and tenant are valid.",
+              "This will allow the user to access Nelna CMMS again if their account and tenant are valid.",
             confirmLabel: "Reactivate user",
             cancelLabel: "Keep inactive",
             variant: "default"
           }
         : {
             title: "Deactivate user?",
-            description: "This will prevent the user from accessing Nelna Care until they are reactivated.",
+            description: "This will prevent the user from accessing Nelna CMMS until they are reactivated.",
             confirmLabel: "Deactivate user",
             cancelLabel: "Keep active",
             variant: "destructive"

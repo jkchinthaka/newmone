@@ -1,5 +1,5 @@
 /**
- * Resolve a throttle/abuse-protection client identity behind Nelna Care's
+ * Resolve a throttle/abuse-protection client identity behind Nelna CMMS's
  * reverse-proxy + BFF path without trusting spoofable client X-Forwarded-For.
  *
  * Production path: Browser → Nginx → Web BFF → API

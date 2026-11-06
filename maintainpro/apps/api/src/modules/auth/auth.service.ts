@@ -786,9 +786,9 @@ export class AuthService {
     try {
       await this.emailDispatchService.dispatch({
         userId: user.id,
-        title: "Nelna Care password reset",
+        title: "Nelna CMMS password reset",
         message:
-          `We received a password reset request for your Nelna Care account.\n\n` +
+          `We received a password reset request for your Nelna CMMS account.\n\n` +
           `Reset link: ${resetLink}\n\n` +
           `This link expires in 15 minutes. If you did not request this, you can ignore this email.`
       });

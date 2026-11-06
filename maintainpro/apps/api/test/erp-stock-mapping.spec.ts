@@ -6,7 +6,7 @@ import {
 } from "../src/modules/inventory/erp-stock-sync.mapper";
 
 describe("ERP stock sync mapping", () => {
-  it("matches Nelna Care partNumber to ERP item code case-insensitively", () => {
+  it("matches Nelna CMMS partNumber to ERP item code case-insensitively", () => {
     const comparison = compareStockBalances({
       erpBalances: [{ partSku: "brg-001", quantityOnHand: 10, warehouseCode: "MAIN" }],
       maintainProParts: [
@@ -29,7 +29,7 @@ describe("ERP stock sync mapping", () => {
     });
   });
 
-  it("reports unmatched ERP and Nelna Care items", () => {
+  it("reports unmatched ERP and Nelna CMMS items", () => {
     const comparison = compareStockBalances({
       erpBalances: [{ partSku: "ERP-ONLY", quantityOnHand: 3, warehouseCode: null }],
       maintainProParts: [

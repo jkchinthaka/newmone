@@ -91,7 +91,7 @@ describe("AuthService password reset flow", () => {
     expect(emailDispatchService.dispatch).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user-1",
-        title: "Nelna Care password reset",
+        title: "Nelna CMMS password reset",
         message: expect.stringContaining("/reset-password?token=")
       })
     );

@@ -64,7 +64,7 @@ export function validateReportTemplate(input: Partial<ReportTemplateDefinition>)
   const allowed = REPORT_TEMPLATE_COLUMNS_BY_TYPE[reportType];
   const columns = (input.columns ?? []).map((column) => String(column));
   if (!columns.length || columns.some((column) => !(allowed as readonly string[]).includes(column))) {
-    throw new Error("Choose columns from the Nelna Care report field list.");
+    throw new Error("Choose columns from the Nelna CMMS report field list.");
   }
   const sortBy = input.sortBy && (allowed as readonly string[]).includes(input.sortBy) ? input.sortBy : allowed[0];
   return {

@@ -16,4 +16,4 @@ export const UI_LANGUAGE_LABELS: Record<UiLanguage, string> = {
 };
 
 export const LOCALIZATION_READINESS_NOTE =
-  "Nelna Care uses English UI copy with Sri Lanka formatting defaults (en-LK, Asia/Colombo, LKR). Future Sinhala/Tamil UI text should load from per-language message catalogs without changing API payloads.";
+  "Nelna CMMS uses English UI copy with Sri Lanka formatting defaults (en-LK, Asia/Colombo, LKR). Future Sinhala/Tamil UI text should load from per-language message catalogs without changing API payloads.";

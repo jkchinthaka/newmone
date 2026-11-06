@@ -131,7 +131,7 @@ async function bootstrap(): Promise<void> {
   express.get("/", async (_req, res) => {
     res.json({
       data: healthService.getLiveness(),
-      message: "Nelna Care API is running"
+      message: "Nelna CMMS API is running"
     });
   });
 
@@ -200,7 +200,7 @@ async function bootstrap(): Promise<void> {
     }
 
     const config = new DocumentBuilder()
-      .setTitle("Nelna Care API")
+      .setTitle("Nelna CMMS API")
       .setDescription("Enterprise Asset, Fleet, Service, and Utility Management API")
       .setVersion("1.0.0")
       .addBearerAuth()
@@ -242,7 +242,7 @@ async function bootstrap(): Promise<void> {
       sha = "unknown";
     }
     res.json({
-      app: "Nelna Care",
+      app: "Nelna CMMS",
       role: "api",
       worktreeId: process.env.CANONICAL_WORKTREE_ID ?? "unspecified",
       branch,

@@ -28,7 +28,7 @@ describe("work order evidence controls", () => {
         NODE_ENV: "development",
         STORAGE_MODE: "local",
         STORAGE_UPLOADS_ENABLED: true,
-        STORAGE_LOCAL_ROOT: "C:\\Nelna Care\\evidence-objects",
+        STORAGE_LOCAL_ROOT: "C:\\Nelna CMMS\\evidence-objects",
         ...overrides
       })
     );

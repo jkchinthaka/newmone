@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 /**
- * Resolve Nelna Care root from apps/web cwd or nested helpers.
+ * Resolve Nelna CMMS root from apps/web cwd or nested helpers.
  * Never loads production .env files.
  */
 function resolveLoader() {

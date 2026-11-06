@@ -4,7 +4,7 @@
  * One row = one location (with its site), or a site alone (location columns empty).
  * Sites are matched by code and created when new; locations are created when new and skipped
  * when the site already has that code. Parents are other locations of the same site, either
- * already in Nelna Care or in the file (created first).
+ * already in Nelna CMMS or in the file (created first).
  */
 import { normalizeLocationCode } from "./location-hierarchy";
 
@@ -174,7 +174,7 @@ export function planPlacesImport(
       } else location.parentExistingId = existingParent.id;
     } else if (!newLocationRows.has(key)) {
       line.status = "ERROR";
-      line.messages.push(`Parent location ${location.parentCode} is not at site ${line.site.code} in Nelna Care or in this file.`);
+      line.messages.push(`Parent location ${location.parentCode} is not at site ${line.site.code} in Nelna CMMS or in this file.`);
     }
   }
   // Loops (A under B, B under A) and children of rows that cannot be saved.
@@ -230,7 +230,7 @@ export function planPlacesImport(
   }
   for (const line of lines) {
     if (line.status === "SKIP" && !line.messages.length) {
-      line.messages.push(line.location ? `Location ${line.location.code} is already at site ${line.site.code}.` : `Site ${line.site.code} is already in Nelna Care.`);
+      line.messages.push(line.location ? `Location ${line.location.code} is already at site ${line.site.code}.` : `Site ${line.site.code} is already in Nelna CMMS.`);
     }
   }
 

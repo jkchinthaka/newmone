@@ -117,7 +117,7 @@ export function RegisterFormCard() {
         ) : (
           <div className="mt-6 space-y-4 text-sm leading-6 text-slate-700">
             <p>
-              Nelna Care accounts are created by an administrator. Open registration does not create a tenant or an administrator.
+              Nelna CMMS accounts are created by an administrator. Open registration does not create a tenant or an administrator.
             </p>
             <p>If you received a personal invitation, open that link to set your password. A workspace invitation includes its own registration link.</p>
             <div className="flex flex-col gap-3 sm:flex-row">

@@ -185,7 +185,7 @@ export function getDashboardDescription(variant: DashboardVariant): string {
       return "Read-only report summaries and operational visibility without mutation actions.";
     case "minimal":
     default:
-      return "Welcome to Nelna Care. Use the links below to open modules available to your account.";
+      return "Welcome to Nelna CMMS. Use the links below to open modules available to your account.";
   }
 }
 

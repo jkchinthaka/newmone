@@ -55,7 +55,7 @@ export function SessionEntry() {
       {problem === "offline" ? (
         <div className="max-w-md space-y-3 text-center">
           <p className="text-sm" role="alert">
-            Nelna Care could not reach the server. Check your connection and try again.
+            Nelna CMMS could not reach the server. Check your connection and try again.
           </p>
           <button
             className="min-h-11 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white"
@@ -69,7 +69,7 @@ export function SessionEntry() {
       {problem === "error" ? (
         <div className="max-w-md space-y-3 text-center">
           <p className="text-sm" role="alert">
-            Nelna Care could not confirm your session.
+            Nelna CMMS could not confirm your session.
           </p>
           <a className="inline-flex min-h-11 items-center text-sm font-semibold underline" href="/login">
             Sign in

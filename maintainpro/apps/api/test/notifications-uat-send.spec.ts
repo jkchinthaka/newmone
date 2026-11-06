@@ -35,7 +35,7 @@ const baseUatConfig = {
   SMTP_PORT: 587,
   SMTP_USER: "smtp-user",
   SMTP_PASS: "smtp-secret",
-  SMTP_FROM: "Nelna Care Alerts <alerts@example.com>",
+  SMTP_FROM: "Nelna CMMS Alerts <alerts@example.com>",
   SMS_MODE: "disabled"
 };
 

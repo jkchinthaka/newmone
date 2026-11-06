@@ -1,6 +1,6 @@
 /**
  * Stock count quantities come from two intentional sources:
- * - Nelna Care ledger: per-warehouse `WarehouseItemBalance.onHand` (used for count variance / posting)
+ * - Nelna CMMS ledger: per-warehouse `WarehouseItemBalance.onHand` (used for count variance / posting)
  * - ERP snapshot: `SparePart.quantityInStock` (read-only mirror from ERP import; not used as Expected)
  */
 
@@ -18,7 +18,7 @@ export function formatStockCountQuantity(value: number | null | undefined): stri
   return String(value);
 }
 
-/** Counted minus Nelna Care ledger qty for this warehouse. Drives posting adjustments. */
+/** Counted minus Nelna CMMS ledger qty for this warehouse. Drives posting adjustments. */
 export function computeCountVariance(line: Pick<StockCountLineDisplayInput, "countedQuantity" | "expectedQuantity">): number | null {
   if (line.countedQuantity == null || !Number.isFinite(line.countedQuantity)) {
     return null;
@@ -55,4 +55,4 @@ export function stockCountVarianceTone(value: number | null | undefined): string
 }
 
 export const STOCK_COUNT_SOURCE_HELP =
-  "Nelna Care Ledger Qty is the warehouse balance used for count difference and posting. ERP Snapshot Qty is the last imported ERP mirror and is shown for comparison only — it is never copied into Expected.";
+  "Nelna CMMS Ledger Qty is the warehouse balance used for count difference and posting. ERP Snapshot Qty is the last imported ERP mirror and is shown for comparison only — it is never copied into Expected.";

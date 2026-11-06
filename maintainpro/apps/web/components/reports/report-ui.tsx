@@ -69,7 +69,7 @@ export function ReportHeader({
           <img alt="Nelna Group" className="h-16 w-auto bg-white object-contain" src="/brand/nelna-group-logo.jpg" />
           <div className="text-right text-sm text-[#233044]">
             <p className="font-semibold">Nelna Farm (Pvt) Ltd</p>
-            <p>Nelna Care</p>
+            <p>Nelna CMMS</p>
           </div>
         </div>
         <h1 className="mt-1 page-title">{title}</h1>

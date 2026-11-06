@@ -868,7 +868,7 @@ function buildDriverSection(): ActionCenterSection {
   return {
     id: "driver",
     title: "Fleet & vehicles",
-    description: "Driver modules available in Nelna Care.",
+    description: "Driver modules available in Nelna CMMS.",
     items: [
       {
         id: "vehicles",

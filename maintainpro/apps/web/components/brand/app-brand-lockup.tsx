@@ -18,7 +18,7 @@ const titleSizes = {
   lg: "text-lg"
 } as const;
 
-/** Nelna Group mark with the Nelna Care product name. */
+/** Nelna Group mark with the Nelna CMMS product name. */
 export function AppBrandLockup({
   showTagline = false,
   logoSize = "md",

@@ -15,7 +15,7 @@ export const COPILOT_FOCUS_AREAS = [
 export type CopilotFocusArea = (typeof COPILOT_FOCUS_AREAS)[number];
 
 export class CopilotChatDto {
-  @ApiProperty({ description: "Prompt sent to the Nelna Care AI assistant" })
+  @ApiProperty({ description: "Prompt sent to the Nelna CMMS AI assistant" })
   @IsString()
   @MaxLength(4000)
   message!: string;

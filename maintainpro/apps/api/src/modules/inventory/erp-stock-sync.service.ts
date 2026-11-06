@@ -98,13 +98,13 @@ export class ErpStockSyncService {
       status: "completed",
       comparison,
       applyEnabled,
-      message: "Stock sync dry-run completed without modifying Nelna Care inventory.",
+      message: "Stock sync dry-run completed without modifying Nelna CMMS inventory.",
       erpBalances: fetchResult.balances
     });
   }
 
   /**
-   * When the company keeps its stock in Nelna Care (goods in), an ERP snapshot must not overwrite
+   * When the company keeps its stock in Nelna CMMS (goods in), an ERP snapshot must not overwrite
    * it: ERP applies adjust the default store.
    */
   private async assertErpOwnsStock(actor?: Actor) {
@@ -116,7 +116,7 @@ export class ErpStockSyncService {
     });
     if (owned) {
       throw new BadRequestException(
-        "Stock for this company is kept in Nelna Care (Goods in). ERP stock apply is turned off so it cannot overwrite it."
+        "Stock for this company is kept in Nelna CMMS (Goods in). ERP stock apply is turned off so it cannot overwrite it."
       );
     }
   }
@@ -185,7 +185,7 @@ export class ErpStockSyncService {
 
   /**
    * Shared absolute stock apply engine used by Bileeta API sync and ERP Excel import.
-   * Sets Nelna Care qty = snapshot qty (never +=). Concurrent applies serialize per tenant.
+   * Sets Nelna CMMS qty = snapshot qty (never +=). Concurrent applies serialize per tenant.
    */
   async applyAbsoluteStockBalances(
     actor: Actor | undefined,
@@ -226,7 +226,7 @@ export class ErpStockSyncService {
           "Apply blocked: ERP warehouse-scoped snapshot requires Part + Warehouse identity on every changed row."
         ],
         message:
-          "ERP item mapping is incomplete for warehouse scope. Map Nelna Care warehouse balances before applying this snapshot.",
+          "ERP item mapping is incomplete for warehouse scope. Map Nelna CMMS warehouse balances before applying this snapshot.",
         snapshotBalanceCount: erpBalances.length
       };
     }

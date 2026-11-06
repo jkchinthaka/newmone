@@ -94,9 +94,9 @@ export class EmailDispatchService {
     await transport.sendMail({
       from: this.configService.get<string>("SMTP_FROM"),
       to: user.email,
-      subject: payload.title ?? "Nelna Care alert",
+      subject: payload.title ?? "Nelna CMMS alert",
       text: payload.message,
-      html: this.toHtml(payload.title ?? "Nelna Care alert", payload.message)
+      html: this.toHtml(payload.title ?? "Nelna CMMS alert", payload.message)
     });
 
     if (payload.notificationId) {

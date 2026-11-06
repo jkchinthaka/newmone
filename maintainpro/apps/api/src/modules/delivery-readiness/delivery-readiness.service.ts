@@ -38,7 +38,7 @@ import type {
   UpdateDeliveryItemDto
 } from "./dto/delivery.dto";
 
-const MASTER_CHECKLIST_TITLE = "Nelna Care Client Delivery Readiness";
+const MASTER_CHECKLIST_TITLE = "Nelna CMMS Client Delivery Readiness";
 
 @Injectable()
 export class DeliveryReadinessService {
@@ -145,7 +145,7 @@ export class DeliveryReadinessService {
           checklistNo,
           title: MASTER_CHECKLIST_TITLE,
           category: DeliveryChecklistCategory.REQUIREMENTS,
-          description: "Master client delivery readiness checklist for Nelna Care handover.",
+          description: "Master client delivery readiness checklist for Nelna CMMS handover.",
           status: DeliveryItemStatus.NOT_STARTED,
           requiredForDelivery: true
         }

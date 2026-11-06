@@ -1581,3 +1581,7 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 - `components/layout/pull-to-refresh.tsx` (mounted in dashboard layout, touch devices only): pull down at top of `main` → `refetchQueries({type:"active"})`; ignores sheets, inputs and scrolled inner scrollers.
 - Audit found no other hard fixed-width problems (job drawer already full-width with stacked buttons; DataTable has own mobile cards).
 - Tests: web 556 pass, tsc clean. Not browser-tested on real pages.
+
+## 2026-11-06 — Product name: Nelna Care → Nelna CMMS
+- User-facing name is now **Nelna CMMS**, tagline **Maintenance & Fleet Management** (`lib/branding.ts`: PRODUCT_NAME / PRODUCT_TAGLINE; PWA name, login, auth panel, offline page, emails, report header, copy and tests updated). Internal identifiers (package names, env vars, DB) unchanged. Older docs still say "Nelna Care"/"MaintainPro" as history.
+- Web tests 556 pass, web + api tsc clean.

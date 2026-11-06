@@ -6,7 +6,7 @@
  * Retired from normal product surface (routes may remain for compatibility; not in primary nav):
  * Farm Operations, Cleaning workforce, SaaS Billing, Predictive AI,
  * QA/Delivery/Go-Live/Post-Go-Live business admin clutter.
- * FG Digital Records integration was removed from Nelna Care entirely.
+ * FG Digital Records integration was removed from Nelna CMMS entirely.
  */
 
 import { ADMIN_PAGE_API_GATES, NAV_ITEM_API_GATES, type NavApiGate } from "./nav-api-gates";
@@ -1020,7 +1020,7 @@ export function canAccessNavigationPath(
   const normalized = normalizeNavigationRole(roleName);
   const normalizedPath = pathname.split("?")[0];
 
-  // FG Digital Records was removed from Nelna Care; deny all roles including admins.
+  // FG Digital Records was removed from Nelna CMMS; deny all roles including admins.
   if (normalizedPath === "/fg" || normalizedPath.startsWith("/fg/")) {
     return false;
   }

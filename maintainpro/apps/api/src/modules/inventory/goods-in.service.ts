@@ -307,15 +307,15 @@ export class GoodsInService {
   }
 
   /**
-   * The store goods are received into. Uses a Nelna Care store when one exists; otherwise the
-   * default store without an ERP code becomes the Nelna Care store, or one is created.
+   * The store goods are received into. Uses a Nelna CMMS store when one exists; otherwise the
+   * default store without an ERP code becomes the Nelna CMMS store, or one is created.
    */
   async ownedStore(tenantId: string, actor: Actor, warehouseId?: string | null) {
     if (warehouseId) {
       const chosen = await this.prisma.warehouse.findFirst({
         where: { id: warehouseId, tenantId, isActive: true, stockSource: MAINTAINPRO_STOCK_SOURCE }
       });
-      if (!chosen) throw new BadRequestException("Choose a Nelna Care store for goods in.");
+      if (!chosen) throw new BadRequestException("Choose a Nelna CMMS store for goods in.");
       return chosen;
     }
     const owned = await this.prisma.warehouse.findFirst({
@@ -342,7 +342,7 @@ export class GoodsInService {
           entity: "Warehouse",
           entityId: store.id,
           action: AuditAction.UPDATE,
-          reason: "First goods in: stock for this store is now kept in Nelna Care",
+          reason: "First goods in: stock for this store is now kept in Nelna CMMS",
           metadata: JSON.stringify({ event: "warehouse_stock_source_maintainpro", code: store.code })
         }
       })

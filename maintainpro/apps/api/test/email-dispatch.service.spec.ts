@@ -45,7 +45,7 @@ describe("EmailDispatchService", () => {
         SMTP_SECURE: false,
         SMTP_USER: "smtp-user",
         SMTP_PASS: "smtp-pass",
-        SMTP_FROM: "Nelna Care Alerts <alerts@example.com>"
+        SMTP_FROM: "Nelna CMMS Alerts <alerts@example.com>"
       }) as never,
       prisma as never
     );
