@@ -13,6 +13,12 @@ import {
   PWA_THEME_COLOR
 } from "@/lib/pwa-metadata";
 
+/** `form_factor` and `label` are valid manifest members that Next 14's type does not list yet. */
+const PWA_SCREENSHOTS = [
+  { src: "/screenshots/login-narrow.png", sizes: "540x960", type: "image/png", form_factor: "narrow", label: "Sign in to Nelna CMMS on your phone" },
+  { src: "/screenshots/login-wide.png", sizes: "1280x720", type: "image/png", form_factor: "wide", label: "Nelna CMMS on a computer" }
+] as unknown as MetadataRoute.Manifest["screenshots"];
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
@@ -28,6 +34,7 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "en-LK",
     dir: "ltr",
     categories: ["business", "productivity", "utilities"],
+    screenshots: PWA_SCREENSHOTS,
     shortcuts: [
       { name: "My jobs", short_name: "My jobs", url: "/work-orders/my", icons: [{ src: PWA_ICON_PATHS.icon192, sizes: "192x192", type: "image/png" }] },
       { name: "Report a problem", short_name: "New request", url: "/requests/new", icons: [{ src: PWA_ICON_PATHS.icon192, sizes: "192x192", type: "image/png" }] }

@@ -1595,3 +1595,6 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 - **Real bug fixed**: `middleware.ts` matcher redirected `favicon-*.png`, `apple-touch-icon.png`, `pwa-*.png` and `offline.html` to /login for signed-out users (so icons broke on the login page and the service worker cached the login page as its offline page). Matcher now excludes them.
 - Verified with Playwright against `next build` + `next start` (needs `NEXT_PUBLIC_API_URL`): manifest, icons (200, no redirect), SW active + controlling, Chromium installability errors = none, offline navigation shows offline page, install prompt flow, update banner. Web tests 556 pass.
 - Not covered: real iPhone/Android install, HTTPS on the production host (required for installs outside localhost), screenshots in manifest (richer install dialog).
+
+## 2026-11-06 — PWA install dialog screenshots
+- `public/screenshots/login-narrow.png` (540x960) + `login-wide.png` (1280x720), real captures of the login page; listed in `app/manifest.ts` (`PWA_SCREENSHOTS`, cast because Next 14 types lack `form_factor`/`label`). `middleware.ts` matcher also excludes `screenshots/`. Verified via dev server: both PNGs 200 unauthenticated, manifest lists them. Replace with dashboard/jobs screenshots later (same sizes) for a richer install dialog. Web tests 556 pass.
