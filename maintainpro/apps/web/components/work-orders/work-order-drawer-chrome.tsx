@@ -18,8 +18,15 @@ import { toTitleCase } from "./helpers";
 import { WorkOrderCostBreakdown } from "./work-order-insights";
 import type { WorkOrder } from "./types";
 
-export function WorkOrderLockBanner({ status }: { status: string }) {
-  if (!isWorkOrderDrawerReadOnly(status)) return null;
+export function WorkOrderLockBanner({ status, role }: { status: string; role?: string | null }) {
+  if (!isWorkOrderDrawerReadOnly(status, role)) return null;
+  if (status !== "CLOSED" && status !== "CANCELLED") {
+    return (
+      <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-950" role="status">
+        You marked this job complete, so it is locked. Ask a manager if something must change.
+      </div>
+    );
+  }
   const label = status === "CANCELLED" ? "cancelled" : "closed";
   return (
     <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-950" role="status">

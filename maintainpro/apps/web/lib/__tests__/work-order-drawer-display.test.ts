@@ -42,6 +42,9 @@ describe("job drawer display", () => {
     assert.equal(isWorkOrderDrawerReadOnly("CANCELLED"), true);
     assert.equal(isWorkOrderDrawerReadOnly("IN_PROGRESS"), false);
     assert.equal(isWorkOrderDrawerReadOnly("COMPLETED"), false);
+    assert.equal(isWorkOrderDrawerReadOnly("TECHNICIAN_COMPLETED", "TECHNICIAN"), true);
+    assert.equal(isWorkOrderDrawerReadOnly("TECHNICIAN_COMPLETED", "MANAGER"), false);
+    assert.equal(isWorkOrderDrawerReadOnly("IN_PROGRESS", "TECHNICIAN"), false);
   });
 
   it("formats the live machine stopped time clock from the segment start", () => {

@@ -64,8 +64,17 @@ export function displayWorkOrderTitle(title: string): string {
   return cleaned || original;
 }
 
-export function isWorkOrderDrawerReadOnly(status: string): boolean {
-  return status === "CLOSED" || status === "CANCELLED";
+export function isWorkOrderDrawerReadOnly(status: string, role?: string | null): boolean {
+  if (status === "CLOSED" || status === "CANCELLED") return true;
+  return isTechnicianLockedAfterComplete(status, role);
+}
+
+/** Technicians cannot change a job once they have marked it complete (managers still can). */
+export function isTechnicianLockedAfterComplete(status: string, role?: string | null): boolean {
+  return (
+    (role === "TECHNICIAN" || role === "MECHANIC") &&
+    (status === "TECHNICIAN_COMPLETED" || status === "VERIFIED" || status === "COMPLETED")
+  );
 }
 
 /** Live clock from a segment start. Hours are not capped at 24. */

@@ -1563,3 +1563,8 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 - History tab: one calm empty message when no machine linked / no earlier jobs (`work-order-history-panel.tsx`).
 - `work-order-tasks.service.ts` `syncLabourSession`: person's own Start task opens a labour session if none running anywhere; their last open task Done closes it. Best-effort (try/catch), managers never touch others' clocks. Actual hours/cost still = labour sessions only; task time is display-only (no double count). No schema change.
 - Tests: `test/work-order-tasks.spec.ts` 10 pass; web 556 pass; tsc clean. Not browser-tested.
+
+## 2026-11-06 — Technician locked after marking complete
+- `work-order-edit-rights.ts`: `assertNotLockedForTechnician` (TECHNICIAN/MECHANIC + status TECHNICIAN_COMPLETED/VERIFIED/COMPLETED/CLOSED/CANCELLED → 403 `JOB_LOCKED_AFTER_COMPLETE`). Applied to task add/update/remove/status and `assertWorkOrderForParts` (add part, request, mark used, return request). Managers/admins unaffected (can send job back). Evidence delete was already blocked after completion.
+- Web: `isWorkOrderDrawerReadOnly(status, role)`, lock banner for technician, My jobs task button hidden when locked.
+- Tests: API 42 + parts 32 pass, web 556 pass, tsc clean. Not browser-tested.

@@ -41,3 +41,23 @@ export function assertJobDetailsEditableBy(
     });
   }
 }
+
+/**
+ * Once a technician marks the job complete (or it is verified/closed/cancelled) they may no
+ * longer change its tasks or parts. Managers/admins can still adjust it, e.g. to send it back.
+ */
+const POST_COMPLETE_STATUSES = new Set<string>(["TECHNICIAN_COMPLETED", "VERIFIED", "COMPLETED", "CLOSED", "CANCELLED"]);
+const FIELD_ROLES = new Set<string>([RoleName.TECHNICIAN, RoleName.MECHANIC]);
+
+export function isLockedForTechnician(status: string | null | undefined, role: string | null | undefined): boolean {
+  return Boolean(status && role && FIELD_ROLES.has(role) && POST_COMPLETE_STATUSES.has(status));
+}
+
+export function assertNotLockedForTechnician(status: string | null | undefined, role: string | null | undefined) {
+  if (isLockedForTechnician(status, role)) {
+    throw new ForbiddenException({
+      message: "This job is marked complete, so it is locked for technicians. Ask a manager if something must change.",
+      code: "JOB_LOCKED_AFTER_COMPLETE"
+    });
+  }
+}

@@ -374,7 +374,7 @@ export function WorkOrderEditorModal({
     },
     overviewBaseline
   );
-  const drawerReadOnly = !isCreateMode && Boolean(workOrder && isWorkOrderDrawerReadOnly(workOrder.status));
+  const drawerReadOnly = !isCreateMode && Boolean(workOrder && isWorkOrderDrawerReadOnly(workOrder.status, currentUser.role));
   const saveDecision = overviewSaveDecision({
     mode: isCreateMode ? "create" : editingOverview ? "edit" : "view",
     tab: activeTab,
@@ -503,7 +503,7 @@ export function WorkOrderEditorModal({
               </div>
             </header>
 
-            {!isCreateMode && workOrder ? <WorkOrderLockBanner status={workOrder.status} /> : null}
+            {!isCreateMode && workOrder ? <WorkOrderLockBanner status={workOrder.status} role={currentUser.role} /> : null}
 
             {!isCreateMode && workOrder?.id ? (
               <WorkOrderDetailTabs

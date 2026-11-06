@@ -13,6 +13,7 @@ import { closeLabourSessionTimestamps } from "../../common/utils/work-order-labo
 import { canOverrideCompletionBlock } from "../../common/utils/work-order-evidence-rbac";
 import { PrismaService } from "../../database/prisma.service";
 import type { JwtPayload } from "../auth/auth.types";
+import { assertNotLockedForTechnician } from "./work-order-edit-rights";
 import { minutesBetween, TASK_STATUSES, type WorkOrderTaskStatus } from "./work-order-tasks.util";
 
 type Actor = Pick<JwtPayload, "sub" | "email" | "role" | "tenantId">;
@@ -117,7 +118,8 @@ export class WorkOrderTasksService {
 
   async add(workOrderId: string, input: TaskInput, actor?: Actor) {
     const tenantId = this.tenant(actor);
-    await this.assertWorkOrder(workOrderId, tenantId);
+    const wo = await this.assertWorkOrder(workOrderId, tenantId);
+    assertNotLockedForTechnician(wo.status, actor?.role);
     const title = this.cleanTitle(input.title);
     const hours = this.cleanHours(input.estimatedHours);
     const employeeIds = await this.assertEmployees(input.employeeIds ?? [], tenantId);
@@ -151,6 +153,8 @@ export class WorkOrderTasksService {
 
   async update(workOrderId: string, taskId: string, input: TaskInput, actor?: Actor) {
     const tenantId = this.tenant(actor);
+    const wo = await this.assertWorkOrder(workOrderId, tenantId);
+    assertNotLockedForTechnician(wo.status, actor?.role);
     await this.loadTask(workOrderId, taskId, tenantId);
     const data: { title?: string; estimatedHours?: number | null } = {};
     if (input.title !== undefined) data.title = this.cleanTitle(input.title);
@@ -170,6 +174,8 @@ export class WorkOrderTasksService {
 
   async remove(workOrderId: string, taskId: string, actor?: Actor) {
     const tenantId = this.tenant(actor);
+    const wo = await this.assertWorkOrder(workOrderId, tenantId);
+    assertNotLockedForTechnician(wo.status, actor?.role);
     await this.loadTask(workOrderId, taskId, tenantId);
     await this.prisma.workOrderTask.delete({ where: { id: taskId } });
     return { id: taskId };
@@ -181,6 +187,8 @@ export class WorkOrderTasksService {
       throw new BadRequestException("Status must be NOT_STARTED, WORKING or DONE");
     }
     const tenantId = this.tenant(actor);
+    const wo = await this.assertWorkOrder(workOrderId, tenantId);
+    assertNotLockedForTechnician(wo.status, actor?.role);
     const task = await this.loadTask(workOrderId, taskId, tenantId);
     const mine = task.assignees.some((a) => a.employee.linkedUserId === actor?.sub);
     if (!mine && !this.isManager(actor)) {

@@ -10,6 +10,7 @@ import {
 } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
+import { assertNotLockedForTechnician } from "./work-order-edit-rights";
 import { stagePartReturn } from "./part-request-access";
 import { TERMINAL_WORK_ORDER_STATUSES } from "../../common/utils/work-order-governance";
 import {
@@ -93,6 +94,7 @@ export class WorkOrderPartsService {
     if (!workOrder) {
       throw new NotFoundException("Work order not found");
     }
+    assertNotLockedForTechnician(workOrder.status, actor?.role);
     assertWorkOrderAllowsParts(workOrder.status, overrideReason);
     return workOrder;
   }

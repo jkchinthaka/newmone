@@ -454,7 +454,7 @@ function JobBody({
           {sentBackLabel(job)}
         </p>
       ) : null}
-      <MyJobTasks jobId={job.id} />
+      <MyJobTasks jobId={job.id} locked={["TECHNICIAN_COMPLETED", "VERIFIED", "COMPLETED", "CLOSED", "CANCELLED"].includes(job.status)} />
       <div className="mt-auto pt-3">
         <JobAction job={job} starting={starting} onStart={onStart} onHold={onHold} onResume={onResume} onComplete={onComplete} />
         {jobActionIsDetailsLink(job) ? null : (
@@ -468,7 +468,7 @@ function JobBody({
 }
 
 /** Sub-tasks of a job: my tasks can be finished here, other people's tasks are read-only. Renders nothing when the job has no tasks. */
-function MyJobTasks({ jobId }: { jobId: string }) {
+function MyJobTasks({ jobId, locked = false }: { jobId: string; locked?: boolean }) {
   const [list, setList] = useState<JobTaskList | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -513,8 +513,8 @@ function MyJobTasks({ jobId }: { jobId: string }) {
               <span className={task.status === "DONE" ? "text-slate-500 line-through" : "font-medium text-slate-900"}>
                 {task.title}
               </span>
-              {task.status === "DONE" ? (
-                <span className="text-xs font-semibold text-emerald-700">Done</span>
+              {task.status === "DONE" || locked ? (
+                <span className="text-xs font-semibold text-emerald-700">{task.status === "DONE" ? "Done" : TASK_STATUS_LABEL[task.status]}</span>
               ) : (
                 <button
                   type="button"

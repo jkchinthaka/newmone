@@ -37,8 +37,9 @@ describe("WorkOrderTasksService.setStatus", () => {
     assignees: [{ employee: { id: "e1", fullName: "Kamal", linkedUserId } }]
   });
 
-  function make(task: ReturnType<typeof baseTask>) {
+  function make(task: ReturnType<typeof baseTask>, woStatus = "IN_PROGRESS") {
     const prisma = {
+      workOrder: { findFirst: jest.fn().mockResolvedValue({ id: "wo1", status: woStatus }) },
       workOrderTask: {
         findFirst: jest.fn().mockResolvedValue(task),
         update: jest.fn().mockResolvedValue(task)
@@ -64,6 +65,20 @@ describe("WorkOrderTasksService.setStatus", () => {
     );
   });
 
+  it("locks tasks for the technician once the job is marked complete, but not for a manager", async () => {
+    const locked = make(baseTask("u1"), "TECHNICIAN_COMPLETED");
+    await expect(locked.service.setStatus("wo1", "t1", "DONE", actor("u1", "TECHNICIAN"))).rejects.toBeInstanceOf(
+      ForbiddenException
+    );
+    await expect(locked.service.add("wo1", { title: "x" }, actor("u1", "TECHNICIAN"))).rejects.toBeInstanceOf(
+      ForbiddenException
+    );
+    await expect(locked.service.remove("wo1", "t1", actor("u1", "TECHNICIAN"))).rejects.toBeInstanceOf(
+      ForbiddenException
+    );
+    await expect(locked.service.setStatus("wo1", "t1", "WORKING", actor("m1", "MANAGER"))).resolves.toBeDefined();
+  });
+
   it("lets a manager update any task and rejects bad status", async () => {
     const { service } = make(baseTask("u1"));
     await expect(service.setStatus("wo1", "t1", "WORKING", actor("m1", "MANAGER"))).resolves.toBeDefined();
@@ -76,6 +91,7 @@ describe("WorkOrderTasksService.setStatus", () => {
     function withLabour(running: unknown[], stillOpen: number) {
       const task = baseTask("u1");
       const prisma = {
+        workOrder: { findFirst: jest.fn().mockResolvedValue({ id: "wo1", status: "IN_PROGRESS" }) },
         workOrderTask: {
           findFirst: jest.fn().mockResolvedValue(task),
           update: jest.fn().mockResolvedValue(task),
