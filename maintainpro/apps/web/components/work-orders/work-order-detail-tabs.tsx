@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 export type WorkOrderDetailTab =
   | "overview"
   | "assignment"
+  | "tasks"
   | "parts"
   | "safety"
   | "evidence"
@@ -15,6 +16,7 @@ export type WorkOrderDetailTab =
 export const WORK_ORDER_DETAIL_TABS: Array<{ id: WorkOrderDetailTab; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "assignment", label: "Assignment" },
+  { id: "tasks", label: "Tasks" },
   { id: "parts", label: "Parts" },
   { id: "safety", label: "Machine stopped time" },
   { id: "evidence", label: "Photos" },

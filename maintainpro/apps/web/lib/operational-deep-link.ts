@@ -1,6 +1,7 @@
 const WORK_ORDER_TABS = [
   "overview",
   "assignment",
+  "tasks",
   "parts",
   "safety",
   "evidence",

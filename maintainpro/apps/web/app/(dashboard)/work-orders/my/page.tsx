@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { taskProgressLabel, TASK_STATUS_LABEL, type JobTask, type JobTaskList } from "@/lib/work-order-tasks";
 
 import { RefreshCw, Search } from "lucide-react";
 
@@ -453,6 +454,7 @@ function JobBody({
           {sentBackLabel(job)}
         </p>
       ) : null}
+      <MyJobTasks jobId={job.id} />
       <div className="mt-auto pt-3">
         <JobAction job={job} starting={starting} onStart={onStart} onHold={onHold} onResume={onResume} onComplete={onComplete} />
         {jobActionIsDetailsLink(job) ? null : (
@@ -461,6 +463,85 @@ function JobBody({
           </Link>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Sub-tasks of a job: my tasks can be finished here, other people's tasks are read-only. Renders nothing when the job has no tasks. */
+function MyJobTasks({ jobId }: { jobId: string }) {
+  const [list, setList] = useState<JobTaskList | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await apiClient.get<{ data: JobTaskList }>(`/work-orders/${jobId}/tasks`);
+      setList(res.data.data);
+    } catch {
+      setList(null);
+    }
+  }, [jobId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (!list || list.total === 0) return null;
+
+  async function markDone(task: JobTask) {
+    setBusyId(task.id);
+    try {
+      await apiClient.post(`/work-orders/${jobId}/tasks/${task.id}/status`, { status: "DONE" });
+      await load();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Could not update the task."));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const mine = list.tasks.filter((t) => t.isMine);
+  const others = list.tasks.filter((t) => !t.isMine);
+  return (
+    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        Tasks · {taskProgressLabel(list)}
+      </p>
+      {mine.length ? (
+        <ul className="mt-2 space-y-2">
+          {mine.map((task) => (
+            <li key={task.id} className="flex items-center justify-between gap-2 text-sm">
+              <span className={task.status === "DONE" ? "text-slate-500 line-through" : "font-medium text-slate-900"}>
+                {task.title}
+              </span>
+              {task.status === "DONE" ? (
+                <span className="text-xs font-semibold text-emerald-700">Done</span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={busyId === task.id}
+                  onClick={() => void markDone(task)}
+                  className="min-h-10 shrink-0 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                >
+                  Mark my task done
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {others.length ? (
+        <ul className="mt-2 space-y-1 border-t border-slate-200 pt-2">
+          {others.map((task) => (
+            <li key={task.id} className="flex items-center justify-between gap-2 text-xs text-slate-600">
+              <span className={task.status === "DONE" ? "line-through" : ""}>
+                {task.title}
+                {task.assignees.length ? ` — ${task.assignees.map((a) => a.fullName).join(", ")}` : ""}
+              </span>
+              <span>{TASK_STATUS_LABEL[task.status]}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

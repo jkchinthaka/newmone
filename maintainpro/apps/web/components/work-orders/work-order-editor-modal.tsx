@@ -30,6 +30,7 @@ import { asDateInputValue, requiresAssetOrVehicle, toTitleCase } from "./helpers
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_TYPES, type UpdateWorkOrderInput, type WorkOrder } from "./types";
 import { PartRequestsPanel } from "./part-requests-panel";
 import { WorkOrderAssigneesPanel } from "./work-order-assignees-panel";
+import { WorkOrderTasksPanel } from "./work-order-tasks-panel";
 import { WorkOrderAuditPanel } from "./work-order-audit-panel";
 import { WorkOrderDetailTabs, type WorkOrderDetailTab } from "./work-order-detail-tabs";
 import { WorkOrderEvidencePanel } from "./work-order-evidence-panel";
@@ -903,6 +904,10 @@ export function WorkOrderEditorModal({
                   readOnly={drawerReadOnly}
                   actualHours={workOrder.actualHours}
                 />
+              ) : null}
+
+              {!isCreateMode && workOrder?.id && activeTab === "tasks" ? (
+                <WorkOrderTasksPanel workOrderId={workOrder.id} readOnly={drawerReadOnly} />
               ) : null}
 
               {!isCreateMode && workOrder?.id && activeTab === "parts" ? (

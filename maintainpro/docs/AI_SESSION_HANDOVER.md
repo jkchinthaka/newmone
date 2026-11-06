@@ -1533,3 +1533,15 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 - Supervisor verify: Admin/Manager/Ops Manager can verify without photos with a reason (`overrideReason` to `verify-supervisor`, API already supported it).
 - Product renamed to Nelna Care in user-facing text only (identifiers/env/storage keys unchanged).
 - Tests run: web `npm test` pass; web tsc clean; API jest work-order-evidence-governance pass. Not browser-tested.
+
+## Job tasks, bulk-assign fix and job page polish (2026-11-06, branch `live`)
+
+- **Bulk assign fix**: `bulkAssign` keeps the existing primary and skips people already on the job (jest `work-orders-high-volume.spec.ts` pass).
+- **Job page polish**: fonts/explanations trimmed on all tabs; full-page job overlay (`wo-page`).
+- **Job tasks (new)**: optional sub-tasks per job. Models `WorkOrderTask` + `WorkOrderTaskAssignee`; migration `20261106090000_work_order_tasks` (additive, **third pending migration** on the laptop after `20261105120000_requester_role`, `20261105140000_master_lists`).
+  - API: `work-order-tasks.service.ts` / `.util.ts`; routes `GET/POST /work-orders/:id/tasks`, `PATCH/DELETE .../tasks/:taskId`, `POST .../tasks/:taskId/status` (assigned person or Admin/Manager/Ops Manager/Asset Manager; time spent computed start→done).
+  - Rule: job cannot reach TECHNICIAN_COMPLETED (or direct close) while a task is not DONE, unless Admin/Manager/Ops Manager sends `overrideReason`. Jobs with no tasks unchanged.
+  - Web: new **Tasks** tab (`work-order-tasks-panel.tsx`, `lib/work-order-tasks.ts`); My Jobs cards show "Tasks" with "Mark my task done"; others' tasks read-only.
+- Tests actually run: API jest `work-order-tasks.spec.ts` (6 pass) + work-orders governance/approval/d2-core/status/high-volume/bulk (pass; 3 mocks got `workOrderTask.count`); web `npm test` 556 pass; tsc clean (api, web). **Not browser-tested.**
+- Laptop: `git pull origin live`, `npm run db:generate`, `npm run db:migrate:deploy`, restart.
+- Next: QA crawl (safe), then handover/PRs to main.
