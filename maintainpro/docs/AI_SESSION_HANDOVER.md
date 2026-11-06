@@ -1545,3 +1545,6 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 - Tests actually run: API jest `work-order-tasks.spec.ts` (6 pass) + work-orders governance/approval/d2-core/status/high-volume/bulk (pass; 3 mocks got `workOrderTask.count`); web `npm test` 556 pass; tsc clean (api, web). **Not browser-tested.**
 - Laptop: `git pull origin live`, `npm run db:generate`, `npm run db:migrate:deploy`, restart.
 - Next: QA crawl (safe), then handover/PRs to main.
+
+### Laptop auto-update (2026-11-06)
+- New `npm run dev:live` (`scripts/dev/auto-update.ps1`): starts API 3040 + web 3041 and polls `origin/live` every 15s; fast-forwards, and only when package.json/lock or prisma schema/migrations changed it stops servers, runs `npm install` / `db:generate` / `db:migrate:deploy`, then restarts. Skips if local edits, wrong branch or diverged. Replaces running `dev:current` + a separate puller. Not run on Windows from here (cloud author) - first run to be confirmed by the user.
