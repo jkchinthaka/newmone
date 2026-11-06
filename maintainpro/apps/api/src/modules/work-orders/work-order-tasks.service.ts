@@ -1,4 +1,10 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException
+} from "@nestjs/common";
 import type { RoleName } from "@prisma/client";
 
 import { requestContext } from "../../common/context/request-context";
@@ -91,11 +97,19 @@ export class WorkOrderTasksService {
   async list(workOrderId: string, actor?: Actor) {
     const tenantId = this.tenant(actor);
     await this.assertWorkOrder(workOrderId, tenantId);
-    const rows = await this.prisma.workOrderTask.findMany({
-      where: { workOrderId, tenantId },
-      include: TASK_INCLUDE,
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
-    });
+    let rows;
+    try {
+      rows = await this.prisma.workOrderTask.findMany({
+        where: { workOrderId, tenantId },
+        include: TASK_INCLUDE,
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+      });
+    } catch (err) {
+      // Table missing (migration not applied) or Prisma client not regenerated yet.
+      throw new ServiceUnavailableException(
+        "Job tasks need a database update. Run: npm run db:generate and npm run db:migrate:deploy, then restart the API."
+      );
+    }
     const tasks = rows.map((r) => this.shape(r, actor));
     return { tasks, done: tasks.filter((t) => t.status === "DONE").length, total: tasks.length };
   }
