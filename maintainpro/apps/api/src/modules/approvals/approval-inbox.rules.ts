@@ -47,7 +47,9 @@ export function inboxTab(input: { kind: InboxKind; processType?: string | null; 
   return "requests";
 }
 
-export function assertNotOwnRequest(requesterId: string | null | undefined, actorId: string) {
+export function assertNotOwnRequest(requesterId: string | null | undefined, actorId: string, actorRole?: string | null) {
+  // Admin / Super Admin may decide on their own requests.
+  if (actorRole === "ADMIN" || actorRole === "SUPER_ADMIN") return;
   if (requesterId && requesterId === actorId) {
     throw new ForbiddenException("You cannot approve your own request");
   }

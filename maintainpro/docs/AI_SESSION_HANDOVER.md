@@ -1552,3 +1552,6 @@ Phase 04 evidence: `unassigned` queue list total 19 while signed in as the seede
 ### Job page tabs simplified (2026-11-06)
 - Overview: Next step first, one Job details card (problem merged in), empty costs/road-test fields hidden (details fold), warnings merged into one line. Assignment: "Select person + Add", extras under More options. Tasks: people as chips. Parts: single "Add a part", empty request/issued/cost boxes hidden. Photos: before/after buttons with counts, compact "Still needed" line, other file/note under More, duplicate storage sentence fixed. tsc clean, web tests 556 pass; not browser-tested.
 - Tasks 500 earlier = migration not applied on laptop (resolved after `dev:live` startup sync).
+
+### Admin self-approval (2026-11-06)
+- Admin and Super Admin may now approve/decide their own requests: approvals inbox (`assertNotOwnRequest` takes role, `canDecide`), work order approve (no emergency reason needed), part issue (self-issue block skipped). Other roles keep maker-checker. Vendor repair / fraud-control were already admin-exempt; LOTO and "technician cannot verify own work" unchanged. API jest: inbox/approvals/fraud/business-flow pass; `maintenance-requests-actions.spec.ts` has 2 failures that also fail without this change (pre-existing).

@@ -960,7 +960,7 @@ export class ApprovalsService {
     }
 
     this.assertCanDecide(input.actor, currentStep);
-    assertNotOwnRequest(request.requesterId, input.actor.sub);
+    assertNotOwnRequest(request.requesterId, input.actor.sub, input.actor.role);
     if (input.expectedVersion != null) {
       assertExpectedVersion(versionFromDate(request.updatedAt), input.expectedVersion);
     }

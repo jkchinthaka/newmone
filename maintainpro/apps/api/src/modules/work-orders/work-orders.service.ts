@@ -2000,28 +2000,14 @@ export class WorkOrdersService {
 
     const approver = this.assertActor(actor);
 
-    // Maker-checker: creator cannot approve their own controlled work order without emergency override.
+    // Admin / Super Admin may approve their own work orders. Other roles still need a second person.
     if (current.createdById === approver.sub) {
-      const override = options?.emergencyOverrideReason?.trim() ?? "";
-      const canOverride =
-        (approver.role === RoleName.SUPER_ADMIN || approver.role === RoleName.ADMIN) &&
-        override.length >= 3;
-      if (!canOverride) {
+      const isAdmin = approver.role === RoleName.SUPER_ADMIN || approver.role === RoleName.ADMIN;
+      if (!isAdmin) {
         throw new ForbiddenException(
           "Maker-checker separation required: the work-order creator cannot approve their own request."
         );
       }
-      await this.recordAudit({
-        entity: "WorkOrder",
-        entityId: id,
-        action: AuditAction.UPDATE,
-        actor,
-        reason: override,
-        metadata: {
-          event: "work_order_approval_maker_checker_override",
-          woNumber: current.woNumber
-        }
-      });
     }
 
     // When an approval rule opened a request for this job, record the decision there as well.
@@ -4562,7 +4548,7 @@ export class WorkOrdersService {
     await this.workOrderPartsService.assertWorkOrderForParts(workOrderId, actor);
     const request = await this.getPartRequest(workOrderId, requestId, actor);
 
-    if (request.requestedById === issuer.sub) {
+    if (request.requestedById === issuer.sub && issuer.role !== RoleName.SUPER_ADMIN && issuer.role !== RoleName.ADMIN) {
       await this.recordAudit({
         entity: "PART_ISSUE",
         entityId: requestId,

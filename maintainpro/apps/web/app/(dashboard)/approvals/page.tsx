@@ -194,7 +194,7 @@ export default function ApprovalsInboxPage() {
   return (
     <div className="ops-page">
       <PageBreadcrumbs items={[{ label: "Approvals", href: "/approvals" }]} />
-      <ResponsivePageHeader title="Approvals" description="Items waiting for your decision. You cannot approve your own requests." />
+      <ResponsivePageHeader title="Approvals" description="Items waiting for your decision." />
       <PendingApprovalsInbox
         items={items}
         counts={counts}

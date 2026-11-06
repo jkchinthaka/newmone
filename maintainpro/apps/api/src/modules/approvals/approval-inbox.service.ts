@@ -45,6 +45,10 @@ function withEmail(actor: Actor) {
   return { ...actor, email: actor.email ?? "", role: actor.role ?? "VIEWER" };
 }
 
+function isAdminRole(role?: string | null) {
+  return role === "ADMIN" || role === "SUPER_ADMIN";
+}
+
 export type InboxDecision = "APPROVED" | "REJECTED" | "RETURNED";
 
 export type InboxRow = {
@@ -251,7 +255,7 @@ export class ApprovalInboxService {
     if (input.kind === "request") {
       const current = await this.prisma.maintenanceRequest.findFirst({ where: { id: input.id, tenantId } });
       if (!current) throw new BadRequestException("Request not found");
-      assertNotOwnRequest(current.reportedById, input.actor.sub);
+      assertNotOwnRequest(current.reportedById, input.actor.sub, input.actor.role);
       assertExpectedVersion(versionFromDate(current.updatedAt), input.expectedVersion);
       const requests = await this.requests();
       // The inbox lists NEW requests too; deciding one reviews it first (NEW → UNDER_REVIEW → …).
@@ -275,7 +279,7 @@ export class ApprovalInboxService {
       if (!WORK_ORDER_APPROVER_ROLES.has(String(input.actor.role ?? ""))) {
         throw new BadRequestException("Only an Admin, Manager or Operations Manager can approve a job");
       }
-      assertNotOwnRequest(current.createdById, input.actor.sub);
+      assertNotOwnRequest(current.createdById, input.actor.sub, input.actor.role);
       assertExpectedVersion(versionFromDate(current.updatedAt), input.expectedVersion);
       if (input.decision === "RETURNED") {
         throw new BadRequestException("Return for information is only available for approval requests and maintenance requests");
@@ -292,7 +296,7 @@ export class ApprovalInboxService {
     if (input.kind === "part") {
       const current = await this.prisma.partRequest.findFirst({ where: { id: input.id, tenantId } });
       if (!current) throw new BadRequestException("Part request not found");
-      assertNotOwnRequest(current.requestedById, input.actor.sub);
+      assertNotOwnRequest(current.requestedById, input.actor.sub, input.actor.role);
       assertExpectedVersion(versionFromDate(current.updatedAt), input.expectedVersion);
       const amount = Number(current.unitCostSnapshot) * current.requestedQuantity;
       assertAmountWithinRole(input.actor.role, amount);
@@ -316,7 +320,7 @@ export class ApprovalInboxService {
           ? await this.prisma.vendorQuotation.findFirst({ where: { id: input.id, tenantId } })
           : await this.prisma.vendorInvoice.findFirst({ where: { id: input.id, tenantId } });
       if (!current) throw new BadRequestException("Vendor document not found");
-      assertNotOwnRequest(current.submittedById, input.actor.sub);
+      assertNotOwnRequest(current.submittedById, input.actor.sub, input.actor.role);
       assertExpectedVersion(versionFromDate(current.updatedAt), input.expectedVersion);
       const amount = money(current, "totalAmount") ?? money(current, "quotedAmount");
       assertAmountWithinRole(input.actor.role, Number.isFinite(amount) ? amount : null);
@@ -509,7 +513,7 @@ export class ApprovalInboxService {
         age: ageLabel(requestedAt, now.getTime()),
         sla: slaTone(requestedAt, current?.dueAt ?? null, now.getTime()),
         version: versionFromDate(item.updatedAt),
-        canDecide: Boolean(current) && item.requesterId !== actor.sub && (viewAll || this.approvals.isStepApprover(current!, actor.sub)),
+        canDecide: Boolean(current) && (isAdminRole(actor.role) || item.requesterId !== actor.sub) && (viewAll || this.approvals.isStepApprover(current!, actor.sub)),
         canReturn: true,
         workOrderId: item.subjectEntityType === "WorkOrder" ? item.subjectEntityId : null,
         partStage: null,
@@ -543,7 +547,7 @@ export class ApprovalInboxService {
           requestedAt: item.reportedAt,
           dueAt: null,
           version: versionFromDate(item.updatedAt),
-          canDecide: item.reportedById !== actor.sub,
+          canDecide: isAdminRole(actor.role) || item.reportedById !== actor.sub,
           canReturn: item.reportedById !== actor.sub,
           workOrderId: null,
           partStage: null,
@@ -658,7 +662,7 @@ export class ApprovalInboxService {
           requestedAt: item.updatedAt ?? item.createdAt,
           dueAt: null,
           version: versionFromDate(item.updatedAt),
-          canDecide: WORK_ORDER_APPROVER_ROLES.has(String(actor.role ?? "")) && item.createdById !== actor.sub,
+          canDecide: WORK_ORDER_APPROVER_ROLES.has(String(actor.role ?? "")) && (isAdminRole(actor.role) || item.createdById !== actor.sub),
           canReturn: false,
           workOrderId: item.id,
           partStage: null,
